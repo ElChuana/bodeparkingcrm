@@ -1,0 +1,761 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────
+
+enum Rol {
+  GERENTE
+  JEFE_VENTAS
+  VENDEDOR
+  BROKER_EXTERNO
+  ABOGADO
+}
+
+enum TipoUnidad {
+  BODEGA
+  ESTACIONAMIENTO
+}
+
+enum SubtipoEstacionamiento {
+  NORMAL
+  TANDEM
+}
+
+enum AccesoUnidad {
+  NIVEL
+  SUBTERRANEO
+}
+
+enum EstadoUnidad {
+  DISPONIBLE
+  RESERVADO
+  VENDIDO
+  ARRENDADO
+}
+
+enum EtapaLead {
+  NUEVO
+  NO_CONTESTA
+  SEGUIMIENTO
+  COTIZACION_ENVIADA
+  VISITA_AGENDADA
+  VISITA_REALIZADA
+  SEGUIMIENTO_POST_VISITA
+  NEGOCIACION
+  RESERVA
+  PROMESA
+  ESCRITURA
+  ENTREGA
+  POSTVENTA
+  PERDIDO
+}
+
+enum OrigenLead {
+  INSTAGRAM
+  GOOGLE
+  REFERIDO
+  BROKER
+  VISITA_DIRECTA
+  WEB
+  OTRO
+}
+
+enum TipoInteraccion {
+  LLAMADA
+  EMAIL
+  WHATSAPP
+  REUNION
+  NOTA
+}
+
+enum EstadoVenta {
+  RESERVA
+  PROMESA
+  ESCRITURA
+  ENTREGADO
+  ANULADO
+}
+
+enum EstadoLegal {
+  FIRMA_CLIENTE_PROMESA
+  FIRMA_INMOBILIARIA_PROMESA
+  ESCRITURA_LISTA
+  FIRMADA_NOTARIA
+  INSCRIPCION_CBR
+  ENTREGADO
+}
+
+enum TipoPersona {
+  NATURAL
+  EMPRESA
+  SOCIEDAD
+}
+
+enum EstadoPago {
+  PENDIENTE
+  PAGADO
+  ATRASADO
+  CONDONADO
+}
+
+enum MetodoPago {
+  TRANSFERENCIA
+  TARJETA
+  CHEQUE
+  EFECTIVO
+}
+
+enum TipoCuota {
+  RESERVA
+  PIE
+  CUOTA
+  ESCRITURA
+}
+
+enum TipoPromocion {
+  PAQUETE
+  BENEFICIO
+  DESCUENTO_PORCENTAJE
+  DESCUENTO_UF
+  ARRIENDO_ASEGURADO
+  GASTOS_NOTARIALES
+  CUOTAS_SIN_INTERES
+  COMBO
+  OTRO
+}
+
+enum CategoriaPromocion {
+  PROMOCION
+  PACK
+}
+
+enum EstadoCotizacion {
+  BORRADOR
+  ENVIADA
+  ACEPTADA
+  RECHAZADA
+}
+
+enum EstadoSolicitudDescuento {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+enum EstadoArriendo {
+  ACTIVO
+  TERMINADO
+}
+
+enum EstadoLlave {
+  EN_OFICINA
+  PRESTADA
+  PERDIDA
+}
+
+enum TipoPostventa {
+  RECLAMO
+  CONSULTA
+  TRAMITE
+  GARANTIA
+}
+
+enum EstadoPostventa {
+  ABIERTO
+  EN_PROCESO
+  CERRADO
+}
+
+enum TipoAlerta {
+  LLAVE_NO_DEVUELTA
+  CUOTA_VENCIDA
+  LEAD_SIN_ACTIVIDAD
+  LEAD_ESTANCADO
+  FECHA_LEGAL_PROXIMA
+  ARRIENDO_POR_VENCER
+  DESCUENTO_PENDIENTE
+}
+
+// ─── MODELOS ──────────────────────────────────────────────────
+
+model Usuario {
+  id                    Int       @id @default(autoincrement())
+  nombre                String
+  apellido              String
+  email                 String    @unique
+  password              String
+  telefono              String?
+  rol                   Rol
+  comisionPorcentaje    Float?
+  comisionFijo          Float?
+  activo                Boolean   @default(true)
+  creadoEn              DateTime  @default(now())
+  actualizadoEn         DateTime  @updatedAt
+
+  leadsAsignados        Lead[]    @relation("VendedorLead")
+  leadsComoBroker       Lead[]    @relation("BrokerLead")
+  visitasRealizadas     Visita[]
+  interacciones         Interaccion[]
+  ventasComoVendedor    Venta[]   @relation("VendedorVenta")
+  ventasComoBroker      Venta[]   @relation("BrokerVenta")
+  ventasComoGerente     Venta[]   @relation("GerenteVenta")
+  comisiones            Comision[]
+  llavesResponsable     MovimientoLlave[]
+  notificaciones        Notificacion[]
+  postventas            Postventa[]
+  documentosLegales     DocumentoLegal[]
+  cotizaciones              Cotizacion[]
+  solicitudesHechas         SolicitudDescuento[] @relation("SolicitudesHechas")
+  solicitudesRevisadas      SolicitudDescuento[] @relation("SolicitudesRevisadas")
+
+  @@map("usuarios")
+}
+
+model Edificio {
+  id                    Int       @id @default(autoincrement())
+  nombre                String
+  direccion             String
+  region                String
+  comuna                String
+  inmobiliaria          String?
+  contactoInmobiliaria  String?
+  descripcion           String?
+  activo                Boolean   @default(true)
+  creadoEn              DateTime  @default(now())
+  actualizadoEn         DateTime  @updatedAt
+
+  unidades              Unidad[]
+  visitas               Visita[]
+
+  @@map("edificios")
+}
+
+model Unidad {
+  id                    Int                     @id @default(autoincrement())
+  edificioId            Int
+  tipo                  TipoUnidad
+  subtipo               SubtipoEstacionamiento?
+  numero                String
+  piso                  String?
+  m2                    Float?
+  techado               Boolean?
+  acceso                AccesoUnidad?
+  precioUF              Float
+  precioMinimoUF        Float?
+  precioCostoUF         Float?
+  estado                EstadoUnidad            @default(DISPONIBLE)
+  notas                 String?
+  creadoEn              DateTime                @default(now())
+  actualizadoEn         DateTime                @updatedAt
+
+  edificio              Edificio                @relation(fields: [edificioId], references: [id])
+  archivos              Archivo[]
+  llaves                Llave[]
+  leads                 Lead[]
+  ventas                Venta[]
+  arriendos             Arriendo[]
+  promociones           UnidadPromocion[]
+  cotizacionItems       CotizacionItem[]
+
+  @@map("unidades")
+}
+
+model Archivo {
+  id                    Int       @id @default(autoincrement())
+  unidadId              Int
+  url                   String
+  nombre                String
+  tipo                  String
+  creadoEn              DateTime  @default(now())
+
+  unidad                Unidad    @relation(fields: [unidadId], references: [id])
+
+  @@map("archivos")
+}
+
+model Contacto {
+  id                    Int         @id @default(autoincrement())
+  nombre                String
+  apellido              String
+  rut                   String?
+  email                 String?
+  telefono              String?
+  empresa               String?
+  tipoPersona           TipoPersona @default(NATURAL)
+  origen                OrigenLead  @default(OTRO)
+  notas                 String?
+  creadoEn              DateTime    @default(now())
+  actualizadoEn         DateTime    @updatedAt
+
+  leads                 Lead[]
+  compras               Venta[]     @relation("CompradorVenta")
+  arriendos             Arriendo[]
+
+  @@map("contactos")
+}
+
+model Lead {
+  id                    Int         @id @default(autoincrement())
+  contactoId            Int
+  unidadInteresId       Int?
+  vendedorId            Int?
+  brokerId              Int?
+  etapa                 EtapaLead   @default(NUEVO)
+  campana               String?
+  presupuestoAprox      Float?
+  motivoPerdida         String?
+  notas                 String?
+  creadoEn              DateTime    @default(now())
+  actualizadoEn         DateTime    @updatedAt
+
+  contacto              Contacto    @relation(fields: [contactoId], references: [id])
+  unidadInteres         Unidad?     @relation(fields: [unidadInteresId], references: [id])
+  vendedor              Usuario?    @relation("VendedorLead", fields: [vendedorId], references: [id])
+  broker                Usuario?    @relation("BrokerLead", fields: [brokerId], references: [id])
+  visitas               Visita[]
+  interacciones         Interaccion[]
+  venta                 Venta?
+  cotizaciones          Cotizacion[]
+
+  @@map("leads")
+}
+
+model Visita {
+  id                    Int       @id @default(autoincrement())
+  leadId                Int
+  vendedorId            Int?
+  edificioId            Int?
+  fechaHora             DateTime
+  tipo                  String
+  resultado             String?
+  notas                 String?
+  creadoEn              DateTime  @default(now())
+
+  lead                  Lead      @relation(fields: [leadId], references: [id])
+  vendedor              Usuario?  @relation(fields: [vendedorId], references: [id])
+  edificio              Edificio? @relation(fields: [edificioId], references: [id])
+
+  @@map("visitas")
+}
+
+model Interaccion {
+  id                    Int             @id @default(autoincrement())
+  leadId                Int
+  usuarioId             Int?
+  tipo                  TipoInteraccion
+  descripcion           String
+  fecha                 DateTime        @default(now())
+
+  lead                  Lead            @relation(fields: [leadId], references: [id])
+  usuario               Usuario?        @relation(fields: [usuarioId], references: [id])
+
+  @@map("interacciones")
+}
+
+model Venta {
+  id                    Int         @id @default(autoincrement())
+  leadId                Int         @unique
+  unidadId              Int
+  compradorId           Int
+  vendedorId            Int?
+  brokerId              Int?
+  gerenteId             Int?
+  precioUF              Float
+  descuentoUF           Float?      @default(0)
+  estado                EstadoVenta @default(RESERVA)
+  fechaReserva          DateTime?
+  fechaPromesa          DateTime?
+  fechaEscritura        DateTime?
+  fechaEntrega          DateTime?
+  notas                 String?
+  creadoEn              DateTime    @default(now())
+  actualizadoEn         DateTime    @updatedAt
+
+  lead                  Lead        @relation(fields: [leadId], references: [id])
+  unidad                Unidad      @relation(fields: [unidadId], references: [id])
+  comprador             Contacto    @relation("CompradorVenta", fields: [compradorId], references: [id])
+  vendedor              Usuario?    @relation("VendedorVenta", fields: [vendedorId], references: [id])
+  broker                Usuario?    @relation("BrokerVenta", fields: [brokerId], references: [id])
+  gerente               Usuario?    @relation("GerenteVenta", fields: [gerenteId], references: [id])
+  planPago              PlanPago?
+  procesoLegal          ProcesoLegal?
+  comisiones            Comision[]
+  promociones           VentaPromocion[]
+  postventa             Postventa[]
+
+  @@map("ventas")
+}
+
+model ProcesoLegal {
+  id                         Int         @id @default(autoincrement())
+  ventaId                    Int         @unique
+  tienePromesa               Boolean     @default(true)
+  estadoActual               EstadoLegal @default(FIRMA_CLIENTE_PROMESA)
+  fechaLimiteFirmaCliente    DateTime?
+  fechaLimiteFirmaInmob      DateTime?
+  fechaLimiteEscritura       DateTime?
+  fechaLimiteFirmaNot        DateTime?
+  fechaLimiteCBR             DateTime?
+  fechaLimiteEntrega         DateTime?
+  notas                      String?
+  creadoEn                   DateTime    @default(now())
+  actualizadoEn              DateTime    @updatedAt
+
+  venta                      Venta       @relation(fields: [ventaId], references: [id])
+  documentos                 DocumentoLegal[]
+
+  @@map("procesos_legales")
+}
+
+model DocumentoLegal {
+  id                    Int          @id @default(autoincrement())
+  procesoLegalId        Int
+  subioPorId            Int?
+  nombre                String
+  url                   String
+  etapa                 EstadoLegal
+  creadoEn              DateTime     @default(now())
+
+  procesoLegal          ProcesoLegal @relation(fields: [procesoLegalId], references: [id])
+  subidoPor             Usuario?     @relation(fields: [subioPorId], references: [id])
+
+  @@map("documentos_legales")
+}
+
+model PlanPago {
+  id                    Int       @id @default(autoincrement())
+  ventaId               Int       @unique
+  totalCuotas           Int
+  montoUF               Float?
+  fechaInicio           DateTime
+  creadoEn              DateTime  @default(now())
+
+  venta                 Venta     @relation(fields: [ventaId], references: [id])
+  cuotas                Cuota[]
+
+  @@map("planes_pago")
+}
+
+model Cuota {
+  id                    Int        @id @default(autoincrement())
+  planPagoId            Int
+  numeroCuota           Int
+  tipo                  TipoCuota
+  montoUF               Float?
+  montoCLP              Float?
+  fechaVencimiento      DateTime
+  fechaPagoReal         DateTime?
+  estado                EstadoPago @default(PENDIENTE)
+  metodoPago            MetodoPago?
+  numeroComprobante     String?
+  archivoUrl            String?
+  notas                 String?
+  creadoEn              DateTime   @default(now())
+  actualizadoEn         DateTime   @updatedAt
+
+  planPago              PlanPago   @relation(fields: [planPagoId], references: [id])
+
+  @@map("cuotas")
+}
+
+model Comision {
+  id                    Int        @id @default(autoincrement())
+  ventaId               Int
+  usuarioId             Int
+  concepto              String?
+  porcentaje            Float?
+  montoFijo             Float?
+  montoCalculadoUF      Float
+  montoPrimera          Float
+  montoSegunda          Float
+  estadoPrimera         EstadoPago @default(PENDIENTE)
+  estadoSegunda         EstadoPago @default(PENDIENTE)
+  fechaPagoPrimera      DateTime?
+  fechaPagoSegunda      DateTime?
+  notas                 String?
+  creadoEn              DateTime   @default(now())
+  actualizadoEn         DateTime   @updatedAt
+
+  venta                 Venta      @relation(fields: [ventaId], references: [id])
+  usuario               Usuario    @relation(fields: [usuarioId], references: [id])
+
+  @@map("comisiones")
+}
+
+model Promocion {
+  id                    Int           @id @default(autoincrement())
+  nombre                String
+  descripcion           String?
+  detalle               String?
+  tipo                  TipoPromocion
+  categoria             CategoriaPromocion @default(PROMOCION)
+  valorPorcentaje       Float?
+  valorUF               Float?
+  minUnidades           Int?
+  mesesArriendo         Int?
+  montoMensualUF        Float?
+  cuotasSinInteres      Int?
+  fechaInicio           DateTime?
+  fechaFin              DateTime?
+  activa                Boolean       @default(true)
+  creadoEn              DateTime      @default(now())
+  actualizadoEn         DateTime      @updatedAt
+
+  unidades              UnidadPromocion[]
+  ventas                VentaPromocion[]
+  cotizaciones          CotizacionPromocion[]
+
+  @@map("promociones")
+}
+
+model UnidadPromocion {
+  unidadId              Int
+  promocionId           Int
+  asignadoEn            DateTime  @default(now())
+
+  unidad                Unidad    @relation(fields: [unidadId], references: [id])
+  promocion             Promocion @relation(fields: [promocionId], references: [id])
+
+  @@id([unidadId, promocionId])
+  @@map("unidades_promociones")
+}
+
+model VentaPromocion {
+  id                          Int       @id @default(autoincrement())
+  ventaId                     Int
+  promocionId                 Int
+  gastosNotarialesPagados     Boolean?  @default(false)
+  gastosMonto                 Float?
+
+  venta                       Venta     @relation(fields: [ventaId], references: [id])
+  promocion                   Promocion @relation(fields: [promocionId], references: [id])
+  pagosArriendoAsegurado      PagoArriendoAsegurado[]
+
+  @@map("ventas_promociones")
+}
+
+model PagoArriendoAsegurado {
+  id                    Int            @id @default(autoincrement())
+  ventaPromocionId      Int
+  mes                   Int
+  montoUF               Float
+  estado                EstadoPago     @default(PENDIENTE)
+  fechaPago             DateTime?
+  comprobante           String?
+  creadoEn              DateTime       @default(now())
+
+  ventaPromocion        VentaPromocion @relation(fields: [ventaPromocionId], references: [id])
+
+  @@map("pagos_arriendo_asegurado")
+}
+
+model Cotizacion {
+  id              Int                  @id @default(autoincrement())
+  leadId          Int
+  creadoPorId     Int
+  estado          EstadoCotizacion     @default(BORRADOR)
+  validezDias     Int                  @default(30)
+  notas           String?
+  creadoEn        DateTime             @default(now())
+  actualizadoEn   DateTime             @updatedAt
+
+  descuentoAprobadoUF   Float?
+
+  lead                  Lead                 @relation(fields: [leadId], references: [id])
+  creadoPor             Usuario              @relation(fields: [creadoPorId], references: [id])
+  items                 CotizacionItem[]
+  promociones           CotizacionPromocion[]
+  solicitudesDescuento  SolicitudDescuento[]
+
+  @@map("cotizaciones")
+}
+
+model CotizacionItem {
+  id              Int         @id @default(autoincrement())
+  cotizacionId    Int
+  unidadId        Int
+  precioListaUF   Float
+  descuentoUF     Float       @default(0)
+
+  cotizacion      Cotizacion  @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  unidad          Unidad      @relation(fields: [unidadId], references: [id])
+
+  @@map("cotizacion_items")
+}
+
+model CotizacionPromocion {
+  id              Int         @id @default(autoincrement())
+  cotizacionId    Int
+  promocionId     Int
+  aplicada        Boolean     @default(true)
+  ahorroUF        Float       @default(0)
+
+  cotizacion      Cotizacion  @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  promocion       Promocion   @relation(fields: [promocionId], references: [id])
+
+  @@unique([cotizacionId, promocionId])
+  @@map("cotizacion_promociones")
+}
+
+model Arriendo {
+  id                    Int            @id @default(autoincrement())
+  unidadId              Int
+  contactoId            Int
+  gestorNombre          String?
+  montoMensualUF        Float?
+  fechaInicio           DateTime
+  fechaFin              DateTime?
+  estado                EstadoArriendo @default(ACTIVO)
+  contratoUrl           String?
+  notas                 String?
+  creadoEn              DateTime       @default(now())
+  actualizadoEn         DateTime       @updatedAt
+
+  unidad                Unidad         @relation(fields: [unidadId], references: [id])
+  contacto              Contacto       @relation(fields: [contactoId], references: [id])
+  pagos                 PagoArriendo[]
+
+  @@map("arriendos")
+}
+
+model PagoArriendo {
+  id                    Int        @id @default(autoincrement())
+  arriendoId            Int
+  mes                   String
+  montoUF               Float?
+  montoCLP              Float?
+  estado                EstadoPago @default(PENDIENTE)
+  fechaPago             DateTime?
+  comprobante           String?
+  creadoEn              DateTime   @default(now())
+
+  arriendo              Arriendo   @relation(fields: [arriendoId], references: [id])
+
+  @@unique([arriendoId, mes])
+  @@map("pagos_arriendo")
+}
+
+model Llave {
+  id                    Int         @id @default(autoincrement())
+  unidadId              Int
+  codigo                String
+  estado                EstadoLlave @default(EN_OFICINA)
+  notas                 String?
+  creadoEn              DateTime    @default(now())
+  actualizadoEn         DateTime    @updatedAt
+
+  unidad                Unidad      @relation(fields: [unidadId], references: [id])
+  movimientos           MovimientoLlave[]
+
+  @@map("llaves")
+}
+
+model MovimientoLlave {
+  id                        Int       @id @default(autoincrement())
+  llaveId                   Int
+  responsableId             Int?
+  tipo                      String
+  personaNombre             String?
+  personaContacto           String?
+  motivo                    String?
+  fechaPrestamo             DateTime  @default(now())
+  fechaDevolucionEsperada   DateTime?
+  fechaDevolucionReal       DateTime?
+  creadoEn                  DateTime  @default(now())
+
+  llave                     Llave     @relation(fields: [llaveId], references: [id])
+  responsable               Usuario?  @relation(fields: [responsableId], references: [id])
+
+  @@map("movimientos_llaves")
+}
+
+model Postventa {
+  id                    Int             @id @default(autoincrement())
+  ventaId               Int
+  responsableId         Int?
+  tipo                  TipoPostventa
+  descripcion           String
+  estado                EstadoPostventa @default(ABIERTO)
+  prioridad             String          @default("media")
+  fechaApertura         DateTime        @default(now())
+  fechaCierre           DateTime?
+  resolucion            String?
+  creadoEn              DateTime        @default(now())
+  actualizadoEn         DateTime        @updatedAt
+
+  venta                 Venta           @relation(fields: [ventaId], references: [id])
+  responsable           Usuario?        @relation(fields: [responsableId], references: [id])
+
+  @@map("postventas")
+}
+
+model ApiKey {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  key         String   @unique
+  activa      Boolean  @default(true)
+  creadoEn    DateTime @default(now())
+
+  @@map("api_keys")
+}
+
+model UFDiaria {
+  fecha                 DateTime  @id
+  valorPesos            Float
+  creadoEn              DateTime  @default(now())
+
+  @@map("uf_diaria")
+}
+
+model AlertaConfig {
+  id                    Int        @id @default(autoincrement())
+  tipo                  TipoAlerta @unique
+  umbralDias            Int
+  activa                Boolean    @default(true)
+  accionAutomatica      Boolean    @default(false)
+  canalEmail            Boolean    @default(true)
+  canalWhatsapp         Boolean    @default(false)
+
+  @@map("alertas_config")
+}
+
+model Notificacion {
+  id                    Int        @id @default(autoincrement())
+  usuarioId             Int
+  tipo                  TipoAlerta
+  mensaje               String
+  referenciaId          Int?
+  referenciaTipo        String?
+  leida                 Boolean    @default(false)
+  creadoEn              DateTime   @default(now())
+
+  usuario               Usuario    @relation(fields: [usuarioId], references: [id])
+
+  @@map("notificaciones")
+}
+
+model SolicitudDescuento {
+  id              Int                      @id @default(autoincrement())
+  cotizacionId    Int
+  solicitadoPorId Int
+  revisadoPorId   Int?
+  tipo            String                   // 'UF' | 'PORCENTAJE'
+  valor           Float
+  motivo          String
+  estado          EstadoSolicitudDescuento @default(PENDIENTE)
+  comentario      String?
+  creadoEn        DateTime                 @default(now())
+  revisadoEn      DateTime?
+
+  cotizacion    Cotizacion @relation(fields: [cotizacionId], references: [id])
+  solicitadoPor Usuario    @relation("SolicitudesHechas",    fields: [solicitadoPorId], references: [id])
+  revisadoPor   Usuario?   @relation("SolicitudesRevisadas", fields: [revisadoPorId],   references: [id])
+
+  @@map("solicitudes_descuento")
+}
