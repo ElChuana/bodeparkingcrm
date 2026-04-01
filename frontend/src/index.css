@@ -1,0 +1,41 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Kanban board horizontal scroll */
+.kanban-board {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+
+.kanban-col {
+  min-width: 240px;
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.kanban-col-body {
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* Timeline item avatar */
+.timeline-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
