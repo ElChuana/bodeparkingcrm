@@ -17,11 +17,9 @@ COPY backend/ ./backend/
 # Build del frontend
 RUN cd frontend && npm run build
 
-# Generar Prisma client
-RUN cd backend && npx prisma generate
-
 EXPOSE 3001
 
 ENV NODE_ENV=production
 
-CMD ["node", "backend/src/index.js"]
+# Generar Prisma client y arrancar (necesita DATABASE_URL en runtime)
+CMD cd backend && npx prisma generate && npx prisma migrate deploy && node src/index.js
