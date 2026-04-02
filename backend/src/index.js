@@ -143,6 +143,9 @@ app.post('/api/importar-datos-bodeparking-2026', async (req, res) => {
       } catch { propOmitidas++ }
     }
 
+    // ── Limpiar contactos huérfanos (sin lead) antes de reimportar ─
+    await prisma.contacto.deleteMany({ where: { leads: { none: {} } } })
+
     // ── Importar leads ────────────────────────────────────────────
     const leadRows = parseCsv(leadsResp.data)
     const dosSemanasMs = 14 * 24 * 60 * 60 * 1000
