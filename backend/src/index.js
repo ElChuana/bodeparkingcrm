@@ -128,12 +128,16 @@ app.post('/api/importar-datos-bodeparking-2026', async (req, res) => {
       const titulo = row['Título'] || ''
       const edificioInfo = EDIFICIOS.find(e => titulo.includes(e.key))
       if (!edificioInfo) { propOmitidas++; continue }
+      const numero = extraerNumero(titulo)
+      const edificioId = edificiosMap[edificioInfo.key]
+      const existeUnidad = await prisma.unidad.findFirst({ where: { edificioId, numero } })
+      if (existeUnidad) { propOmitidas++; continue }
       try {
         await prisma.unidad.create({
           data: {
-            edificioId: edificiosMap[edificioInfo.key],
+            edificioId,
             tipo: mapearTipo(row['Tipo']),
-            numero: extraerNumero(titulo),
+            numero,
             precioUF: parsearPrecio(row['Precio Venta']),
             m2: parsearM2(row['Superficie (m²)']),
             estado: mapearEstado(row['Estado']),
@@ -142,6 +146,16 @@ app.post('/api/importar-datos-bodeparking-2026', async (req, res) => {
         propCreadas++
       } catch { propOmitidas++ }
     }
+
+    // ── Limpiar unidades duplicadas (conservar la de menor ID por edificio+numero) ─
+    const todasUnidades = await prisma.unidad.findMany({ select: { id: true, edificioId: true, numero: true }, orderBy: { id: 'asc' } })
+    const vistas = new Set()
+    const idsAEliminar = []
+    for (const u of todasUnidades) {
+      const key = `${u.edificioId}-${u.numero}`
+      if (vistas.has(key)) { idsAEliminar.push(u.id) } else { vistas.add(key) }
+    }
+    if (idsAEliminar.length > 0) await prisma.unidad.deleteMany({ where: { id: { in: idsAEliminar } } })
 
     // ── Limpiar contactos huérfanos (sin lead) antes de reimportar ─
     await prisma.contacto.deleteMany({ where: { leads: { none: {} } } })
