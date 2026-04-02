@@ -45,6 +45,46 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// Setup inicial: crea usuarios base (solo si no existen)
+app.post('/api/setup-bodeparking-2026', async (req, res) => {
+  const bcrypt = require('bcryptjs')
+  try {
+    const hash = await bcrypt.hash('bodeparking2026', 10)
+    const results = []
+    const usuarios = [
+      { nombre: 'Admin', apellido: 'Gerente', email: 'gerente@bodeparking.cl', rol: 'GERENTE' },
+      { nombre: 'Juan', apellido: 'Valdivieso', email: 'jvaldivieso@bodeparking.cl', rol: 'GERENTE' },
+      { nombre: 'Felix', apellido: 'Betancourt', email: 'fbetancourtt@bodeparking.cl', rol: 'JEFE_VENTAS' },
+    ]
+    for (const u of usuarios) {
+      const creado = await prisma.usuario.upsert({
+        where: { email: u.email },
+        update: {},
+        create: { ...u, password: hash, activo: true }
+      })
+      results.push({ email: creado.email, rol: creado.rol })
+    }
+    const alertas = [
+      { tipo: 'LLAVE_NO_DEVUELTA', umbralDias: 3 },
+      { tipo: 'CUOTA_VENCIDA', umbralDias: 1 },
+      { tipo: 'LEAD_SIN_ACTIVIDAD', umbralDias: 7 },
+      { tipo: 'FECHA_LEGAL_PROXIMA', umbralDias: 5 },
+      { tipo: 'ARRIENDO_POR_VENCER', umbralDias: 30 },
+      { tipo: 'DESCUENTO_PENDIENTE', umbralDias: 1 },
+    ]
+    for (const a of alertas) {
+      await prisma.alertaConfig.upsert({
+        where: { tipo: a.tipo },
+        update: {},
+        create: { ...a, activa: true, canalEmail: true, canalWhatsapp: false }
+      })
+    }
+    res.json({ ok: true, usuarios: results })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // Servir frontend en producción
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.join(__dirname, '../../frontend/dist')
