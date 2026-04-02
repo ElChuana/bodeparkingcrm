@@ -45,6 +45,150 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// Importación temporal de datos desde Google Sheets
+app.post('/api/importar-datos-bodeparking-2026', async (req, res) => {
+  try {
+    // ── helpers ──────────────────────────────────────────────────
+    function parseCsvLine(line) {
+      const result = []; let cur = '', inQ = false
+      for (const ch of line) {
+        if (ch === '"') { inQ = !inQ }
+        else if (ch === ',' && !inQ) { result.push(cur.trim()); cur = '' }
+        else { cur += ch }
+      }
+      result.push(cur.trim()); return result
+    }
+    function parseCsv(text) {
+      const lines = text.split('\n').filter(l => l.trim())
+      const headers = parseCsvLine(lines[0])
+      return lines.slice(1).map(l => {
+        const vals = parseCsvLine(l)
+        const obj = {}; headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim() })
+        return obj
+      })
+    }
+    function limpiarTelefono(raw) {
+      if (!raw) return null
+      return raw.replace(/^p:/i, '').replace(/\s/g, '').trim() || null
+    }
+    function splitNombre(n) {
+      if (!n) return { nombre: 'Sin nombre', apellido: '' }
+      const p = n.trim().split(/\s+/)
+      return { nombre: p[0], apellido: p.slice(1).join(' ') }
+    }
+    function parsearPrecio(raw) { return parseFloat((raw || '').replace(',', '.')) || 0 }
+    function parsearM2(raw) { return parseFloat((raw || '').replace(',', '.')) || null }
+    function mapearEstado(e) {
+      if (!e) return 'DISPONIBLE'
+      const s = e.toLowerCase()
+      if (s === 'activo') return 'DISPONIBLE'
+      if (s === 'reservado') return 'RESERVADO'
+      if (s === 'vendido') return 'VENDIDO'
+      return 'DISPONIBLE'
+    }
+    function mapearTipo(t) {
+      if (!t) return 'BODEGA'
+      return t.toLowerCase().includes('estacionamiento') ? 'ESTACIONAMIENTO' : 'BODEGA'
+    }
+    const EDIFICIOS = [
+      { key: 'Obispo Salas', nombre: 'Obispo Salas', direccion: 'Obispo Hipólito Salas 445', region: 'Biobío', comuna: 'Concepción' },
+      { key: 'Trinitarias',  nombre: 'Trinitarias',  direccion: 'Las Trinitarias 7047',      region: 'Metropolitana', comuna: 'Las Condes' },
+      { key: 'Plus',         nombre: 'Plus',          direccion: 'Conde Del Maule 4325',      region: 'Metropolitana', comuna: 'Estación Central' },
+      { key: 'Neocisterna',  nombre: 'Neocisterna',   direccion: 'Lo Ovalle 150',             region: 'Metropolitana', comuna: 'La Cisterna' },
+      { key: 'Brasil',       nombre: 'Brasil',        direccion: 'Brasil 601',                region: 'Metropolitana', comuna: 'Santiago' },
+      { key: 'Aldunate',     nombre: 'Aldunate',      direccion: 'Pedro León Gallo 1050',     region: 'Araucanía',     comuna: 'Temuco' },
+    ]
+    function extraerNumero(titulo) {
+      let t = titulo
+      for (const e of EDIFICIOS) { t = t.replace(e.key, '').trim() }
+      t = t.replace(/\b(Bodega|Estacionamiento|Tandem)\b/gi, '').trim()
+      return t.replace(/\s+/g, '-').replace(/-+$/, '').replace(/^-+/, '') || titulo
+    }
+
+    // ── Descargar CSVs ────────────────────────────────────────────
+    const LEADS_URL = 'https://docs.google.com/spreadsheets/d/1_nBFjJJpZHUDHXBDzVvPvcttxn3xLGAGS-ZLRgCmIFs/export?format=csv'
+    const PROPS_URL = 'https://docs.google.com/spreadsheets/d/1Uos4NdDBxxeg87smkXlhTYL98huwGP7Awi3ungM2DhE/export?format=csv'
+
+    const [leadsResp, propsResp] = await Promise.all([
+      axios.get(LEADS_URL, { responseType: 'text' }),
+      axios.get(PROPS_URL, { responseType: 'text' }),
+    ])
+
+    // ── Importar propiedades ──────────────────────────────────────
+    const propRows = parseCsv(propsResp.data)
+    const edificiosMap = {}
+    for (const e of EDIFICIOS) {
+      const existe = await prisma.edificio.findFirst({ where: { nombre: e.nombre } })
+      edificiosMap[e.key] = existe ? existe.id : (await prisma.edificio.create({
+        data: { nombre: e.nombre, direccion: e.direccion, region: e.region, comuna: e.comuna }
+      })).id
+    }
+    let propCreadas = 0, propOmitidas = 0
+    for (const row of propRows) {
+      const titulo = row['Título'] || ''
+      const edificioInfo = EDIFICIOS.find(e => titulo.includes(e.key))
+      if (!edificioInfo) { propOmitidas++; continue }
+      try {
+        await prisma.unidad.create({
+          data: {
+            edificioId: edificiosMap[edificioInfo.key],
+            tipo: mapearTipo(row['Tipo']),
+            numero: extraerNumero(titulo),
+            precioUF: parsearPrecio(row['Precio Venta']),
+            m2: parsearM2(row['Superficie (m²)']),
+            estado: mapearEstado(row['Estado']),
+          }
+        })
+        propCreadas++
+      } catch { propOmitidas++ }
+    }
+
+    // ── Importar leads ────────────────────────────────────────────
+    const leadRows = parseCsv(leadsResp.data)
+    const dosSemanasMs = 14 * 24 * 60 * 60 * 1000
+    let leadCreados = 0, leadDuplicados = 0, leadOmitidos = 0
+    for (const row of leadRows) {
+      const nombreRaw = row['nombre'] || row['first_name'] || ''
+      if (nombreRaw.includes('<test lead')) { leadOmitidos++; continue }
+      const { nombre, apellido } = splitNombre(nombreRaw)
+      if (!nombre || nombre === 'Sin nombre') { leadOmitidos++; continue }
+      const email = row['correo_electrónico'] || row['email'] || null
+      const telefono = limpiarTelefono(row['número_de_teléfono'] || row['phone_number'])
+      if (!email && !telefono) { leadOmitidos++; continue }
+      if (email) {
+        const existe = await prisma.contacto.findFirst({ where: { email } })
+        if (existe) { leadDuplicados++; continue }
+      }
+      let creadoEn = new Date()
+      if (row['created_time']) { const p = new Date(row['created_time']); if (!isNaN(p)) creadoEn = p }
+      const etapa = (Date.now() - creadoEn.getTime()) > dosSemanasMs ? 'PERDIDO' : 'NUEVO'
+      const campana = row['ad_name'] || null
+      try {
+        const contacto = await prisma.contacto.create({
+          data: { nombre, apellido, email: email || null, telefono }
+        })
+        await prisma.lead.create({
+          data: {
+            contactoId: contacto.id, etapa,
+            campana: campana && campana !== 'Test' ? campana : null,
+            notas: row['platform'] ? `Plataforma: ${row['platform']}` : null,
+            creadoEn,
+          }
+        })
+        leadCreados++
+      } catch { leadOmitidos++ }
+    }
+
+    res.json({
+      ok: true,
+      propiedades: { creadas: propCreadas, omitidas: propOmitidas },
+      leads: { creados: leadCreados, duplicados: leadDuplicados, omitidos: leadOmitidos },
+    })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // Servir frontend en producción
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.join(__dirname, '../../frontend/dist')
