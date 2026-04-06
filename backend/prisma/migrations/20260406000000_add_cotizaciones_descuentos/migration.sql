@@ -79,6 +79,13 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_table THEN NULL;
 END $$;
 
+-- Columna faltante en visitas
+ALTER TABLE "visitas" ADD COLUMN IF NOT EXISTS "edificioId" INTEGER;
+DO $$ BEGIN
+  ALTER TABLE "visitas" ADD CONSTRAINT "visitas_edificioId_fkey" FOREIGN KEY ("edificioId") REFERENCES "edificios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
 -- Columna faltante en alertas_config
 ALTER TABLE "alertas_config" ADD COLUMN IF NOT EXISTS "accionAutomatica" BOOLEAN NOT NULL DEFAULT false;
 
