@@ -1,9 +1,16 @@
--- Enums
-CREATE TYPE "EstadoCotizacion" AS ENUM ('BORRADOR', 'ENVIADA', 'ACEPTADA', 'RECHAZADA');
-CREATE TYPE "EstadoSolicitudDescuento" AS ENUM ('PENDIENTE', 'APROBADA', 'RECHAZADA');
+-- Enums (idempotent)
+DO $$ BEGIN
+  CREATE TYPE "EstadoCotizacion" AS ENUM ('BORRADOR', 'ENVIADA', 'ACEPTADA', 'RECHAZADA');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "EstadoSolicitudDescuento" AS ENUM ('PENDIENTE', 'APROBADA', 'RECHAZADA');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Cotizaciones
-CREATE TABLE "cotizaciones" (
+CREATE TABLE IF NOT EXISTS "cotizaciones" (
     "id" SERIAL NOT NULL,
     "leadId" INTEGER NOT NULL,
     "creadoPorId" INTEGER NOT NULL,
@@ -12,12 +19,12 @@ CREATE TABLE "cotizaciones" (
     "notas" TEXT,
     "descuentoAprobadoUF" DOUBLE PRECISION,
     "creadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "actualizadoEn" TIMESTAMP(3) NOT NULL,
+    "actualizadoEn" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "cotizaciones_pkey" PRIMARY KEY ("id")
 );
 
 -- Cotizacion items
-CREATE TABLE "cotizacion_items" (
+CREATE TABLE IF NOT EXISTS "cotizacion_items" (
     "id" SERIAL NOT NULL,
     "cotizacionId" INTEGER NOT NULL,
     "unidadId" INTEGER NOT NULL,
@@ -27,7 +34,7 @@ CREATE TABLE "cotizacion_items" (
 );
 
 -- Cotizacion promociones
-CREATE TABLE "cotizacion_promociones" (
+CREATE TABLE IF NOT EXISTS "cotizacion_promociones" (
     "id" SERIAL NOT NULL,
     "cotizacionId" INTEGER NOT NULL,
     "promocionId" INTEGER NOT NULL,
@@ -36,10 +43,13 @@ CREATE TABLE "cotizacion_promociones" (
     CONSTRAINT "cotizacion_promociones_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "cotizacion_promociones_cotizacionId_promocionId_key" ON "cotizacion_promociones"("cotizacionId", "promocionId");
+DO $$ BEGIN
+  CREATE UNIQUE INDEX "cotizacion_promociones_cotizacionId_promocionId_key" ON "cotizacion_promociones"("cotizacionId", "promocionId");
+EXCEPTION WHEN duplicate_table THEN NULL;
+END $$;
 
 -- Solicitudes descuento
-CREATE TABLE "solicitudes_descuento" (
+CREATE TABLE IF NOT EXISTS "solicitudes_descuento" (
     "id" SERIAL NOT NULL,
     "cotizacionId" INTEGER NOT NULL,
     "solicitadoPorId" INTEGER NOT NULL,
@@ -55,7 +65,7 @@ CREATE TABLE "solicitudes_descuento" (
 );
 
 -- API Keys
-CREATE TABLE "api_keys" (
+CREATE TABLE IF NOT EXISTS "api_keys" (
     "id" SERIAL NOT NULL,
     "nombre" TEXT NOT NULL,
     "key" TEXT NOT NULL,
@@ -64,28 +74,60 @@ CREATE TABLE "api_keys" (
     CONSTRAINT "api_keys_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "api_keys_key_key" ON "api_keys"("key");
+DO $$ BEGIN
+  CREATE UNIQUE INDEX "api_keys_key_key" ON "api_keys"("key");
+EXCEPTION WHEN duplicate_table THEN NULL;
+END $$;
 
 -- Columna faltante en alertas_config
 ALTER TABLE "alertas_config" ADD COLUMN IF NOT EXISTS "accionAutomatica" BOOLEAN NOT NULL DEFAULT false;
 
--- Unique en alertas_config.tipo (si no existe)
-ALTER TABLE "alertas_config" DROP CONSTRAINT IF EXISTS "alertas_config_tipo_key";
-ALTER TABLE "alertas_config" ADD CONSTRAINT "alertas_config_tipo_key" UNIQUE ("tipo");
+-- Unique en alertas_config.tipo
+DO $$ BEGIN
+  ALTER TABLE "alertas_config" ADD CONSTRAINT "alertas_config_tipo_key" UNIQUE ("tipo");
+EXCEPTION WHEN duplicate_table THEN NULL;
+END $$;
 
--- FK cotizaciones
-ALTER TABLE "cotizaciones" ADD CONSTRAINT "cotizaciones_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "leads"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "cotizaciones" ADD CONSTRAINT "cotizaciones_creadoPorId_fkey" FOREIGN KEY ("creadoPorId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- FKs cotizaciones
+DO $$ BEGIN
+  ALTER TABLE "cotizaciones" ADD CONSTRAINT "cotizaciones_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "leads"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "cotizaciones" ADD CONSTRAINT "cotizaciones_creadoPorId_fkey" FOREIGN KEY ("creadoPorId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- FK cotizacion_items
-ALTER TABLE "cotizacion_items" ADD CONSTRAINT "cotizacion_items_cotizacionId_fkey" FOREIGN KEY ("cotizacionId") REFERENCES "cotizaciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "cotizacion_items" ADD CONSTRAINT "cotizacion_items_unidadId_fkey" FOREIGN KEY ("unidadId") REFERENCES "unidades"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- FKs cotizacion_items
+DO $$ BEGIN
+  ALTER TABLE "cotizacion_items" ADD CONSTRAINT "cotizacion_items_cotizacionId_fkey" FOREIGN KEY ("cotizacionId") REFERENCES "cotizaciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "cotizacion_items" ADD CONSTRAINT "cotizacion_items_unidadId_fkey" FOREIGN KEY ("unidadId") REFERENCES "unidades"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- FK cotizacion_promociones
-ALTER TABLE "cotizacion_promociones" ADD CONSTRAINT "cotizacion_promociones_cotizacionId_fkey" FOREIGN KEY ("cotizacionId") REFERENCES "cotizaciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "cotizacion_promociones" ADD CONSTRAINT "cotizacion_promociones_promocionId_fkey" FOREIGN KEY ("promocionId") REFERENCES "promociones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- FKs cotizacion_promociones
+DO $$ BEGIN
+  ALTER TABLE "cotizacion_promociones" ADD CONSTRAINT "cotizacion_promociones_cotizacionId_fkey" FOREIGN KEY ("cotizacionId") REFERENCES "cotizaciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "cotizacion_promociones" ADD CONSTRAINT "cotizacion_promociones_promocionId_fkey" FOREIGN KEY ("promocionId") REFERENCES "promociones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- FK solicitudes_descuento
-ALTER TABLE "solicitudes_descuento" ADD CONSTRAINT "solicitudes_descuento_cotizacionId_fkey" FOREIGN KEY ("cotizacionId") REFERENCES "cotizaciones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "solicitudes_descuento" ADD CONSTRAINT "solicitudes_descuento_solicitadoPorId_fkey" FOREIGN KEY ("solicitadoPorId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "solicitudes_descuento" ADD CONSTRAINT "solicitudes_descuento_revisadoPorId_fkey" FOREIGN KEY ("revisadoPorId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- FKs solicitudes_descuento
+DO $$ BEGIN
+  ALTER TABLE "solicitudes_descuento" ADD CONSTRAINT "solicitudes_descuento_cotizacionId_fkey" FOREIGN KEY ("cotizacionId") REFERENCES "cotizaciones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "solicitudes_descuento" ADD CONSTRAINT "solicitudes_descuento_solicitadoPorId_fkey" FOREIGN KEY ("solicitadoPorId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE "solicitudes_descuento" ADD CONSTRAINT "solicitudes_descuento_revisadoPorId_fkey" FOREIGN KEY ("revisadoPorId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
