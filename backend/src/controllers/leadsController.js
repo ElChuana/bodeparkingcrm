@@ -176,6 +176,7 @@ const obtener = async (req, res) => {
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado.' })
     res.json(lead)
   } catch (err) {
+    console.error('[obtener lead]', err)
     res.status(500).json({ error: 'Error al obtener lead.' })
   }
 }
