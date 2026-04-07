@@ -23,6 +23,7 @@ import Reportes from './pages/reportes/Reportes'
 import Automatizaciones from './pages/automatizaciones/Automatizaciones'
 import CotizacionEditor from './pages/cotizaciones/CotizacionEditor'
 import Descuentos from './pages/descuentos/Descuentos'
+import ApiKeys from './pages/configuracion/ApiKeys'
 
 const qc = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } }
@@ -79,6 +80,7 @@ export default function App() {
                   <Route path="reportes"         element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']}><Reportes /></RutaProtegida>} />
               <Route path="automatizaciones" element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']}><Automatizaciones /></RutaProtegida>} />
               <Route path="descuentos" element={<RutaProtegida><Descuentos /></RutaProtegida>} />
+                  <Route path="configuracion/api-keys" element={<RutaProtegida roles={['GERENTE']}><ApiKeys /></RutaProtegida>} />
                 </Route>
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

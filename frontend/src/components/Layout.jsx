@@ -8,7 +8,7 @@ import {
   ShoppingOutlined, AuditOutlined, CreditCardOutlined,
   DollarOutlined, TagOutlined, CarOutlined, KeyOutlined,
   BarChartOutlined, UserSwitchOutlined, ThunderboltOutlined,
-  MenuOutlined, LogoutOutlined, CalendarOutlined, PercentageOutlined
+  MenuOutlined, LogoutOutlined, CalendarOutlined, PercentageOutlined, ApiOutlined
 } from '@ant-design/icons'
 import { Badge } from 'antd'
 import { useQuery } from '@tanstack/react-query'
@@ -36,7 +36,8 @@ const navItems = [
   { key: '/equipo',          label: 'Equipo',          icon: <UserSwitchOutlined />,   roles: ['GERENTE'] },
   { key: '/reportes',        label: 'Reportes',        icon: <BarChartOutlined />,     roles: ['GERENTE','JEFE_VENTAS'] },
   { key: '/automatizaciones', label: 'Automatizaciones', icon: <ThunderboltOutlined />, roles: ['GERENTE','JEFE_VENTAS'] },
-  { key: '/descuentos',      label: 'Descuentos',      icon: <PercentageOutlined />,   roles: null },
+  { key: '/descuentos',              label: 'Descuentos',  icon: <PercentageOutlined />, roles: null },
+  { key: '/configuracion/api-keys', label: 'API Keys',    icon: <ApiOutlined />,        roles: ['GERENTE'] },
 ]
 
 function SidebarContent({ selectedKey, onNavigate }) {
