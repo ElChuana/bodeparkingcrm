@@ -323,4 +323,39 @@ const asignarMasivo = async (req, res) => {
   }
 }
 
-module.exports = { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo }
+const eliminar = async (req, res) => {
+  if (req.usuario.rol !== 'GERENTE') {
+    return res.status(403).json({ error: 'Solo el gerente puede eliminar leads.' })
+  }
+
+  const { id } = req.params
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Eliminar en orden para respetar FKs
+      await tx.interaccion.deleteMany({ where: { leadId: Number(id) } })
+      await tx.visita.deleteMany({ where: { leadId: Number(id) } })
+
+      const cotizaciones = await tx.cotizacion.findMany({ where: { leadId: Number(id) }, select: { id: true } })
+      const cotizacionIds = cotizaciones.map(c => c.id)
+
+      if (cotizacionIds.length > 0) {
+        await tx.solicitudDescuento.deleteMany({ where: { cotizacionId: { in: cotizacionIds } } })
+        await tx.cotizacionPromocion.deleteMany({ where: { cotizacionId: { in: cotizacionIds } } })
+        await tx.cotizacionItem.deleteMany({ where: { cotizacionId: { in: cotizacionIds } } })
+        await tx.cotizacion.deleteMany({ where: { leadId: Number(id) } })
+      }
+
+      await tx.lead.delete({ where: { id: Number(id) } })
+    })
+
+    res.json({ ok: true })
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Lead no encontrado.' })
+    if (err.code === 'P2003') return res.status(409).json({ error: 'No se puede eliminar: el lead tiene una venta asociada.' })
+    console.error('[eliminar lead]', err)
+    res.status(500).json({ error: 'Error al eliminar lead.' })
+  }
+}
+
+module.exports = { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar }
