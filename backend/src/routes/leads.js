@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo } = require('../controllers/leadsController')
+const { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar } = require('../controllers/leadsController')
 const { listarPorLead, listarTodas, crear: crearVisita, actualizarResultado } = require('../controllers/visitasController')
 const { listarPorLead: listarInteracciones, crear: crearInteraccion } = require('../controllers/interaccionesController')
 const { autenticar } = require('../middleware/auth')
@@ -15,6 +15,7 @@ router.post('/', crear)
 router.put('/:id', actualizar)
 router.put('/:id/etapa', cambiarEtapa)
 router.post('/asignar-masivo', asignarMasivo)
+router.delete('/:id', eliminar)
 
 // Visitas de un lead
 router.get('/:leadId/visitas', listarPorLead)
