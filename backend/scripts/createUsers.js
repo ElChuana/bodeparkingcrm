@@ -34,7 +34,7 @@ async function main() {
   console.log('✅ Usuarios creados:')
   console.log('   Juan Valdivieso  jvaldivieso@bodeparking.cl  GERENTE')
   console.log('   Felix Betancourt fbetancourtt@bodeparking.cl JEFE_VENTAS')
-  console.log('   Contraseña inicial: ***CREDENCIAL-ELIMINADA***')
+  console.log('   Contraseña inicial configurada.')
 }
 
 main()
