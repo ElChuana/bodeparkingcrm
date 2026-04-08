@@ -879,13 +879,15 @@ export default function VentaDetalle() {
               </Space>
             </Card>
 
-            <Card size="small" title="Unidad">
-              <Text strong>
-                {venta.unidad?.tipo === 'BODEGA' ? '📦 Bodega' : '🚗 Estacionamiento'} {venta.unidad?.numero}
-              </Text>
-              <div><Text type="secondary" style={{ fontSize: 13 }}>{venta.unidad?.edificio?.nombre}</Text></div>
-              {venta.unidad?.edificio?.region && <div><Text type="secondary" style={{ fontSize: 12 }}>{venta.unidad.edificio.region}</Text></div>}
-              {venta.unidad?.m2 && <div><Text type="secondary" style={{ fontSize: 13 }}>{venta.unidad.m2} m²</Text></div>}
+            <Card size="small" title={`Unidad${(venta.unidades?.length || 0) > 1 ? 'es' : ''}`}>
+              {(venta.unidades || []).map(u => (
+                <div key={u.id} style={{ marginBottom: 8 }}>
+                  <Text strong>{u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {u.numero}</Text>
+                  {u.m2 && <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>{u.m2} m²</Text>}
+                  <div><Text type="secondary" style={{ fontSize: 13 }}>{u.edificio?.nombre}</Text></div>
+                  {u.edificio?.region && <div><Text type="secondary" style={{ fontSize: 12 }}>{u.edificio.region}</Text></div>}
+                </div>
+              ))}
             </Card>
           </Space>
         </Col>
