@@ -40,8 +40,8 @@ app.use('/api/public',      require('./routes/public'))
 app.use('/api/buscar',      require('./routes/buscar'))
 app.use('/api/descuentos',  require('./routes/descuentos'))
 
-// ─── TEMPORAL: Importar ventas reales ────────────────────────────
-app.post('/api/importar-ventas-bp-2026', async (req, res) => {
+// ─── TEMPORAL: eliminado post-importación ─────────────────────────
+app.post('/api/importar-ventas-bp-2026-ELIMINADO', async (req, res) => {
   const DATOS = [
     // unidadId mapeado desde inventario real
     { nombre:'Marcia',   apellido:'Fuentes',    email:null,                               unidadId:70, precioUF:62,    estado:'ESCRITURA', fechaReserva:'2025-07-31', fechaPromesa:null,        vendedorId:null, corredor:'PROCOMERCIAL'      },
