@@ -70,13 +70,19 @@ export default function Ventas() {
       )
     },
     {
-      title: 'Unidad', key: 'unidad',
-      render: (_, v) => (
-        <div>
-          <div>{v.unidad?.edificio?.nombre}</div>
-          <div style={{ fontSize: 12, color: '#8c8c8c' }}>{v.unidad?.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {v.unidad?.numero}</div>
-        </div>
-      )
+      title: 'Unidad(es)', key: 'unidades',
+      render: (_, v) => {
+        const us = v.unidades || []
+        if (us.length === 0) return <span style={{ color: '#8c8c8c' }}>—</span>
+        return (
+          <div>
+            <div>{us[0]?.edificio?.nombre}</div>
+            <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+              {us.map(u => `${u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${u.numero}`).join(', ')}
+            </div>
+          </div>
+        )
+      }
     },
     {
       title: 'Vendedor', key: 'vendedor',
