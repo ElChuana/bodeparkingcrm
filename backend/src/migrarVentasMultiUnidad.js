@@ -21,6 +21,15 @@ async function fusionarGrupos() {
     const [principal, ...secundarias] = ids
     console.log(`Fusionando ventas [${ids.join(', ')}] → principal: #${principal}`)
 
+    // Sumar precios de todas las ventas del grupo
+    const todasVentas = await prisma.venta.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, precioUF: true, descuentoUF: true }
+    })
+    const precioTotal = todasVentas.reduce((sum, v) => sum + v.precioUF, 0)
+    const descuentoTotal = todasVentas.reduce((sum, v) => sum + (v.descuentoUF || 0), 0)
+    await prisma.venta.update({ where: { id: principal }, data: { precioUF: precioTotal, descuentoUF: descuentoTotal } })
+
     for (const secId of secundarias) {
       await prisma.unidad.updateMany({ where: { ventaId: secId }, data: { ventaId: principal } })
       await prisma.procesoLegal.deleteMany({ where: { ventaId: secId } })
@@ -28,6 +37,7 @@ async function fusionarGrupos() {
       await prisma.venta.delete({ where: { id: secId } })
       console.log(`  Venta #${secId} fusionada y eliminada`)
     }
+    console.log(`  Precio total: ${precioTotal} UF`)
   }
 }
 
