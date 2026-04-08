@@ -12,7 +12,7 @@ import {
   Space, Spin, Row, Col, Steps, Table, App, Alert, Divider, Tooltip, Popconfirm,
   InputNumber, Radio
 } from 'antd'
-import { PlusOutlined, DeleteOutlined, WarningOutlined, CheckCircleOutlined, GiftOutlined, AppstoreOutlined, EditOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, WarningOutlined, CheckCircleOutlined, GiftOutlined, AppstoreOutlined, EditOutlined, HomeOutlined, ExpandOutlined } from '@ant-design/icons'
 import { TIPO_PROMO_LABEL, TIPO_PROMO_COLOR, resumenPromo } from '../promociones/Promociones'
 import { isPast } from 'date-fns'
 
@@ -802,6 +802,127 @@ function PromocionesVenta({ venta }) {
   )
 }
 
+// ─── Unidades Card ─────────────────────────────────────────────────
+const ACCESO_LABEL = { RAMPA: 'Rampa', ASCENSOR: 'Ascensor', ESCALERA: 'Escalera' }
+const ESTADO_UNIDAD_COLOR = { DISPONIBLE: 'green', RESERVADO: 'orange', VENDIDO: 'red', ARRENDADO: 'blue' }
+const ESTADO_UNIDAD_LABEL = { DISPONIBLE: 'Disponible', RESERVADO: 'Reservado', VENDIDO: 'Vendido', ARRENDADO: 'Arrendado' }
+
+function UnidadesCard({ unidades }) {
+  const { formatUF, ufAPesos, formatPesos } = useUF()
+  const [unidadVer, setUnidadVer] = useState(null)
+
+  return (
+    <>
+      <Card
+        size="small"
+        title={<Space><HomeOutlined />{`Unidad${unidades.length !== 1 ? 'es' : ''} compradas (${unidades.length})`}</Space>}
+      >
+        <Row gutter={[8, 8]}>
+          {unidades.map(u => (
+            <Col key={u.id} span={unidades.length === 1 ? 24 : 12}>
+              <Card
+                size="small"
+                hoverable
+                onClick={() => setUnidadVer(u)}
+                style={{ cursor: 'pointer', background: '#f9f9f9' }}
+                extra={<ExpandOutlined style={{ color: '#8c8c8c', fontSize: 11 }} />}
+                title={
+                  <Space size={4}>
+                    <span>{u.tipo === 'BODEGA' ? '📦' : '🚗'}</span>
+                    <Text strong style={{ fontSize: 13 }}>{u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {u.numero}</Text>
+                    {u.subtipo === 'TANDEM' && <Tag color="purple" style={{ fontSize: 10 }}>Tándem</Tag>}
+                  </Space>
+                }
+              >
+                <Tag color={ESTADO_UNIDAD_COLOR[u.estado]} style={{ marginBottom: 6 }}>{ESTADO_UNIDAD_LABEL[u.estado]}</Tag>
+                {u.m2 && <div><Text type="secondary" style={{ fontSize: 12 }}>{u.m2} m²</Text></div>}
+                {u.piso && <div><Text type="secondary" style={{ fontSize: 12 }}>Piso {u.piso}</Text></div>}
+                <div style={{ marginTop: 4 }}>
+                  <Text strong style={{ fontSize: 13, color: '#1677ff' }}>{formatUF(u.precioUF)}</Text>
+                </div>
+                <div><Text type="secondary" style={{ fontSize: 11 }}>{u.edificio?.nombre}</Text></div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Card>
+
+      <Modal
+        open={!!unidadVer}
+        onCancel={() => setUnidadVer(null)}
+        footer={null}
+        title={
+          <Space>
+            <span>{unidadVer?.tipo === 'BODEGA' ? '📦' : '🚗'}</span>
+            <span>{unidadVer?.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {unidadVer?.numero}</span>
+            {unidadVer?.subtipo === 'TANDEM' && <Tag color="purple">Tándem</Tag>}
+          </Space>
+        }
+        width={420}
+      >
+        {unidadVer && (
+          <Space direction="vertical" style={{ width: '100%' }} size={0}>
+            <Tag color={ESTADO_UNIDAD_COLOR[unidadVer.estado]} style={{ marginBottom: 12 }}>
+              {ESTADO_UNIDAD_LABEL[unidadVer.estado]}
+            </Tag>
+
+            <Row gutter={[0, 6]}>
+              <Col span={12}><Text type="secondary">Edificio</Text></Col>
+              <Col span={12}><Text strong>{unidadVer.edificio?.nombre}</Text></Col>
+
+              <Col span={12}><Text type="secondary">Dirección</Text></Col>
+              <Col span={12}><Text>{unidadVer.edificio?.direccion || '—'}</Text></Col>
+
+              <Col span={12}><Text type="secondary">Región</Text></Col>
+              <Col span={12}><Text>{unidadVer.edificio?.region} · {unidadVer.edificio?.comuna}</Text></Col>
+
+              {unidadVer.piso && <>
+                <Col span={12}><Text type="secondary">Piso</Text></Col>
+                <Col span={12}><Text>{unidadVer.piso}</Text></Col>
+              </>}
+
+              {unidadVer.m2 && <>
+                <Col span={12}><Text type="secondary">Superficie</Text></Col>
+                <Col span={12}><Text>{unidadVer.m2} m²</Text></Col>
+              </>}
+
+              {unidadVer.techado !== null && unidadVer.techado !== undefined && <>
+                <Col span={12}><Text type="secondary">Techado</Text></Col>
+                <Col span={12}><Text>{unidadVer.techado ? 'Sí' : 'No'}</Text></Col>
+              </>}
+
+              {unidadVer.acceso && <>
+                <Col span={12}><Text type="secondary">Acceso</Text></Col>
+                <Col span={12}><Text>{ACCESO_LABEL[unidadVer.acceso] || unidadVer.acceso}</Text></Col>
+              </>}
+
+              <Col span={24}><Divider style={{ margin: '8px 0' }} /></Col>
+
+              <Col span={12}><Text type="secondary">Precio venta</Text></Col>
+              <Col span={12}><Text strong style={{ color: '#1677ff' }}>{formatUF(unidadVer.precioUF)}</Text></Col>
+
+              {ufAPesos(unidadVer.precioUF) && <>
+                <Col span={12}></Col>
+                <Col span={12}><Text type="secondary" style={{ fontSize: 12 }}>{formatPesos(ufAPesos(unidadVer.precioUF))}</Text></Col>
+              </>}
+
+              {unidadVer.precioMinimoUF && <>
+                <Col span={12}><Text type="secondary">Precio mínimo</Text></Col>
+                <Col span={12}><Text type="secondary">{formatUF(unidadVer.precioMinimoUF)}</Text></Col>
+              </>}
+
+              {unidadVer.notas && <>
+                <Col span={24}><Divider style={{ margin: '8px 0' }} /></Col>
+                <Col span={24}><Text type="secondary" style={{ fontSize: 12 }}>{unidadVer.notas}</Text></Col>
+              </>}
+            </Row>
+          </Space>
+        )}
+      </Modal>
+    </>
+  )
+}
+
 // ─── Página principal ──────────────────────────────────────────────
 export default function VentaDetalle() {
   const { id } = useParams()
@@ -886,16 +1007,7 @@ export default function VentaDetalle() {
               </Space>
             </Card>
 
-            <Card size="small" title={`Unidad${(venta.unidades?.length || 0) > 1 ? 'es' : ''}`}>
-              {(venta.unidades || []).map(u => (
-                <div key={u.id} style={{ marginBottom: 8 }}>
-                  <Text strong>{u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {u.numero}</Text>
-                  {u.m2 && <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>{u.m2} m²</Text>}
-                  <div><Text type="secondary" style={{ fontSize: 13 }}>{u.edificio?.nombre}</Text></div>
-                  {u.edificio?.region && <div><Text type="secondary" style={{ fontSize: 12 }}>{u.edificio.region}</Text></div>}
-                </div>
-              ))}
-            </Card>
+            <UnidadesCard unidades={venta.unidades || []} />
           </Space>
         </Col>
 
