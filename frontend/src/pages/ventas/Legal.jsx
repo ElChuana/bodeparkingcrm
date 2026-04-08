@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Table, Tag, Button, Typography, Space, Steps } from 'antd'
+import { Table, Tag, Button, Typography, Space, Steps, Descriptions, Divider } from 'antd'
 import { useNavigate } from 'react-router-dom'
-import { WarningOutlined } from '@ant-design/icons'
+import { WarningOutlined, EyeOutlined } from '@ant-design/icons'
 import api from '../../services/api'
 import { ESTADO_VENTA_COLOR } from '../../components/ui'
 import { format, isPast } from 'date-fns'
@@ -53,6 +54,46 @@ function calcFaltantes(proceso) {
   return items
 }
 
+function ResumenVenta({ v, proceso }) {
+  const navigate = useNavigate()
+  const unidades = v.unidades || []
+  return (
+    <div style={{ padding: '12px 24px 8px', background: '#fafafa', borderRadius: 8 }}>
+      <Space direction="vertical" style={{ width: '100%' }} size={8}>
+        <Descriptions size="small" column={3} bordered={false}>
+          <Descriptions.Item label="Comprador">
+            <Text strong>{v.comprador?.nombre} {v.comprador?.apellido}</Text>
+          </Descriptions.Item>
+          <Descriptions.Item label="Precio">
+            <Text strong>{(v.precioUF - (v.descuentoUF || 0)).toFixed(2)} UF</Text>
+            {v.descuentoUF > 0 && <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>(-{v.descuentoUF} UF desc.)</Text>}
+          </Descriptions.Item>
+          <Descriptions.Item label="Reserva">
+            {v.fechaReserva ? format(new Date(v.fechaReserva), "d MMM yyyy", { locale: es }) : '—'}
+          </Descriptions.Item>
+          <Descriptions.Item label={`Unidad${unidades.length > 1 ? 'es' : ''} (${unidades.length})`} span={3}>
+            <Space wrap>
+              {unidades.map(u => (
+                <Tag key={u.id} color="geekblue">
+                  {u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {u.numero} — {u.edificio?.nombre}
+                  {u.m2 ? ` · ${u.m2} m²` : ''}
+                </Tag>
+              ))}
+            </Space>
+          </Descriptions.Item>
+        </Descriptions>
+        <Divider style={{ margin: '4px 0' }} />
+        <TimelineExpandida proceso={proceso} />
+        <div style={{ textAlign: 'right' }}>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/ventas/${v.id}`)}>
+            Ver venta completa
+          </Button>
+        </div>
+      </Space>
+    </div>
+  )
+}
+
 function TimelineExpandida({ proceso }) {
   if (!proceso) return <Text type="secondary">Sin proceso legal iniciado.</Text>
 
@@ -100,25 +141,32 @@ function TimelineExpandida({ proceso }) {
 
 export default function Legal() {
   const navigate = useNavigate()
+  const [mostrarTodo, setMostrarTodo] = useState(false)
 
-  const { data: ventas = [], isLoading } = useQuery({
+  const { data: ventasRaw = [], isLoading } = useQuery({
     queryKey: ['ventas-legal'],
     queryFn: () => api.get('/ventas').then(r =>
       r.data.filter(v => ['PROMESA', 'ESCRITURA', 'ENTREGADO'].includes(v.estado))
     )
   })
 
+  const ventas = mostrarTodo ? ventasRaw : ventasRaw.filter(v => v.procesoLegal?.estadoActual !== 'ENTREGADO')
+
   const columns = [
     {
-      title: 'Comprador / Unidad', key: 'info',
-      render: (_, v) => (
-        <div>
-          <Text strong style={{ fontSize: 13 }}>{v.comprador?.nombre} {v.comprador?.apellido}</Text>
-          <div><Text type="secondary" style={{ fontSize: 12 }}>
-            {v.unidad?.edificio?.nombre} — {v.unidad?.numero}
-          </Text></div>
-        </div>
-      )
+      title: 'Comprador / Unidades', key: 'info',
+      render: (_, v) => {
+        const us = v.unidades || []
+        return (
+          <div>
+            <Text strong style={{ fontSize: 13 }}>{v.comprador?.nombre} {v.comprador?.apellido}</Text>
+            <div><Text type="secondary" style={{ fontSize: 12 }}>
+              {us.length > 0 ? us.map(u => `${u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${u.numero}`).join(', ') : '—'}
+              {us[0]?.edificio?.nombre ? ` — ${us[0].edificio.nombre}` : ''}
+            </Text></div>
+          </div>
+        )
+      }
     },
     {
       title: 'Estado', key: 'estado', width: 110,
@@ -165,19 +213,20 @@ export default function Legal() {
         )
       }
     },
-    {
-      title: '', key: 'accion', width: 110,
-      render: (_, v) => (
-        <Button size="small" type="primary" ghost onClick={() => navigate(`/ventas/${v.id}`)}>
-          Ver proceso
-        </Button>
-      )
-    },
   ]
+
+  const entregados = ventasRaw.filter(v => v.procesoLegal?.estadoActual === 'ENTREGADO').length
 
   return (
     <div>
-      <Title level={4} style={{ marginBottom: 20 }}>Legal — Procesos en curso</Title>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <Title level={4} style={{ margin: 0 }}>Legal — Procesos en curso</Title>
+        {entregados > 0 && (
+          <Button size="small" type="link" onClick={() => setMostrarTodo(p => !p)}>
+            {mostrarTodo ? `Ocultar entregados (${entregados})` : `Mostrar todo (${entregados} entregados)`}
+          </Button>
+        )}
+      </div>
       <Table
         dataSource={ventas}
         columns={columns}
@@ -187,8 +236,7 @@ export default function Legal() {
         pagination={false}
         locale={{ emptyText: 'Sin procesos legales activos' }}
         expandable={{
-          expandedRowRender: (v) => <TimelineExpandida proceso={v.procesoLegal} />,
-          defaultExpandAllRows: true,
+          expandedRowRender: (v) => <ResumenVenta v={v} proceso={v.procesoLegal} />,
           expandRowByClick: true,
           rowExpandable: () => true,
         }}
