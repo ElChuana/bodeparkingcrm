@@ -131,7 +131,6 @@ app.post('/api/importar-ventas-bp-2026-ELIMINADO', async (req, res) => {
         const venta = await prisma.venta.create({
           data: {
             leadId,
-            unidadId: d.unidadId,
             compradorId: contactoId,
             vendedorId: d.vendedorId || null,
             gerenteId: gerente?.id || null,
@@ -143,8 +142,8 @@ app.post('/api/importar-ventas-bp-2026-ELIMINADO', async (req, res) => {
           }
         })
 
-        // 5. Actualizar unidad a RESERVADO
-        await prisma.unidad.update({ where: { id: d.unidadId }, data: { estado: 'RESERVADO' } })
+        // 5. Vincular unidad a la venta y marcarla RESERVADO
+        await prisma.unidad.update({ where: { id: d.unidadId }, data: { ventaId: venta.id, estado: 'RESERVADO' } })
 
         // 6. Actualizar etapa del lead
         await prisma.lead.update({ where: { id: leadId }, data: { etapa: 'RESERVA' } })
@@ -164,7 +163,7 @@ app.post('/api/importar-ventas-bp-2026-ELIMINADO', async (req, res) => {
             data: { etapa: d.estado === 'ESCRITURA' ? 'ESCRITURA' : 'PROMESA' }
           })
           if (d.estado === 'ESCRITURA') {
-            await prisma.unidad.update({ where: { id: d.unidadId }, data: { estado: 'VENDIDO' } })
+            await prisma.unidad.updateMany({ where: { ventaId: venta.id }, data: { estado: 'VENDIDO' } })
           }
         }
 

@@ -76,8 +76,7 @@ const actualizar = async (req, res) => {
 
     // Si llegó a ENTREGADO, actualizar estado de venta
     if (estadoActual === 'ENTREGADO') {
-      const venta = await prisma.venta.findUnique({ where: { id: Number(ventaId) } })
-      await prisma.unidad.update({ where: { id: venta.unidadId }, data: { estado: 'VENDIDO' } })
+      await prisma.unidad.updateMany({ where: { ventaId: Number(ventaId) }, data: { estado: 'VENDIDO' } })
       await prisma.venta.update({ where: { id: Number(ventaId) }, data: { estado: 'ENTREGADO' } })
     }
 
