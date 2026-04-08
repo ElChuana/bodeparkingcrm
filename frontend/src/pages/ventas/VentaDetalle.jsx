@@ -826,20 +826,27 @@ export default function VentaDetalle() {
       <Space style={{ marginBottom: 16 }}>
         <Button type="link" style={{ padding: 0 }} onClick={() => navigate('/ventas')}>← Ventas</Button>
         <Text type="secondary">/</Text>
-        <Text type="secondary">{venta.comprador?.nombre} {venta.comprador?.apellido}</Text>
+        <Text type="secondary">Venta #{venta.id}</Text>
       </Space>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
         <div>
-          <Space>
-            <Title level={4} style={{ margin: 0 }}>{venta.comprador?.nombre} {venta.comprador?.apellido}</Title>
+          <Space align="center">
+            <Title level={4} style={{ margin: 0 }}>Venta #{venta.id}</Title>
             <Tag color={ESTADO_VENTA_COLOR[venta.estado]}>{ESTADO_LABEL[venta.estado]}</Tag>
           </Space>
           <div style={{ marginTop: 4 }}>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              {venta.unidad?.tipo === 'BODEGA' ? '📦 Bodega' : '🚗 Estacionamiento'} {venta.unidad?.numero} · {venta.unidad?.edificio?.nombre}
+              {venta.comprador?.nombre} {venta.comprador?.apellido}
             </Text>
+          </div>
+          <div style={{ marginTop: 2 }}>
+            {(venta.unidades || []).map(u => (
+              <Tag key={u.id} color="geekblue" style={{ marginBottom: 2 }}>
+                {u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {u.numero}{u.m2 ? ` · ${u.m2}m²` : ''} — {u.edificio?.nombre}
+              </Tag>
+            ))}
           </div>
         </div>
         {esGerenciaOJV && !['ENTREGADO','ANULADO'].includes(venta.estado) && (
