@@ -32,7 +32,7 @@ const listar = async (req, res) => {
         comprador: { select: { nombre: true, apellido: true, rut: true, empresa: true } },
         vendedor: { select: { nombre: true, apellido: true } },
         broker: { select: { nombre: true, apellido: true } },
-        unidad: {
+        unidades: {
           select: {
             numero: true, tipo: true,
             edificio: { select: { nombre: true, region: true } }
@@ -68,7 +68,7 @@ const obtener = async (req, res) => {
         vendedor: { select: { id: true, nombre: true, apellido: true } },
         broker: { select: { id: true, nombre: true, apellido: true } },
         gerente: { select: { id: true, nombre: true, apellido: true } },
-        unidad: { include: { edificio: true } },
+        unidades: { include: { edificio: true } },
         lead: { select: { id: true, etapa: true } },
         planPago: { include: { cuotas: { orderBy: { numeroCuota: 'asc' } } } },
         procesoLegal: { include: { documentos: { orderBy: { creadoEn: 'desc' } } } },
@@ -90,6 +90,7 @@ const crear = async (req, res) => {
   if (!leadId || !unidadId || !compradorId || !precioUF) {
     return res.status(400).json({ error: 'Lead, unidad, comprador y precio UF son requeridos.' })
   }
+
 
   // Validar precio mínimo si hay descuento
   if (descuentoUF) {
@@ -134,7 +135,6 @@ const crear = async (req, res) => {
     const venta = await prisma.venta.create({
       data: {
         leadId: Number(leadId),
-        unidadId: Number(unidadId),
         compradorId: Number(compradorId),
         vendedorId: lead?.vendedorId || null,
         brokerId: brokerId ? Number(brokerId) : lead?.brokerId || null,
@@ -147,12 +147,12 @@ const crear = async (req, res) => {
       },
       include: {
         comprador: { select: { nombre: true, apellido: true } },
-        unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
+        unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
       }
     })
 
-    // Marcar unidad como reservada
-    await prisma.unidad.update({ where: { id: Number(unidadId) }, data: { estado: 'RESERVADO' } })
+    // Vincular unidad a la venta y marcarla como reservada
+    await prisma.unidad.update({ where: { id: Number(unidadId) }, data: { ventaId: venta.id, estado: 'RESERVADO' } })
 
     // Actualizar etapa del lead
     await prisma.lead.update({ where: { id: Number(leadId) }, data: { etapa: 'RESERVA' } })
@@ -261,10 +261,10 @@ const actualizarEstado = async (req, res) => {
 
     // Actualizar estado de la unidad según estado de venta
     if (estado === 'ENTREGADO') {
-      await prisma.unidad.update({ where: { id: venta.unidadId }, data: { estado: 'VENDIDO' } })
+      await prisma.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'VENDIDO' } })
       await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'ENTREGA' } })
     } else if (estado === 'ANULADO') {
-      await prisma.unidad.update({ where: { id: venta.unidadId }, data: { estado: 'DISPONIBLE' } })
+      await prisma.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'DISPONIBLE', ventaId: null } })
       await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'PERDIDO', motivoPerdida: 'Venta anulada' } })
     }
 
