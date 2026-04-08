@@ -838,6 +838,7 @@ function UnidadesCard({ unidades }) {
                 {u.m2 && <div><Text type="secondary" style={{ fontSize: 12 }}>{u.m2} m²</Text></div>}
                 {u.piso && <div><Text type="secondary" style={{ fontSize: 12 }}>Piso {u.piso}</Text></div>}
                 <div style={{ marginTop: 4 }}>
+                  <Text type="secondary" style={{ fontSize: 11 }}>Lista: </Text>
                   <Text strong style={{ fontSize: 13, color: '#1677ff' }}>{formatUF(u.precioUF)}</Text>
                 </div>
                 <div><Text type="secondary" style={{ fontSize: 11 }}>{u.edificio?.nombre}</Text></div>
@@ -898,7 +899,7 @@ function UnidadesCard({ unidades }) {
 
               <Col span={24}><Divider style={{ margin: '8px 0' }} /></Col>
 
-              <Col span={12}><Text type="secondary">Precio venta</Text></Col>
+              <Col span={12}><Text type="secondary">Precio lista</Text></Col>
               <Col span={12}><Text strong style={{ color: '#1677ff' }}>{formatUF(unidadVer.precioUF)}</Text></Col>
 
               {ufAPesos(unidadVer.precioUF) && <>
