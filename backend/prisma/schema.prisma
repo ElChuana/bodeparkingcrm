@@ -254,11 +254,13 @@ model Unidad {
   creadoEn              DateTime                @default(now())
   actualizadoEn         DateTime                @updatedAt
 
+  ventaId               Int?
+  venta                 Venta?                  @relation(fields: [ventaId], references: [id])
+
   edificio              Edificio                @relation(fields: [edificioId], references: [id])
   archivos              Archivo[]
   llaves                Llave[]
   leads                 Lead[]
-  ventas                Venta[]
   arriendos             Arriendo[]
   promociones           UnidadPromocion[]
   cotizacionItems       CotizacionItem[]
@@ -361,7 +363,6 @@ model Interaccion {
 model Venta {
   id                    Int         @id @default(autoincrement())
   leadId                Int         @unique
-  unidadId              Int
   compradorId           Int
   vendedorId            Int?
   brokerId              Int?
@@ -378,7 +379,7 @@ model Venta {
   actualizadoEn         DateTime    @updatedAt
 
   lead                  Lead        @relation(fields: [leadId], references: [id])
-  unidad                Unidad      @relation(fields: [unidadId], references: [id])
+  unidades              Unidad[]
   comprador             Contacto    @relation("CompradorVenta", fields: [compradorId], references: [id])
   vendedor              Usuario?    @relation("VendedorVenta", fields: [vendedorId], references: [id])
   broker                Usuario?    @relation("BrokerVenta", fields: [brokerId], references: [id])
