@@ -111,8 +111,8 @@ export default function Ventas() {
       render: (e) => <Tag color={ESTADO_VENTA_COLOR[e]}>{ESTADO_LABEL[e]}</Tag>
     },
     {
-      title: 'Fecha', dataIndex: 'creadoEn', key: 'fecha',
-      render: (d) => <span style={{ fontSize: 12, color: '#8c8c8c' }}>{format(new Date(d), 'd MMM yyyy', { locale: es })}</span>
+      title: 'Fecha reserva', dataIndex: 'fechaReserva', key: 'fecha',
+      render: (d) => d ? <span style={{ fontSize: 12, color: '#8c8c8c' }}>{format(new Date(d), 'd MMM yyyy', { locale: es })}</span> : '—'
     },
   ]
 
