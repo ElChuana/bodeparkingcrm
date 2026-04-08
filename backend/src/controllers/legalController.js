@@ -29,13 +29,7 @@ const obtener = async (req, res) => {
       }
     })
 
-    // Si no existe, crearlo automáticamente
-    if (!proceso) {
-      proceso = await prisma.procesoLegal.create({
-        data: { ventaId: Number(ventaId), tienePromesa: true, estadoActual: 'FIRMA_CLIENTE_PROMESA' },
-        include: { documentos: true }
-      })
-    }
+    if (!proceso) return res.status(404).json({ error: 'Proceso legal no encontrado.' })
 
     res.json(proceso)
   } catch (err) {
