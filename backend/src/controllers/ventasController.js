@@ -157,6 +157,20 @@ const crear = async (req, res) => {
     // Actualizar etapa del lead
     await prisma.lead.update({ where: { id: Number(leadId) }, data: { etapa: 'RESERVA' } })
 
+    // Crear proceso legal automáticamente
+    const fechaBase = fechaReserva ? new Date(fechaReserva) : new Date()
+    await prisma.procesoLegal.create({
+      data: {
+        ventaId: venta.id,
+        tienePromesa: false,
+        estadoActual: 'ESCRITURA_LISTA',
+        fechaLimiteEscritura: fechaBase,
+        fechaLimiteFirmaNot: fechaBase,
+        fechaLimiteCBR: fechaBase,
+        fechaLimiteEntrega: fechaBase
+      }
+    })
+
     // Calcular comisiones automáticamente
     await calcularComisiones(venta.id, Number(precioUF) - (Number(descuentoUF) || 0), lead)
 
