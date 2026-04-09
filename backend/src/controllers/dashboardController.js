@@ -58,7 +58,7 @@ const obtener = async (req, res) => {
         include: {
           comprador: { select: { nombre: true, apellido: true } },
           broker:    { select: { nombre: true, apellido: true } },
-          unidad: {
+          unidades: {
             select: {
               numero: true, tipo: true, precioCostoUF: true,
               edificio: { select: { nombre: true } }
@@ -83,7 +83,7 @@ const obtener = async (req, res) => {
         include: {
           comprador: { select: { nombre: true, apellido: true } },
           vendedor:  { select: { nombre: true, apellido: true } },
-          unidad: {
+          unidades: {
             select: {
               numero: true, tipo: true,
               edificio: { select: { nombre: true } }

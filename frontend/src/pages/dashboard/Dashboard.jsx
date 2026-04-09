@@ -120,16 +120,16 @@ function TablaVentas({ ventas }) {
       title: 'Unidad', key: 'unidad', width: 80,
       render: (_, v) => (
         <div>
-          <Text strong style={{ fontSize: 12 }}>{v.unidad?.numero}</Text>
+          <Text strong style={{ fontSize: 12 }}>{v.unidades?.[0]?.numero}</Text>
           <div><Text type="secondary" style={{ fontSize: 11 }}>
-            {v.unidad?.tipo === 'BODEGA' ? 'Bodega' : 'Est.'}
+            {v.unidades?.[0]?.tipo === 'BODEGA' ? 'Bodega' : 'Est.'}
           </Text></div>
         </div>
       )
     },
     {
       title: 'Proyecto', key: 'proyecto',
-      render: (_, v) => <Text style={{ fontSize: 12 }}>{v.unidad?.edificio?.nombre || '—'}</Text>
+      render: (_, v) => <Text style={{ fontSize: 12 }}>{v.unidades?.[0]?.edificio?.nombre || '—'}</Text>
     },
     {
       title: 'Valor UF', key: 'uf', width: 100, align: 'right',
@@ -154,20 +154,20 @@ function TablaVentas({ ventas }) {
     },
     {
       title: 'Costo UF', key: 'costo', width: 95, align: 'right',
-      render: (_, v) => v.unidad?.precioCostoUF
-        ? <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{v.unidad.precioCostoUF.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF</Text>
+      render: (_, v) => v.unidades?.[0]?.precioCostoUF
+        ? <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{v.unidades[0].precioCostoUF.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF</Text>
         : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
     },
     {
       title: 'Múltiplo', key: 'multiplo', width: 85, align: 'center',
       render: (_, v) => {
         const precio = v.precioUF - (v.descuentoUF || 0)
-        const costo  = v.unidad?.precioCostoUF
+        const costo  = v.unidades?.[0]?.precioCostoUF
         if (!costo || !precio) return <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
         const m = precio / costo
         const color = m >= 2 ? '#52c41a' : m >= 1.5 ? '#1677ff' : m >= 1 ? '#faad14' : '#ff4d4f'
         return (
-          <Tooltip title={`${precio.toFixed(2)} UF ÷ ${costo.toFixed(2)} UF`}>
+          <Tooltip title={`${precio.toFixed(2)} UF ÷ ${(costo).toFixed(2)} UF`}>
             <Text strong style={{ fontSize: 13, color }}>{m.toFixed(2)}x</Text>
           </Tooltip>
         )
@@ -340,7 +340,7 @@ function TablaVentasActivas({ ventas }) {
           <Text strong style={{ fontSize: 13 }}>{v.comprador?.nombre} {v.comprador?.apellido}</Text>
           <div>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {v.unidad?.edificio?.nombre} — {v.unidad?.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {v.unidad?.numero}
+              {v.unidades?.[0]?.edificio?.nombre} — {v.unidades?.[0]?.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {v.unidades?.[0]?.numero}
             </Text>
           </div>
           {v.vendedor && (
