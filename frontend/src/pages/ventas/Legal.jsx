@@ -160,7 +160,7 @@ export default function Legal() {
         return (
           <div>
             <Text strong style={{ fontSize: 13 }}>{v.comprador?.nombre} {v.comprador?.apellido}</Text>
-            <div><Text type="secondary" style={{ fontSize: 12 }}>
+            <div><Text type="secondary" style={{ fontSize: 11 }}>
               {us.length > 0 ? us.map(u => `${u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${u.numero}`).join(', ') : '—'}
               {us[0]?.edificio?.nombre ? ` — ${us[0].edificio.nombre}` : ''}
             </Text></div>
@@ -169,24 +169,32 @@ export default function Legal() {
       }
     },
     {
-      title: 'Estado', key: 'estado', width: 110,
+      title: 'Estado', key: 'estado', width: 100,
       render: (_, v) => <Tag color={ESTADO_VENTA_COLOR[v.estado]}>{ESTADO_LABEL[v.estado]}</Tag>
     },
     {
-      title: 'Paso actual', key: 'paso', width: 180,
+      title: 'Paso actual', key: 'paso', width: 200,
       render: (_, v) => {
         if (!v.procesoLegal) return <Tag color="default">No iniciado</Tag>
-        const campo   = FECHA_POR_PASO[v.procesoLegal.estadoActual]
-        const fecha   = campo && v.procesoLegal[campo]
-        const vencido = fecha && isPast(new Date(fecha)) && v.procesoLegal.estadoActual !== 'ENTREGADO'
+        const pl = v.procesoLegal
+        const campo = FECHA_POR_PASO[pl.estadoActual]
+        const fecha = campo && pl[campo]
+        const vencido = fecha && isPast(new Date(fecha)) && pl.estadoActual !== 'ENTREGADO'
+        const sinFecha = !fecha && pl.estadoActual !== 'ENTREGADO'
+        const badgeStyle = vencido
+          ? { background: '#fef2f2', color: '#ef4444' }
+          : sinFecha
+          ? { background: '#f8fafc', color: '#94a3b8' }
+          : fecha && new Date(fecha) - new Date() < 7 * 86400000
+          ? { background: '#fffbeb', color: '#d97706' }
+          : { background: '#eff6ff', color: '#1d4ed8' }
         return (
           <div>
-            <Tag color={vencido ? 'red' : 'blue'}>
-              {vencido && <WarningOutlined style={{ marginRight: 4 }} />}
-              {LEGAL_LABEL[v.procesoLegal.estadoActual]}
-            </Tag>
+            <span style={{ ...badgeStyle, fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 99, display: 'inline-block' }}>
+              {vencido ? '⚠ ' : ''}{LEGAL_LABEL[pl.estadoActual]}
+            </span>
             {fecha && (
-              <div style={{ fontSize: 11, color: vencido ? '#ff4d4f' : '#8c8c8c', marginTop: 2 }}>
+              <div style={{ fontSize: 10, color: vencido ? '#ef4444' : '#94a3b8', marginTop: 2 }}>
                 Límite: {format(new Date(fecha), 'd MMM', { locale: es })}
               </div>
             )}
@@ -195,21 +203,27 @@ export default function Legal() {
       }
     },
     {
-      title: 'Qué falta', key: 'falta',
+      title: 'Progreso', key: 'progreso', width: 140,
       render: (_, v) => {
-        const faltantes = calcFaltantes(v.procesoLegal)
-        if (faltantes.length === 0) return <Tag color="green">Al día</Tag>
+        if (!v.procesoLegal) return null
+        const pl = v.procesoLegal
+        const pasos = pl.tienePromesa === false ? PASOS_SIN_PROMESA : PASOS_CON_PROMESA
+        const idx = pasos.indexOf(pl.estadoActual)
+        const campo = FECHA_POR_PASO[pl.estadoActual]
+        const fecha = campo && pl[campo]
+        const vencido = fecha && isPast(new Date(fecha)) && pl.estadoActual !== 'ENTREGADO'
         return (
-          <Space size={2} wrap>
-            {faltantes.slice(0, 2).map((f, i) => (
-              <Tag key={i} color={f.tipo === 'error' ? 'red' : 'orange'} style={{ fontSize: 11 }}>
-                {f.texto}
-              </Tag>
-            ))}
-            {faltantes.length > 2 && (
-              <Text type="secondary" style={{ fontSize: 11 }}>+{faltantes.length - 2} más</Text>
-            )}
-          </Space>
+          <div>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {pasos.map((_, pi) => (
+                <div key={pi} style={{
+                  height: 4, flex: 1, borderRadius: 99,
+                  background: pi < idx ? '#1d4ed8' : pi === idx ? (vencido ? '#ef4444' : '#f59e0b') : '#e2e8f0'
+                }} />
+              ))}
+            </div>
+            <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 3 }}>{idx + 1}/{pasos.length} pasos</div>
+          </div>
         )
       }
     },
