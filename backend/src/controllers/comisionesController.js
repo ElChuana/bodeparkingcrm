@@ -25,7 +25,7 @@ const listar = async (req, res) => {
         venta: {
           select: {
             id: true, estado: true, precioUF: true,
-            unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
+            unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
             comprador: { select: { nombre: true, apellido: true } }
           }
         }
@@ -60,8 +60,12 @@ const crear = async (req, res) => {
   }
 
   try {
-    const venta = await prisma.venta.findUnique({ where: { id: Number(ventaId) }, select: { precioUF: true, descuentoUF: true } })
+    const venta = await prisma.venta.findUnique({
+      where: { id: Number(ventaId) },
+      select: { precioUF: true, descuentoUF: true, estado: true }
+    })
     if (!venta) return res.status(404).json({ error: 'Venta no encontrada.' })
+    if (venta.estado === 'ANULADO') return res.status(400).json({ error: 'No se pueden crear comisiones para ventas anuladas.' })
 
     const precioFinal = venta.precioUF - (venta.descuentoUF || 0)
     const total = calcularMontos(precioFinal, porcentaje != null ? Number(porcentaje) : null, montoFijo != null ? Number(montoFijo) : null)
