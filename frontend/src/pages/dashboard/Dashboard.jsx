@@ -10,7 +10,7 @@ import { format } from 'date-fns'
 import { isPast } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const { Title, Text } = Typography
+const { Text } = Typography
 
 const ESTADO_LABEL = { RESERVA: 'Reserva', PROMESA: 'Promesa', ESCRITURA: 'Escritura', ENTREGADO: 'Entregado', ANULADO: 'Anulado' }
 
@@ -54,7 +54,6 @@ const COLORES_TRAPECIO = ['#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd']
 
 function EmbudoVisual({ datos }) {
   if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, padding: '20px 0', textAlign: 'center' }}>Sin datos</div>
-  const max = datos[0]?.cantidad || 1
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
