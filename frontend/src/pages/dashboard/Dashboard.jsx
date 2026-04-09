@@ -14,15 +14,6 @@ const { Title, Text } = Typography
 
 const ESTADO_LABEL = { RESERVA: 'Reserva', PROMESA: 'Promesa', ESCRITURA: 'Escritura', ENTREGADO: 'Entregado', ANULADO: 'Anulado' }
 
-const COLORES_EMBUDO = ['#1677ff', '#4096ff', '#69b1ff', '#91caff', '#bae0ff']
-
-const DESC_EMBUDO = [
-  'Leads creados en el período',
-  'Leads que avanzaron a Seguimiento o más',
-  'Leads que agendaron o realizaron visita',
-  'Ventas con fecha de reserva en el período',
-  'Ventas con escritura firmada en el período',
-]
 
 const PRESETS = [
   { label: 'Hoy',         key: 'hoy' },
@@ -58,49 +49,56 @@ function calcPresetDates(key) {
   return { desde: null, hasta: null }
 }
 
+const ANCHOS_EMBUDO = ['100%', '90%', '78%', '60%', '40%']
+const COLORES_TRAPECIO = ['#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd']
+
 function EmbudoVisual({ datos }) {
-  if (!datos?.length) return null
+  if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, padding: '20px 0', textAlign: 'center' }}>Sin datos</div>
   const max = datos[0]?.cantidad || 1
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
       {datos.map((paso, i) => {
-        const pct = max > 0 ? (paso.cantidad / max) * 100 : 0
         const convPct = i > 0 && datos[i - 1].cantidad > 0
           ? Math.round((paso.cantidad / datos[i - 1].cantidad) * 100)
           : null
+        const esUltimo = i === datos.length - 1
+        const textColor = i >= 4 ? '#1e3a8a' : '#fff'
+        const subTextColor = i >= 4 ? 'rgba(30,58,138,0.7)' : 'rgba(255,255,255,0.75)'
 
         return (
-          <div key={paso.paso}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
-              <div>
-                <Text strong style={{ fontSize: 13 }}>{paso.paso}</Text>
-                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 1 }}>
-                  {DESC_EMBUDO[i]}
-                </Text>
-              </div>
-              <Space size={8} style={{ flexShrink: 0, marginLeft: 8 }}>
-                {convPct !== null && (
-                  <Tag color={convPct >= 50 ? 'green' : convPct >= 25 ? 'orange' : 'red'} style={{ fontSize: 11, margin: 0 }}>
-                    {convPct}%
-                  </Tag>
-                )}
-                <Text strong style={{ fontSize: 14, minWidth: 28, textAlign: 'right' }}>{paso.cantidad}</Text>
-              </Space>
-            </div>
-            <div style={{ height: 22, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden' }}>
+          <div key={paso.paso} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: ANCHOS_EMBUDO[i] || '30%' }}>
               <div style={{
-                width: `${pct}%`,
-                height: '100%',
-                background: COLORES_EMBUDO[i],
-                borderRadius: 4,
-                transition: 'width 0.5s ease',
-                minWidth: paso.cantidad > 0 ? 4 : 0,
-              }} />
+                background: COLORES_TRAPECIO[i] || '#bfdbfe',
+                borderRadius: 3,
+                padding: '8px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: textColor }}>{paso.paso}</span>
+                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 800, color: textColor }}>{paso.cantidad}</span>
+                {convPct !== null && (
+                  <span style={{ fontSize: 9, fontWeight: 500, color: subTextColor }}>{convPct}%</span>
+                )}
+              </div>
             </div>
+            {!esUltimo && (
+              <div style={{ fontSize: 8, color: '#cbd5e1', lineHeight: 1.2 }}>▼</div>
+            )}
           </div>
         )
       })}
+      {datos.length >= 2 && (
+        <div style={{ marginTop: 8, fontSize: 10, color: '#94a3b8', textAlign: 'center' }}>
+          Conversión total{' '}
+          <strong style={{ color: '#1d4ed8' }}>
+            {datos[0].cantidad > 0 ? Math.round((datos[datos.length - 1].cantidad / datos[0].cantidad) * 100) : 0}%
+          </strong>
+          {' · '}{datos[0].cantidad} leads → {datos[datos.length - 1].cantidad} escrituras
+        </div>
+      )}
     </div>
   )
 }
@@ -399,7 +397,80 @@ function TablaVentasActivas({ ventas }) {
   )
 }
 
+function LegalWidget({ ventasActivas }) {
+  const navigate = useNavigate()
+  const ventasLegal = (ventasActivas || [])
+    .filter(v => ['PROMESA', 'ESCRITURA'].includes(v.estado) && v.procesoLegal)
+    .slice(0, 6)
+
+  if (!ventasLegal.length) return (
+    <div style={{ color: '#94a3b8', fontSize: 12, padding: '20px 0', textAlign: 'center' }}>Sin procesos legales activos</div>
+  )
+
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+      <thead>
+        <tr>
+          <th style={{ background: '#f8fafc', padding: '5px 8px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'left' }}>Comprador</th>
+          <th style={{ background: '#f8fafc', padding: '5px 8px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'left' }}>Paso actual</th>
+          <th style={{ background: '#f8fafc', padding: '5px 8px', fontWeight: 600, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.6px', textAlign: 'left' }}>Progreso</th>
+        </tr>
+      </thead>
+      <tbody>
+        {ventasLegal.map(v => {
+          const pl = v.procesoLegal
+          const pasos = pl.tienePromesa === false ? PASOS_SIN_PROMESA : PASOS_CON_PROMESA
+          const idx = pasos.indexOf(pl.estadoActual)
+          const campo = FECHA_POR_PASO[pl.estadoActual]
+          const fecha = campo && pl[campo]
+          const vencido = fecha && isPast(new Date(fecha)) && pl.estadoActual !== 'ENTREGADO'
+          const sinFecha = !fecha && pl.estadoActual !== 'ENTREGADO'
+
+          const badgeStyle = vencido
+            ? { background: '#fef2f2', color: '#ef4444' }
+            : sinFecha
+            ? { background: '#f8fafc', color: '#94a3b8' }
+            : fecha && new Date(fecha) - new Date() < 7 * 86400000
+            ? { background: '#fffbeb', color: '#d97706' }
+            : { background: '#eff6ff', color: '#1d4ed8' }
+
+          const us = v.unidades || []
+          const unidadLabel = us.length > 0
+            ? us.map(u => `${u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${u.numero}`).join(', ')
+            : '—'
+
+          return (
+            <tr key={v.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/ventas/${v.id}`)}>
+              <td style={{ padding: '7px 8px', borderBottom: '1px solid #f8fafc' }}>
+                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 11 }}>{v.comprador?.nombre} {v.comprador?.apellido}</div>
+                <div style={{ color: '#94a3b8', fontSize: 9 }}>{unidadLabel}</div>
+              </td>
+              <td style={{ padding: '7px 8px', borderBottom: '1px solid #f8fafc' }}>
+                <span style={{ ...badgeStyle, fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 99, display: 'inline-block' }}>
+                  {vencido ? '⚠ ' : ''}{LEGAL_LABEL[pl.estadoActual]}{fecha && !vencido ? ` · ${format(new Date(fecha), 'd MMM', { locale: es })}` : ''}
+                </span>
+              </td>
+              <td style={{ padding: '7px 8px', borderBottom: '1px solid #f8fafc' }}>
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {pasos.map((_, pi) => (
+                    <div key={pi} style={{
+                      height: 3, flex: 1, borderRadius: 99,
+                      background: pi < idx ? '#1d4ed8' : pi === idx ? (vencido ? '#ef4444' : '#f59e0b') : '#e2e8f0'
+                    }} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 2 }}>{idx + 1}/{pasos.length}</div>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [presetActivo, setPresetActivo] = useState('mes')
   const [rangoCustom, setRangoCustom] = useState(null)
   const [fechaParams, setFechaParams] = useState(() => calcPresetDates('mes'))
@@ -430,94 +501,146 @@ export default function Dashboard() {
 
   const { resumen, embudo, unidadesPorEstado, ventasRecientes, ventasActivas } = data || {}
   const totalUnidades = unidadesPorEstado?.reduce((s, u) => s + u._count.id, 0) || 1
+  const unidadesOcupadas = unidadesPorEstado?.filter(u => u.estado !== 'DISPONIBLE').reduce((s, u) => s + u._count.id, 0) || 0
+  const ocupacionPct = totalUnidades > 0 ? Math.round((unidadesOcupadas / totalUnidades) * 100) : 0
+  const ventasEnLegal = (ventasActivas || []).filter(v => ['PROMESA', 'ESCRITURA'].includes(v.estado)).length
+  const alertasLegal = (ventasActivas || []).filter(v => {
+    const pl = v.procesoLegal
+    if (!pl) return false
+    const campo = FECHA_POR_PASO[pl.estadoActual]
+    return campo && pl[campo] && isPast(new Date(pl[campo])) && pl.estadoActual !== 'ENTREGADO'
+  }).length
+
+  const hoy = format(new Date(), "EEEE d 'de' MMMM, yyyy", { locale: es })
+
+  const STAT_CARDS = [
+    {
+      label: 'Ventas del período',
+      value: ventasRecientes?.length || 0,
+      hint: `${(ventasActivas || []).filter(v => v.estado === 'RESERVA').length} en reserva`,
+      highlight: true,
+    },
+    {
+      label: 'Leads activos',
+      value: resumen?.totalLeads || 0,
+      hint: `${resumen?.notificacionesSinLeer || 0} notif. sin leer`,
+    },
+    {
+      label: 'Ocupación',
+      value: `${ocupacionPct}%`,
+      hint: `${unidadesOcupadas} de ${totalUnidades} unidades`,
+    },
+    {
+      label: 'En proceso legal',
+      value: ventasEnLegal,
+      hint: alertasLegal > 0 ? `${alertasLegal} con fechas vencidas` : 'Sin alertas',
+      hintColor: alertasLegal > 0 ? '#f59e0b' : '#10b981',
+    },
+  ]
 
   return (
     <div style={{ maxWidth: 1300 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <Title level={4} style={{ margin: 0 }}>Dashboard</Title>
+      {/* Header */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.4px' }}>
+          Dashboard
+        </div>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, textTransform: 'capitalize' }}>{hoy}</div>
+      </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>Período:</Text>
-          {PRESETS.map(p => (
-            <Button
-              key={p.key}
-              size="small"
-              type={presetActivo === p.key ? 'primary' : 'default'}
-              onClick={() => aplicarPreset(p.key)}
-            >
-              {p.label}
-            </Button>
-          ))}
-          <DatePicker.RangePicker
-            size="small"
-            value={rangoCustom}
-            onChange={aplicarRango}
-            placeholder={['Desde', 'Hasta']}
-            allowClear
-            style={{ width: 210 }}
-          />
+      {/* Period tabs */}
+      <div style={{ display: 'flex', gap: 3, background: '#f1f5f9', borderRadius: 8, padding: 3, marginBottom: 16, width: 'fit-content', flexWrap: 'wrap' }}>
+        {PRESETS.map(p => (
+          <div
+            key={p.key}
+            onClick={() => aplicarPreset(p.key)}
+            style={{
+              padding: '5px 12px', borderRadius: 6, cursor: 'pointer',
+              fontSize: 11, fontWeight: presetActivo === p.key ? 600 : 500,
+              color: presetActivo === p.key ? '#1d4ed8' : '#64748b',
+              background: presetActivo === p.key ? '#fff' : 'transparent',
+              boxShadow: presetActivo === p.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              transition: 'all 0.15s',
+            }}
+          >{p.label}</div>
+        ))}
+        <DatePicker.RangePicker
+          size="small"
+          value={rangoCustom}
+          onChange={aplicarRango}
+          placeholder={['Desde', 'Hasta']}
+          allowClear
+          style={{ marginLeft: 4, height: 28 }}
+        />
+      </div>
+
+      {/* 4 Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
+        {STAT_CARDS.map((s, i) => (
+          <div key={i} style={{
+            background: s.highlight ? 'linear-gradient(135deg, #1d4ed8, #3b82f6)' : '#fff',
+            border: s.highlight ? 'none' : '1px solid #e2e8f0',
+            borderRadius: 10, padding: 14,
+          }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: s.highlight ? 'rgba(255,255,255,0.65)' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
+              {s.label}
+            </div>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 26, fontWeight: 800, color: s.highlight ? '#fff' : '#0f172a', lineHeight: 1 }}>
+              {s.value}
+            </div>
+            <div style={{ fontSize: 10, color: s.highlight ? 'rgba(255,255,255,0.75)' : (s.hintColor || '#10b981'), marginTop: 4 }}>
+              {s.hint}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Embudo + Legal */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 14, marginBottom: 16 }}>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Embudo de ventas</div>
+          </div>
+          <EmbudoVisual datos={embudo} />
+        </div>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Proceso legal</div>
+            <span onClick={() => navigate('/legal')} style={{ fontSize: 9, color: '#3b82f6', fontWeight: 500, cursor: 'pointer' }}>Ver legal →</span>
+          </div>
+          <LegalWidget ventasActivas={ventasActivas} />
         </div>
       </div>
 
-      {/* Stats */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={12} lg={12}>
-          <Card>
-            <Statistic title="Leads ingresados" value={resumen?.totalLeads || 0}
-              prefix={<TeamOutlined style={{ color: '#1677ff' }} />} />
-          </Card>
-        </Col>
-        <Col xs={12} lg={12}>
-          <Card>
-            <Statistic title="Notificaciones sin leer" value={resumen?.notificacionesSinLeer || 0}
-              prefix={<BellOutlined style={{ color: '#1677ff' }} />} />
-          </Card>
-        </Col>
-      </Row>
-
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={24} lg={14}>
-          <Card title="Embudo de conversión" style={{ height: '100%' }}>
-            <EmbudoVisual datos={embudo} />
-          </Card>
-        </Col>
-        <Col xs={24} lg={10}>
-          <Card title="Inventario" style={{ height: '100%' }}>
-            {!unidadesPorEstado?.length ? (
-              <div style={{ textAlign: 'center', color: '#aaa', padding: '40px 0' }}>Sin unidades</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
-                {unidadesPorEstado.map(u => (
-                  <div key={u.estado}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, textTransform: 'capitalize' }}>
-                        {u.estado.toLowerCase().replace('_', ' ')}
-                      </span>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{u._count.id}</span>
-                    </div>
-                    <Progress
-                      percent={Math.round((u._count.id / totalUnidades) * 100)}
-                      showInfo={false}
-                      strokeColor={
-                        u.estado === 'DISPONIBLE' ? '#52c41a' :
-                        u.estado === 'RESERVADO'  ? '#faad14' :
-                        u.estado === 'VENDIDO'    ? '#ff4d4f' : '#1677ff'
-                      }
-                      size="small"
-                    />
-                  </div>
-                ))}
+      {/* Inventario */}
+      <Card title="Inventario" size="small" style={{ marginBottom: 16 }}>
+        {!unidadesPorEstado?.length ? (
+          <div style={{ textAlign: 'center', color: '#aaa', padding: '20px 0' }}>Sin unidades</div>
+        ) : (
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            {unidadesPorEstado.map(u => (
+              <div key={u.estado} style={{ minWidth: 120 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, textTransform: 'capitalize' }}>{u.estado.toLowerCase().replace('_', ' ')}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{u._count.id}</span>
+                </div>
+                <Progress
+                  percent={Math.round((u._count.id / totalUnidades) * 100)}
+                  showInfo={false}
+                  strokeColor={u.estado === 'DISPONIBLE' ? '#52c41a' : u.estado === 'RESERVADO' ? '#faad14' : u.estado === 'VENDIDO' ? '#ef4444' : '#1677ff'}
+                  size="small"
+                />
               </div>
-            )}
-          </Card>
-        </Col>
-      </Row>
+            ))}
+          </div>
+        )}
+      </Card>
 
       {/* Tabla de ventas del período */}
       <TablaVentas ventas={ventasRecientes || []} />
 
       {/* Ventas activas */}
-      <div style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 16 }}>
         <TablaVentasActivas ventas={ventasActivas || []} />
       </div>
     </div>
