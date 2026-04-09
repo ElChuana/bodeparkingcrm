@@ -538,6 +538,7 @@ model VentaPromocion {
   promocion                   Promocion @relation(fields: [promocionId], references: [id])
   pagosArriendoAsegurado      PagoArriendoAsegurado[]
 
+  @@unique([ventaId, promocionId])
   @@map("ventas_promociones")
 }
 
