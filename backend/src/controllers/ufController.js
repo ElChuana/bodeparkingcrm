@@ -1,18 +1,10 @@
 const axios = require('axios')
 const prisma = require('../lib/prisma')
 
-// Convierte fecha local a string DD-MM-YYYY para mindicador.cl
-function fechaAQuery(date) {
-  const d = String(date.getDate()).padStart(2, '0')
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const y = date.getFullYear()
-  return `${d}-${m}-${y}`
-}
 
 const obtenerUF = async (req, res) => {
   try {
     const hoy = new Date()
-    const queryStr = fechaAQuery(hoy)
 
     // Buscar en cache por rango del día (evita problemas de timezone)
     const inicio = new Date(hoy)
@@ -25,8 +17,8 @@ const obtenerUF = async (req, res) => {
     })
     if (cache) return res.json({ fecha: cache.fecha, valorPesos: cache.valorPesos, fuente: 'cache' })
 
-    // Consultar mindicador.cl
-    const resp = await axios.get(`https://mindicador.cl/api/uf/${queryStr}`, { timeout: 8000 })
+    // Consultar mindicador.cl — sin fecha devuelve los últimos 30 días, serie[0] es el más reciente
+    const resp = await axios.get('https://mindicador.cl/api/uf', { timeout: 8000 })
     const serie = resp.data?.serie
     if (!serie?.length) throw new Error('Sin datos en mindicador.cl')
 
