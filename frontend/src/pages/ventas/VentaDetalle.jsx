@@ -143,9 +143,9 @@ function FilaCuota({ cuota, index, onChange, onDelete, showDelete }) {
   }
 
   const fmtUF = v => v != null ? Number(v).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : ''
-  const parseUF = v => v ? parseFloat(v.replace(/\./g, '').replace(',', '.')) || null : null
+  const parseUF = v => { if (!v) return null; const n = parseFloat(v.replace(/\./g, '').replace(',', '.')); return isNaN(n) ? null : n }
   const fmtCLP = v => v != null ? Math.round(v).toLocaleString('es-CL') : ''
-  const parseCLP = v => v ? parseInt(v.replace(/\./g, '').replace(',', ''), 10) || null : null
+  const parseCLP = v => { if (!v) return null; const n = parseInt(v.replace(/\./g, '').replace(',', ''), 10); return isNaN(n) ? null : n }
 
   const isDerivedUF = valorUF != null && cuota._ultimoEditado === 'clp' && cuota.montoCLP != null
   const isDerivedCLP = valorUF != null && cuota._ultimoEditado === 'uf' && cuota.montoUF != null
