@@ -43,9 +43,9 @@ export default function App() {
       locale={esES}
       theme={{
         token: {
-          colorPrimary: '#1677ff',
+          colorPrimary: '#1d4ed8',
           borderRadius: 8,
-          fontFamily: 'system-ui, -apple-system, sans-serif',
+          fontFamily: 'Inter, sans-serif',
         },
       }}
     >
