@@ -10,15 +10,26 @@ const crearPlan = async (req, res) => {
     return res.status(400).json({ error: 'VentaId y cuotas son requeridos.' })
   }
 
+  // Cada cuota debe tener al menos un monto
+  const cuotaSinMonto = cuotas.find(c => !(c.montoUF > 0) && !(c.montoCLP > 0))
+  if (cuotaSinMonto) {
+    return res.status(400).json({ error: 'Cada cuota debe tener montoUF o montoCLP.' })
+  }
+
   try {
     const existente = await prisma.planPago.findUnique({ where: { ventaId: Number(ventaId) } })
     if (existente) return res.status(400).json({ error: 'Esta venta ya tiene un plan de pago.' })
+
+    // Solo sumar montoUF si hay cuotas con valor UF
+    const totalUF = cuotas.some(c => c.montoUF > 0)
+      ? cuotas.reduce((s, c) => s + (c.montoUF || 0), 0)
+      : null
 
     const plan = await prisma.planPago.create({
       data: {
         ventaId: Number(ventaId),
         totalCuotas: cuotas.length,
-        montoUF: cuotas.reduce((s, c) => s + (c.montoUF || 0), 0),
+        montoUF: totalUF,
         fechaInicio: new Date(cuotas[0].fechaVencimiento),
         cuotas: {
           create: cuotas.map((c, i) => ({
@@ -132,7 +143,7 @@ const cuotasAtrasadas = async (req, res) => {
             venta: {
               include: {
                 comprador: { select: { nombre: true, apellido: true, telefono: true } },
-                unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
+                unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
               }
             }
           }
