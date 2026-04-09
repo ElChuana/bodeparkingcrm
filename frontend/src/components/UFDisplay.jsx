@@ -1,17 +1,23 @@
 import { useUF } from '../hooks/useUF'
-import { Typography } from 'antd'
-
-const { Text } = Typography
 
 export default function UFDisplay() {
   const { valorUF } = useUF()
   if (!valorUF) return null
   return (
-    <div>
-      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>UF hoy: </Text>
-      <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: 500 }}>
+    <div style={{
+      background: '#eff6ff',
+      border: '1px solid #bfdbfe',
+      borderRadius: 7,
+      padding: '6px 10px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+    }}>
+      <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />
+      <span style={{ fontSize: 9, color: '#64748b', fontWeight: 500 }}>UF hoy</span>
+      <span style={{ fontSize: 10, fontWeight: 700, color: '#1d4ed8', marginLeft: 'auto' }}>
         ${valorUF.toLocaleString('es-CL', { minimumFractionDigits: 2 })}
-      </Text>
+      </span>
     </div>
   )
 }
