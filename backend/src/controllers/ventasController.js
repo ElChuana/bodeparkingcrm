@@ -13,8 +13,8 @@ const listar = async (req, res) => {
             ...(hasta && { lte: new Date(hasta) })
           }
         } : {}),
-        ...(edificioId && { unidad: { edificioId: Number(edificioId) } }),
-        ...(tipoUnidad && { unidad: { tipo: tipoUnidad } }),
+        ...(edificioId && { unidades: { some: { edificioId: Number(edificioId) } } }),
+        ...(tipoUnidad && { unidades: { some: { tipo: tipoUnidad } } }),
         ...(precioMin && { precioUF: { gte: Number(precioMin) } }),
         ...(precioMax && { precioUF: { lte: Number(precioMax) } }),
         ...(conDescuento === 'true' && { descuentoUF: { gt: 0 } }),

@@ -40,7 +40,7 @@ const obtener = async (req, res) => {
           },
           orderBy: { creadoEn: 'desc' }
         },
-        compras: { include: { unidad: { select: { numero: true, tipo: true } } } }
+        compras: { include: { unidades: { select: { numero: true, tipo: true } } } }
       }
     })
     if (!contacto) return res.status(404).json({ error: 'Contacto no encontrado.' })
