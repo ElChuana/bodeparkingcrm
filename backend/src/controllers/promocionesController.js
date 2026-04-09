@@ -170,6 +170,7 @@ const aplicarAVenta = async (req, res) => {
     res.status(201).json(ventaPromo)
   } catch (err) {
     console.error(err)
+    if (err.code === 'P2002') return res.status(400).json({ error: 'Esta promoción ya está aplicada a esta venta.' })
     res.status(500).json({ error: 'Error al aplicar promoción a venta.' })
   }
 }
