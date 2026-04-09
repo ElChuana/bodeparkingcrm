@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
 import { useUF } from '../../hooks/useUF'
+import { useUFPorFecha } from '../../hooks/useUFPorFecha'
 import { useAuth } from '../../context/AuthContext'
 import { ESTADO_VENTA_COLOR } from '../../components/ui'
 import {
@@ -104,18 +105,113 @@ function ModalEstado({ open, onClose, venta }) {
   )
 }
 
+// ─── Fila de cuota con conversión UF↔CLP ─────────────────────────
+function FilaCuota({ cuota, index, onChange, onDelete, showDelete }) {
+  const { valorUF } = useUFPorFecha(cuota.fechaVencimiento)
+
+  // Latest-ref pattern: acceder a valores actuales desde effects sin deps adicionales
+  const cuotaRef = useRef(cuota)
+  cuotaRef.current = cuota
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
+  // Cuando valorUF cambia (fecha cambió y su UF cargó), recalcular campo derivado
+  useEffect(() => {
+    if (!valorUF) return
+    const c = cuotaRef.current
+    if (c._ultimoEditado === 'uf' && c.montoUF != null) {
+      onChangeRef.current(index, { ...c, montoCLP: Math.round(c.montoUF * valorUF) })
+    } else if (c._ultimoEditado === 'clp' && c.montoCLP != null) {
+      onChangeRef.current(index, { ...c, montoUF: parseFloat((c.montoCLP / valorUF).toFixed(4)) })
+    }
+  }, [valorUF]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUFChange = (value) => {
+    const next = { ...cuota, montoUF: value ?? null, _ultimoEditado: 'uf' }
+    if (value != null && valorUF) {
+      next.montoCLP = Math.round(value * valorUF)
+    }
+    onChange(index, next)
+  }
+
+  const handleCLPChange = (value) => {
+    const next = { ...cuota, montoCLP: value ?? null, _ultimoEditado: 'clp' }
+    if (value != null && valorUF) {
+      next.montoUF = parseFloat((value / valorUF).toFixed(4))
+    }
+    onChange(index, next)
+  }
+
+  const fmtUF = v => v != null ? Number(v).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : ''
+  const parseUF = v => v ? parseFloat(v.replace(/\./g, '').replace(',', '.')) || null : null
+  const fmtCLP = v => v != null ? Math.round(v).toLocaleString('es-CL') : ''
+  const parseCLP = v => v ? parseInt(v.replace(/\./g, '').replace(',', ''), 10) || null : null
+
+  const isDerivedUF = valorUF != null && cuota._ultimoEditado === 'clp' && cuota.montoCLP != null
+  const isDerivedCLP = valorUF != null && cuota._ultimoEditado === 'uf' && cuota.montoUF != null
+
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, background: '#fafafa', padding: 10, borderRadius: 8 }}>
+      <Select
+        value={cuota.tipo}
+        onChange={v => onChange(index, { ...cuota, tipo: v })}
+        style={{ width: 110 }} size="small"
+        options={[
+          { value: 'RESERVA', label: 'Reserva' },
+          { value: 'PIE', label: 'Pie' },
+          { value: 'CUOTA', label: 'Cuota' },
+          { value: 'ESCRITURA', label: 'Escritura' }
+        ]}
+      />
+      <InputNumber
+        size="small"
+        placeholder="UF"
+        value={cuota.montoUF}
+        onChange={handleUFChange}
+        formatter={fmtUF}
+        parser={parseUF}
+        min={0}
+        style={{ width: 110, background: isDerivedUF ? '#f0f4f8' : undefined }}
+      />
+      <InputNumber
+        size="small"
+        placeholder="CLP"
+        value={cuota.montoCLP}
+        onChange={handleCLPChange}
+        formatter={fmtCLP}
+        parser={parseCLP}
+        min={0}
+        style={{ width: 130, background: isDerivedCLP ? '#f0f4f8' : undefined }}
+      />
+      <Input
+        size="small"
+        type="date"
+        value={cuota.fechaVencimiento}
+        onChange={e => onChange(index, { ...cuota, fechaVencimiento: e.target.value })}
+        style={{ width: 140 }}
+      />
+      {showDelete && (
+        <Button size="small" danger icon={<DeleteOutlined />} type="text" onClick={() => onDelete(index)} />
+      )}
+    </div>
+  )
+}
+
 // ─── Modal crear plan de pago ─────────────────────────────────────
 function ModalPlanPago({ open, onClose, ventaId, precioUF }) {
   const qc = useQueryClient()
   const [cuotas, setCuotas] = useState([
-    { tipo: 'RESERVA', montoUF: '', montoCLP: '200000', fechaVencimiento: '' }
+    { tipo: 'RESERVA', montoUF: null, montoCLP: 200000, fechaVencimiento: '', _ultimoEditado: 'clp' }
   ])
   const { message } = App.useApp()
 
-  const totalUF = cuotas.reduce((s, c) => s + (Number(c.montoUF) || 0), 0)
+  const totalUF = cuotas.reduce((s, c) => s + (c.montoUF || 0), 0)
 
   const crear = useMutation({
-    mutationFn: () => api.post('/pagos/plan', { ventaId, cuotas }),
+    mutationFn: () => api.post('/pagos/plan', {
+      ventaId,
+      cuotas: cuotas.map(({ _ultimoEditado, ...c }) => c)
+    }),
     onSuccess: () => {
       message.success('Plan de pago creado')
       qc.invalidateQueries(['venta', ventaId])
@@ -124,12 +220,18 @@ function ModalPlanPago({ open, onClose, ventaId, precioUF }) {
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
-  const upd = (i, k, v) => setCuotas(p => p.map((c, idx) => idx === i ? { ...c, [k]: v } : c))
+  const handleCuotaChange = (i, nuevaCuota) => {
+    setCuotas(p => p.map((c, idx) => idx === i ? nuevaCuota : c))
+  }
+
+  const handleDelete = (i) => {
+    setCuotas(p => p.filter((_, idx) => idx !== i))
+  }
 
   return (
     <Modal title="Crear Plan de Pago" open={open} onCancel={onClose}
       onOk={() => crear.mutate()} okText="Crear Plan" cancelText="Cancelar"
-      confirmLoading={crear.isPending} width={680}>
+      confirmLoading={crear.isPending} width={700}>
       <div style={{ marginTop: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text type="secondary" style={{ fontSize: 13 }}>
@@ -137,21 +239,19 @@ function ModalPlanPago({ open, onClose, ventaId, precioUF }) {
             <strong style={{ color: totalUF > precioUF ? '#ff4d4f' : '#52c41a' }}>{totalUF.toFixed(2)} UF</strong>
           </Text>
           <Button size="small" icon={<PlusOutlined />}
-            onClick={() => setCuotas(p => [...p, { tipo: 'CUOTA', montoUF: '', montoCLP: '', fechaVencimiento: '' }])}>
+            onClick={() => setCuotas(p => [...p, { tipo: 'CUOTA', montoUF: null, montoCLP: null, fechaVencimiento: '', _ultimoEditado: null }])}>
             Cuota
           </Button>
         </div>
         {cuotas.map((c, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, background: '#fafafa', padding: 10, borderRadius: 8 }}>
-            <Select value={c.tipo} onChange={v => upd(i, 'tipo', v)} style={{ width: 110 }} size="small"
-              options={[{ value: 'RESERVA', label: 'Reserva' }, { value: 'PIE', label: 'Pie' }, { value: 'CUOTA', label: 'Cuota' }, { value: 'ESCRITURA', label: 'Escritura' }]} />
-            <Input size="small" type="number" step="0.01" placeholder="UF" value={c.montoUF} onChange={e => upd(i, 'montoUF', e.target.value)} style={{ width: 80 }} />
-            <Input size="small" type="number" placeholder="CLP" value={c.montoCLP} onChange={e => upd(i, 'montoCLP', e.target.value)} style={{ width: 110 }} />
-            <Input size="small" type="date" value={c.fechaVencimiento} onChange={e => upd(i, 'fechaVencimiento', e.target.value)} style={{ width: 140 }} />
-            {cuotas.length > 1 && (
-              <Button size="small" danger icon={<DeleteOutlined />} type="text" onClick={() => setCuotas(p => p.filter((_, idx) => idx !== i))} />
-            )}
-          </div>
+          <FilaCuota
+            key={i}
+            cuota={c}
+            index={i}
+            onChange={handleCuotaChange}
+            onDelete={handleDelete}
+            showDelete={cuotas.length > 1}
+          />
         ))}
       </div>
     </Modal>
