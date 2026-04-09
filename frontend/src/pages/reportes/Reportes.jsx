@@ -339,7 +339,7 @@ function ReporteComisiones() {
     { title: 'Persona', key: 'p', render: (_, c) => c.usuario ? `${c.usuario.nombre} ${c.usuario.apellido}` : '—' },
     { title: 'Rol', key: 'r', render: (_, c) => ROL_LABEL[c.usuario?.rol] || c.usuario?.rol || '—' },
     { title: 'Concepto', dataIndex: 'concepto', key: 'con', render: v => v || '—' },
-    { title: 'Unidad', key: 'u', render: (_, c) => c.venta?.unidad ? `${c.venta.unidad.edificio?.nombre} — ${c.venta.unidad.numero}` : '—' },
+    { title: 'Unidad', key: 'u', render: (_, c) => c.venta?.unidades?.[0] ? `${c.venta.unidades[0].edificio?.nombre} — ${c.venta.unidades[0].numero}` : '—' },
     { title: 'Total UF', key: 'total', render: (_, c) => fmtUF(c.montoCalculadoUF) },
     { title: '1ª cuota', key: 'p1', render: (_, c) => fmtUF(c.montoPrimera) },
     { title: 'Est. 1ª', key: 'e1', render: (_, c) => <Tag color={c.estadoPrimera === 'PAGADO' ? 'green' : 'orange'}>{c.estadoPrimera === 'PAGADO' ? 'Pagado' : 'Pendiente'}</Tag> },

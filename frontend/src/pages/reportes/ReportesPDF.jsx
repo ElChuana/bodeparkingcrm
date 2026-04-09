@@ -244,7 +244,7 @@ export function PDFComisiones({ data }) {
     persona: c.usuario ? `${c.usuario.nombre} ${c.usuario.apellido}` : '—',
     rol: ROL_LABEL[c.usuario?.rol] || c.usuario?.rol || '—',
     concepto: c.concepto || '—',
-    unidad: c.venta?.unidad ? `${c.venta.unidad.edificio?.nombre} — ${c.venta.unidad.numero}` : '—',
+    unidad: c.venta?.unidades?.[0] ? `${c.venta.unidades[0].edificio?.nombre} — ${c.venta.unidades[0].numero}` : '—',
     total: uf(c.montoCalculadoUF),
     primera: uf(c.montoPrimera),
     segunda: uf(c.montoSegunda),
