@@ -941,6 +941,7 @@ export default function VentaDetalle() {
   if (!venta) return <Text type="secondary" style={{ padding: 24, display: 'block' }}>Venta no encontrada.</Text>
 
   const precioFinal = venta.precioUF - (venta.descuentoUF || 0)
+  const precioLista = venta.precioUF
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -981,11 +982,22 @@ export default function VentaDetalle() {
         <Col xs={24} md={8}>
           <Space direction="vertical" style={{ width: '100%' }} size={12}>
             <Card size="small" title="Precio">
-              <Title level={3} style={{ margin: 0 }}>{formatUF(precioFinal)}</Title>
-              <Text type="secondary">{formatPesos(ufAPesos(precioFinal))}</Text>
-              {venta.descuentoUF > 0 && (
-                <div style={{ color: '#52c41a', fontSize: 13, marginTop: 4 }}>Descuento: {formatUF(venta.descuentoUF)}</div>
+              {venta.descuentoUF > 0 ? (
+                <>
+                  <div style={{ marginBottom: 4 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Precio lista </Text>
+                    <Text delete style={{ fontSize: 13, color: '#8c8c8c' }}>{formatUF(precioLista)}</Text>
+                  </div>
+                  <div style={{ marginBottom: 2 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Descuento </Text>
+                    <Text style={{ fontSize: 13, color: '#52c41a' }}>-{formatUF(venta.descuentoUF)}</Text>
+                  </div>
+                  <Title level={3} style={{ margin: '4px 0 0' }}>{formatUF(precioFinal)}</Title>
+                </>
+              ) : (
+                <Title level={3} style={{ margin: 0 }}>{formatUF(precioFinal)}</Title>
               )}
+              <Text type="secondary">{formatPesos(ufAPesos(precioFinal))}</Text>
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
                 {venta.fechaReserva && <div style={{ fontSize: 12, color: '#8c8c8c' }}>Reserva: {format(new Date(venta.fechaReserva), 'd MMM yyyy', { locale: es })}</div>}
                 {venta.fechaPromesa && <div style={{ fontSize: 12, color: '#8c8c8c' }}>Promesa: {format(new Date(venta.fechaPromesa), 'd MMM yyyy', { locale: es })}</div>}
