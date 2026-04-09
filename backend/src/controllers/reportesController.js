@@ -47,7 +47,7 @@ const ventas = async (req, res) => {
     const data = await prisma.venta.findMany({
       where: {
         ...(vendedorId && { vendedorId: Number(vendedorId) }),
-        ...(edificioId && { unidad: { edificioId: Number(edificioId) } }),
+        ...(edificioId && { unidades: { some: { edificioId: Number(edificioId) } } }),
         ...(desde || hasta ? {
           creadoEn: {
             ...(desde && { gte: new Date(desde) }),
@@ -59,7 +59,7 @@ const ventas = async (req, res) => {
         comprador: { select: { nombre: true, apellido: true, rut: true } },
         vendedor: { select: { nombre: true, apellido: true } },
         broker: { select: { nombre: true, apellido: true } },
-        unidad: {
+        unidades: {
           include: { edificio: { select: { nombre: true, region: true } } }
         },
         comisiones: { include: { usuario: { select: { nombre: true, apellido: true } } } }
@@ -119,7 +119,7 @@ const pagosAtrasados = async (req, res) => {
             venta: {
               include: {
                 comprador: { select: { nombre: true, apellido: true, telefono: true, email: true } },
-                unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
+                unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
                 vendedor: { select: { nombre: true, apellido: true } }
               }
             }
@@ -153,7 +153,7 @@ const comisiones = async (req, res) => {
         usuario: { select: { nombre: true, apellido: true, rol: true } },
         venta: {
           include: {
-            unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
+            unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
             comprador: { select: { nombre: true, apellido: true } }
           }
         }

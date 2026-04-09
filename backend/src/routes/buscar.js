@@ -59,14 +59,14 @@ router.get('/', async (req, res) => {
             { comprador: { nombre: { contains: texto, mode: modo } } },
             { comprador: { apellido: { contains: texto, mode: modo } } },
             { comprador: { rut: { contains: texto, mode: modo } } },
-            { unidad: { numero: { contains: texto, mode: modo } } },
-            { unidad: { edificio: { nombre: { contains: texto, mode: modo } } } },
+            { unidades: { some: { numero: { contains: texto, mode: modo } } } },
+            { unidades: { some: { edificio: { nombre: { contains: texto, mode: modo } } } } },
           ]
         },
         select: {
           id: true, estado: true, precioUF: true,
           comprador: { select: { nombre: true, apellido: true } },
-          unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
+          unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
         },
         orderBy: { creadoEn: 'desc' },
         take: 5,

@@ -14,7 +14,7 @@ const listar = async (req, res) => {
           select: {
             id: true,
             comprador: { select: { nombre: true, apellido: true } },
-            unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
+            unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
           }
         },
         responsable: { select: { nombre: true, apellido: true } }
