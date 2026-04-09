@@ -367,6 +367,7 @@ model Venta {
   vendedorId            Int?
   brokerId              Int?
   gerenteId             Int?
+  cotizacionOrigenId    Int?      @unique
   precioUF              Float
   descuentoUF           Float?      @default(0)
   estado                EstadoVenta @default(RESERVA)
@@ -384,6 +385,7 @@ model Venta {
   vendedor              Usuario?    @relation("VendedorVenta", fields: [vendedorId], references: [id])
   broker                Usuario?    @relation("BrokerVenta", fields: [brokerId], references: [id])
   gerente               Usuario?    @relation("GerenteVenta", fields: [gerenteId], references: [id])
+  cotizacionOrigen      Cotizacion? @relation(fields: [cotizacionOrigenId], references: [id])
   planPago              PlanPago?
   procesoLegal          ProcesoLegal?
   comisiones            Comision[]
@@ -574,6 +576,7 @@ model Cotizacion {
   items                 CotizacionItem[]
   promociones           CotizacionPromocion[]
   solicitudesDescuento  SolicitudDescuento[]
+  ventaOrigen           Venta?
 
   @@map("cotizaciones")
 }

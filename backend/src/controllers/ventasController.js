@@ -85,7 +85,7 @@ const obtener = async (req, res) => {
 }
 
 const crear = async (req, res) => {
-  const { leadId, unidadId, compradorId, brokerId, precioUF, descuentoUF, fechaReserva, notas } = req.body
+  const { leadId, unidadId, compradorId, brokerId, precioUF, descuentoUF, fechaReserva, notas, cotizacionOrigenId } = req.body
 
   if (!leadId || !unidadId || !compradorId || !precioUF) {
     return res.status(400).json({ error: 'Lead, unidad, comprador y precio UF son requeridos.' })
@@ -139,6 +139,7 @@ const crear = async (req, res) => {
         vendedorId: lead?.vendedorId || null,
         brokerId: brokerId ? Number(brokerId) : lead?.brokerId || null,
         gerenteId: gerenteId || null,
+        cotizacionOrigenId: cotizacionOrigenId ? Number(cotizacionOrigenId) : null,
         precioUF: Number(precioUF),
         descuentoUF: descuentoUF ? Number(descuentoUF) : 0,
         estado: 'RESERVA',
