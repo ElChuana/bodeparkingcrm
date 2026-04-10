@@ -129,7 +129,7 @@ export function PDFLeads({ data }) {
   }
   const ORIGEN_LABEL = {
     INSTAGRAM: 'Instagram', GOOGLE: 'Google', REFERIDO: 'Referido',
-    BROKER: 'Broker', VISITA_DIRECTA: 'Visita directa', WEB: 'Web', OTRO: 'Otro',
+    BROKER: 'Broker', VISITA_DIRECTA: 'Visita directa', WEB: 'Web', META: 'Meta', ORIGEN: 'Origen', OTRO: 'Otro',
   }
 
   const columnas = [
