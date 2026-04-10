@@ -407,9 +407,18 @@ function VistaKanban({ filtros, onPreview }) {
   const handleDragEnd = ({ active, over }) => {
     setActiveId(null)
     if (!over) return
-    const etapaDestino = over.id
+    let etapaDestino = over.id
+    // If dropped on another card (over.id is a number), find its column
+    if (!ETAPAS.includes(etapaDestino)) {
+      for (const [etapa, leads] of Object.entries(kanban)) {
+        if (leads.find(l => l.id === etapaDestino)) {
+          etapaDestino = etapa
+          break
+        }
+      }
+    }
     const etapaOrigen = dragStartEtapa.current
-    if (etapaDestino && etapaDestino !== etapaOrigen) {
+    if (ETAPAS.includes(etapaDestino) && etapaDestino !== etapaOrigen) {
       cambiarEtapa.mutate({ id: active.id, etapa: etapaDestino })
     }
     dragStartEtapa.current = null
@@ -582,8 +591,8 @@ function VistaLista({ filtros, onPreview, esGerenciaOJV, vendedores, selectedRow
       )
     },
     {
-      title: 'Últ. actividad', dataIndex: 'actualizadoEn', key: 'actualizado', width: 120,
-      render: (d) => <Text type="secondary" style={{ fontSize: 12 }}>{formatDistanceToNow(new Date(d), { addSuffix: true, locale: es })}</Text>
+      title: 'Fecha de ingreso', dataIndex: 'creadoEn', key: 'creadoEn', width: 130,
+      render: (d) => <Text type="secondary" style={{ fontSize: 12 }}>{format(new Date(d), "d MMM yyyy", { locale: es })}</Text>
     },
     {
       title: 'Actividades', dataIndex: '_count', key: 'acciones', width: 80, align: 'center',

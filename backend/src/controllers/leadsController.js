@@ -1,12 +1,12 @@
 const prisma = require('../lib/prisma')
 
-// Búsqueda sin importar acentos ni mayúsculas (usa extensión unaccent de PostgreSQL)
+// Búsqueda por nombre, apellido, email o teléfono (case-insensitive)
 const buscarContactoIds = async (search) => {
   const term = `%${search}%`
   const rows = await prisma.$queryRaw`
-    SELECT id FROM "Contacto"
-    WHERE unaccent(lower(nombre))  LIKE unaccent(lower(${term}))
-       OR unaccent(lower(apellido)) LIKE unaccent(lower(${term}))
+    SELECT id FROM "contactos"
+    WHERE lower(nombre)  LIKE lower(${term})
+       OR lower(apellido) LIKE lower(${term})
        OR lower(email) LIKE lower(${term})
        OR telefono LIKE ${term}
   `

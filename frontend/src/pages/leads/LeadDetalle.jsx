@@ -227,6 +227,45 @@ function CotizacionesLead({ leadId }) {
   )
 }
 
+// ─── Modal editar nombre contacto ─────────────────────────────────
+function ModalEditarContacto({ open, onClose, lead }) {
+  const qc = useQueryClient()
+  const [form] = Form.useForm()
+  const { message } = App.useApp()
+
+  const editar = useMutation({
+    mutationFn: (d) => api.put(`/contactos/${lead.contacto.id}`, d),
+    onSuccess: () => {
+      message.success('Contacto actualizado')
+      qc.invalidateQueries(['lead', String(lead.id)])
+      onClose()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  return (
+    <Modal
+      title="Editar nombre"
+      open={open}
+      onCancel={onClose}
+      onOk={() => form.validateFields().then(editar.mutate)}
+      okText="Guardar"
+      cancelText="Cancelar"
+      confirmLoading={editar.isPending}
+      afterOpenChange={(o) => { if (o) form.setFieldsValue({ nombre: lead?.contacto.nombre, apellido: lead?.contacto.apellido }) }}
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item name="apellido" label="Apellido">
+          <Input />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
 // ─── Página principal ──────────────────────────────────────────────
 export default function LeadDetalle() {
   const { id } = useParams()
@@ -236,6 +275,7 @@ export default function LeadDetalle() {
   const [modalEtapa, setModalEtapa] = useState(false)
   const [modalInteraccion, setModalInteraccion] = useState(false)
   const [modalVisita, setModalVisita] = useState(false)
+  const [modalEditarContacto, setModalEditarContacto] = useState(false)
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
@@ -309,7 +349,10 @@ export default function LeadDetalle() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
         <div>
-          <Title level={4} style={{ margin: 0 }}>{lead.contacto.nombre} {lead.contacto.apellido}</Title>
+          <Space align="center">
+            <Title level={4} style={{ margin: 0 }}>{lead.contacto.nombre} {lead.contacto.apellido}</Title>
+            <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setModalEditarContacto(true)} />
+          </Space>
           <Space style={{ marginTop: 6 }}>
             <Tag color={ETAPA_COLOR[lead.etapa]}>{ETAPA_LABEL[lead.etapa]}</Tag>
             {lead.contacto.origen && <Tag>{lead.contacto.origen.toLowerCase().replace('_', ' ')}</Tag>}
@@ -423,9 +466,10 @@ export default function LeadDetalle() {
         </Col>
       </Row>
 
-      <ModalCambiarEtapa open={modalEtapa}      onClose={() => setModalEtapa(false)}       lead={lead} />
-      <ModalInteraccion  open={modalInteraccion} onClose={() => setModalInteraccion(false)} leadId={id} />
-      <ModalVisita       open={modalVisita}      onClose={() => setModalVisita(false)}      leadId={id} />
+      <ModalCambiarEtapa    open={modalEtapa}          onClose={() => setModalEtapa(false)}          lead={lead} />
+      <ModalInteraccion     open={modalInteraccion}    onClose={() => setModalInteraccion(false)}    leadId={id} />
+      <ModalVisita          open={modalVisita}         onClose={() => setModalVisita(false)}         leadId={id} />
+      <ModalEditarContacto  open={modalEditarContacto} onClose={() => setModalEditarContacto(false)} lead={lead} />
     </div>
   )
 }
