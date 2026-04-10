@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layout Mockup — BodeParking CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #f0f4f8; color: #1e293b; }
+
+  .app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 228px;
+    min-width: 228px;
+    background: #fff;
+    border-right: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.04);
+  }
+
+  .sidebar-logo {
+    padding: 18px 20px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: white; font-weight: 700;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    flex-shrink: 0;
+  }
+  .logo-text {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px; font-weight: 700;
+    color: #0f172a; letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+  .logo-sub { font-size: 10px; color: #94a3b8; font-weight: 400; }
+
+  .uf-pill {
+    margin: 10px 14px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 7px 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .uf-dot { width: 6px; height: 6px; border-radius: 50%; background: #3b82f6; }
+  .uf-label { font-size: 10px; color: #64748b; font-weight: 500; }
+  .uf-val { font-size: 11px; font-weight: 700; color: #1d4ed8; margin-left: auto; }
+
+  .nav { flex: 1; overflow-y: auto; padding: 8px 10px; }
+
+  .nav-section-label {
+    font-size: 9px; font-weight: 600; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    padding: 10px 8px 4px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px; font-weight: 500; color: #475569;
+    transition: all 0.15s;
+    margin-bottom: 1px;
+  }
+  .nav-item:hover { background: #f8fafc; color: #1e293b; }
+  .nav-item.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 600;
+  }
+  .nav-item.active .nav-icon { color: #1d4ed8; }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; color: #94a3b8; }
+  .nav-badge {
+    margin-left: auto;
+    background: #ef4444; color: #fff;
+    font-size: 9px; font-weight: 700;
+    padding: 1px 5px; border-radius: 99px;
+  }
+
+  .sidebar-user {
+    padding: 12px 14px;
+    border-top: 1px solid #f1f5f9;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, #1d4ed8, #60a5fa);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 12px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .user-role { font-size: 10px; color: #94a3b8; }
+  .logout-btn { font-size: 14px; color: #cbd5e1; cursor: pointer; padding: 4px; }
+  .logout-btn:hover { color: #94a3b8; }
+
+  /* ── MAIN ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── HEADER ── */
+  .header {
+    height: 56px;
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex; align-items: center;
+    padding: 0 24px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .search-bar {
+    flex: 1; max-width: 420px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 7px 12px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: #94a3b8;
+  }
+  .search-icon { color: #cbd5e1; }
+
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .header-btn {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 15px; color: #64748b;
+    position: relative;
+  }
+  .header-btn:hover { background: #f1f5f9; }
+  .notif-dot {
+    position: absolute; top: 6px; right: 6px;
+    width: 7px; height: 7px; border-radius: 50%; background: #ef4444;
+    border: 1px solid #fff;
+  }
+
+  /* ── CONTENT ── */
+  .content { flex: 1; overflow-y: auto; padding: 24px; }
+
+  /* ── DASHBOARD ── */
+  .page-header { margin-bottom: 20px; }
+  .page-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 20px; font-weight: 700; color: #0f172a;
+    letter-spacing: -0.4px;
+  }
+  .page-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+
+  .period-tabs {
+    display: flex; gap: 4px;
+    background: #f1f5f9;
+    border-radius: 8px; padding: 3px;
+    margin-bottom: 20px; width: fit-content;
+  }
+  .period-tab {
+    padding: 5px 12px; border-radius: 6px;
+    font-size: 11px; font-weight: 500; color: #64748b;
+    cursor: pointer;
+  }
+  .period-tab.active {
+    background: #fff; color: #1d4ed8; font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .stat-label { font-size: 11px; font-weight: 500; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .stat-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 26px; font-weight: 700; color: #0f172a; line-height: 1; }
+  .stat-sub { font-size: 11px; color: #10b981; margin-top: 4px; }
+  .stat-sub.warn { color: #f59e0b; }
+
+  .stat-card.highlight {
+    background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+    border-color: transparent;
+  }
+  .stat-card.highlight .stat-label { color: rgba(255,255,255,0.6); }
+  .stat-card.highlight .stat-value { color: #fff; }
+  .stat-card.highlight .stat-sub { color: rgba(255,255,255,0.75); }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .widget {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .widget-title {
+    font-size: 12px; font-weight: 600; color: #475569;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .widget-link { font-size: 10px; color: #3b82f6; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+  /* Embudo */
+  .funnel-row { margin-bottom: 10px; }
+  .funnel-label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .funnel-name { font-size: 11px; color: #475569; font-weight: 500; }
+  .funnel-count { font-size: 11px; color: #1e293b; font-weight: 700; }
+  .funnel-bar { height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+  .funnel-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #1d4ed8, #60a5fa); }
+
+  /* Ventas recientes */
+  .venta-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid #f8fafc;
+  }
+  .venta-row:last-child { border-bottom: none; }
+  .venta-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #eff6ff; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #1d4ed8; flex-shrink: 0;
+  }
+  .venta-name { font-size: 12px; font-weight: 600; color: #1e293b; }
+  .venta-unit { font-size: 10px; color: #94a3b8; }
+  .venta-price { margin-left: auto; font-size: 12px; font-weight: 700; color: #1d4ed8; }
+  .venta-tag {
+    font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 99px;
+  }
+  .tag-reserva { background: #fef3c7; color: #d97706; }
+  .tag-promesa { background: #dbeafe; color: #1d4ed8; }
+  .tag-escritura { background: #ede9fe; color: #7c3aed; }
+
+  /* Legal alerts */
+  .alert-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px; border-radius: 8px; margin-bottom: 6px;
+  }
+  .alert-row.warn { background: #fffbeb; }
+  .alert-row.err  { background: #fef2f2; }
+  .alert-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+  .alert-main { font-size: 11px; font-weight: 600; color: #1e293b; }
+  .alert-sub  { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">BP</div>
+      <div>
+        <div class="logo-text">BodeParking</div>
+        <div class="logo-sub">CRM Inmobiliario</div>
+      </div>
+    </div>
+
+    <div class="uf-pill">
+      <div class="uf-dot"></div>
+      <span class="uf-label">UF hoy</span>
+      <span class="uf-val">37.842,5</span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section-label">General</div>
+      <div class="nav-item active">
+        <span class="nav-icon">⊞</span> Dashboard
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">◫</span> Inventario
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">◉</span> Leads
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">◷</span> Visitas
+      </div>
+
+      <div class="nav-section-label">Ventas</div>
+      <div class="nav-item">
+        <span class="nav-icon">◈</span> Ventas
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">⚖</span> Legal
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">⬡</span> Pagos
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">$</span> Comisiones
+      </div>
+
+      <div class="nav-section-label">Gestión</div>
+      <div class="nav-item">
+        <span class="nav-icon">✦</span> Promociones
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">◎</span> Descuentos
+        <span class="nav-badge">3</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">◌</span> Arriendos
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">⌑</span> Llaves
+      </div>
+
+      <div class="nav-section-label">Admin</div>
+      <div class="nav-item">
+        <span class="nav-icon">◙</span> Equipo
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">▤</span> Reportes
+      </div>
+    </nav>
+
+    <div class="sidebar-user">
+      <div class="avatar">JG</div>
+      <div class="user-info">
+        <div class="user-name">Juan González</div>
+        <div class="user-role">Gerente</div>
+      </div>
+      <div class="logout-btn">⏻</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- HEADER -->
+    <div class="header">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        Buscar leads, ventas, compradores...
+        <span style="margin-left:auto;font-size:10px;background:#e2e8f0;padding:1px 5px;border-radius:4px;color:#94a3b8">⌘K</span>
+      </div>
+      <div class="header-right">
+        <div class="header-btn">📅</div>
+        <div class="header-btn">
+          🔔
+          <div class="notif-dot"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="content">
+      <div class="page-header">
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">Miércoles 9 de abril, 2026</div>
+      </div>
+
+      <div class="period-tabs">
+        <div class="period-tab">Hoy</div>
+        <div class="period-tab">Semana</div>
+        <div class="period-tab active">Este mes</div>
+        <div class="period-tab">Mes pasado</div>
+        <div class="period-tab">Este año</div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card highlight">
+          <div class="stat-label">Ventas este mes</div>
+          <div class="stat-value">19</div>
+          <div class="stat-sub">↑ 3 vs mes anterior</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Leads activos</div>
+          <div class="stat-value">47</div>
+          <div class="stat-sub">12 sin contactar</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ocupación</div>
+          <div class="stat-value">92%</div>
+          <div class="stat-sub">↑ desde 88%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">En proceso legal</div>
+          <div class="stat-value">6</div>
+          <div class="stat-sub warn">2 con fechas vencidas</div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:16px;">
+        <div class="widget">
+          <div class="widget-title">Embudo de ventas <span class="widget-link">Ver detalle →</span></div>
+          <div class="funnel-row">
+            <div class="funnel-label"><span class="funnel-name">Leads</span><span class="funnel-count">47</span></div>
+            <div class="funnel-bar"><div class="funnel-fill" style="width:100%"></div></div>
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-label"><span class="funnel-name">Seguimiento</span><span class="funnel-count">31</span></div>
+            <div class="funnel-bar"><div class="funnel-fill" style="width:66%"></div></div>
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-label"><span class="funnel-name">Visitas</span><span class="funnel-count">18</span></div>
+            <div class="funnel-bar"><div class="funnel-fill" style="width:38%"></div></div>
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-label"><span class="funnel-name">Reservas</span><span class="funnel-count">8</span></div>
+            <div class="funnel-bar"><div class="funnel-fill" style="width:17%"></div></div>
+          </div>
+          <div class="funnel-row">
+            <div class="funnel-label"><span class="funnel-name">Escrituras</span><span class="funnel-count">3</span></div>
+            <div class="funnel-bar"><div class="funnel-fill" style="width:6%"></div></div>
+          </div>
+        </div>
+
+        <div class="widget">
+          <div class="widget-title">Alertas legales <span class="widget-link">Ver legal →</span></div>
+          <div class="alert-row err">
+            <div class="alert-icon">⚠️</div>
+            <div>
+              <div class="alert-main">García Morales — Bodega B298</div>
+              <div class="alert-sub">Firma notaría vencida hace 3 días</div>
+            </div>
+          </div>
+          <div class="alert-row err">
+            <div class="alert-icon">⚠️</div>
+            <div>
+              <div class="alert-main">Rodríguez P. — Est. 72</div>
+              <div class="alert-sub">Escritura vencida hace 1 día</div>
+            </div>
+          </div>
+          <div class="alert-row warn">
+            <div class="alert-icon">🕐</div>
+            <div>
+              <div class="alert-main">Martínez C. — Bodega 57 + 48</div>
+              <div class="alert-sub">Inscripción CBR vence en 5 días</div>
+            </div>
+          </div>
+          <div class="alert-row warn">
+            <div class="alert-icon">🕐</div>
+            <div>
+              <div class="alert-main">López F. — Bodega B298</div>
+              <div class="alert-sub">Sin fecha límite escritura</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="widget">
+        <div class="widget-title">Ventas recientes <span class="widget-link">Ver todas →</span></div>
+        <div class="venta-row">
+          <div class="venta-avatar">GM</div>
+          <div><div class="venta-name">García Morales</div><div class="venta-unit">Bodega B298 — Edificio Norte</div></div>
+          <span class="venta-tag tag-escritura">Escritura</span>
+          <div class="venta-price">62,8 UF</div>
+        </div>
+        <div class="venta-row">
+          <div class="venta-avatar">RP</div>
+          <div><div class="venta-name">Rodríguez Pérez</div><div class="venta-unit">Est. 72 — Edificio Sur</div></div>
+          <span class="venta-tag tag-promesa">Promesa</span>
+          <div class="venta-price">94 UF</div>
+        </div>
+        <div class="venta-row">
+          <div class="venta-avatar">MC</div>
+          <div><div class="venta-name">Martínez Campos</div><div class="venta-unit">Bodega 57 + Bodega 48</div></div>
+          <span class="venta-tag tag-promesa">Promesa</span>
+          <div class="venta-price">174 UF</div>
+        </div>
+        <div class="venta-row">
+          <div class="venta-avatar">LF</div>
+          <div><div class="venta-name">López Fuentes</div><div class="venta-unit">Bodega B298 — Edificio Poniente</div></div>
+          <span class="venta-tag tag-reserva">Reserva</span>
+          <div class="venta-price">70 UF</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

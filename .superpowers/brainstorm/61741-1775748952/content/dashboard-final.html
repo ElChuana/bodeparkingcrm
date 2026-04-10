@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Final — BodeParking CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',sans-serif; background:#f0f4f8; color:#1e293b; }
+.app { display:flex; height:100vh; overflow:hidden; }
+
+/* SIDEBAR */
+.sidebar { width:220px; min-width:220px; background:#fff; border-right:1px solid #e2e8f0; display:flex; flex-direction:column; box-shadow:2px 0 12px rgba(0,0,0,0.04); }
+.sidebar-logo { padding:16px 18px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:10px; }
+.logo-icon { width:30px; height:30px; background:linear-gradient(135deg,#1d4ed8,#3b82f6); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff; font-weight:800; font-family:'Plus Jakarta Sans',sans-serif; flex-shrink:0; }
+.logo-text { font-family:'Plus Jakarta Sans',sans-serif; font-size:13px; font-weight:700; color:#0f172a; letter-spacing:-0.3px; }
+.logo-sub { font-size:9px; color:#94a3b8; }
+.uf-pill { margin:8px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:7px; padding:6px 10px; display:flex; align-items:center; gap:5px; }
+.uf-dot { width:5px; height:5px; border-radius:50%; background:#3b82f6; }
+.uf-label { font-size:9px; color:#64748b; font-weight:500; }
+.uf-val { font-size:10px; font-weight:700; color:#1d4ed8; margin-left:auto; }
+.nav { flex:1; overflow-y:auto; padding:6px 8px; }
+.nav-sec { font-size:8px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:1.2px; padding:8px 8px 3px; }
+.nav-item { display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:7px; cursor:pointer; font-size:12px; font-weight:500; color:#475569; margin-bottom:1px; }
+.nav-item.active { background:#eff6ff; color:#1d4ed8; font-weight:600; }
+.nav-item:not(.active):hover { background:#f8fafc; }
+.nav-icon { font-size:13px; width:16px; text-align:center; }
+.nav-badge { margin-left:auto; background:#ef4444; color:#fff; font-size:8px; font-weight:700; padding:1px 5px; border-radius:99px; }
+.sidebar-user { padding:10px 12px; border-top:1px solid #f1f5f9; display:flex; align-items:center; gap:8px; }
+.avatar { width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,#1d4ed8,#60a5fa); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#fff; flex-shrink:0; }
+.user-name { font-size:11px; font-weight:600; color:#1e293b; }
+.user-role { font-size:9px; color:#94a3b8; }
+
+/* MAIN */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.header { height:52px; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; padding:0 20px; gap:10px; flex-shrink:0; }
+.search { flex:1; max-width:380px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:7px; padding:6px 10px; display:flex; align-items:center; gap:6px; font-size:11px; color:#94a3b8; }
+.hbtn { width:32px; height:32px; border-radius:7px; background:#f8fafc; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; font-size:13px; color:#64748b; position:relative; margin-left:auto; }
+.ndot { position:absolute; top:5px; right:5px; width:6px; height:6px; border-radius:50%; background:#ef4444; border:1px solid #fff; }
+
+.content { flex:1; overflow-y:auto; padding:20px; }
+.page-title { font-family:'Plus Jakarta Sans',sans-serif; font-size:18px; font-weight:700; color:#0f172a; letter-spacing:-0.3px; }
+.page-sub { font-size:11px; color:#94a3b8; margin-top:1px; margin-bottom:14px; }
+
+.period-tabs { display:flex; gap:3px; background:#f1f5f9; border-radius:7px; padding:3px; margin-bottom:16px; width:fit-content; }
+.ptab { padding:4px 10px; border-radius:5px; font-size:10px; font-weight:500; color:#64748b; cursor:pointer; }
+.ptab.active { background:#fff; color:#1d4ed8; font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+.stat { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px; }
+.stat.hl { background:linear-gradient(135deg,#1d4ed8,#3b82f6); border-color:transparent; }
+.stat-lbl { font-size:9px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px; }
+.stat.hl .stat-lbl { color:rgba(255,255,255,0.65); }
+.stat-val { font-family:'Plus Jakarta Sans',sans-serif; font-size:24px; font-weight:800; color:#0f172a; line-height:1; }
+.stat.hl .stat-val { color:#fff; }
+.stat-hint { font-size:10px; color:#10b981; margin-top:3px; }
+.stat.hl .stat-hint { color:rgba(255,255,255,0.75); }
+.stat-hint.w { color:#f59e0b; }
+
+.row2 { display:grid; grid-template-columns:1fr 1.4fr; gap:14px; margin-bottom:14px; }
+.widget { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px; }
+.wtitle { font-size:10px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:12px; display:flex; justify-content:space-between; }
+.wlink { font-size:9px; color:#3b82f6; font-weight:500; text-transform:none; letter-spacing:0; }
+
+/* EMBUDO TRAPECIO */
+.funnel { display:flex; flex-direction:column; align-items:center; gap:0; }
+.fstep-wrap { width:100%; display:flex; flex-direction:column; align-items:center; }
+.fstep {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 16px; border-radius:3px; color:#fff; width:100%;
+}
+.farrow { font-size:8px; color:#cbd5e1; text-align:center; margin:1px 0; line-height:1; }
+.fn { font-size:9px; font-weight:600; }
+.fv { font-size:15px; font-weight:800; font-family:'Plus Jakarta Sans',sans-serif; }
+.fp { font-size:9px; opacity:0.7; font-weight:500; }
+
+/* LEGAL TABLA */
+.legal-tbl { width:100%; border-collapse:collapse; font-size:10px; }
+.legal-tbl th { background:#f8fafc; padding:5px 8px; font-weight:600; color:#64748b; border-bottom:1px solid #e2e8f0; font-size:8px; text-transform:uppercase; letter-spacing:0.6px; text-align:left; }
+.legal-tbl td { padding:8px; border-bottom:1px solid #f8fafc; vertical-align:top; }
+.legal-tbl tr:last-child td { border-bottom:none; }
+.tname { font-weight:600; color:#1e293b; font-size:11px; }
+.tunit { color:#94a3b8; font-size:9px; }
+.tbadge { display:inline-flex; align-items:center; font-size:9px; font-weight:600; padding:2px 7px; border-radius:99px; }
+.b-err  { background:#fef2f2; color:#ef4444; }
+.b-warn { background:#fffbeb; color:#d97706; }
+.b-ok   { background:#eff6ff; color:#1d4ed8; }
+.b-gray { background:#f8fafc; color:#94a3b8; }
+.prog { display:flex; gap:2px; margin-top:4px; }
+.ps { height:3px; flex:1; border-radius:99px; background:#e2e8f0; }
+.ps.d { background:#1d4ed8; }
+.ps.a { background:#f59e0b; }
+.ps.e { background:#ef4444; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">BP</div>
+      <div><div class="logo-text">BodeParking</div><div class="logo-sub">CRM Inmobiliario</div></div>
+    </div>
+    <div class="uf-pill">
+      <div class="uf-dot"></div>
+      <span class="uf-label">UF hoy</span>
+      <span class="uf-val">37.842,5</span>
+    </div>
+    <nav class="nav">
+      <div class="nav-sec">General</div>
+      <div class="nav-item active"><span class="nav-icon">⊞</span>Dashboard</div>
+      <div class="nav-item"><span class="nav-icon">◫</span>Inventario</div>
+      <div class="nav-item"><span class="nav-icon">◉</span>Leads</div>
+      <div class="nav-item"><span class="nav-icon">◷</span>Visitas</div>
+      <div class="nav-sec">Ventas</div>
+      <div class="nav-item"><span class="nav-icon">◈</span>Ventas</div>
+      <div class="nav-item"><span class="nav-icon">⚖</span>Legal</div>
+      <div class="nav-item"><span class="nav-icon">⬡</span>Pagos</div>
+      <div class="nav-item"><span class="nav-icon">$</span>Comisiones</div>
+      <div class="nav-sec">Gestión</div>
+      <div class="nav-item"><span class="nav-icon">✦</span>Promociones</div>
+      <div class="nav-item"><span class="nav-icon">◎</span>Descuentos<span class="nav-badge">3</span></div>
+      <div class="nav-item"><span class="nav-icon">◌</span>Arriendos</div>
+      <div class="nav-item"><span class="nav-icon">⌑</span>Llaves</div>
+      <div class="nav-sec">Admin</div>
+      <div class="nav-item"><span class="nav-icon">◙</span>Equipo</div>
+      <div class="nav-item"><span class="nav-icon">▤</span>Reportes</div>
+    </nav>
+    <div class="sidebar-user">
+      <div class="avatar">JG</div>
+      <div><div class="user-name">Juan González</div><div class="user-role">Gerente</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="header">
+      <div class="search">🔍 Buscar leads, ventas, compradores...<span style="margin-left:auto;font-size:9px;background:#e2e8f0;padding:1px 4px;border-radius:3px;color:#94a3b8">⌘K</span></div>
+      <div style="display:flex;gap:6px;margin-left:auto;">
+        <div class="hbtn">📅</div>
+        <div class="hbtn">🔔<div class="ndot"></div></div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub">Miércoles 9 de abril, 2026</div>
+
+      <div class="period-tabs">
+        <div class="ptab">Hoy</div>
+        <div class="ptab">Semana</div>
+        <div class="ptab active">Este mes</div>
+        <div class="ptab">Mes pasado</div>
+        <div class="ptab">Este año</div>
+      </div>
+
+      <div class="stats">
+        <div class="stat hl">
+          <div class="stat-lbl">Ventas mes</div>
+          <div class="stat-val">19</div>
+          <div class="stat-hint">↑ 3 vs mes anterior</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">Leads activos</div>
+          <div class="stat-val">47</div>
+          <div class="stat-hint">12 sin contactar</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">Ocupación</div>
+          <div class="stat-val">92%</div>
+          <div class="stat-hint">↑ desde 88%</div>
+        </div>
+        <div class="stat">
+          <div class="stat-lbl">En proceso legal</div>
+          <div class="stat-val">6</div>
+          <div class="stat-hint w">2 con fechas vencidas</div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <!-- EMBUDO TRAPECIO -->
+        <div class="widget">
+          <div class="wtitle">Embudo de ventas <span class="wlink">Ver detalle →</span></div>
+          <div class="funnel">
+            <div class="fstep-wrap" style="width:100%">
+              <div class="fstep" style="background:#1d4ed8;">
+                <span class="fn">Leads</span><span class="fv">47</span><span class="fp">100%</span>
+              </div>
+            </div>
+            <div class="farrow">▼</div>
+            <div class="fstep-wrap" style="width:90%">
+              <div class="fstep" style="background:#2563eb;">
+                <span class="fn">Seguimiento</span><span class="fv">31</span><span class="fp">66%</span>
+              </div>
+            </div>
+            <div class="farrow">▼</div>
+            <div class="fstep-wrap" style="width:78%">
+              <div class="fstep" style="background:#3b82f6;">
+                <span class="fn">Visitas</span><span class="fv">18</span><span class="fp">58%</span>
+              </div>
+            </div>
+            <div class="farrow">▼</div>
+            <div class="fstep-wrap" style="width:60%">
+              <div class="fstep" style="background:#60a5fa;">
+                <span class="fn">Reservas</span><span class="fv">8</span><span class="fp">44%</span>
+              </div>
+            </div>
+            <div class="farrow">▼</div>
+            <div class="fstep-wrap" style="width:40%">
+              <div class="fstep" style="background:#93c5fd;">
+                <span class="fn" style="color:#1e3a8a">Escrituras</span><span class="fv" style="color:#1e3a8a">3</span><span class="fp" style="color:rgba(30,58,138,0.7)">38%</span>
+              </div>
+            </div>
+            <div style="text-align:center;font-size:9px;color:#94a3b8;margin-top:8px;">Conversión total <strong style="color:#1d4ed8;">6.4%</strong> · 47 leads → 3 escrituras</div>
+          </div>
+        </div>
+
+        <!-- LEGAL TABLA -->
+        <div class="widget">
+          <div class="wtitle">Proceso legal <span class="wlink">Ver legal →</span></div>
+          <table class="legal-tbl">
+            <tr>
+              <th>Comprador</th>
+              <th>Paso actual</th>
+              <th>Progreso</th>
+            </tr>
+            <tr>
+              <td><div class="tname">García Morales</div><div class="tunit">Bodega B298</div></td>
+              <td><span class="tbadge b-err">⚠ CBR vencido</span></td>
+              <td><div class="prog"><div class="ps d"></div><div class="ps d"></div><div class="ps e"></div><div class="ps"></div></div><div style="font-size:8px;color:#ef4444;margin-top:2px;">3/4 pasos</div></td>
+            </tr>
+            <tr>
+              <td><div class="tname">Martínez Campos</div><div class="tunit">Bodega 57 + 48</div></td>
+              <td><span class="tbadge b-warn">→ CBR · 14 abr</span></td>
+              <td><div class="prog"><div class="ps d"></div><div class="ps d"></div><div class="ps a"></div><div class="ps"></div></div><div style="font-size:8px;color:#d97706;margin-top:2px;">3/4 pasos</div></td>
+            </tr>
+            <tr>
+              <td><div class="tname">Rodríguez Pérez</div><div class="tunit">Est. 72</div></td>
+              <td><span class="tbadge b-ok">→ Notaría · 20 abr</span></td>
+              <td><div class="prog"><div class="ps d"></div><div class="ps a"></div><div class="ps"></div><div class="ps"></div></div><div style="font-size:8px;color:#1d4ed8;margin-top:2px;">2/4 pasos</div></td>
+            </tr>
+            <tr>
+              <td><div class="tname">López Fuentes</div><div class="tunit">Bodega B298</div></td>
+              <td><span class="tbadge b-gray">Escritura · sin fecha</span></td>
+              <td><div class="prog"><div class="ps a"></div><div class="ps"></div><div class="ps"></div><div class="ps"></div></div><div style="font-size:8px;color:#94a3b8;margin-top:2px;">1/4 pasos</div></td>
+            </tr>
+            <tr>
+              <td><div class="tname">Pinto Ruiz</div><div class="tunit">Est. 14</div></td>
+              <td><span class="tbadge b-ok">→ Escritura · 22 abr</span></td>
+              <td><div class="prog"><div class="ps a"></div><div class="ps"></div><div class="ps"></div><div class="ps"></div></div><div style="font-size:8px;color:#1d4ed8;margin-top:2px;">1/4 pasos</div></td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
