@@ -386,7 +386,7 @@ function VistaKanban({ filtros, onPreview }) {
   })
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   )
 
   const activeLead = activeId
