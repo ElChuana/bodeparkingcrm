@@ -184,13 +184,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// ─── TEMPORAL: stats origen ──────────────────────────────────────
-app.get('/api/admin-temporal/origen-stats', async (req, res) => {
-  const rows = await prisma.$queryRaw`SELECT origen, COUNT(*)::int as total FROM contactos GROUP BY origen ORDER BY total DESC`
-  res.json(rows)
-})
-// ─── FIN TEMPORAL ─────────────────────────────────────────────────
-
 // Servir frontend en producción
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.join(__dirname, '../../frontend/dist')
