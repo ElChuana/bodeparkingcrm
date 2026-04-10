@@ -63,6 +63,8 @@ enum OrigenLead {
   BROKER
   VISITA_DIRECTA
   WEB
+  META
+  ORIGEN
   OTRO
 }
 

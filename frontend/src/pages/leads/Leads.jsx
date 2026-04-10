@@ -41,6 +41,7 @@ const ORIGEN_OPTIONS = [
   { value: 'INSTAGRAM', label: 'Instagram' }, { value: 'GOOGLE', label: 'Google' },
   { value: 'REFERIDO', label: 'Referido' }, { value: 'BROKER', label: 'Broker' },
   { value: 'VISITA_DIRECTA', label: 'Visita directa' }, { value: 'WEB', label: 'Web' },
+  { value: 'META', label: 'Meta' }, { value: 'ORIGEN', label: 'Origen' },
   { value: 'OTRO', label: 'Otro' },
 ]
 

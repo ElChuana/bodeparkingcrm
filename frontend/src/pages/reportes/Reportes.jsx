@@ -16,7 +16,7 @@ const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
 const ESTADO_LABEL = { RESERVA: 'Reserva', PROMESA: 'Promesa', ESCRITURA: 'Escritura', ENTREGADO: 'Entregado', ANULADO: 'Anulado' }
-const ORIGEN_LABEL = { INSTAGRAM: 'Instagram', GOOGLE: 'Google', REFERIDO: 'Referido', BROKER: 'Broker', VISITA_DIRECTA: 'Visita directa', WEB: 'Web', OTRO: 'Otro' }
+const ORIGEN_LABEL = { INSTAGRAM: 'Instagram', GOOGLE: 'Google', REFERIDO: 'Referido', BROKER: 'Broker', VISITA_DIRECTA: 'Visita directa', WEB: 'Web', META: 'Meta', ORIGEN: 'Origen', OTRO: 'Otro' }
 const ROL_LABEL = { GERENTE: 'Gerente', JEFE_VENTAS: 'Jefe de Ventas', VENDEDOR: 'Vendedor', BROKER_EXTERNO: 'Broker', ABOGADO: 'Abogado' }
 const COLORS = ['#1677ff', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2']
 
