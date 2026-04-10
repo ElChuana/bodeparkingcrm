@@ -13,8 +13,7 @@ import {
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
   EditOutlined, ArrowRightOutlined, ShoppingOutlined, UserOutlined,
-  FileTextOutlined, PlusOutlined
-
+  FileTextOutlined, PlusOutlined, DeleteOutlined
 } from '@ant-design/icons'
 
 const { Title, Text } = Typography
@@ -161,6 +160,51 @@ function ModalVisita({ open, onClose, leadId }) {
         </Form.Item>
         <Form.Item name="notas" label="Notas">
           <Input.TextArea rows={3} placeholder="Observaciones..." />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
+// ─── Modal registrar resultado de visita ──────────────────────────
+function ModalResultadoVisita({ open, onClose, visita, leadId }) {
+  const qc = useQueryClient()
+  const [form] = Form.useForm()
+  const { message } = App.useApp()
+
+  const registrar = useMutation({
+    mutationFn: (d) => api.put(`/leads/${leadId}/visitas/${visita.id}`, d),
+    onSuccess: () => {
+      message.success('Resultado registrado')
+      qc.invalidateQueries(['lead', String(leadId)])
+      qc.invalidateQueries(['visitas-todas'])
+      onClose()
+      form.resetFields()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  return (
+    <Modal
+      title="Registrar resultado de visita"
+      open={open}
+      onCancel={onClose}
+      onOk={() => form.validateFields().then(registrar.mutate)}
+      okText="Guardar"
+      cancelText="Cancelar"
+      confirmLoading={registrar.isPending}
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form.Item name="resultado" label="¿Asistió el cliente?" rules={[{ required: true, message: 'Indica si asistió' }]}>
+          <Select
+            options={[
+              { value: 'ASISTIO', label: '✅ Sí asistió' },
+              { value: 'NO_ASISTIO', label: '❌ No asistió' },
+            ]}
+          />
+        </Form.Item>
+        <Form.Item name="notas" label="Notas de la visita" rules={[{ required: true, message: 'Agrega una nota' }]}>
+          <Input.TextArea rows={4} placeholder="¿Cómo resultó la visita? ¿Próximos pasos?" />
         </Form.Item>
       </Form>
     </Modal>
@@ -414,7 +458,7 @@ function ModalEditarLead({ open, onClose, lead }) {
 export default function LeadDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { esGerenciaOJV } = useAuth()
+  const { esGerenciaOJV, usuario } = useAuth()
 
   const [modalEtapa, setModalEtapa] = useState(false)
   const [modalInteraccion, setModalInteraccion] = useState(false)
@@ -422,6 +466,31 @@ export default function LeadDetalle() {
   const [modalEditarContacto, setModalEditarContacto] = useState(false)
   const [modalEditarLead, setModalEditarLead] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState(null)
+  const [visitaResultando, setVisitaResultando] = useState(null)
+
+  const qc = useQueryClient()
+  const { message, modal } = App.useApp()
+
+  const mutEliminarVisita = useMutation({
+    mutationFn: (visitaId) => api.delete(`/leads/${id}/visitas/${visitaId}`),
+    onSuccess: () => {
+      message.success('Visita eliminada')
+      qc.invalidateQueries(['lead', id])
+      qc.invalidateQueries(['visitas-todas'])
+    },
+    onError: err => message.error(err.response?.data?.error || 'Sin permiso para eliminar')
+  })
+
+  const confirmarEliminarVisita = (visita) => {
+    modal.confirm({
+      title: 'Eliminar visita',
+      content: `¿Seguro que quieres eliminar la visita del ${format(new Date(visita.fechaHora), "d MMM yyyy 'a las' HH:mm", { locale: es })}?`,
+      okText: 'Eliminar',
+      okType: 'danger',
+      cancelText: 'Cancelar',
+      onOk: () => mutEliminarVisita.mutate(visita.id)
+    })
+  }
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
@@ -438,6 +507,13 @@ export default function LeadDetalle() {
 
   const timelineItems = timeline.map(item => {
     if (item._tipo === 'visita') {
+      const puedeEliminar = esGerenciaOJV || item.vendedor?.id === usuario?.id
+      const resultadoTag = item.resultado === 'ASISTIO'
+        ? <Tag color="green">Asistió</Tag>
+        : item.resultado === 'NO_ASISTIO'
+        ? <Tag color="red">No asistió</Tag>
+        : <Tag color="default">Pendiente</Tag>
+
       return {
         key: `v-${item.id}`,
         color: '#fa8c16',
@@ -445,15 +521,27 @@ export default function LeadDetalle() {
         children: (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <Space>
+              <Space wrap>
                 <Text strong style={{ fontSize: 13 }}>Visita {item.tipo}</Text>
-                {item.resultado && (
-                  <Tag color={item.resultado === 'positivo' ? 'green' : item.resultado === 'negativo' ? 'red' : 'default'}>
-                    {item.resultado}
-                  </Tag>
+                {resultadoTag}
+              </Space>
+              <Space size={4}>
+                {!item.resultado && (
+                  <Button size="small" type="primary" ghost onClick={() => setVisitaResultando(item)}>
+                    Registrar resultado
+                  </Button>
+                )}
+                <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setVisitaEditando(item)} />
+                {puedeEliminar && (
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => confirmarEliminarVisita(item)}
+                  />
                 )}
               </Space>
-              <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setVisitaEditando(item)} />
             </div>
             <div><Text type="secondary" style={{ fontSize: 12 }}>
               {format(new Date(item.fechaHora), "d MMM yyyy 'a las' HH:mm", { locale: es })}
@@ -643,6 +731,12 @@ export default function LeadDetalle() {
         open={!!visitaEditando}
         onClose={() => setVisitaEditando(null)}
         visita={visitaEditando}
+        leadId={id}
+      />
+      <ModalResultadoVisita
+        open={!!visitaResultando}
+        onClose={() => setVisitaResultando(null)}
+        visita={visitaResultando}
         leadId={id}
       />
     </div>
