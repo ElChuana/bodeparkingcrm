@@ -226,6 +226,22 @@ async function actualizarUF() {
 // Ejecutar cada día a las 09:00 AM (hora del servidor)
 cron.schedule('0 9 * * *', actualizarUF)
 
+// ─── TEMPORAL: asignar leads a Felix ─────────────────────────────
+app.get('/api/admin-temporal/usuarios-y-leads', async (req, res) => {
+  const usuarios = await prisma.usuario.findMany({ select: { id: true, nombre: true, apellido: true, rol: true }, orderBy: { nombre: 'asc' } })
+  const totalLeads = await prisma.lead.count()
+  res.json({ usuarios, totalLeads })
+})
+app.post('/api/admin-temporal/asignar-leads/:vendedorId', async (req, res) => {
+  const vendedorId = Number(req.params.vendedorId)
+  if (!vendedorId) return res.status(400).json({ error: 'vendedorId requerido' })
+  const usuario = await prisma.usuario.findUnique({ where: { id: vendedorId }, select: { nombre: true, apellido: true } })
+  if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' })
+  const result = await prisma.lead.updateMany({ data: { vendedorId } })
+  res.json({ ok: true, usuario, leadsActualizados: result.count })
+})
+// ─── FIN TEMPORAL ─────────────────────────────────────────────────
+
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`)
