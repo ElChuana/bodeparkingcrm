@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar } = require('../controllers/leadsController')
-const { listarPorLead, listarTodas, crear: crearVisita, actualizarResultado } = require('../controllers/visitasController')
+const { listarPorLead, listarTodas, crear: crearVisita, actualizarResultado, actualizar: actualizarVisita } = require('../controllers/visitasController')
 const { listarPorLead: listarInteracciones, crear: crearInteraccion } = require('../controllers/interaccionesController')
 const { autenticar } = require('../middleware/auth')
 
@@ -21,6 +21,7 @@ router.delete('/:id', eliminar)
 router.get('/:leadId/visitas', listarPorLead)
 router.post('/:leadId/visitas', crearVisita)
 router.put('/:leadId/visitas/:id', actualizarResultado)
+router.patch('/:leadId/visitas/:id', actualizarVisita)
 
 // Interacciones de un lead
 router.get('/:leadId/interacciones', listarInteracciones)

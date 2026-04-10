@@ -386,7 +386,7 @@ function VistaKanban({ filtros, onPreview }) {
   })
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(PointerSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   )
 
   const activeLead = activeId
@@ -401,6 +401,11 @@ function VistaKanban({ filtros, onPreview }) {
         break
       }
     }
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
+    dragStartEtapa.current = null
   }
 
   const handleDragEnd = ({ active, over }) => {
@@ -427,7 +432,7 @@ function VistaKanban({ filtros, onPreview }) {
 
   return (
     <>
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
       <div className="kanban-board">
         {ETAPAS.map(etapa => (
           <KanbanColumn
