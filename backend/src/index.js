@@ -184,6 +184,22 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
+// ─── TEMPORAL: resolver migración fallida ────────────────────────
+app.post('/api/admin-temporal/resolver-migracion', async (req, res) => {
+  try {
+    await prisma.$executeRawUnsafe(`
+      UPDATE "_prisma_migrations"
+      SET "rolled_back_at" = NOW()
+      WHERE "migration_name" = '20260410100000_add_meta_origen_enum'
+        AND "rolled_back_at" IS NULL
+    `)
+    res.json({ ok: true, mensaje: 'Migración marcada como rolled-back' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+// ─── FIN TEMPORAL ─────────────────────────────────────────────────
+
 // Servir frontend en producción
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.join(__dirname, '../../frontend/dist')
