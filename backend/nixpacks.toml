@@ -1,2 +1,0 @@
-[start]
-cmd = "npx prisma migrate resolve --rolled-back 20260410100000_add_meta_origen_enum || true && npx prisma migrate deploy && npm start"

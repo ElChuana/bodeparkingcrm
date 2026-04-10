@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embudo de Ventas — Opciones</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',sans-serif; background:#f0f4f8; color:#1e293b; padding:24px; }
+
+h1 { font-family:'Plus Jakarta Sans',sans-serif; font-size:18px; font-weight:700; color:#0f172a; margin-bottom:6px; }
+.sub { font-size:13px; color:#94a3b8; margin-bottom:24px; }
+
+.grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+
+.card {
+  background:#fff; border-radius:14px; border:2px solid #e2e8f0;
+  overflow:hidden; cursor:pointer; transition:all 0.2s;
+}
+.card:hover { border-color:#3b82f6; box-shadow:0 4px 20px rgba(59,130,246,0.12); transform:translateY(-2px); }
+.card.selected { border-color:#1d4ed8; box-shadow:0 4px 20px rgba(29,78,216,0.18); }
+
+.card-preview { padding:20px; min-height:220px; }
+.card-label { padding:14px 16px; border-top:1px solid #f1f5f9; }
+.card-title { font-size:13px; font-weight:700; color:#0f172a; margin-bottom:3px; }
+.card-desc { font-size:11px; color:#94a3b8; line-height:1.4; }
+
+/* ── OPCIÓN A: Barras horizontales con conversión ── */
+.funnel-a { display:flex; flex-direction:column; gap:8px; }
+.fa-row {}
+.fa-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; }
+.fa-step { font-size:11px; font-weight:600; color:#475569; }
+.fa-right { display:flex; align-items:center; gap:8px; }
+.fa-count { font-size:13px; font-weight:700; color:#0f172a; }
+.fa-conv { font-size:10px; color:#10b981; font-weight:600; background:#f0fdf4; padding:1px 5px; border-radius:99px; }
+.fa-bar-bg { height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+.fa-bar-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,#1d4ed8,#60a5fa); }
+.fa-total { font-size:10px; color:#94a3b8; margin-top:8px; text-align:right; }
+
+/* ── OPCIÓN B: Trapecio visual (funnel real) ── */
+.funnel-b { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.fb-step {
+  display:flex; align-items:center; justify-content:space-between;
+  border-radius:4px; padding:7px 12px;
+  width:100%; position:relative;
+}
+.fb-name { font-size:10px; font-weight:600; color:#fff; }
+.fb-num  { font-size:13px; font-weight:800; color:#fff; }
+.fb-pct  { font-size:9px; color:rgba(255,255,255,0.7); font-weight:500; }
+.fb-arrow { text-align:center; font-size:9px; color:#94a3b8; margin:1px 0; }
+
+/* ── OPCIÓN C: Cards con iconos y tendencia ── */
+.funnel-c { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.fc-card { background:#f8fafc; border-radius:8px; padding:10px; border:1px solid #f1f5f9; }
+.fc-icon { font-size:16px; margin-bottom:4px; }
+.fc-num { font-size:18px; font-weight:800; color:#0f172a; line-height:1; font-family:'Plus Jakarta Sans',sans-serif; }
+.fc-label { font-size:9px; color:#94a3b8; font-weight:500; text-transform:uppercase; letter-spacing:0.8px; margin-top:2px; }
+.fc-trend { font-size:9px; color:#10b981; font-weight:600; margin-top:3px; }
+.fc-trend.down { color:#ef4444; }
+.fc-card.accent { background:#eff6ff; border-color:#bfdbfe; }
+.fc-card.accent .fc-num { color:#1d4ed8; }
+</style>
+</head>
+<body>
+
+<h1>Embudo de Ventas — 3 estilos</h1>
+<p class="sub">Haz click en el que más te gusta para seleccionarlo</p>
+
+<div class="grid">
+
+  <!-- A: Barras horizontales -->
+  <div class="card" onclick="this.classList.toggle('selected')">
+    <div class="card-preview">
+      <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">EMBUDO — ESTE MES</div>
+      <div class="funnel-a">
+        <div class="fa-row">
+          <div class="fa-top">
+            <span class="fa-step">Leads totales</span>
+            <div class="fa-right"><span class="fa-count">47</span></div>
+          </div>
+          <div class="fa-bar-bg"><div class="fa-bar-fill" style="width:100%"></div></div>
+        </div>
+        <div class="fa-row">
+          <div class="fa-top">
+            <span class="fa-step">En seguimiento</span>
+            <div class="fa-right"><span class="fa-conv">66%</span><span class="fa-count">31</span></div>
+          </div>
+          <div class="fa-bar-bg"><div class="fa-bar-fill" style="width:66%"></div></div>
+        </div>
+        <div class="fa-row">
+          <div class="fa-top">
+            <span class="fa-step">Visitas</span>
+            <div class="fa-right"><span class="fa-conv">58%</span><span class="fa-count">18</span></div>
+          </div>
+          <div class="fa-bar-bg"><div class="fa-bar-fill" style="width:38%"></div></div>
+        </div>
+        <div class="fa-row">
+          <div class="fa-top">
+            <span class="fa-step">Reservas</span>
+            <div class="fa-right"><span class="fa-conv">44%</span><span class="fa-count">8</span></div>
+          </div>
+          <div class="fa-bar-bg"><div class="fa-bar-fill" style="width:17%"></div></div>
+        </div>
+        <div class="fa-row">
+          <div class="fa-top">
+            <span class="fa-step">Escrituras</span>
+            <div class="fa-right"><span class="fa-conv">38%</span><span class="fa-count">3</span></div>
+          </div>
+          <div class="fa-bar-bg"><div class="fa-bar-fill" style="width:6%"></div></div>
+        </div>
+        <div class="fa-total">Conversión total: 6.4% — 47 → 3</div>
+      </div>
+    </div>
+    <div class="card-label">
+      <div class="card-title">A — Barras con % conversión</div>
+      <div class="card-desc">Muestra cada paso con su tasa de conversión respecto al anterior. Claro, informativo, fácil de comparar.</div>
+    </div>
+  </div>
+
+  <!-- B: Trapecio visual -->
+  <div class="card" onclick="this.classList.toggle('selected')">
+    <div class="card-preview">
+      <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">EMBUDO — ESTE MES</div>
+      <div class="funnel-b">
+        <div class="fb-step" style="background:#1d4ed8;clip-path:polygon(0 0,100% 0,95% 100%,5% 100%);padding:9px 20px;">
+          <span class="fb-name">Leads</span><span class="fb-num">47</span>
+        </div>
+        <div class="fb-arrow">▼</div>
+        <div class="fb-step" style="background:#2563eb;clip-path:polygon(3% 0,97% 0,93% 100%,7% 100%);padding:9px 20px;width:94%;">
+          <span class="fb-name">Seguimiento</span><span class="fb-num">31</span><span class="fb-pct">66%</span>
+        </div>
+        <div class="fb-arrow">▼</div>
+        <div class="fb-step" style="background:#3b82f6;clip-path:polygon(5% 0,95% 0,90% 100%,10% 100%);padding:9px 20px;width:86%;">
+          <span class="fb-name">Visitas</span><span class="fb-num">18</span><span class="fb-pct">58%</span>
+        </div>
+        <div class="fb-arrow">▼</div>
+        <div class="fb-step" style="background:#60a5fa;clip-path:polygon(8% 0,92% 0,87% 100%,13% 100%);padding:9px 20px;width:72%;">
+          <span class="fb-name">Reservas</span><span class="fb-num">8</span><span class="fb-pct">44%</span>
+        </div>
+        <div class="fb-arrow">▼</div>
+        <div class="fb-step" style="background:#93c5fd;clip-path:polygon(12% 0,88% 0,83% 100%,17% 100%);padding:9px 20px;width:56%;">
+          <span class="fb-name" style="color:#1e3a8a;">Escrituras</span><span class="fb-num" style="color:#1e3a8a;">3</span><span class="fb-pct" style="color:rgba(30,58,138,0.6)">38%</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">
+      <div class="card-title">B — Trapecio visual</div>
+      <div class="card-desc">Forma real de embudo. El ancho refleja visualmente la caída. Impactante a primera vista.</div>
+    </div>
+  </div>
+
+  <!-- C: Cards con métricas -->
+  <div class="card" onclick="this.classList.toggle('selected')">
+    <div class="card-preview">
+      <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">PIPELINE — ESTE MES</div>
+      <div class="funnel-c">
+        <div class="fc-card accent">
+          <div class="fc-icon">👥</div>
+          <div class="fc-num">47</div>
+          <div class="fc-label">Leads</div>
+          <div class="fc-trend">↑ 8 nuevos</div>
+        </div>
+        <div class="fc-card">
+          <div class="fc-icon">📞</div>
+          <div class="fc-num">31</div>
+          <div class="fc-label">Seguimiento</div>
+          <div class="fc-trend">66% conv.</div>
+        </div>
+        <div class="fc-card">
+          <div class="fc-icon">🏢</div>
+          <div class="fc-num">18</div>
+          <div class="fc-label">Visitas</div>
+          <div class="fc-trend">58% conv.</div>
+        </div>
+        <div class="fc-card">
+          <div class="fc-icon">📋</div>
+          <div class="fc-num">8</div>
+          <div class="fc-label">Reservas</div>
+          <div class="fc-trend">44% conv.</div>
+        </div>
+        <div class="fc-card" style="grid-column:span 2;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div>
+              <div class="fc-icon">✍️</div>
+              <div class="fc-num" style="font-size:22px;">3</div>
+              <div class="fc-label">Escrituras</div>
+              <div class="fc-trend">38% conv.</div>
+            </div>
+            <div style="flex:1;text-align:right;">
+              <div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">Conversión total</div>
+              <div style="font-size:24px;font-weight:800;color:#1d4ed8;font-family:'Plus Jakarta Sans',sans-serif;">6.4%</div>
+              <div style="font-size:9px;color:#94a3b8;">47 leads → 3 escrituras</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">
+      <div class="card-title">C — Cards de pipeline</div>
+      <div class="card-desc">Cada etapa como una métrica independiente. Conversión total destacada. Estilo más moderno y flexible.</div>
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center;font-size:12px;color:#94a3b8;margin-top:20px;">Haz click para seleccionar • puedes elegir más de uno</p>
+
+</body>
+</html>

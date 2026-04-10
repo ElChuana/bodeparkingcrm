@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Legal — Opciones de visualización</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Inter',sans-serif; background:#f0f4f8; color:#1e293b; padding:24px; }
+h1 { font-family:'Plus Jakarta Sans',sans-serif; font-size:18px; font-weight:700; color:#0f172a; margin-bottom:6px; }
+.sub { font-size:13px; color:#94a3b8; margin-bottom:24px; }
+.grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; }
+.card {
+  background:#fff; border-radius:14px; border:2px solid #e2e8f0;
+  overflow:hidden; cursor:pointer; transition:all 0.2s;
+}
+.card:hover { border-color:#3b82f6; box-shadow:0 4px 20px rgba(59,130,246,0.12); transform:translateY(-2px); }
+.card.selected { border-color:#1d4ed8; box-shadow:0 4px 20px rgba(29,78,216,0.18); }
+.card-preview { padding:18px; min-height:260px; }
+.card-label { padding:14px 16px; border-top:1px solid #f1f5f9; }
+.card-title { font-size:13px; font-weight:700; color:#0f172a; margin-bottom:3px; }
+.card-desc { font-size:11px; color:#94a3b8; line-height:1.4; }
+
+/* ── A: Timeline horizontal con stepper ── */
+.steps-h { display:flex; align-items:flex-start; gap:0; margin-top:8px; }
+.step-h { flex:1; text-align:center; position:relative; }
+.step-h-circle {
+  width:28px; height:28px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700;
+  margin:0 auto 6px;
+  position:relative; z-index:1;
+}
+.step-h-line {
+  position:absolute; top:14px; left:50%; right:-50%;
+  height:2px; z-index:0;
+}
+.step-h:last-child .step-h-line { display:none; }
+.step-h-label { font-size:9px; font-weight:600; color:#475569; line-height:1.3; }
+.step-h-date  { font-size:8px; color:#94a3b8; margin-top:2px; }
+.step-done .step-h-circle { background:#1d4ed8; color:#fff; }
+.step-done .step-h-line { background:#1d4ed8; }
+.step-done .step-h-label { color:#1d4ed8; }
+.step-active .step-h-circle { background:#fff; color:#1d4ed8; border:2px solid #1d4ed8; box-shadow:0 0 0 3px rgba(29,78,216,0.15); }
+.step-active .step-h-line { background:#e2e8f0; }
+.step-active .step-h-label { color:#1d4ed8; font-weight:700; }
+.step-warn .step-h-circle { background:#fef2f2; color:#ef4444; border:2px solid #ef4444; }
+.step-warn .step-h-line { background:#e2e8f0; }
+.step-warn .step-h-label { color:#ef4444; }
+.step-pend .step-h-circle { background:#f8fafc; color:#cbd5e1; border:2px dashed #e2e8f0; }
+.step-pend .step-h-line { background:#e2e8f0; }
+.step-pend .step-h-label { color:#cbd5e1; }
+
+.legal-row-a {
+  background:#f8fafc; border-radius:10px; padding:12px; margin-bottom:8px;
+}
+.lr-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.lr-name { font-size:12px; font-weight:700; color:#0f172a; }
+.lr-unit { font-size:10px; color:#94a3b8; }
+.lr-tag { font-size:9px; font-weight:600; padding:2px 8px; border-radius:99px; }
+.tag-ok  { background:#fef2f2; color:#ef4444; }
+.tag-w   { background:#fffbeb; color:#d97706; }
+.tag-g   { background:#f0fdf4; color:#059669; }
+
+/* ── B: Tabla con columnas por etapa ── */
+.legal-table { width:100%; border-collapse:collapse; font-size:10px; }
+.legal-table th {
+  background:#f8fafc; padding:6px 8px;
+  font-weight:600; color:#64748b; text-align:left;
+  border-bottom:1px solid #e2e8f0; font-size:9px;
+  text-transform:uppercase; letter-spacing:0.6px;
+}
+.legal-table td { padding:8px; border-bottom:1px solid #f1f5f9; }
+.legal-table tr:last-child td { border-bottom:none; }
+.step-dot {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:9px; font-weight:600; padding:2px 7px; border-radius:99px;
+}
+.dot-done { background:#eff6ff; color:#1d4ed8; }
+.dot-active { background:#fef3c7; color:#d97706; }
+.dot-warn { background:#fef2f2; color:#ef4444; }
+.dot-pend { background:#f8fafc; color:#cbd5e1; }
+.progress-mini { display:flex; gap:2px; margin-top:4px; }
+.pm-seg { height:3px; flex:1; border-radius:99px; background:#e2e8f0; }
+.pm-seg.done { background:#1d4ed8; }
+.pm-seg.active { background:#f59e0b; }
+.pm-seg.warn { background:#ef4444; }
+
+/* ── C: Kanban por etapa legal ── */
+.kanban { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.kol { background:#f8fafc; border-radius:8px; padding:8px; }
+.kol-title { font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px; text-align:center; }
+.kol-count { font-size:16px; font-weight:800; color:#0f172a; text-align:center; font-family:'Plus Jakarta Sans',sans-serif; margin-bottom:8px; }
+.kol-card { background:#fff; border-radius:6px; padding:7px; border:1px solid #e2e8f0; margin-bottom:4px; font-size:10px; }
+.kol-card .cc-name { font-weight:600; color:#1e293b; }
+.kol-card .cc-unit { color:#94a3b8; font-size:9px; }
+.kol-card .cc-date { color:#ef4444; font-size:9px; margin-top:2px; font-weight:600; }
+.kol-card .cc-date.ok { color:#059669; }
+.kol.kol-warn .kol-title { color:#d97706; }
+.kol.kol-warn { border-top:2px solid #f59e0b; }
+.kol.kol-err .kol-title { color:#ef4444; }
+.kol.kol-err { border-top:2px solid #ef4444; }
+.kol.kol-ok { border-top:2px solid #1d4ed8; }
+</style>
+</head>
+<body>
+
+<h1>Proceso Legal — 3 estilos</h1>
+<p class="sub">¿Cómo quieres ver el estado legal de cada venta?</p>
+
+<div class="grid">
+
+  <!-- A: Stepper por fila -->
+  <div class="card" onclick="this.classList.toggle('selected')">
+    <div class="card-preview">
+      <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">LEGAL — EN CURSO</div>
+
+      <div class="legal-row-a">
+        <div class="lr-header">
+          <div><div class="lr-name">García Morales</div><div class="lr-unit">Bodega B298</div></div>
+          <span class="lr-tag tag-ok">⚠ Vencido</span>
+        </div>
+        <div class="steps-h">
+          <div class="step-h step-done"><div class="step-h-line"></div><div class="step-h-circle">✓</div><div class="step-h-label">Escritura</div></div>
+          <div class="step-h step-done"><div class="step-h-line"></div><div class="step-h-circle">✓</div><div class="step-h-label">Notaría</div></div>
+          <div class="step-h step-warn"><div class="step-h-line"></div><div class="step-h-circle">!</div><div class="step-h-label">CBR</div><div class="step-h-date">Vencido</div></div>
+          <div class="step-h step-pend"><div class="step-h-line"></div><div class="step-h-circle">·</div><div class="step-h-label">Entrega</div></div>
+        </div>
+      </div>
+
+      <div class="legal-row-a">
+        <div class="lr-header">
+          <div><div class="lr-name">Martínez Campos</div><div class="lr-unit">Bodega 57 + 48</div></div>
+          <span class="lr-tag tag-w">5 días</span>
+        </div>
+        <div class="steps-h">
+          <div class="step-h step-done"><div class="step-h-line"></div><div class="step-h-circle">✓</div><div class="step-h-label">Escritura</div></div>
+          <div class="step-h step-done"><div class="step-h-line"></div><div class="step-h-circle">✓</div><div class="step-h-label">Notaría</div></div>
+          <div class="step-h step-active"><div class="step-h-line"></div><div class="step-h-circle">→</div><div class="step-h-label">CBR</div><div class="step-h-date">14 abr</div></div>
+          <div class="step-h step-pend"><div class="step-h-line"></div><div class="step-h-circle">·</div><div class="step-h-label">Entrega</div></div>
+        </div>
+      </div>
+
+      <div class="legal-row-a">
+        <div class="lr-header">
+          <div><div class="lr-name">Rodríguez P.</div><div class="lr-unit">Est. 72</div></div>
+          <span class="lr-tag tag-g">Al día</span>
+        </div>
+        <div class="steps-h">
+          <div class="step-h step-done"><div class="step-h-line"></div><div class="step-h-circle">✓</div><div class="step-h-label">Escritura</div></div>
+          <div class="step-h step-active"><div class="step-h-line"></div><div class="step-h-circle">→</div><div class="step-h-label">Notaría</div><div class="step-h-date">20 abr</div></div>
+          <div class="step-h step-pend"><div class="step-h-line"></div><div class="step-h-circle">·</div><div class="step-h-label">CBR</div></div>
+          <div class="step-h step-pend"><div class="step-h-line"></div><div class="step-h-circle">·</div><div class="step-h-label">Entrega</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">
+      <div class="card-title">A — Stepper por venta</div>
+      <div class="card-desc">Cada venta en una fila con su timeline. Ves exactamente en qué paso está y si hay alertas. El más detallado.</div>
+    </div>
+  </div>
+
+  <!-- B: Tabla compacta -->
+  <div class="card" onclick="this.classList.toggle('selected')">
+    <div class="card-preview">
+      <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">LEGAL — EN CURSO</div>
+      <table class="legal-table">
+        <tr>
+          <th>Comprador</th>
+          <th>Paso actual</th>
+          <th>Progreso</th>
+        </tr>
+        <tr>
+          <td>
+            <div style="font-weight:600;color:#1e293b;font-size:11px;">García Morales</div>
+            <div style="color:#94a3b8;font-size:9px;">Bodega B298</div>
+          </td>
+          <td><span class="step-dot dot-warn">⚠ CBR vencido</span></td>
+          <td>
+            <div class="progress-mini">
+              <div class="pm-seg done"></div>
+              <div class="pm-seg done"></div>
+              <div class="pm-seg warn"></div>
+              <div class="pm-seg"></div>
+            </div>
+            <div style="font-size:8px;color:#ef4444;margin-top:2px;">3/4 pasos</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <div style="font-weight:600;color:#1e293b;font-size:11px;">Martínez C.</div>
+            <div style="color:#94a3b8;font-size:9px;">Bodega 57 + 48</div>
+          </td>
+          <td><span class="step-dot dot-active">→ CBR · 14 abr</span></td>
+          <td>
+            <div class="progress-mini">
+              <div class="pm-seg done"></div>
+              <div class="pm-seg done"></div>
+              <div class="pm-seg active"></div>
+              <div class="pm-seg"></div>
+            </div>
+            <div style="font-size:8px;color:#d97706;margin-top:2px;">3/4 pasos</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <div style="font-weight:600;color:#1e293b;font-size:11px;">Rodríguez P.</div>
+            <div style="color:#94a3b8;font-size:9px;">Est. 72</div>
+          </td>
+          <td><span class="step-dot dot-done">→ Notaría · 20 abr</span></td>
+          <td>
+            <div class="progress-mini">
+              <div class="pm-seg done"></div>
+              <div class="pm-seg active"></div>
+              <div class="pm-seg"></div>
+              <div class="pm-seg"></div>
+            </div>
+            <div style="font-size:8px;color:#1d4ed8;margin-top:2px;">2/4 pasos</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <div style="font-weight:600;color:#1e293b;font-size:11px;">López F.</div>
+            <div style="color:#94a3b8;font-size:9px;">Bodega B298</div>
+          </td>
+          <td><span class="step-dot dot-pend">Escritura — sin fecha</span></td>
+          <td>
+            <div class="progress-mini">
+              <div class="pm-seg active"></div>
+              <div class="pm-seg"></div>
+              <div class="pm-seg"></div>
+              <div class="pm-seg"></div>
+            </div>
+            <div style="font-size:8px;color:#94a3b8;margin-top:2px;">1/4 pasos</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <div class="card-label">
+      <div class="card-title">B — Tabla compacta con progreso</div>
+      <div class="card-desc">Más ventas visibles de un vistazo. Barra de progreso por pasos y estado coloreado. Ideal para volumen alto.</div>
+    </div>
+  </div>
+
+  <!-- C: Kanban -->
+  <div class="card" onclick="this.classList.toggle('selected')">
+    <div class="card-preview">
+      <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">LEGAL — TABLERO</div>
+      <div class="kanban">
+        <div class="kol kol-ok">
+          <div class="kol-title">Escritura</div>
+          <div class="kol-count">3</div>
+          <div class="kol-card">
+            <div class="cc-name">López F.</div>
+            <div class="cc-unit">Bodega B298</div>
+            <div class="cc-date ok">Límite 18 abr</div>
+          </div>
+          <div class="kol-card">
+            <div class="cc-name">Pinto R.</div>
+            <div class="cc-unit">Est. 14</div>
+            <div class="cc-date ok">Límite 22 abr</div>
+          </div>
+        </div>
+        <div class="kol kol-ok">
+          <div class="kol-title">Notaría</div>
+          <div class="kol-count">2</div>
+          <div class="kol-card">
+            <div class="cc-name">Rodríguez P.</div>
+            <div class="cc-unit">Est. 72</div>
+            <div class="cc-date ok">Límite 20 abr</div>
+          </div>
+        </div>
+        <div class="kol kol-warn">
+          <div class="kol-title">CBR</div>
+          <div class="kol-count">2</div>
+          <div class="kol-card">
+            <div class="cc-name">Martínez C.</div>
+            <div class="cc-unit">Bodega 57+48</div>
+            <div class="cc-date ok">14 abr · 5d</div>
+          </div>
+          <div class="kol-card">
+            <div class="cc-name">García M.</div>
+            <div class="cc-unit">Bodega B298</div>
+            <div class="cc-date">Vencido</div>
+          </div>
+        </div>
+        <div class="kol">
+          <div class="kol-title">Entrega</div>
+          <div class="kol-count">1</div>
+          <div class="kol-card">
+            <div class="cc-name">Soto V.</div>
+            <div class="cc-unit">Bodega 72</div>
+            <div class="cc-date ok">Límite 30 abr</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-label">
+      <div class="card-title">C — Tablero Kanban por etapa</div>
+      <div class="card-desc">Columnas por paso legal. Las ventas se mueven entre columnas. Visión global de qué está donde. Drag &amp; drop posible.</div>
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center;font-size:12px;color:#94a3b8;margin-top:20px;">Haz click para seleccionar • para el embudo también dime tu elección</p>
+</body>
+</html>
