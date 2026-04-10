@@ -184,22 +184,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// ─── TEMPORAL: asignar leads a Felix ─────────────────────────────
-app.get('/api/admin-temporal/usuarios-y-leads', async (req, res) => {
-  const usuarios = await prisma.usuario.findMany({ select: { id: true, nombre: true, apellido: true, rol: true }, orderBy: { nombre: 'asc' } })
-  const totalLeads = await prisma.lead.count()
-  res.json({ usuarios, totalLeads })
-})
-app.post('/api/admin-temporal/asignar-leads/:vendedorId', async (req, res) => {
-  const vendedorId = Number(req.params.vendedorId)
-  if (!vendedorId) return res.status(400).json({ error: 'vendedorId requerido' })
-  const usuario = await prisma.usuario.findUnique({ where: { id: vendedorId }, select: { nombre: true, apellido: true } })
-  if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' })
-  const result = await prisma.lead.updateMany({ data: { vendedorId } })
-  res.json({ ok: true, usuario, leadsActualizados: result.count })
-})
-// ─── FIN TEMPORAL ─────────────────────────────────────────────────
-
 // Servir frontend en producción
 if (process.env.NODE_ENV === 'production') {
   const frontendDist = path.join(__dirname, '../../frontend/dist')
