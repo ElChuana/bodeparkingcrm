@@ -157,4 +157,26 @@ const actualizar = async (req, res) => {
   }
 }
 
-module.exports = { listarPorLead, listarTodas, crear, actualizarResultado, actualizar }
+const eliminar = async (req, res) => {
+  const { id } = req.params
+  const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
+
+  try {
+    const visita = await prisma.visita.findUnique({
+      where: { id: Number(id) }
+    })
+    if (!visita) return res.status(404).json({ error: 'Visita no encontrada.' })
+
+    // Solo puede eliminar el creador o Gerente/JV
+    if (!esGerenciaOJV && visita.vendedorId !== req.usuario.id) {
+      return res.status(403).json({ error: 'Sin permiso para eliminar esta visita.' })
+    }
+
+    await prisma.visita.delete({ where: { id: Number(id) } })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Error al eliminar visita.' })
+  }
+}
+
+module.exports = { listarPorLead, listarTodas, crear, actualizarResultado, actualizar, eliminar }
