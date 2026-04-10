@@ -168,8 +168,14 @@ const obtener = async (req, res) => {
         vendedor: { select: { id: true, nombre: true, apellido: true, email: true } },
         broker: { select: { id: true, nombre: true, apellido: true } },
         unidadInteres: { include: { edificio: true } },
-        visitas: { orderBy: { fechaHora: 'desc' } },
-        interacciones: { orderBy: { fecha: 'desc' } },
+        visitas: {
+          orderBy: { fechaHora: 'desc' },
+          include: { vendedor: { select: { id: true, nombre: true, apellido: true } }, edificio: { select: { nombre: true } } }
+        },
+        interacciones: {
+          orderBy: { fecha: 'desc' },
+          include: { usuario: { select: { id: true, nombre: true, apellido: true } } }
+        },
         venta: { select: { id: true, estado: true } }
       }
     })

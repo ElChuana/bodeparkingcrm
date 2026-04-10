@@ -123,6 +123,11 @@ function ModalVisita({ open, onClose, leadId }) {
     queryFn: () => api.get('/edificios').then(r => r.data),
     enabled: open
   })
+  const { data: vendedores = [] } = useQuery({
+    queryKey: ['usuarios-vendedores'],
+    queryFn: () => api.get('/usuarios').then(r => r.data.filter(u => ['VENDEDOR', 'JEFE_VENTAS', 'BROKER_EXTERNO'].includes(u.rol))),
+    enabled: open
+  })
 
   const crear = useMutation({
     mutationFn: (d) => api.post(`/leads/${leadId}/visitas`, d),
@@ -148,12 +153,86 @@ function ModalVisita({ open, onClose, leadId }) {
         <Form.Item name="tipo" label="Tipo">
           <Select options={[{ value: 'presencial', label: 'Presencial' }, { value: 'virtual', label: 'Virtual' }]} />
         </Form.Item>
+        <Form.Item name="vendedorId" label="Quién realiza la visita">
+          <Select allowClear placeholder="Seleccionar..." options={vendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))} />
+        </Form.Item>
         <Form.Item name="edificioId" label="Proyecto / Edificio">
-          <Select
-            allowClear
-            placeholder="Seleccionar proyecto..."
-            options={edificios.map(e => ({ value: e.id, label: e.nombre }))}
-          />
+          <Select allowClear placeholder="Seleccionar proyecto..." options={edificios.map(e => ({ value: e.id, label: e.nombre }))} />
+        </Form.Item>
+        <Form.Item name="notas" label="Notas">
+          <Input.TextArea rows={3} placeholder="Observaciones..." />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
+// ─── Modal editar visita ──────────────────────────────────────────
+function ModalEditarVisita({ open, onClose, visita, leadId }) {
+  const qc = useQueryClient()
+  const [form] = Form.useForm()
+  const { message } = App.useApp()
+
+  const { data: edificios = [] } = useQuery({
+    queryKey: ['edificios-activos'],
+    queryFn: () => api.get('/edificios').then(r => r.data),
+    enabled: open
+  })
+  const { data: vendedores = [] } = useQuery({
+    queryKey: ['usuarios-vendedores'],
+    queryFn: () => api.get('/usuarios').then(r => r.data.filter(u => ['VENDEDOR', 'JEFE_VENTAS', 'BROKER_EXTERNO'].includes(u.rol))),
+    enabled: open
+  })
+
+  const editar = useMutation({
+    mutationFn: (d) => api.patch(`/leads/${leadId}/visitas/${visita.id}`, d),
+    onSuccess: () => {
+      message.success('Visita actualizada')
+      qc.invalidateQueries(['lead', String(leadId)])
+      qc.invalidateQueries(['visitas-todas'])
+      onClose()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const toLocalDatetime = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    const pad = n => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  return (
+    <Modal
+      title="Editar visita"
+      open={open}
+      onCancel={onClose}
+      onOk={() => form.validateFields().then(editar.mutate)}
+      okText="Guardar"
+      cancelText="Cancelar"
+      confirmLoading={editar.isPending}
+      afterOpenChange={(o) => {
+        if (o && visita) form.setFieldsValue({
+          fechaHora: toLocalDatetime(visita.fechaHora),
+          tipo: visita.tipo,
+          notas: visita.notas || '',
+          edificioId: visita.edificioId || undefined,
+          vendedorId: visita.vendedor?.id || undefined,
+        })
+      }}
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form.Item name="fechaHora" label="Fecha y hora" rules={[{ required: true }]}>
+          <Input type="datetime-local" />
+        </Form.Item>
+        <Form.Item name="tipo" label="Tipo">
+          <Select options={[{ value: 'presencial', label: 'Presencial' }, { value: 'virtual', label: 'Virtual' }]} />
+        </Form.Item>
+        <Form.Item name="vendedorId" label="Quién realiza la visita">
+          <Select allowClear placeholder="Seleccionar..." options={vendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))} />
+        </Form.Item>
+        <Form.Item name="edificioId" label="Proyecto / Edificio">
+          <Select allowClear placeholder="Seleccionar proyecto..." options={edificios.map(e => ({ value: e.id, label: e.nombre }))} />
         </Form.Item>
         <Form.Item name="notas" label="Notas">
           <Input.TextArea rows={3} placeholder="Observaciones..." />
@@ -227,7 +306,7 @@ function CotizacionesLead({ leadId }) {
   )
 }
 
-// ─── Modal editar nombre contacto ─────────────────────────────────
+// ─── Modal editar contacto (nombre, telefono, email, empresa) ─────
 function ModalEditarContacto({ open, onClose, lead }) {
   const qc = useQueryClient()
   const [form] = Form.useForm()
@@ -245,14 +324,22 @@ function ModalEditarContacto({ open, onClose, lead }) {
 
   return (
     <Modal
-      title="Editar nombre"
+      title="Editar contacto"
       open={open}
       onCancel={onClose}
       onOk={() => form.validateFields().then(editar.mutate)}
       okText="Guardar"
       cancelText="Cancelar"
       confirmLoading={editar.isPending}
-      afterOpenChange={(o) => { if (o) form.setFieldsValue({ nombre: lead?.contacto.nombre, apellido: lead?.contacto.apellido }) }}
+      afterOpenChange={(o) => {
+        if (o) form.setFieldsValue({
+          nombre: lead?.contacto.nombre,
+          apellido: lead?.contacto.apellido,
+          telefono: lead?.contacto.telefono || '',
+          email: lead?.contacto.email || '',
+          empresa: lead?.contacto.empresa || '',
+        })
+      }}
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
@@ -260,6 +347,63 @@ function ModalEditarContacto({ open, onClose, lead }) {
         </Form.Item>
         <Form.Item name="apellido" label="Apellido">
           <Input />
+        </Form.Item>
+        <Form.Item name="telefono" label="Teléfono">
+          <Input />
+        </Form.Item>
+        <Form.Item name="email" label="Email">
+          <Input type="email" />
+        </Form.Item>
+        <Form.Item name="empresa" label="Empresa">
+          <Input />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
+// ─── Modal editar datos del lead (notas, campaña) ─────────────────
+function ModalEditarLead({ open, onClose, lead }) {
+  const qc = useQueryClient()
+  const [form] = Form.useForm()
+  const { message } = App.useApp()
+
+  const editar = useMutation({
+    mutationFn: (d) => api.put(`/leads/${lead.id}`, d),
+    onSuccess: () => {
+      message.success('Lead actualizado')
+      qc.invalidateQueries(['lead', String(lead.id)])
+      onClose()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  return (
+    <Modal
+      title="Editar lead"
+      open={open}
+      onCancel={onClose}
+      onOk={() => form.validateFields().then(editar.mutate)}
+      okText="Guardar"
+      cancelText="Cancelar"
+      confirmLoading={editar.isPending}
+      afterOpenChange={(o) => {
+        if (o) form.setFieldsValue({
+          notas: lead?.notas || '',
+          campana: lead?.campana || '',
+          presupuestoAprox: lead?.presupuestoAprox || '',
+        })
+      }}
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form.Item name="campana" label="Campaña">
+          <Input placeholder="Nombre de la campaña..." />
+        </Form.Item>
+        <Form.Item name="presupuestoAprox" label="Presupuesto aprox. (UF)">
+          <Input type="number" />
+        </Form.Item>
+        <Form.Item name="notas" label="Notas internas">
+          <Input.TextArea rows={4} placeholder="Notas sobre este lead..." />
         </Form.Item>
       </Form>
     </Modal>
@@ -276,6 +420,8 @@ export default function LeadDetalle() {
   const [modalInteraccion, setModalInteraccion] = useState(false)
   const [modalVisita, setModalVisita] = useState(false)
   const [modalEditarContacto, setModalEditarContacto] = useState(false)
+  const [modalEditarLead, setModalEditarLead] = useState(false)
+  const [visitaEditando, setVisitaEditando] = useState(null)
 
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
@@ -298,18 +444,24 @@ export default function LeadDetalle() {
         dot: <CalendarOutlined style={{ color: '#fa8c16' }} />,
         children: (
           <div>
-            <Space>
-              <Text strong style={{ fontSize: 13 }}>Visita {item.tipo}</Text>
-              {item.resultado && (
-                <Tag color={item.resultado === 'positivo' ? 'green' : item.resultado === 'negativo' ? 'red' : 'default'}>
-                  {item.resultado}
-                </Tag>
-              )}
-            </Space>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Space>
+                <Text strong style={{ fontSize: 13 }}>Visita {item.tipo}</Text>
+                {item.resultado && (
+                  <Tag color={item.resultado === 'positivo' ? 'green' : item.resultado === 'negativo' ? 'red' : 'default'}>
+                    {item.resultado}
+                  </Tag>
+                )}
+              </Space>
+              <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setVisitaEditando(item)} />
+            </div>
             <div><Text type="secondary" style={{ fontSize: 12 }}>
               {format(new Date(item.fechaHora), "d MMM yyyy 'a las' HH:mm", { locale: es })}
             </Text></div>
-            {item.notas && <Text style={{ fontSize: 13 }}>{item.notas}</Text>}
+            {item.vendedor && (
+              <div><Text type="secondary" style={{ fontSize: 12 }}>👤 {item.vendedor.nombre} {item.vendedor.apellido}</Text></div>
+            )}
+            {item.notas && <Text style={{ fontSize: 13, display: 'block', marginTop: 4 }}>{item.notas}</Text>}
           </div>
         )
       }
@@ -349,10 +501,7 @@ export default function LeadDetalle() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
         <div>
-          <Space align="center">
-            <Title level={4} style={{ margin: 0 }}>{lead.contacto.nombre} {lead.contacto.apellido}</Title>
-            <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setModalEditarContacto(true)} />
-          </Space>
+          <Title level={4} style={{ margin: 0 }}>{lead.contacto.nombre} {lead.contacto.apellido}</Title>
           <Space style={{ marginTop: 6 }}>
             <Tag color={ETAPA_COLOR[lead.etapa]}>{ETAPA_LABEL[lead.etapa]}</Tag>
             {lead.contacto.origen && <Tag>{lead.contacto.origen.toLowerCase().replace('_', ' ')}</Tag>}
@@ -378,7 +527,11 @@ export default function LeadDetalle() {
         <Col xs={24} md={8}>
           <Space direction="vertical" style={{ width: '100%' }} size={12}>
             {/* Contacto */}
-            <Card size="small" title={<><UserOutlined /> Contacto</>}>
+            <Card
+              size="small"
+              title={<><UserOutlined /> Contacto</>}
+              extra={<Button type="text" size="small" icon={<EditOutlined />} onClick={() => setModalEditarContacto(true)} />}
+            >
               <Space direction="vertical" size={4}>
                 {lead.contacto.telefono && (
                   <a href={`tel:${lead.contacto.telefono}`}>
@@ -414,6 +567,21 @@ export default function LeadDetalle() {
               {lead.broker && (
                 <div><Text style={{ fontSize: 13 }}>🤝 <Text strong>{lead.broker.nombre} {lead.broker.apellido}</Text> <Text type="secondary">· Broker</Text></Text></div>
               )}
+            </Card>
+
+            {/* Notas del lead */}
+            <Card
+              size="small"
+              title="Notas internas"
+              extra={<Button type="text" size="small" icon={<EditOutlined />} onClick={() => setModalEditarLead(true)} />}
+            >
+              {lead.notas ? (
+                <Text style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{lead.notas}</Text>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 13 }}>Sin notas. <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setModalEditarLead(true)}>Agregar</Button></Text>
+              )}
+              {lead.campana && <div style={{ marginTop: 6 }}><Text type="secondary" style={{ fontSize: 12 }}>📣 Campaña: {lead.campana}</Text></div>}
+              {lead.presupuestoAprox && <div><Text type="secondary" style={{ fontSize: 12 }}>💰 Presupuesto: {lead.presupuestoAprox} UF</Text></div>}
             </Card>
 
             {/* Pipeline */}
@@ -466,10 +634,17 @@ export default function LeadDetalle() {
         </Col>
       </Row>
 
-      <ModalCambiarEtapa    open={modalEtapa}          onClose={() => setModalEtapa(false)}          lead={lead} />
-      <ModalInteraccion     open={modalInteraccion}    onClose={() => setModalInteraccion(false)}    leadId={id} />
-      <ModalVisita          open={modalVisita}         onClose={() => setModalVisita(false)}         leadId={id} />
-      <ModalEditarContacto  open={modalEditarContacto} onClose={() => setModalEditarContacto(false)} lead={lead} />
+      <ModalCambiarEtapa   open={modalEtapa}          onClose={() => setModalEtapa(false)}          lead={lead} />
+      <ModalInteraccion    open={modalInteraccion}    onClose={() => setModalInteraccion(false)}    leadId={id} />
+      <ModalVisita         open={modalVisita}         onClose={() => setModalVisita(false)}         leadId={id} />
+      <ModalEditarContacto open={modalEditarContacto} onClose={() => setModalEditarContacto(false)} lead={lead} />
+      <ModalEditarLead     open={modalEditarLead}     onClose={() => setModalEditarLead(false)}     lead={lead} />
+      <ModalEditarVisita
+        open={!!visitaEditando}
+        onClose={() => setVisitaEditando(null)}
+        visita={visitaEditando}
+        leadId={id}
+      />
     </div>
   )
 }

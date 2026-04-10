@@ -130,4 +130,31 @@ const actualizarResultado = async (req, res) => {
   }
 }
 
-module.exports = { listarPorLead, listarTodas, crear, actualizarResultado }
+// Edición completa de una visita (fecha, tipo, notas, edificio, vendedor)
+const actualizar = async (req, res) => {
+  const { id } = req.params
+  const { fechaHora, tipo, notas, edificioId, vendedorId } = req.body
+
+  try {
+    const visita = await prisma.visita.update({
+      where: { id: Number(id) },
+      data: {
+        ...(fechaHora !== undefined && { fechaHora: new Date(fechaHora) }),
+        ...(tipo !== undefined && { tipo }),
+        ...(notas !== undefined && { notas: notas || null }),
+        ...(edificioId !== undefined && { edificioId: edificioId ? Number(edificioId) : null }),
+        ...(vendedorId !== undefined && { vendedorId: vendedorId ? Number(vendedorId) : null }),
+      },
+      include: {
+        vendedor: { select: { id: true, nombre: true, apellido: true } },
+        edificio: { select: { id: true, nombre: true } }
+      }
+    })
+    res.json(visita)
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Visita no encontrada.' })
+    res.status(500).json({ error: 'Error al actualizar visita.' })
+  }
+}
+
+module.exports = { listarPorLead, listarTodas, crear, actualizarResultado, actualizar }
