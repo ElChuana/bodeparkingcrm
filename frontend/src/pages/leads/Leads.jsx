@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons'
 import {
   DndContext, PointerSensor, useSensor, useSensors,
-  DragOverlay, useDroppable, useDraggable
+  DragOverlay, useDroppable, useDraggable, closestCenter
 } from '@dnd-kit/core'
 import { formatDistanceToNow, format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -331,23 +331,22 @@ function KanbanColumn({ etapa, leads, onPreview }) {
   const { setNodeRef, isOver } = useDroppable({ id: etapa })
 
   return (
-    <div className="kanban-col">
+    <div
+      ref={setNodeRef}
+      className="kanban-col"
+      style={{
+        borderRadius: 8,
+        background: isOver ? '#e6f4ff' : 'transparent',
+        border: isOver ? '1.5px dashed #1677ff' : '1.5px solid transparent',
+        transition: 'background 0.15s',
+        padding: 4,
+      }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Tag color={ETAPA_COLOR[etapa]} style={{ margin: 0 }}>{ETAPA_LABEL[etapa]}</Tag>
         <Text type="secondary" style={{ fontSize: 12 }}>{leads.length}</Text>
       </div>
-      <div
-        ref={setNodeRef}
-        className="kanban-col-body"
-        style={{
-          minHeight: 60,
-          borderRadius: 8,
-          padding: 4,
-          background: isOver ? '#e6f4ff' : 'transparent',
-          transition: 'background 0.15s',
-          border: isOver ? '1.5px dashed #1677ff' : '1.5px solid transparent',
-        }}
-      >
+      <div className="kanban-col-body">
         {leads.map(lead => (
           <LeadCard key={lead.id} lead={lead} onPreview={onPreview} />
         ))}
@@ -428,7 +427,7 @@ function VistaKanban({ filtros, onPreview }) {
 
   return (
     <>
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="kanban-board">
         {ETAPAS.map(etapa => (
           <KanbanColumn
