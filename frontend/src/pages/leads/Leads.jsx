@@ -280,7 +280,7 @@ function LeadPreviewDrawer({ leadId, onClose }) {
 }
 
 // ─── Tarjeta del Kanban (draggable) ─────────────────────────────
-function LeadCard({ lead, onPreview }) {
+const LeadCard = React.memo(function LeadCard({ lead, onPreview }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.id })
 
   return (
@@ -324,11 +324,12 @@ function LeadCard({ lead, onPreview }) {
       </Card>
     </div>
   )
-}
+})
 
 // ─── Columna del Kanban (droppable) ─────────────────────────────
-function KanbanColumn({ etapa, leads, onPreview }) {
+const KanbanColumn = React.memo(function KanbanColumn({ etapa, leads, total, onPreview }) {
   const { setNodeRef, isOver } = useDroppable({ id: etapa })
+  const masLeads = total - leads.length
 
   return (
     <div
@@ -344,16 +345,21 @@ function KanbanColumn({ etapa, leads, onPreview }) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Tag color={ETAPA_COLOR[etapa]} style={{ margin: 0 }}>{ETAPA_LABEL[etapa]}</Tag>
-        <Text type="secondary" style={{ fontSize: 12 }}>{leads.length}</Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>{total}</Text>
       </div>
       <div className="kanban-col-body">
         {leads.map(lead => (
           <LeadCard key={lead.id} lead={lead} onPreview={onPreview} />
         ))}
+        {masLeads > 0 && (
+          <div style={{ textAlign: 'center', padding: '8px 4px', color: '#8c8c8c', fontSize: 12 }}>
+            y {masLeads} más — filtra para ver todos
+          </div>
+        )}
       </div>
     </div>
   )
-}
+})
 
 // ─── Vista Kanban con DnD ─────────────────────────────────────────
 function VistaKanban({ filtros, onPreview }) {
@@ -376,7 +382,9 @@ function VistaKanban({ filtros, onPreview }) {
 
   const { data: kanban = {}, isLoading } = useQuery({
     queryKey: ['leads-kanban', params],
-    queryFn: ({ queryKey }) => api.get('/leads/kanban', { params: queryKey[1] }).then(r => r.data)
+    queryFn: ({ queryKey }) => api.get('/leads/kanban', { params: queryKey[1] }).then(r => r.data),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   })
 
   const cambiarEtapa = useMutation({
@@ -390,13 +398,13 @@ function VistaKanban({ filtros, onPreview }) {
   )
 
   const activeLead = activeId
-    ? Object.values(kanban).flat().find(l => l.id === activeId)
+    ? Object.values(kanban).flatMap(c => c.leads || []).find(l => l.id === activeId)
     : null
 
   const handleDragStart = ({ active }) => {
     setActiveId(active.id)
-    for (const [etapa, leads] of Object.entries(kanban)) {
-      if (leads.find(l => l.id === active.id)) {
+    for (const [etapa, col] of Object.entries(kanban)) {
+      if ((col.leads || []).find(l => l.id === active.id)) {
         dragStartEtapa.current = etapa
         break
       }
@@ -414,8 +422,8 @@ function VistaKanban({ filtros, onPreview }) {
     let etapaDestino = over.id
     // If dropped on another card (over.id is a number), find its column
     if (!ETAPAS.includes(etapaDestino)) {
-      for (const [etapa, leads] of Object.entries(kanban)) {
-        if (leads.find(l => l.id === etapaDestino)) {
+      for (const [etapa, col] of Object.entries(kanban)) {
+        if ((col.leads || []).find(l => l.id === etapaDestino)) {
           etapaDestino = etapa
           break
         }
@@ -438,7 +446,8 @@ function VistaKanban({ filtros, onPreview }) {
           <KanbanColumn
             key={etapa}
             etapa={etapa}
-            leads={kanban[etapa] || []}
+            leads={kanban[etapa]?.leads || []}
+            total={kanban[etapa]?.total || 0}
             onPreview={onPreview}
           />
         ))}
