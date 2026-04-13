@@ -121,7 +121,13 @@ const kanban = async (req, res) => {
       if (agrupado[lead.etapa]) agrupado[lead.etapa].push(lead)
     })
 
-    res.json(agrupado)
+    // Limitar a 100 por columna y devolver total real
+    const resultado = {}
+    for (const [etapa, col] of Object.entries(agrupado)) {
+      resultado[etapa] = { leads: col.slice(0, 100), total: col.length }
+    }
+
+    res.json(resultado)
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener kanban.' })
   }
