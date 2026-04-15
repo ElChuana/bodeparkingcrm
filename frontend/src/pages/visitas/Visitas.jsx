@@ -76,6 +76,8 @@ function VistaCalendario({ vendedorId, edificioId }) {
     }
 
     for (const a of actividades) {
+      // Excluir logs automáticos de ingreso/cambio de etapa
+      if (a.descripcion === 'Lead creado en el sistema.' || a.descripcion?.startsWith('Etapa cambiada:')) continue
       const dia = format(new Date(a.fecha), 'yyyy-MM-dd')
       if (!mapa[dia]) mapa[dia] = []
       mapa[dia].push({
