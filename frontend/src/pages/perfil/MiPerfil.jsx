@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Form, Input, Button, App, Divider, Tag, Space } from 'antd'
-import { MailOutlined, LockOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons'
+import { Card, Form, Input, Button, App, Space, Tag } from 'antd'
+import { MailOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -9,11 +9,13 @@ export default function MiPerfil() {
   const { message } = App.useApp()
   const [form] = Form.useForm()
   const [guardando, setGuardando] = useState(false)
-  const [verificando, setVerificando] = useState(false)
-  const [config, setConfig] = useState(null) // { smtpEmail, tienePassword }
+  const [emailConfigurado, setEmailConfigurado] = useState(null)
 
   useEffect(() => {
-    api.get('/email/config').then(r => setConfig(r.data)).catch(() => {})
+    api.get('/email/config').then(r => {
+      setEmailConfigurado(r.data.smtpEmail)
+      if (r.data.smtpEmail) form.setFieldValue('smtpEmail', r.data.smtpEmail)
+    }).catch(() => {})
   }, [])
 
   const handleGuardar = async () => {
@@ -21,29 +23,14 @@ export default function MiPerfil() {
       const valores = await form.validateFields()
       setGuardando(true)
       await api.put('/email/config', valores)
-      message.success('Credenciales guardadas y verificadas correctamente')
-      setConfig({ smtpEmail: valores.smtpEmail, tienePassword: true })
-      form.setFieldValue('smtpPassword', '')
+      message.success('Email configurado correctamente')
+      setEmailConfigurado(valores.smtpEmail)
     } catch (err) {
       if (err?.errorFields) return
-      const msg = err.response?.data?.error || 'No se pudieron guardar las credenciales'
-      const detalle = err.response?.data?.detalle || ''
-      message.error(`${msg}${detalle ? ` — ${detalle}` : ''}`)
-    } finally {
-      setGuardando(false)
-    }
-  }
-
-  const handleVerificar = async () => {
-    setVerificando(true)
-    try {
-      const r = await api.get('/email/verificar')
-      message.success(r.data.mensaje)
-    } catch (err) {
-      const msg = err.response?.data?.error || 'Error de conexión'
+      const msg = err.response?.data?.error || 'No se pudo guardar'
       message.error(msg)
     } finally {
-      setVerificando(false)
+      setGuardando(false)
     }
   }
 
@@ -65,29 +52,25 @@ export default function MiPerfil() {
         title={
           <span>
             <MailOutlined style={{ marginRight: 8, color: '#1677ff' }} />
-            Configuración de correo saliente
+            Email para envío de correos
           </span>
         }
       >
         <p style={{ color: '#666', marginBottom: 16, fontSize: 13 }}>
-          Configura tu cuenta de correo <strong>@bodeparking.cl</strong> para poder enviar emails desde el CRM.
-          Usa tu email y contraseña de cPanel.
+          Configura el email desde el que se enviarán tus correos a clientes (ej: <strong>tuusuario@bodeparking.cl</strong>).
         </p>
 
-        {config?.smtpEmail && (
+        {emailConfigurado && (
           <div style={{ marginBottom: 16, padding: '8px 12px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
             <CheckCircleOutlined style={{ color: '#52c41a' }} />
-            <span style={{ fontSize: 13 }}>
-              Correo configurado: <strong>{config.smtpEmail}</strong>
-            </span>
+            <span style={{ fontSize: 13 }}>Email configurado: <strong>{emailConfigurado}</strong></span>
           </div>
         )}
 
         <Form form={form} layout="vertical">
           <Form.Item
-            label="Email (ej: tuusuario@bodeparking.cl)"
+            label="Tu email (@bodeparking.cl)"
             name="smtpEmail"
-            initialValue={config?.smtpEmail || ''}
             rules={[
               { required: true, message: 'Ingresa tu email' },
               { type: 'email', message: 'Email inválido' },
@@ -99,33 +82,9 @@ export default function MiPerfil() {
             />
           </Form.Item>
 
-          <Form.Item
-            label="Contraseña de correo"
-            name="smtpPassword"
-            rules={[{ required: true, message: 'Ingresa tu contraseña de correo' }]}
-          >
-            <Input.Password
-              prefix={<LockOutlined style={{ color: '#bbb' }} />}
-              placeholder={config?.tienePassword ? '••••••••••• (dejar vacío para mantener)' : 'Contraseña de cPanel'}
-            />
-          </Form.Item>
-
-          <Divider style={{ margin: '12px 0' }} />
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button
-              type="primary"
-              loading={guardando}
-              onClick={handleGuardar}
-            >
-              Guardar y verificar
-            </Button>
-            {config?.smtpEmail && config?.tienePassword && (
-              <Button loading={verificando} onClick={handleVerificar}>
-                Verificar conexión
-              </Button>
-            )}
-          </div>
+          <Button type="primary" loading={guardando} onClick={handleGuardar}>
+            Guardar
+          </Button>
         </Form>
       </Card>
     </div>
