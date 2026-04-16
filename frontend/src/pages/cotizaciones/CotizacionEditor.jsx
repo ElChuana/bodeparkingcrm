@@ -1021,7 +1021,7 @@ export default function CotizacionEditor() {
                       ).toBlob()
                       const base64 = await new Promise((resolve, reject) => {
                         const reader = new FileReader()
-                        reader.onloadend = () => resolve(reader.result.split(',')[1])
+                        reader.onload = () => resolve(reader.result.split(',')[1])
                         reader.onerror = reject
                         reader.readAsDataURL(blob)
                       })
