@@ -1,113 +1,311 @@
-import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-// Colores de marca
-const AZUL = '#1677ff'
-const GRIS_OSCURO = '#3d3d3d'
-const GRIS_MEDIO = '#6b7280'
-const GRIS_CLARO = '#f3f4f6'
-const VERDE = '#16a34a'
-const BORDE = '#e5e7eb'
+// ── Paleta ──────────────────────────────────────────────────────────────────
+const NAVY    = '#0C1A2E'
+const NAVY2   = '#152338'
+const GOLD    = '#C8963E'
+const GOLD_LT = '#EDD9A3'
+const WHITE   = '#FFFFFF'
+const SMOKE   = '#F7F9FC'
+const BORDER  = '#DCE4EF'
+const TEXT    = '#1E2D3D'
+const MUTED   = '#7A8FA6'
+const MUTED2  = '#A0B4C8'
+const GREEN   = '#0D7A3E'
+const GREEN_BG= '#EDFAF3'
+const BLUE_BG = '#EEF4FD'
+const BLUE_BD = '#1D4ED8'
 
 const TIPOS_DESCUENTO = ['DESCUENTO_PORCENTAJE', 'DESCUENTO_UF', 'PAQUETE']
 
 const TIPO_PROMO_LABEL = {
-  DESCUENTO_PORCENTAJE: 'Descuento %',
-  DESCUENTO_UF: 'Descuento UF',
-  PAQUETE: 'Precio paquete',
-  BENEFICIO: 'Beneficio',
-  ARRIENDO_ASEGURADO: 'Arriendo asegurado',
-  GASTOS_NOTARIALES: 'Gastos notariales',
-  CUOTAS_SIN_INTERES: 'Cuotas sin interés',
-  COMBO: 'Combo',
-  OTRO: 'Otro',
+  DESCUENTO_PORCENTAJE: 'Dto. %',
+  DESCUENTO_UF:         'Dto. UF',
+  PAQUETE:              'Paquete',
+  BENEFICIO:            'Beneficio',
+  ARRIENDO_ASEGURADO:   'Arriendo aseg.',
+  GASTOS_NOTARIALES:    'Gs. Notariales',
+  CUOTAS_SIN_INTERES:   'Cuotas s/int.',
+  COMBO:                'Combo',
+  OTRO:                 'Otro',
 }
 
+const ESTADO_LABEL = {
+  BORRADOR:  'Borrador',
+  ENVIADA:   'Enviada',
+  ACEPTADA:  'Aceptada',
+  RECHAZADA: 'Rechazada',
+}
+
+// ── Estilos ──────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   page: {
     fontFamily: 'Helvetica',
     fontSize: 10,
-    color: GRIS_OSCURO,
-    paddingTop: 40,
-    paddingBottom: 50,
-    paddingHorizontal: 45,
+    color: TEXT,
+    backgroundColor: WHITE,
+    paddingTop: 0,
+    paddingBottom: 52,
+    paddingHorizontal: 0,
   },
 
-  // Header
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28 },
-  logo: { width: 150, height: 40, objectFit: 'contain', objectPositionX: 'left' },
+  // ── Header navy ──
+  header: {
+    backgroundColor: NAVY,
+    paddingTop: 26,
+    paddingBottom: 26,
+    paddingHorizontal: 44,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  logoWrap: {
+    backgroundColor: WHITE,
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  logo: { width: 130, height: 34, objectFit: 'contain' },
+  logoText: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: WHITE, letterSpacing: 1 },
   headerRight: { alignItems: 'flex-end' },
-  docTitle: { fontSize: 20, fontFamily: 'Helvetica-Bold', color: AZUL, marginBottom: 4 },
-  docNum: { fontSize: 10, color: GRIS_MEDIO },
-  docFecha: { fontSize: 10, color: GRIS_MEDIO, marginTop: 2 },
+  headerEtiqueta: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: GOLD,
+    letterSpacing: 2.5,
+    marginBottom: 5,
+  },
+  headerNumero: {
+    fontSize: 24,
+    fontFamily: 'Helvetica-Bold',
+    color: WHITE,
+    marginBottom: 7,
+    lineHeight: 1,
+  },
+  headerMeta: { fontSize: 8.5, color: MUTED2, marginBottom: 2 },
+  headerEstado: {
+    marginTop: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: GOLD,
+    borderRadius: 2,
+  },
+  headerEstadoText: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: NAVY, letterSpacing: 1 },
 
-  // Separador
-  divider: { borderBottomWidth: 1, borderBottomColor: BORDE, marginVertical: 14 },
+  // ── Franja dorada ──
+  goldBar: { height: 4, backgroundColor: GOLD },
 
-  // Sección cliente
-  seccionDos: { flexDirection: 'row', gap: 20, marginBottom: 20 },
-  bloque: { flex: 1, backgroundColor: GRIS_CLARO, borderRadius: 6, padding: 12 },
-  bloqueTitle: { fontSize: 9, color: GRIS_MEDIO, fontFamily: 'Helvetica-Bold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
-  bloqueValor: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: GRIS_OSCURO, marginBottom: 2 },
-  bloqueSubvalor: { fontSize: 10, color: GRIS_MEDIO },
+  // ── Contenido ──
+  body: { paddingHorizontal: 44, paddingTop: 22 },
 
-  // Tabla unidades
-  tablaHeader: { flexDirection: 'row', backgroundColor: AZUL, borderRadius: 4, paddingVertical: 7, paddingHorizontal: 10, marginBottom: 1 },
-  tablaHeaderText: { color: '#ffffff', fontSize: 9, fontFamily: 'Helvetica-Bold' },
-  tablaFila: { flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: BORDE },
-  tablaFilaImpar: { backgroundColor: '#f9fafb' },
-  celdaProyecto: { flex: 3 },
-  celdaUnidad: { flex: 2 },
-  celdaTipo: { flex: 1.5 },
-  celdaPrecio: { flex: 1.5, alignItems: 'flex-end' },
+  // ── Cards info ──
+  infoRow: { flexDirection: 'row', gap: 12, marginBottom: 22 },
+  infoCard: {
+    flex: 1,
+    borderLeftWidth: 3,
+    borderLeftColor: GOLD,
+    paddingLeft: 11,
+    paddingTop: 2,
+    paddingBottom: 2,
+  },
+  infoEtiqueta: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: GOLD,
+    letterSpacing: 1.8,
+    marginBottom: 5,
+  },
+  infoNombre: {
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+    color: TEXT,
+    marginBottom: 3,
+  },
+  infoSub: { fontSize: 9, color: MUTED, marginBottom: 1 },
 
-  // Sección descuentos / beneficios
-  seccionTitle: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: GRIS_OSCURO, marginBottom: 8, marginTop: 16 },
+  // ── Divisor ──
+  divider: { height: 1, backgroundColor: BORDER, marginBottom: 16 },
 
-  promoFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 5, paddingHorizontal: 10, borderRadius: 4, marginBottom: 3 },
-  promoFilaDescuento: { backgroundColor: '#f0fdf4' },
-  promoFilaBeneficio: { backgroundColor: '#eff6ff' },
-  promoBadge: { fontSize: 8, fontFamily: 'Helvetica-Bold', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 3, marginRight: 6 },
-  promoBadgeDescuento: { backgroundColor: '#dcfce7', color: '#15803d' },
-  promoBadgeBeneficio: { backgroundColor: '#dbeafe', color: '#1d4ed8' },
-  promoNombre: { fontSize: 10, flex: 1 },
-  promoAhorro: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: VERDE },
+  // ── Título sección ──
+  secTitle: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: MUTED,
+    letterSpacing: 2,
+    marginBottom: 8,
+    marginTop: 2,
+  },
 
-  beneficioCheck: { fontSize: 10, color: AZUL, marginRight: 5 },
-  beneficioTexto: { fontSize: 10, color: GRIS_OSCURO, flex: 1 },
+  // ── Tabla unidades ──
+  tHead: {
+    flexDirection: 'row',
+    backgroundColor: NAVY2,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 2,
+    marginBottom: 0,
+  },
+  tHeadText: {
+    color: WHITE,
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    letterSpacing: 0.5,
+  },
+  tRow: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+  },
+  tRowAlt: { backgroundColor: SMOKE },
+  cEdificio: { flex: 3 },
+  cUnidad:   { flex: 2 },
+  cTipo:     { flex: 1.5 },
+  cPrecio:   { flex: 1.8, alignItems: 'flex-end' },
+  tCell:     { fontSize: 10, color: TEXT },
+  tCellBold: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
 
-  // Resumen total
-  resumenBox: { backgroundColor: GRIS_CLARO, borderRadius: 6, padding: 14, marginTop: 16 },
-  resumenFila: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
-  resumenLabel: { fontSize: 10, color: GRIS_MEDIO },
-  resumenValor: { fontSize: 10, color: GRIS_OSCURO },
-  resumenDivider: { borderBottomWidth: 1, borderBottomColor: BORDE, marginVertical: 8 },
-  resumenTotalLabel: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: AZUL },
-  resumenTotalValor: { fontSize: 16, fontFamily: 'Helvetica-Bold', color: AZUL },
+  // ── Promos ──
+  promoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 3,
+    marginBottom: 3,
+  },
+  promoDescuento: { backgroundColor: GREEN_BG, borderLeftWidth: 2, borderLeftColor: GREEN },
+  promoBeneficio: { backgroundColor: BLUE_BG,  borderLeftWidth: 2, borderLeftColor: BLUE_BD },
+  promoBadge: {
+    fontSize: 7,
+    fontFamily: 'Helvetica-Bold',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 2,
+    marginRight: 8,
+  },
+  badgeDescuento: { backgroundColor: '#D1FAE5', color: '#065F46' },
+  badgeBeneficio: { backgroundColor: '#DBEAFE', color: '#1E40AF' },
+  promoNombre: { fontSize: 10, flex: 1, color: TEXT },
+  promoAhorro: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: GREEN },
 
-  // Notas
-  notasBox: { marginTop: 16, padding: 12, borderLeftWidth: 3, borderLeftColor: AZUL, backgroundColor: '#f0f5ff' },
-  notasTitle: { fontSize: 9, fontFamily: 'Helvetica-Bold', color: AZUL, marginBottom: 4 },
-  notasTexto: { fontSize: 10, color: GRIS_OSCURO, lineHeight: 1.5 },
+  // ── Caja total ──
+  totalBox: {
+    backgroundColor: NAVY,
+    borderRadius: 4,
+    marginTop: 18,
+    overflow: 'hidden',
+  },
+  totalBoxInner: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  totalGoldTop: { height: 3, backgroundColor: GOLD },
+  totalLeft: { flex: 1 },
+  totalLineRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    paddingRight: 20,
+  },
+  totalLineLabel: { fontSize: 9, color: MUTED2 },
+  totalLineVal:   { fontSize: 9, color: MUTED2 },
+  totalSaving:    { fontSize: 9, color: '#6EE7B7', fontFamily: 'Helvetica-Bold' },
+  totalRight: { alignItems: 'flex-end' },
+  totalEtiqueta: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: GOLD_LT,
+    letterSpacing: 2,
+    marginBottom: 5,
+  },
+  totalValor: {
+    fontSize: 30,
+    fontFamily: 'Helvetica-Bold',
+    color: GOLD,
+    lineHeight: 1,
+  },
+  totalUF: {
+    fontSize: 14,
+    fontFamily: 'Helvetica-Bold',
+    color: GOLD,
+  },
+  totalAhorro: {
+    marginTop: 5,
+    fontSize: 8.5,
+    color: '#6EE7B7',
+    fontFamily: 'Helvetica-Bold',
+    textAlign: 'right',
+  },
 
-  // Footer
-  footer: { position: 'absolute', bottom: 24, left: 45, right: 45, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: BORDE, paddingTop: 8 },
-  footerTexto: { fontSize: 8, color: GRIS_MEDIO },
-  footerValidez: { fontSize: 8, color: GRIS_MEDIO },
+  // ── Notas ──
+  notasBox: {
+    marginTop: 16,
+    backgroundColor: SMOKE,
+    borderLeftWidth: 3,
+    borderLeftColor: GOLD,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  notasEtiqueta: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: GOLD,
+    letterSpacing: 1.8,
+    marginBottom: 5,
+  },
+  notasTexto: { fontSize: 10, color: MUTED, lineHeight: 1.5 },
+
+  // ── Validez ──
+  validezBox: {
+    marginTop: 14,
+    flexDirection: 'row',
+    gap: 14,
+  },
+  validezItem: {
+    flex: 1,
+    backgroundColor: SMOKE,
+    borderRadius: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  validezLabel: { fontSize: 7.5, color: MUTED, letterSpacing: 1.2, marginBottom: 3 },
+  validezVal: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
+
+  // ── Footer ──
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 38,
+    backgroundColor: NAVY,
+    paddingHorizontal: 44,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  footerLeft:  { fontSize: 8, color: MUTED2 },
+  footerRight: { fontSize: 8, color: MUTED2 },
+  footerGold:  { fontSize: 8, fontFamily: 'Helvetica-Bold', color: GOLD },
 })
 
-// Calcular resumen de precios
+// ── Helpers ────────────────────────────────────────────────────────────────
 function calcularResumen(items, promociones) {
   const base = items.reduce((s, i) => s + i.precioListaUF, 0)
   const descuentos = []
   const beneficios = []
   let descuentoTotal = 0
-
-  promociones.filter(cp => cp.aplicada).forEach(cp => {
+  ;(promociones || []).filter(cp => cp.aplicada).forEach(cp => {
     const promo = cp.promocion
     if (TIPOS_DESCUENTO.includes(promo.tipo)) {
-      let ahorro = cp.ahorroUF || 0
+      const ahorro = cp.ahorroUF || 0
       if (ahorro > 0) {
         descuentos.push({ nombre: promo.nombre, tipo: promo.tipo, ahorro, label: TIPO_PROMO_LABEL[promo.tipo] })
         descuentoTotal += ahorro
@@ -116,148 +314,180 @@ function calcularResumen(items, promociones) {
       beneficios.push({ nombre: promo.nombre, tipo: promo.tipo, label: TIPO_PROMO_LABEL[promo.tipo] })
     }
   })
-
   return { base, descuentoTotal, final: Math.max(base - descuentoTotal, 0), descuentos, beneficios }
 }
 
-const ESTADO_LABEL = { BORRADOR: 'Borrador', ENVIADA: 'Enviada', ACEPTADA: 'Aceptada', RECHAZADA: 'Rechazada' }
-
+// ── Componente ─────────────────────────────────────────────────────────────
 export function CotizacionDocumento({ cotizacion, logoUrl }) {
   const { lead, items, promociones, notas, validezDias, creadoEn, id, estado } = cotizacion
-  const resumen = calcularResumen(items, promociones)
+  const resumen  = calcularResumen(items, promociones)
   const contacto = lead?.contacto
   const vendedor = lead?.vendedor || lead?.broker
 
   const fechaEmision = format(new Date(creadoEn), "d 'de' MMMM yyyy", { locale: es })
-  const fechaVence = format(
+  const fechaVence   = format(
     new Date(new Date(creadoEn).getTime() + validezDias * 86400000),
     "d 'de' MMMM yyyy", { locale: es }
   )
 
   return (
-    <Document title={`Cotización #${id} — BodeParking`} author="BodeParking CRM">
+    <Document title={`Cotización #${id} — BodeParking`} author="BodeParking">
       <Page size="A4" style={s.page}>
 
-        {/* ── Header ── */}
+        {/* ══ HEADER NAVY ══ */}
         <View style={s.header}>
           {logoUrl
-            ? <Image src={logoUrl} style={s.logo} />
-            : <Text style={{ fontSize: 18, fontFamily: 'Helvetica-Bold', color: AZUL }}>BodeParking</Text>
+            ? <View style={s.logoWrap}><Image src={logoUrl} style={s.logo} /></View>
+            : <Text style={s.logoText}>BODEPARKING</Text>
           }
           <View style={s.headerRight}>
-            <Text style={s.docTitle}>COTIZACIÓN</Text>
-            <Text style={s.docNum}>N° {String(id).padStart(4, '0')} · {ESTADO_LABEL[estado]}</Text>
-            <Text style={s.docFecha}>Emisión: {fechaEmision}</Text>
-            <Text style={s.docFecha}>Válida hasta: {fechaVence}</Text>
+            <Text style={s.headerEtiqueta}>COTIZACIÓN</Text>
+            <Text style={s.headerNumero}>N° {String(id).padStart(4, '0')}</Text>
+            <Text style={s.headerMeta}>Emisión: {fechaEmision}</Text>
+            <Text style={s.headerMeta}>Válida hasta: {fechaVence}</Text>
+            <View style={s.headerEstado}>
+              <Text style={s.headerEstadoText}>{ESTADO_LABEL[estado] || estado}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={s.divider} />
+        {/* Franja dorada */}
+        <View style={s.goldBar} />
 
-        {/* ── Cliente y vendedor ── */}
-        <View style={s.seccionDos}>
-          <View style={s.bloque}>
-            <Text style={s.bloqueTitle}>Cliente</Text>
-            <Text style={s.bloqueValor}>{contacto?.nombre} {contacto?.apellido}</Text>
-            {contacto?.email    && <Text style={s.bloqueSubvalor}>{contacto.email}</Text>}
-            {contacto?.telefono && <Text style={s.bloqueSubvalor}>{contacto.telefono}</Text>}
+        {/* ══ BODY ══ */}
+        <View style={s.body}>
+
+          {/* ── Cliente + Vendedor ── */}
+          <View style={s.infoRow}>
+            <View style={s.infoCard}>
+              <Text style={s.infoEtiqueta}>PREPARADO PARA</Text>
+              <Text style={s.infoNombre}>{contacto?.nombre} {contacto?.apellido}</Text>
+              {contacto?.email    && <Text style={s.infoSub}>{contacto.email}</Text>}
+              {contacto?.telefono && <Text style={s.infoSub}>{contacto.telefono}</Text>}
+            </View>
+            {vendedor && (
+              <View style={s.infoCard}>
+                <Text style={s.infoEtiqueta}>EJECUTIVO DE VENTAS</Text>
+                <Text style={s.infoNombre}>{vendedor.nombre} {vendedor.apellido}</Text>
+                {vendedor.email && <Text style={s.infoSub}>{vendedor.email}</Text>}
+              </View>
+            )}
           </View>
-          {vendedor && (
-            <View style={s.bloque}>
-              <Text style={s.bloqueTitle}>Ejecutivo de ventas</Text>
-              <Text style={s.bloqueValor}>{vendedor.nombre} {vendedor.apellido}</Text>
+
+          {/* ── Tabla unidades ── */}
+          <Text style={s.secTitle}>UNIDADES COTIZADAS</Text>
+          <View style={s.tHead}>
+            <Text style={[s.tHeadText, s.cEdificio]}>PROYECTO</Text>
+            <Text style={[s.tHeadText, s.cUnidad]}>UNIDAD</Text>
+            <Text style={[s.tHeadText, s.cTipo]}>TIPO</Text>
+            <Text style={[s.tHeadText, s.cPrecio]}>PRECIO LISTA</Text>
+          </View>
+          {items.map((item, i) => (
+            <View key={item.id} style={[s.tRow, i % 2 !== 0 && s.tRowAlt]}>
+              <Text style={[s.tCell, s.cEdificio]}>{item.unidad.edificio.nombre}</Text>
+              <Text style={[s.tCell, s.cUnidad]}>{item.unidad.numero}</Text>
+              <Text style={[s.tCell, s.cTipo]}>
+                {item.unidad.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento'}
+              </Text>
+              <Text style={[s.tCellBold, s.cPrecio]}>{item.precioListaUF.toFixed(2)} UF</Text>
+            </View>
+          ))}
+
+          {/* ── Descuentos ── */}
+          {resumen.descuentos.length > 0 && (
+            <View style={{ marginTop: 18 }}>
+              <Text style={s.secTitle}>DESCUENTOS APLICADOS</Text>
+              {resumen.descuentos.map((d, i) => (
+                <View key={i} style={[s.promoRow, s.promoDescuento]}>
+                  <Text style={[s.promoBadge, s.badgeDescuento]}>{d.label}</Text>
+                  <Text style={s.promoNombre}>{d.nombre}</Text>
+                  <Text style={s.promoAhorro}>− {d.ahorro.toFixed(2)} UF</Text>
+                </View>
+              ))}
             </View>
           )}
-        </View>
 
-        {/* ── Tabla de unidades ── */}
-        <Text style={s.seccionTitle}>Unidades cotizadas</Text>
-        <View style={s.tablaHeader}>
-          <Text style={[s.tablaHeaderText, s.celdaProyecto]}>Proyecto</Text>
-          <Text style={[s.tablaHeaderText, s.celdaUnidad]}>Unidad</Text>
-          <Text style={[s.tablaHeaderText, s.celdaTipo]}>Tipo</Text>
-          <Text style={[s.tablaHeaderText, s.celdaPrecio]}>Precio lista</Text>
-        </View>
-        {items.map((item, i) => (
-          <View key={item.id} style={[s.tablaFila, i % 2 !== 0 && s.tablaFilaImpar]}>
-            <Text style={[{ fontSize: 10 }, s.celdaProyecto]}>{item.unidad.edificio.nombre}</Text>
-            <Text style={[{ fontSize: 10 }, s.celdaUnidad]}>{item.unidad.numero}</Text>
-            <Text style={[{ fontSize: 10 }, s.celdaTipo]}>{item.unidad.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento'}</Text>
-            <Text style={[{ fontSize: 10, fontFamily: 'Helvetica-Bold' }, s.celdaPrecio]}>
-              {item.precioListaUF.toFixed(2)} UF
-            </Text>
-          </View>
-        ))}
-
-        {/* ── Descuentos ── */}
-        {resumen.descuentos.length > 0 && (
-          <>
-            <Text style={s.seccionTitle}>Descuentos aplicados</Text>
-            {resumen.descuentos.map((d, i) => (
-              <View key={i} style={[s.promoFila, s.promoFilaDescuento]}>
-                <Text style={[s.promoBadge, s.promoBadgeDescuento]}>{d.label}</Text>
-                <Text style={s.promoNombre}>{d.nombre}</Text>
-                <Text style={s.promoAhorro}>− {d.ahorro.toFixed(2)} UF</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {/* ── Beneficios ── */}
-        {resumen.beneficios.length > 0 && (
-          <>
-            <Text style={s.seccionTitle}>Beneficios incluidos</Text>
-            {resumen.beneficios.map((b, i) => (
-              <View key={i} style={[s.promoFila, s.promoFilaBeneficio]}>
-                <Text style={[s.promoBadge, s.promoBadgeBeneficio]}>{b.label}</Text>
-                <Text style={s.promoNombre}>{b.nombre}</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {/* ── Resumen total ── */}
-        <View style={s.resumenBox}>
-          {items.length > 1 && (
-            <>
-              <View style={s.resumenFila}>
-                <Text style={s.resumenLabel}>Subtotal ({items.length} unidades)</Text>
-                <Text style={s.resumenValor}>{resumen.base.toFixed(2)} UF</Text>
-              </View>
-            </>
-          )}
-          {resumen.descuentoTotal > 0 && (
-            <View style={s.resumenFila}>
-              <Text style={s.resumenLabel}>Total descuentos</Text>
-              <Text style={[s.resumenValor, { color: VERDE }]}>− {resumen.descuentoTotal.toFixed(2)} UF</Text>
+          {/* ── Beneficios ── */}
+          {resumen.beneficios.length > 0 && (
+            <View style={{ marginTop: resumen.descuentos.length > 0 ? 12 : 18 }}>
+              <Text style={s.secTitle}>BENEFICIOS INCLUIDOS</Text>
+              {resumen.beneficios.map((b, i) => (
+                <View key={i} style={[s.promoRow, s.promoBeneficio]}>
+                  <Text style={[s.promoBadge, s.badgeBeneficio]}>{b.label}</Text>
+                  <Text style={s.promoNombre}>{b.nombre}</Text>
+                </View>
+              ))}
             </View>
           )}
-          <View style={s.resumenDivider} />
-          <View style={s.resumenFila}>
-            <Text style={s.resumenTotalLabel}>PRECIO FINAL</Text>
-            <Text style={s.resumenTotalValor}>{resumen.final.toFixed(2)} UF</Text>
+
+          {/* ── Caja total ── */}
+          <View style={s.totalBox}>
+            <View style={s.totalGoldTop} />
+            <View style={s.totalBoxInner}>
+              {/* Izquierda: desglose */}
+              <View style={s.totalLeft}>
+                {items.length > 1 && (
+                  <View style={s.totalLineRow}>
+                    <Text style={s.totalLineLabel}>Subtotal ({items.length} unidades)</Text>
+                    <Text style={s.totalLineVal}>{resumen.base.toFixed(2)} UF</Text>
+                  </View>
+                )}
+                {resumen.descuentoTotal > 0 && (
+                  <View style={s.totalLineRow}>
+                    <Text style={s.totalLineLabel}>Total descuentos</Text>
+                    <Text style={s.totalSaving}>− {resumen.descuentoTotal.toFixed(2)} UF</Text>
+                  </View>
+                )}
+              </View>
+              {/* Derecha: precio final */}
+              <View style={s.totalRight}>
+                <Text style={s.totalEtiqueta}>PRECIO FINAL</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
+                  <Text style={s.totalValor}>{resumen.final.toFixed(2)}</Text>
+                  <Text style={[s.totalUF, { marginBottom: 3 }]}>UF</Text>
+                </View>
+                {resumen.descuentoTotal > 0 && (
+                  <Text style={s.totalAhorro}>Ahorro: {resumen.descuentoTotal.toFixed(2)} UF</Text>
+                )}
+              </View>
+            </View>
           </View>
-          {resumen.descuentoTotal > 0 && (
-            <View style={{ alignItems: 'flex-end', marginTop: 2 }}>
-              <Text style={{ fontSize: 9, color: VERDE }}>
-                Ahorro total: {resumen.descuentoTotal.toFixed(2)} UF
+
+          {/* ── Validez ── */}
+          <View style={s.validezBox}>
+            <View style={s.validezItem}>
+              <Text style={s.validezLabel}>VIGENCIA</Text>
+              <Text style={s.validezVal}>{validezDias} días corridos</Text>
+            </View>
+            <View style={s.validezItem}>
+              <Text style={s.validezLabel}>VENCE EL</Text>
+              <Text style={s.validezVal}>{fechaVence}</Text>
+            </View>
+            <View style={[s.validezItem, { flex: 2 }]}>
+              <Text style={s.validezLabel}>PRECIOS EN UF</Text>
+              <Text style={[s.validezVal, { fontSize: 8.5, color: MUTED }]}>
+                Valor UF al día de escrituración. Sujeto a disponibilidad.
               </Text>
             </View>
+          </View>
+
+          {/* ── Notas ── */}
+          {notas && (
+            <View style={s.notasBox}>
+              <Text style={s.notasEtiqueta}>OBSERVACIONES</Text>
+              <Text style={s.notasTexto}>{notas}</Text>
+            </View>
           )}
+
         </View>
 
-        {/* ── Notas ── */}
-        {notas && (
-          <View style={s.notasBox}>
-            <Text style={s.notasTitle}>OBSERVACIONES</Text>
-            <Text style={s.notasTexto}>{notas}</Text>
-          </View>
-        )}
-
-        {/* ── Footer ── */}
+        {/* ══ FOOTER NAVY ══ */}
         <View style={s.footer} fixed>
-          <Text style={s.footerTexto}>BodeParking CRM · Cotización N° {String(id).padStart(4, '0')}</Text>
-          <Text style={s.footerValidez}>Válida por {validezDias} días · Vence {fechaVence}</Text>
+          <Text style={s.footerLeft}>
+            <Text style={s.footerGold}>BodeParking</Text>
+            {'  ·  '}Cotización N° {String(id).padStart(4, '0')}
+          </Text>
+          <Text style={s.footerRight}>bodeparking.cl</Text>
         </View>
 
       </Page>
