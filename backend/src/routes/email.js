@@ -4,7 +4,6 @@ const { body, validationResult } = require('express-validator')
 const { enviarEmail } = require('../lib/mailer')
 const { autenticar } = require('../middleware/auth')
 const prisma = require('../lib/prisma')
-const path = require('path')
 
 // ─── POST /api/email/enviar ───────────────────────────────────────────────────
 router.post('/enviar',
@@ -18,7 +17,7 @@ router.post('/enviar',
     const errores = validationResult(req)
     if (!errores.isEmpty()) return res.status(400).json({ errores: errores.array() })
 
-    const { para, cc, asunto, cuerpo, cotizacionId } = req.body
+    const { para, cc, asunto, cuerpo, cotizacionId, pdfBase64, pdfNombre } = req.body
 
     // Obtener el email del usuario para usarlo como "from"
     const usuario = await prisma.usuario.findUnique({
@@ -35,21 +34,11 @@ router.post('/enviar',
     try {
       const adjuntos = []
 
-      if (cotizacionId) {
-        const cot = await prisma.cotizacion.findUnique({
-          where: { id: parseInt(cotizacionId) },
-          select: { id: true },
+      if (pdfBase64 && pdfNombre) {
+        adjuntos.push({
+          filename: pdfNombre,
+          content: pdfBase64,
         })
-        if (cot) {
-          const pdfPath = path.join(__dirname, '../../uploads/cotizaciones', `cotizacion_${cotizacionId}.pdf`)
-          const fs = require('fs')
-          if (fs.existsSync(pdfPath)) {
-            adjuntos.push({
-              filename: `Cotizacion_BodeParking_${cotizacionId}.pdf`,
-              path: pdfPath,
-            })
-          }
-        }
       }
 
       const htmlCuerpo = cuerpo.includes('<') ? cuerpo : cuerpo.replace(/\n/g, '<br>')

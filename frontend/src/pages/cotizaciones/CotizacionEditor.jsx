@@ -12,7 +12,7 @@ import {
   PercentageOutlined, TagOutlined, FilePdfOutlined, ShoppingOutlined,
   PercentageOutlined as PctIcon, DollarOutlined, ClockCircleOutlined
 } from '@ant-design/icons'
-import { PDFDownloadLink } from '@react-pdf/renderer'
+import { PDFDownloadLink, pdf } from '@react-pdf/renderer'
 import { CotizacionDocumento } from './CotizacionPDF'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
@@ -747,6 +747,8 @@ export default function CotizacionEditor() {
   const [leadId, setLeadId] = useState(leadIdParam ? Number(leadIdParam) : null)
   const [modalVenta, setModalVenta] = useState(false)
   const [modalEmail, setModalEmail] = useState(false)
+  const [pdfBase64, setPdfBase64] = useState(null)
+  const [generandoPdf, setGenerandoPdf] = useState(false)
 
   // Cargar cotización existente
   const { data: cotizacion, isLoading: cargando } = useQuery({
@@ -1006,8 +1008,27 @@ export default function CotizacionEditor() {
                 )}
               </PDFDownloadLink>
               {cotizacion.lead?.contacto?.email && (
-                <Button icon={<SendOutlined />} onClick={() => setModalEmail(true)}>
-                  Enviar por email
+                <Button
+                  icon={<SendOutlined />}
+                  loading={generandoPdf}
+                  onClick={async () => {
+                    setGenerandoPdf(true)
+                    try {
+                      const blob = await pdf(
+                        <CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} />
+                      ).toBlob()
+                      const arrayBuffer = await blob.arrayBuffer()
+                      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+                      setPdfBase64(base64)
+                    } catch {
+                      setPdfBase64(null)
+                    } finally {
+                      setGenerandoPdf(false)
+                      setModalEmail(true)
+                    }
+                  }}
+                >
+                  {generandoPdf ? 'Preparando...' : 'Enviar por email'}
                 </Button>
               )}
             </>
@@ -1141,11 +1162,13 @@ export default function CotizacionEditor() {
       {cotizacion?.lead?.contacto?.email && (
         <ModalEmail
           open={modalEmail}
-          onClose={() => setModalEmail(false)}
+          onClose={() => { setModalEmail(false); setPdfBase64(null) }}
           para={cotizacion.lead.contacto.email}
           nombre={`${cotizacion.lead.contacto.nombre} ${cotizacion.lead.contacto.apellido || ''}`.trim()}
           leadId={cotizacion.lead.id}
           cotizacionId={parseInt(id)}
+          pdfBase64={pdfBase64}
+          pdfNombre={`Cotizacion_BodeParking_${id}.pdf`}
         />
       )}
     </div>
