@@ -193,6 +193,8 @@ model Usuario {
   email                 String    @unique
   password              String
   telefono              String?
+  smtpEmail             String?
+  smtpPassword          String?
   rol                   Rol
   comisionPorcentaje    Float?
   comisionFijo          Float?

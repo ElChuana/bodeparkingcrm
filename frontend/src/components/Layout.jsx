@@ -7,7 +7,7 @@ import {
   ShoppingOutlined, AuditOutlined, CreditCardOutlined,
   DollarOutlined, TagOutlined, CarOutlined, KeyOutlined,
   BarChartOutlined, UserSwitchOutlined, ThunderboltOutlined,
-  MenuOutlined, LogoutOutlined, CalendarOutlined, PercentageOutlined, ApiOutlined
+  MenuOutlined, LogoutOutlined, CalendarOutlined, PercentageOutlined, ApiOutlined, SettingOutlined
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
@@ -153,6 +153,14 @@ function SidebarContent({ selectedKey, onNavigate }) {
           </div>
           <div style={{ fontSize: 9, color: '#94a3b8' }}>{usuario?.rol?.replace(/_/g, ' ')}</div>
         </div>
+        <Button
+          type="text"
+          size="small"
+          icon={<SettingOutlined />}
+          onClick={() => navigate('/perfil')}
+          title="Mi perfil / Configurar correo"
+          style={{ color: '#cbd5e1', padding: '0 4px', minWidth: 0 }}
+        />
         <Button
           type="text"
           size="small"
