@@ -3,8 +3,8 @@ const nodemailer = require('nodemailer')
 // Transporter global (usa variables de entorno) — para compatibilidad hacia atrás
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'mail.bodeparking.cl',
-  port: parseInt(process.env.SMTP_PORT || '465'),
-  secure: true,
+  port: parseInt(process.env.SMTP_PORT || '587'),
+  secure: parseInt(process.env.SMTP_PORT || '587') === 465,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -18,10 +18,11 @@ const transporter = nodemailer.createTransport({
  * @param {string} smtpPassword
  */
 function crearTransporter(smtpEmail, smtpPassword) {
+  const port = parseInt(process.env.SMTP_PORT || '587')
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'mail.bodeparking.cl',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: true,
+    port,
+    secure: port === 465,
     auth: { user: smtpEmail, pass: smtpPassword },
     tls: { rejectUnauthorized: false },
   })
