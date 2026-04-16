@@ -2,21 +2,20 @@ import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/render
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-// ── Paleta ──────────────────────────────────────────────────────────────────
-const NAVY    = '#0C1A2E'
-const NAVY2   = '#152338'
-const GOLD    = '#C8963E'
-const GOLD_LT = '#EDD9A3'
+// ── Paleta clara ────────────────────────────────────────────────────────────
+const BLUE    = '#1B5EA8'   // azul principal
+const BLUE_LT = '#EBF3FB'  // fondo azul muy claro
+const BLUE_HD = '#E1EDF9'  // cabecera tabla
 const WHITE   = '#FFFFFF'
-const SMOKE   = '#F7F9FC'
-const BORDER  = '#DCE4EF'
-const TEXT    = '#1E2D3D'
-const MUTED   = '#7A8FA6'
-const MUTED2  = '#A0B4C8'
+const SMOKE   = '#F5F7FA'  // gris muy claro
+const BORDER  = '#DDE4EF'
+const TEXT    = '#1A2533'
+const MUTED   = '#637083'
+const MUTED2  = '#8A9BB0'
 const GREEN   = '#0D7A3E'
 const GREEN_BG= '#EDFAF3'
-const BLUE_BG = '#EEF4FD'
-const BLUE_BD = '#1D4ED8'
+const BLUE_BG = '#EBF3FB'
+const BLUE_BD = '#1B5EA8'
 
 const TIPOS_DESCUENTO = ['DESCUENTO_PORCENTAJE', 'DESCUENTO_UF', 'PAQUETE']
 
@@ -47,73 +46,72 @@ const s = StyleSheet.create({
     color: TEXT,
     backgroundColor: WHITE,
     paddingTop: 0,
-    paddingBottom: 52,
+    paddingBottom: 46,
     paddingHorizontal: 0,
   },
 
-  // ── Header navy ──
+  // ── Franja azul top ──
+  topBar: { height: 5, backgroundColor: BLUE },
+
+  // ── Header blanco ──
   header: {
-    backgroundColor: NAVY,
-    paddingTop: 26,
-    paddingBottom: 26,
+    backgroundColor: WHITE,
+    paddingTop: 20,
+    paddingBottom: 18,
     paddingHorizontal: 44,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
   },
-  logoWrap: {
-    backgroundColor: WHITE,
-    borderRadius: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  logo: { width: 130, height: 34, objectFit: 'contain' },
-  logoText: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: WHITE, letterSpacing: 1 },
+  logo: { width: 140, height: 38, objectFit: 'contain' },
+  logoText: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: BLUE },
   headerRight: { alignItems: 'flex-end' },
   headerEtiqueta: {
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
-    color: GOLD,
+    color: BLUE,
     letterSpacing: 2.5,
-    marginBottom: 5,
+    marginBottom: 4,
   },
   headerNumero: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: 'Helvetica-Bold',
-    color: WHITE,
-    marginBottom: 7,
+    color: TEXT,
+    marginBottom: 6,
     lineHeight: 1,
   },
-  headerMeta: { fontSize: 8.5, color: MUTED2, marginBottom: 2 },
+  headerMeta: { fontSize: 8.5, color: MUTED, marginBottom: 2 },
   headerEstado: {
     marginTop: 5,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    backgroundColor: GOLD,
+    backgroundColor: BLUE_LT,
     borderRadius: 2,
+    borderWidth: 1,
+    borderColor: BLUE,
   },
-  headerEstadoText: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: NAVY, letterSpacing: 1 },
-
-  // ── Franja dorada ──
-  goldBar: { height: 4, backgroundColor: GOLD },
+  headerEstadoText: { fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: BLUE, letterSpacing: 1 },
 
   // ── Contenido ──
-  body: { paddingHorizontal: 44, paddingTop: 22 },
+  body: { paddingHorizontal: 44, paddingTop: 20 },
 
   // ── Cards info ──
-  infoRow: { flexDirection: 'row', gap: 12, marginBottom: 22 },
+  infoRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   infoCard: {
     flex: 1,
-    borderLeftWidth: 3,
-    borderLeftColor: GOLD,
-    paddingLeft: 11,
-    paddingTop: 2,
-    paddingBottom: 2,
+    backgroundColor: SMOKE,
+    borderRadius: 4,
+    borderTopWidth: 2,
+    borderTopColor: BLUE,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   infoEtiqueta: {
     fontSize: 7.5,
     fontFamily: 'Helvetica-Bold',
-    color: GOLD,
+    color: BLUE,
     letterSpacing: 1.8,
     marginBottom: 5,
   },
@@ -125,30 +123,29 @@ const s = StyleSheet.create({
   },
   infoSub: { fontSize: 9, color: MUTED, marginBottom: 1 },
 
-  // ── Divisor ──
-  divider: { height: 1, backgroundColor: BORDER, marginBottom: 16 },
-
   // ── Título sección ──
   secTitle: {
     fontSize: 7.5,
     fontFamily: 'Helvetica-Bold',
-    color: MUTED,
+    color: BLUE,
     letterSpacing: 2,
-    marginBottom: 8,
+    marginBottom: 7,
     marginTop: 2,
   },
 
   // ── Tabla unidades ──
   tHead: {
     flexDirection: 'row',
-    backgroundColor: NAVY2,
+    backgroundColor: BLUE_HD,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 2,
-    marginBottom: 0,
+    borderTopWidth: 1,
+    borderTopColor: BLUE,
+    borderBottomWidth: 1,
+    borderBottomColor: BLUE,
   },
   tHeadText: {
-    color: WHITE,
+    color: BLUE,
     fontSize: 8,
     fontFamily: 'Helvetica-Bold',
     letterSpacing: 0.5,
@@ -195,8 +192,10 @@ const s = StyleSheet.create({
 
   // ── Caja total ──
   totalBox: {
-    backgroundColor: NAVY,
+    backgroundColor: BLUE_LT,
     borderRadius: 4,
+    borderWidth: 1,
+    borderColor: BLUE,
     marginTop: 18,
     overflow: 'hidden',
   },
@@ -207,7 +206,7 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
   },
-  totalGoldTop: { height: 3, backgroundColor: GOLD },
+  totalBlueTop: { height: 3, backgroundColor: BLUE },
   totalLeft: { flex: 1 },
   totalLineRow: {
     flexDirection: 'row',
@@ -215,32 +214,33 @@ const s = StyleSheet.create({
     marginBottom: 4,
     paddingRight: 20,
   },
-  totalLineLabel: { fontSize: 9, color: MUTED2 },
-  totalLineVal:   { fontSize: 9, color: MUTED2 },
-  totalSaving:    { fontSize: 9, color: '#6EE7B7', fontFamily: 'Helvetica-Bold' },
+  totalLineLabel: { fontSize: 9, color: MUTED },
+  totalLineVal:   { fontSize: 9, color: MUTED },
+  totalSaving:    { fontSize: 9, color: GREEN, fontFamily: 'Helvetica-Bold' },
   totalRight: { alignItems: 'flex-end' },
   totalEtiqueta: {
     fontSize: 7.5,
     fontFamily: 'Helvetica-Bold',
-    color: GOLD_LT,
+    color: BLUE,
     letterSpacing: 2,
     marginBottom: 5,
   },
-  totalValor: {
-    fontSize: 30,
+  totalValorPesos: {
+    fontSize: 28,
     fontFamily: 'Helvetica-Bold',
-    color: GOLD,
+    color: BLUE,
     lineHeight: 1,
   },
-  totalUF: {
-    fontSize: 14,
-    fontFamily: 'Helvetica-Bold',
-    color: GOLD,
+  totalValorUF: {
+    fontSize: 11,
+    color: MUTED,
+    marginTop: 4,
+    textAlign: 'right',
   },
   totalAhorro: {
-    marginTop: 5,
+    marginTop: 4,
     fontSize: 8.5,
-    color: '#6EE7B7',
+    color: GREEN,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'right',
   },
@@ -250,34 +250,32 @@ const s = StyleSheet.create({
     marginTop: 16,
     backgroundColor: SMOKE,
     borderLeftWidth: 3,
-    borderLeftColor: GOLD,
+    borderLeftColor: BLUE,
     paddingHorizontal: 13,
     paddingVertical: 10,
   },
   notasEtiqueta: {
     fontSize: 7.5,
     fontFamily: 'Helvetica-Bold',
-    color: GOLD,
+    color: BLUE,
     letterSpacing: 1.8,
     marginBottom: 5,
   },
   notasTexto: { fontSize: 10, color: MUTED, lineHeight: 1.5 },
 
   // ── Validez ──
-  validezBox: {
-    marginTop: 14,
-    flexDirection: 'row',
-    gap: 14,
-  },
+  validezBox: { marginTop: 14, flexDirection: 'row', gap: 12 },
   validezItem: {
     flex: 1,
     backgroundColor: SMOKE,
     borderRadius: 3,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    borderTopWidth: 2,
+    borderTopColor: BORDER,
   },
   validezLabel: { fontSize: 7.5, color: MUTED, letterSpacing: 1.2, marginBottom: 3 },
-  validezVal: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
+  validezVal:   { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
 
   // ── Footer ──
   footer: {
@@ -285,16 +283,18 @@ const s = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 38,
-    backgroundColor: NAVY,
+    height: 36,
+    backgroundColor: SMOKE,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
     paddingHorizontal: 44,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  footerLeft:  { fontSize: 8, color: MUTED2 },
-  footerRight: { fontSize: 8, color: MUTED2 },
-  footerGold:  { fontSize: 8, fontFamily: 'Helvetica-Bold', color: GOLD },
+  footerLeft:  { fontSize: 8, color: MUTED },
+  footerRight: { fontSize: 8, color: MUTED },
+  footerBlue:  { fontSize: 8, fontFamily: 'Helvetica-Bold', color: BLUE },
 })
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -344,10 +344,13 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
     <Document title={`Cotización #${id} — BodeParking`} author="BodeParking">
       <Page size="A4" style={s.page}>
 
-        {/* ══ HEADER NAVY ══ */}
+        {/* ══ FRANJA AZUL TOP ══ */}
+        <View style={s.topBar} />
+
+        {/* ══ HEADER BLANCO ══ */}
         <View style={s.header}>
           {logoUrl
-            ? <View style={s.logoWrap}><Image src={logoUrl} style={s.logo} /></View>
+            ? <Image src={logoUrl} style={s.logo} />
             : <Text style={s.logoText}>BODEPARKING</Text>
           }
           <View style={s.headerRight}>
@@ -360,9 +363,6 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
             </View>
           </View>
         </View>
-
-        {/* Franja dorada */}
-        <View style={s.goldBar} />
 
         {/* ══ BODY ══ */}
         <View style={s.body}>
@@ -437,7 +437,7 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
 
           {/* ── Caja total ── */}
           <View style={s.totalBox}>
-            <View style={s.totalGoldTop} />
+            <View style={s.totalBlueTop} />
             <View style={s.totalBoxInner}>
               {/* Izquierda: desglose */}
               <View style={s.totalLeft}>
@@ -460,22 +460,19 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
                   </View>
                 )}
               </View>
-              {/* Derecha: precio final */}
+              {/* Derecha: precio final en PESOS grande, UF secundario */}
               <View style={s.totalRight}>
                 <Text style={s.totalEtiqueta}>PRECIO FINAL</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
-                  <Text style={s.totalValor}>{resumen.final.toFixed(2)}</Text>
-                  <Text style={[s.totalUF, { marginBottom: 3 }]}>UF</Text>
-                </View>
+                {fmtPesos(resumen.final, valorUF)
+                  ? <Text style={s.totalValorPesos}>{fmtPesos(resumen.final, valorUF)}</Text>
+                  : <Text style={s.totalValorPesos}>{fmtUF(resumen.final)}</Text>
+                }
                 {fmtPesos(resumen.final, valorUF) && (
-                  <Text style={{ fontSize: 11, color: GOLD_LT, textAlign: 'right', marginTop: 2 }}>
-                    {fmtPesos(resumen.final, valorUF)}
-                  </Text>
+                  <Text style={s.totalValorUF}>{fmtUF(resumen.final)}</Text>
                 )}
                 {resumen.descuentoTotal > 0 && (
                   <Text style={s.totalAhorro}>
-                    Ahorro: {fmtUF(resumen.descuentoTotal)}
-                    {fmtPesos(resumen.descuentoTotal, valorUF) ? `  (${fmtPesos(resumen.descuentoTotal, valorUF)})` : ''}
+                    Ahorro: {fmtPesos(resumen.descuentoTotal, valorUF) || fmtUF(resumen.descuentoTotal)}
                   </Text>
                 )}
               </View>
@@ -510,10 +507,10 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
 
         </View>
 
-        {/* ══ FOOTER NAVY ══ */}
+        {/* ══ FOOTER CLARO ══ */}
         <View style={s.footer} fixed>
           <Text style={s.footerLeft}>
-            <Text style={s.footerGold}>BodeParking</Text>
+            <Text style={s.footerBlue}>BodeParking</Text>
             {'  ·  '}Cotización N° {String(id).padStart(4, '0')}
           </Text>
           <Text style={s.footerRight}>bodeparking.cl</Text>
