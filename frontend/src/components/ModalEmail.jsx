@@ -16,7 +16,7 @@ const { TextArea } = Input
  *   leadId      number  (opcional, registra interacción)
  *   cotizacionId number (opcional, adjunta PDF de cotización)
  */
-export default function ModalEmail({ open, onClose, para = '', nombre = '', leadId, cotizacionId }) {
+export default function ModalEmail({ open, onClose, para = '', nombre = '', leadId, cotizacionId, pdfBase64, pdfNombre }) {
   const [form] = Form.useForm()
   const [enviando, setEnviando] = useState(false)
   const { message } = App.useApp()
@@ -46,6 +46,8 @@ export default function ModalEmail({ open, onClose, para = '', nombre = '', lead
         ...valores,
         leadId,
         cotizacionId,
+        pdfBase64: pdfBase64 || undefined,
+        pdfNombre: pdfNombre || undefined,
       })
       message.success('Email enviado correctamente')
       form.resetFields()
