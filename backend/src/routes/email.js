@@ -1,13 +1,12 @@
 const express = require('express')
 const router = express.Router()
 const { body, validationResult } = require('express-validator')
-const { enviarEmail } = require('../lib/mailer')
+const { enviarEmail, crearTransporter } = require('../lib/mailer')
 const { autenticar } = require('../middleware/auth')
 const prisma = require('../lib/prisma')
 const path = require('path')
 
 // ─── POST /api/email/enviar ───────────────────────────────────────────────────
-// Enviar email libre (con o sin adjunto de cotización)
 router.post('/enviar',
   autenticar,
   [
@@ -21,14 +20,25 @@ router.post('/enviar',
 
     const { para, cc, asunto, cuerpo, cotizacionId } = req.body
 
+    // Obtener credenciales SMTP del usuario logueado
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.usuario.id },
+      select: { smtpEmail: true, smtpPassword: true },
+    })
+
+    if (!usuario?.smtpEmail || !usuario?.smtpPassword) {
+      return res.status(400).json({
+        error: 'No tienes configurado tu email. Ve a tu perfil y agrega tus credenciales de correo.',
+      })
+    }
+
     try {
       const adjuntos = []
 
-      // Si viene cotizacionId, adjuntar PDF si existe
       if (cotizacionId) {
         const cot = await prisma.cotizacion.findUnique({
           where: { id: parseInt(cotizacionId) },
-          select: { id: true, lead: { select: { contacto: { select: { nombre: true, apellido: true } } } } }
+          select: { id: true },
         })
         if (cot) {
           const pdfPath = path.join(__dirname, '../../uploads/cotizaciones', `cotizacion_${cotizacionId}.pdf`)
@@ -43,7 +53,6 @@ router.post('/enviar',
         }
       }
 
-      // Convertir saltos de línea a HTML si el cuerpo es texto plano
       const htmlCuerpo = cuerpo.includes('<') ? cuerpo : cuerpo.replace(/\n/g, '<br>')
 
       const html = `
@@ -56,9 +65,12 @@ router.post('/enviar',
         </div>
       `
 
-      await enviarEmail({ para, cc, asunto, html, adjuntos })
+      await enviarEmail({
+        para, cc, asunto, html, adjuntos,
+        smtpEmail: usuario.smtpEmail,
+        smtpPassword: usuario.smtpPassword,
+      })
 
-      // Registrar como interacción si viene leadId
       if (req.body.leadId) {
         await prisma.interaccion.create({
           data: {
@@ -67,7 +79,7 @@ router.post('/enviar',
             tipo: 'EMAIL',
             descripcion: `Email enviado: "${asunto}" → ${para}`,
           }
-        }).catch(() => {}) // no fallar si no se puede registrar
+        }).catch(() => {})
       }
 
       res.json({ ok: true, mensaje: `Email enviado a ${para}` })
@@ -78,16 +90,75 @@ router.post('/enviar',
   }
 )
 
-// ─── POST /api/email/verificar ────────────────────────────────────────────────
-// Verificar conexión SMTP (solo GERENTE/JEFE_VENTAS)
+// ─── GET /api/email/verificar ─────────────────────────────────────────────────
+// Verifica la conexión SMTP del usuario logueado
 router.get('/verificar', autenticar, async (req, res) => {
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: req.usuario.id },
+    select: { smtpEmail: true, smtpPassword: true },
+  })
+
+  if (!usuario?.smtpEmail || !usuario?.smtpPassword) {
+    return res.status(400).json({
+      ok: false,
+      error: 'No tienes configurado tu email. Ve a tu perfil y agrega tus credenciales.',
+    })
+  }
+
   try {
-    const { transporter } = require('../lib/mailer')
-    await transporter.verify()
-    res.json({ ok: true, mensaje: 'Conexión SMTP verificada correctamente.' })
+    const t = crearTransporter(usuario.smtpEmail, usuario.smtpPassword)
+    await t.verify()
+    res.json({ ok: true, mensaje: `Conexión SMTP verificada para ${usuario.smtpEmail}` })
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message })
   }
 })
+
+// ─── GET /api/email/config ────────────────────────────────────────────────────
+// Obtener configuración SMTP del usuario (sin exponer la contraseña)
+router.get('/config', autenticar, async (req, res) => {
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: req.usuario.id },
+    select: { smtpEmail: true, smtpPassword: true },
+  })
+  res.json({
+    smtpEmail: usuario?.smtpEmail || null,
+    tienePassword: !!usuario?.smtpPassword,
+  })
+})
+
+// ─── PUT /api/email/config ────────────────────────────────────────────────────
+// Guardar credenciales SMTP del usuario
+router.put('/config',
+  autenticar,
+  [
+    body('smtpEmail').isEmail().withMessage('Email inválido'),
+    body('smtpPassword').notEmpty().withMessage('Contraseña requerida'),
+  ],
+  async (req, res) => {
+    const errores = validationResult(req)
+    if (!errores.isEmpty()) return res.status(400).json({ errores: errores.array() })
+
+    const { smtpEmail, smtpPassword } = req.body
+
+    // Verificar que las credenciales funcionan antes de guardar
+    try {
+      const t = crearTransporter(smtpEmail, smtpPassword)
+      await t.verify()
+    } catch (err) {
+      return res.status(400).json({
+        error: 'No se pudo conectar con esas credenciales. Verifica tu email y contraseña.',
+        detalle: err.message,
+      })
+    }
+
+    await prisma.usuario.update({
+      where: { id: req.usuario.id },
+      data: { smtpEmail, smtpPassword },
+    })
+
+    res.json({ ok: true, mensaje: 'Credenciales de correo guardadas correctamente.' })
+  }
+)
 
 module.exports = router
