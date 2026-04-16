@@ -1,6 +1,9 @@
 const { Resend } = require('resend')
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+function getResend() {
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY no configurada en el servidor.')
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 /**
  * Envía un email usando Resend.
@@ -38,7 +41,7 @@ async function enviarEmail({ para, cc, asunto, html, texto, adjuntos = [], smtpE
     attachments: attachments.length ? attachments : undefined,
   }
 
-  const { data, error } = await resend.emails.send(payload)
+  const { data, error } = await getResend().emails.send(payload)
   if (error) throw new Error(error.message || JSON.stringify(error))
   return data
 }
