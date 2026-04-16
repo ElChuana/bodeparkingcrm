@@ -25,6 +25,7 @@ import CotizacionEditor from './pages/cotizaciones/CotizacionEditor'
 import Descuentos from './pages/descuentos/Descuentos'
 import ApiKeys from './pages/configuracion/ApiKeys'
 import MiPerfil from './pages/perfil/MiPerfil'
+import PreviewPDF from './pages/cotizaciones/PreviewPDF'
 
 const qc = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } }
@@ -83,6 +84,7 @@ export default function App() {
               <Route path="descuentos" element={<RutaProtegida><Descuentos /></RutaProtegida>} />
                   <Route path="configuracion/api-keys" element={<RutaProtegida roles={['GERENTE']}><ApiKeys /></RutaProtegida>} />
                   <Route path="perfil" element={<RutaProtegida><MiPerfil /></RutaProtegida>} />
+                  <Route path="cotizaciones/preview-pdf" element={<RutaProtegida><PreviewPDF /></RutaProtegida>} />
                 </Route>
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

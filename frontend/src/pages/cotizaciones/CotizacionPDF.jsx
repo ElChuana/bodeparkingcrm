@@ -167,6 +167,7 @@ const s = StyleSheet.create({
   cPrecio:   { flex: 1.8, alignItems: 'flex-end' },
   tCell:     { fontSize: 10, color: TEXT },
   tCellBold: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
+  tCellPesos: { fontSize: 8, color: MUTED, marginTop: 1 },
 
   // ── Promos ──
   promoRow: {
@@ -317,8 +318,17 @@ function calcularResumen(items, promociones) {
   return { base, descuentoTotal, final: Math.max(base - descuentoTotal, 0), descuentos, beneficios }
 }
 
+// ── Helpers de formato ──────────────────────────────────────────────────────
+function fmtUF(uf) {
+  return `${uf.toFixed(2)} UF`
+}
+function fmtPesos(uf, valorUF) {
+  if (!valorUF) return null
+  return `$${Math.round(uf * valorUF).toLocaleString('es-CL')}`
+}
+
 // ── Componente ─────────────────────────────────────────────────────────────
-export function CotizacionDocumento({ cotizacion, logoUrl }) {
+export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
   const { lead, items, promociones, notas, validezDias, creadoEn, id, estado } = cotizacion
   const resumen  = calcularResumen(items, promociones)
   const contacto = lead?.contacto
@@ -389,7 +399,12 @@ export function CotizacionDocumento({ cotizacion, logoUrl }) {
               <Text style={[s.tCell, s.cTipo]}>
                 {item.unidad.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento'}
               </Text>
-              <Text style={[s.tCellBold, s.cPrecio]}>{item.precioListaUF.toFixed(2)} UF</Text>
+              <View style={[s.cPrecio, { alignItems: 'flex-end' }]}>
+              <Text style={s.tCellBold}>{fmtUF(item.precioListaUF)}</Text>
+              {fmtPesos(item.precioListaUF, valorUF) && (
+                <Text style={s.tCellPesos}>{fmtPesos(item.precioListaUF, valorUF)}</Text>
+              )}
+            </View>
             </View>
           ))}
 
@@ -429,13 +444,19 @@ export function CotizacionDocumento({ cotizacion, logoUrl }) {
                 {items.length > 1 && (
                   <View style={s.totalLineRow}>
                     <Text style={s.totalLineLabel}>Subtotal ({items.length} unidades)</Text>
-                    <Text style={s.totalLineVal}>{resumen.base.toFixed(2)} UF</Text>
+                    <Text style={s.totalLineVal}>
+                      {fmtUF(resumen.base)}
+                      {fmtPesos(resumen.base, valorUF) ? `  ·  ${fmtPesos(resumen.base, valorUF)}` : ''}
+                    </Text>
                   </View>
                 )}
                 {resumen.descuentoTotal > 0 && (
                   <View style={s.totalLineRow}>
                     <Text style={s.totalLineLabel}>Total descuentos</Text>
-                    <Text style={s.totalSaving}>− {resumen.descuentoTotal.toFixed(2)} UF</Text>
+                    <Text style={s.totalSaving}>
+                      − {fmtUF(resumen.descuentoTotal)}
+                      {fmtPesos(resumen.descuentoTotal, valorUF) ? `  (${fmtPesos(resumen.descuentoTotal, valorUF)})` : ''}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -446,8 +467,16 @@ export function CotizacionDocumento({ cotizacion, logoUrl }) {
                   <Text style={s.totalValor}>{resumen.final.toFixed(2)}</Text>
                   <Text style={[s.totalUF, { marginBottom: 3 }]}>UF</Text>
                 </View>
+                {fmtPesos(resumen.final, valorUF) && (
+                  <Text style={{ fontSize: 11, color: GOLD_LT, textAlign: 'right', marginTop: 2 }}>
+                    {fmtPesos(resumen.final, valorUF)}
+                  </Text>
+                )}
                 {resumen.descuentoTotal > 0 && (
-                  <Text style={s.totalAhorro}>Ahorro: {resumen.descuentoTotal.toFixed(2)} UF</Text>
+                  <Text style={s.totalAhorro}>
+                    Ahorro: {fmtUF(resumen.descuentoTotal)}
+                    {fmtPesos(resumen.descuentoTotal, valorUF) ? `  (${fmtPesos(resumen.descuentoTotal, valorUF)})` : ''}
+                  </Text>
                 )}
               </View>
             </View>

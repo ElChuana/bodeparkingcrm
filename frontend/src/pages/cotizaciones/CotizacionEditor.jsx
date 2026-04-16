@@ -16,6 +16,7 @@ import { PDFDownloadLink, pdf } from '@react-pdf/renderer'
 import { CotizacionDocumento } from './CotizacionPDF'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import { useUF } from '../../hooks/useUF'
 import logoUrl from '../../assets/logo.png'
 import ModalEmail from '../../components/ModalEmail'
 
@@ -735,6 +736,7 @@ export default function CotizacionEditor() {
   const qc = useQueryClient()
   const { message } = App.useApp()
   const { usuario } = useAuth()
+  const { valorUF } = useUF()
 
   const leadIdParam = searchParams.get('leadId')
   const esNueva = !id
@@ -998,7 +1000,7 @@ export default function CotizacionEditor() {
           {!esNueva && cotizacion && items.length > 0 && (
             <>
               <PDFDownloadLink
-                document={<CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} />}
+                document={<CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} valorUF={valorUF} />}
                 fileName={`Cotizacion-${id}-${cotizacion.lead?.contacto?.apellido || 'cliente'}.pdf`}
               >
                 {({ loading }) => (
@@ -1015,7 +1017,7 @@ export default function CotizacionEditor() {
                     setGenerandoPdf(true)
                     try {
                       const blob = await pdf(
-                        <CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} />
+                        <CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} valorUF={valorUF} />
                       ).toBlob()
                       const arrayBuffer = await blob.arrayBuffer()
                       const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
