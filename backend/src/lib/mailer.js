@@ -1,62 +1,46 @@
-const nodemailer = require('nodemailer')
+const { Resend } = require('resend')
 
-// Transporter global (usa variables de entorno) — para compatibilidad hacia atrás
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'mail.bodeparking.cl',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: parseInt(process.env.SMTP_PORT || '587') === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: { rejectUnauthorized: false },
-})
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 /**
- * Crea un transporter con credenciales específicas de usuario.
- * @param {string} smtpEmail
- * @param {string} smtpPassword
- */
-function crearTransporter(smtpEmail, smtpPassword) {
-  const port = parseInt(process.env.SMTP_PORT || '587')
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'mail.bodeparking.cl',
-    port,
-    secure: port === 465,
-    auth: { user: smtpEmail, pass: smtpPassword },
-    tls: { rejectUnauthorized: false },
-  })
-}
-
-/**
- * Envía un email.
+ * Envía un email usando Resend.
  * @param {object} opts
  * @param {string} opts.para
  * @param {string} [opts.cc]
  * @param {string} opts.asunto
  * @param {string} [opts.html]
  * @param {string} [opts.texto]
- * @param {array}  [opts.adjuntos]
- * @param {string} [opts.smtpEmail]   - si se provee, usa estas credenciales
- * @param {string} [opts.smtpPassword]
+ * @param {array}  [opts.adjuntos]  [{ filename, content (Buffer|base64), contentType }]
+ * @param {string} [opts.smtpEmail]  dirección "from" del usuario
  */
-async function enviarEmail({ para, cc, asunto, html, texto, adjuntos = [], smtpEmail, smtpPassword }) {
-  const t = smtpEmail && smtpPassword
-    ? crearTransporter(smtpEmail, smtpPassword)
-    : transporter
+async function enviarEmail({ para, cc, asunto, html, texto, adjuntos = [], smtpEmail }) {
+  const from = smtpEmail || process.env.SMTP_FROM || 'BodeParking CRM <noreply@bodeparking.cl>'
 
-  const from = smtpEmail || process.env.SMTP_FROM || process.env.SMTP_USER
-
-  const info = await t.sendMail({
-    from,
-    to: para,
-    cc: cc || undefined,
-    subject: asunto,
-    text: texto || undefined,
-    html: html || undefined,
-    attachments: adjuntos,
+  // Convertir adjuntos al formato de Resend: { filename, content (base64 string) }
+  const attachments = adjuntos.map(a => {
+    if (a.path) {
+      const fs = require('fs')
+      return {
+        filename: a.filename,
+        content: fs.readFileSync(a.path).toString('base64'),
+      }
+    }
+    return { filename: a.filename, content: a.content }
   })
-  return info
+
+  const payload = {
+    from,
+    to: [para],
+    cc: cc ? [cc] : undefined,
+    subject: asunto,
+    html: html || undefined,
+    text: texto || undefined,
+    attachments: attachments.length ? attachments : undefined,
+  }
+
+  const { data, error } = await resend.emails.send(payload)
+  if (error) throw new Error(error.message || JSON.stringify(error))
+  return data
 }
 
-module.exports = { transporter, crearTransporter, enviarEmail }
+module.exports = { enviarEmail }
