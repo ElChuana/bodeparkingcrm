@@ -80,7 +80,7 @@ router.post('/enviar',
 
 // ─── POST /api/email/verificar ────────────────────────────────────────────────
 // Verificar conexión SMTP (solo GERENTE/JEFE_VENTAS)
-router.get('/verificar', verificarToken, async (req, res) => {
+router.get('/verificar', autenticar, async (req, res) => {
   try {
     const { transporter } = require('../lib/mailer')
     await transporter.verify()
