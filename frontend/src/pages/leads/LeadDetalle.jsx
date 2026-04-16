@@ -726,12 +726,9 @@ export default function LeadDetalle() {
             </Card>
 
             <CotizacionesLead leadId={id} />
-          </Space>
-        </Col>
-      </Row>
 
-      {/* Comuro — ancho completo, debajo de todo */}
-      {lead.comuroData && (
+            {/* Comuro — debajo de cotizaciones */}
+            {lead.comuroData && (
         <Card
           style={{ marginTop: 16, borderColor: '#ede9fe', borderTop: '3px solid #7c3aed' }}
           title={
@@ -814,7 +811,10 @@ export default function LeadDetalle() {
             )}
           </Row>
         </Card>
-      )}
+            )}
+          </Space>
+        </Col>
+      </Row>
 
       <ModalEmail
         open={modalEmail}
