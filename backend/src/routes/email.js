@@ -2,14 +2,14 @@ const express = require('express')
 const router = express.Router()
 const { body, validationResult } = require('express-validator')
 const { enviarEmail } = require('../lib/mailer')
-const { verificarToken } = require('../middleware/auth')
+const { autenticar } = require('../middleware/auth')
 const prisma = require('../lib/prisma')
 const path = require('path')
 
 // ─── POST /api/email/enviar ───────────────────────────────────────────────────
 // Enviar email libre (con o sin adjunto de cotización)
 router.post('/enviar',
-  verificarToken,
+  autenticar,
   [
     body('para').isEmail().withMessage('Email destinatario inválido'),
     body('asunto').notEmpty().withMessage('Asunto requerido'),
