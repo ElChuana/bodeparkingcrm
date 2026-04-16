@@ -1019,14 +1019,19 @@ export default function CotizacionEditor() {
                       const blob = await pdf(
                         <CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} valorUF={valorUF} />
                       ).toBlob()
-                      const arrayBuffer = await blob.arrayBuffer()
-                      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+                      const base64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader()
+                        reader.onloadend = () => resolve(reader.result.split(',')[1])
+                        reader.onerror = reject
+                        reader.readAsDataURL(blob)
+                      })
                       setPdfBase64(base64)
-                    } catch {
-                      setPdfBase64(null)
-                    } finally {
                       setGenerandoPdf(false)
                       setModalEmail(true)
+                    } catch (err) {
+                      setGenerandoPdf(false)
+                      message.error('No se pudo generar el PDF. Intenta de nuevo.')
+                      console.error('[PDF] Error generando PDF para email:', err)
                     }
                   }}
                 >
