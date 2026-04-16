@@ -39,6 +39,7 @@ app.use('/api/cotizaciones', require('./routes/cotizaciones'))
 app.use('/api/public',      require('./routes/public'))
 app.use('/api/buscar',      require('./routes/buscar'))
 app.use('/api/descuentos',  require('./routes/descuentos'))
+app.use('/api/email',       require('./routes/email'))
 
 
 // Health check
