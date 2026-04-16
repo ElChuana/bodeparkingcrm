@@ -14,7 +14,7 @@ import {
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
   EditOutlined, ArrowRightOutlined, ShoppingOutlined, UserOutlined,
-  FileTextOutlined, PlusOutlined, DeleteOutlined
+  FileTextOutlined, PlusOutlined, DeleteOutlined, RobotOutlined, ExpandOutlined
 } from '@ant-design/icons'
 
 const { Title, Text } = Typography
@@ -469,6 +469,7 @@ export default function LeadDetalle() {
   const [visitaEditando, setVisitaEditando] = useState(null)
   const [visitaResultando, setVisitaResultando] = useState(null)
   const [modalEmail, setModalEmail] = useState(false)
+  const [modalComuro, setModalComuro] = useState(false)
 
   const qc = useQueryClient()
   const { message, modal } = App.useApp()
@@ -704,6 +705,50 @@ export default function LeadDetalle() {
                 </div>
               )}
             </Card>
+            {/* Comuro */}
+            {lead.comuroData && (
+              <Card
+                size="small"
+                title={<><RobotOutlined style={{ color: '#7c3aed' }} /> Comuro</>}
+                extra={<Button type="text" size="small" icon={<ExpandOutlined />} onClick={() => setModalComuro(true)}>Ver todo</Button>}
+                style={{ borderColor: '#ede9fe' }}
+              >
+                <Space direction="vertical" size={4} style={{ width: '100%', fontSize: 13 }}>
+                  {lead.comuroData.context && (
+                    <Text style={{ fontSize: 12, color: '#555', display: 'block', fontStyle: 'italic' }}>
+                      "{String(lead.comuroData.context).slice(0, 120)}{String(lead.comuroData.context).length > 120 ? '…' : ''}"
+                    </Text>
+                  )}
+                  {lead.comuroData.interes_tipo_activo && (
+                    <Text style={{ fontSize: 13 }}>📦 <Text strong>Tipo:</Text> {lead.comuroData.interes_tipo_activo}</Text>
+                  )}
+                  {lead.comuroData.interes_ubicacion && (
+                    <Text style={{ fontSize: 13 }}>📍 <Text strong>Ubicación:</Text> {lead.comuroData.interes_ubicacion}</Text>
+                  )}
+                  {lead.comuroData.value_deal && (
+                    <Text style={{ fontSize: 13 }}>💰 <Text strong>Valor:</Text> {lead.comuroData.value_deal}</Text>
+                  )}
+                  {lead.comuroData.lead_prospect !== undefined && (
+                    <Text style={{ fontSize: 13 }}>
+                      {lead.comuroData.lead_prospect ? '✅' : '❌'} <Text strong>Prospecto:</Text> {lead.comuroData.lead_prospect ? 'Sí' : 'No'}
+                    </Text>
+                  )}
+                  {lead.comuroData.cumple_requisitos !== undefined && (
+                    <Text style={{ fontSize: 13 }}>
+                      {lead.comuroData.cumple_requisitos ? '✅' : '❌'} <Text strong>Cumple requisitos:</Text> {lead.comuroData.cumple_requisitos ? 'Sí' : 'No'}
+                    </Text>
+                  )}
+                  {lead.comuroThreadId && (
+                    <Text type="secondary" style={{ fontSize: 11 }}>Thread: {lead.comuroThreadId}</Text>
+                  )}
+                  {lead.comuroData.conversation_url && (
+                    <a href={lead.comuroData.conversation_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+                      Ver conversación →
+                    </a>
+                  )}
+                </Space>
+              </Card>
+            )}
           </Space>
         </Col>
 
@@ -741,6 +786,27 @@ export default function LeadDetalle() {
       <ModalVisita         open={modalVisita}         onClose={() => setModalVisita(false)}         leadId={id} />
       <ModalEditarContacto open={modalEditarContacto} onClose={() => setModalEditarContacto(false)} lead={lead} />
       <ModalEditarLead     open={modalEditarLead}     onClose={() => setModalEditarLead(false)}     lead={lead} />
+      <Modal
+        title={<><RobotOutlined style={{ color: '#7c3aed' }} /> Datos Comuro</>}
+        open={modalComuro}
+        onCancel={() => setModalComuro(false)}
+        footer={null}
+        width={640}
+      >
+        {lead.comuroData && (
+          <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+            {Object.entries(lead.comuroData)
+              .filter(([, v]) => v !== null && v !== undefined && v !== '')
+              .map(([k, v]) => (
+                <div key={k} style={{ display: 'flex', gap: 8, padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
+                  <Text type="secondary" style={{ fontSize: 12, minWidth: 180, flexShrink: 0 }}>{k}</Text>
+                  <Text style={{ fontSize: 13, wordBreak: 'break-word' }}>{String(v)}</Text>
+                </div>
+              ))}
+          </div>
+        )}
+      </Modal>
+
       <ModalEditarVisita
         open={!!visitaEditando}
         onClose={() => setVisitaEditando(null)}

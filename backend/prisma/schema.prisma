@@ -317,6 +317,9 @@ model Lead {
   presupuestoAprox      Float?
   motivoPerdida         String?
   notas                 String?
+  comuroData            Json?
+  comuroUuid            String?     @unique
+  comuroThreadId        String?
   creadoEn              DateTime    @default(now())
   actualizadoEn         DateTime    @updatedAt
 
