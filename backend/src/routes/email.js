@@ -141,17 +141,6 @@ router.put('/config',
 
     const { smtpEmail, smtpPassword } = req.body
 
-    // Verificar que las credenciales funcionan antes de guardar
-    try {
-      const t = crearTransporter(smtpEmail, smtpPassword)
-      await t.verify()
-    } catch (err) {
-      return res.status(400).json({
-        error: 'No se pudo conectar con esas credenciales. Verifica tu email y contraseña.',
-        detalle: err.message,
-      })
-    }
-
     await prisma.usuario.update({
       where: { id: req.usuario.id },
       data: { smtpEmail, smtpPassword },
