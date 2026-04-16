@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ModalEmail from '../../components/ModalEmail'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -467,6 +468,7 @@ export default function LeadDetalle() {
   const [modalEditarLead, setModalEditarLead] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState(null)
   const [visitaResultando, setVisitaResultando] = useState(null)
+  const [modalEmail, setModalEmail] = useState(false)
 
   const qc = useQueryClient()
   const { message, modal } = App.useApp()
@@ -598,6 +600,9 @@ export default function LeadDetalle() {
         <Space wrap>
           <Button size="small" onClick={() => setModalInteraccion(true)}>+ Actividad</Button>
           <Button size="small" icon={<CalendarOutlined />} onClick={() => setModalVisita(true)}>Agendar visita</Button>
+          {lead.contacto.email && (
+            <Button size="small" icon={<MailOutlined />} onClick={() => setModalEmail(true)}>Enviar email</Button>
+          )}
           <Button size="small" icon={<FileTextOutlined />} onClick={() => navigate(`/cotizaciones/nueva?leadId=${id}`)}>
             Nueva cotización
           </Button>
@@ -627,9 +632,11 @@ export default function LeadDetalle() {
                   </a>
                 )}
                 {lead.contacto.email && (
-                  <a href={`mailto:${lead.contacto.email}`}>
-                    <Space><MailOutlined /><Text style={{ fontSize: 13 }}>{lead.contacto.email}</Text></Space>
-                  </a>
+                  <Space>
+                    <MailOutlined />
+                    <Text style={{ fontSize: 13 }}>{lead.contacto.email}</Text>
+                    <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setModalEmail(true)}>Enviar</Button>
+                  </Space>
                 )}
                 {lead.contacto.empresa && <Text type="secondary" style={{ fontSize: 13 }}>🏢 {lead.contacto.empresa}</Text>}
                 {lead.contacto.rut && <Text type="secondary" style={{ fontSize: 13 }}>RUT: {lead.contacto.rut}</Text>}
@@ -722,6 +729,13 @@ export default function LeadDetalle() {
         </Col>
       </Row>
 
+      <ModalEmail
+        open={modalEmail}
+        onClose={() => setModalEmail(false)}
+        para={lead.contacto.email || ''}
+        nombre={`${lead.contacto.nombre} ${lead.contacto.apellido}`.trim()}
+        leadId={parseInt(id)}
+      />
       <ModalCambiarEtapa   open={modalEtapa}          onClose={() => setModalEtapa(false)}          lead={lead} />
       <ModalInteraccion    open={modalInteraccion}    onClose={() => setModalInteraccion(false)}    leadId={id} />
       <ModalVisita         open={modalVisita}         onClose={() => setModalVisita(false)}         leadId={id} />

@@ -17,6 +17,7 @@ import { CotizacionDocumento } from './CotizacionPDF'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import logoUrl from '../../assets/logo.png'
+import ModalEmail from '../../components/ModalEmail'
 
 const { Title, Text } = Typography
 
@@ -745,6 +746,7 @@ export default function CotizacionEditor() {
   const [validezDias, setValidezDias] = useState(30)
   const [leadId, setLeadId] = useState(leadIdParam ? Number(leadIdParam) : null)
   const [modalVenta, setModalVenta] = useState(false)
+  const [modalEmail, setModalEmail] = useState(false)
 
   // Cargar cotización existente
   const { data: cotizacion, isLoading: cargando } = useQuery({
@@ -992,16 +994,23 @@ export default function CotizacionEditor() {
             </Button>
           )}
           {!esNueva && cotizacion && items.length > 0 && (
-            <PDFDownloadLink
-              document={<CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} />}
-              fileName={`Cotizacion-${id}-${cotizacion.lead?.contacto?.apellido || 'cliente'}.pdf`}
-            >
-              {({ loading }) => (
-                <Button icon={<FilePdfOutlined />} loading={loading}>
-                  {loading ? 'Generando PDF...' : 'Exportar PDF'}
+            <>
+              <PDFDownloadLink
+                document={<CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} />}
+                fileName={`Cotizacion-${id}-${cotizacion.lead?.contacto?.apellido || 'cliente'}.pdf`}
+              >
+                {({ loading }) => (
+                  <Button icon={<FilePdfOutlined />} loading={loading}>
+                    {loading ? 'Generando PDF...' : 'Exportar PDF'}
+                  </Button>
+                )}
+              </PDFDownloadLink>
+              {cotizacion.lead?.contacto?.email && (
+                <Button icon={<SendOutlined />} onClick={() => setModalEmail(true)}>
+                  Enviar por email
                 </Button>
               )}
-            </PDFDownloadLink>
+            </>
           )}
         </Space>
       </div>
@@ -1126,6 +1135,17 @@ export default function CotizacionEditor() {
           onClose={() => setModalVenta(false)}
           cotizacion={cotizacion}
           resumen={resumen}
+        />
+      )}
+
+      {cotizacion?.lead?.contacto?.email && (
+        <ModalEmail
+          open={modalEmail}
+          onClose={() => setModalEmail(false)}
+          para={cotizacion.lead.contacto.email}
+          nombre={`${cotizacion.lead.contacto.nombre} ${cotizacion.lead.contacto.apellido || ''}`.trim()}
+          leadId={cotizacion.lead.id}
+          cotizacionId={parseInt(id)}
         />
       )}
     </div>

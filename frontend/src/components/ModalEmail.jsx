@@ -1,0 +1,135 @@
+import React, { useState } from 'react'
+import { Modal, Form, Input, Button, App, Divider } from 'antd'
+import { MailOutlined, SendOutlined, PaperClipOutlined } from '@ant-design/icons'
+import api from '../services/api'
+
+const { TextArea } = Input
+
+/**
+ * Modal para enviar emails desde el CRM.
+ *
+ * Props:
+ *   open        boolean
+ *   onClose     () => void
+ *   para        string  (email destino pre-cargado)
+ *   nombre      string  (nombre del destinatario, para el asunto)
+ *   leadId      number  (opcional, registra interacción)
+ *   cotizacionId number (opcional, adjunta PDF de cotización)
+ */
+export default function ModalEmail({ open, onClose, para = '', nombre = '', leadId, cotizacionId }) {
+  const [form] = Form.useForm()
+  const [enviando, setEnviando] = useState(false)
+  const { message } = App.useApp()
+
+  const asuntoDefault = nombre ? `BodeParking — Información para ${nombre}` : 'BodeParking — Información'
+
+  const cuerpoDefault = nombre
+    ? `Estimado/a ${nombre},\n\nMe comunico desde BodeParking para...\n\n\nSaludos,\nEquipo BodeParking`
+    : ''
+
+  const handleOpen = () => {
+    form.setFieldsValue({
+      para,
+      cc: '',
+      asunto: cotizacionId ? `BodeParking — Cotización para ${nombre}` : asuntoDefault,
+      cuerpo: cotizacionId
+        ? `Estimado/a ${nombre},\n\nAdjunto encontrará la cotización solicitada para nuestras bodegas/estacionamientos.\n\nQuedo a su disposición para cualquier consulta.\n\n\nSaludos cordiales,\nEquipo BodeParking`
+        : cuerpoDefault,
+    })
+  }
+
+  const handleEnviar = async () => {
+    try {
+      const valores = await form.validateFields()
+      setEnviando(true)
+      await api.post('/email/enviar', {
+        ...valores,
+        leadId,
+        cotizacionId,
+      })
+      message.success('Email enviado correctamente')
+      form.resetFields()
+      onClose()
+    } catch (err) {
+      if (err?.errorFields) return // validación de form, no hacer nada
+      const msg = err.response?.data?.error || 'No se pudo enviar el email'
+      const detalle = err.response?.data?.detalle || ''
+      message.error(`${msg}${detalle ? `: ${detalle}` : ''}`)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <Modal
+      title={
+        <span>
+          <MailOutlined style={{ marginRight: 8, color: '#1677ff' }} />
+          Enviar Email
+          {cotizacionId && (
+            <span style={{ fontSize: 12, color: '#722ed1', marginLeft: 8, fontWeight: 400 }}>
+              <PaperClipOutlined /> con cotización adjunta
+            </span>
+          )}
+        </span>
+      }
+      open={open}
+      onCancel={onClose}
+      afterOpenChange={isOpen => { if (isOpen) handleOpen() }}
+      width={640}
+      footer={null}
+      destroyOnHide
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
+        <Form.Item
+          label="Para"
+          name="para"
+          rules={[
+            { required: true, message: 'Ingresa el email' },
+            { type: 'email', message: 'Email inválido' },
+          ]}
+        >
+          <Input prefix={<MailOutlined style={{ color: '#bbb' }} />} placeholder="destinatario@email.com" />
+        </Form.Item>
+
+        <Form.Item label="CC (opcional)" name="cc">
+          <Input placeholder="copia@email.com" />
+        </Form.Item>
+
+        <Form.Item
+          label="Asunto"
+          name="asunto"
+          rules={[{ required: true, message: 'Ingresa el asunto' }]}
+        >
+          <Input />
+        </Form.Item>
+
+        <Form.Item
+          label="Mensaje"
+          name="cuerpo"
+          rules={[{ required: true, message: 'Escribe el mensaje' }]}
+        >
+          <TextArea
+            rows={10}
+            placeholder="Escribe tu mensaje aquí..."
+            style={{ fontFamily: 'inherit', fontSize: 14 }}
+          />
+        </Form.Item>
+
+        <Divider style={{ margin: '8px 0 16px' }} />
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={onClose}>Cancelar</Button>
+          <Button
+            type="primary"
+            icon={<SendOutlined />}
+            loading={enviando}
+            onClick={handleEnviar}
+          >
+            Enviar
+          </Button>
+        </div>
+      </Form>
+    </Modal>
+  )
+}
