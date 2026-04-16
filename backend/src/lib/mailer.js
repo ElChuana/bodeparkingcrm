@@ -19,16 +19,20 @@ function getResend() {
 async function enviarEmail({ para, cc, asunto, html, texto, adjuntos = [], smtpEmail }) {
   const from = smtpEmail || process.env.SMTP_FROM || 'BodeParking CRM <noreply@bodeparking.cl>'
 
-  // Convertir adjuntos al formato de Resend: { filename, content (base64 string) }
+  // Convertir adjuntos al formato de Resend: { filename, content (Buffer) }
   const attachments = adjuntos.map(a => {
     if (a.path) {
       const fs = require('fs')
       return {
         filename: a.filename,
-        content: fs.readFileSync(a.path).toString('base64'),
+        content: fs.readFileSync(a.path),
       }
     }
-    return { filename: a.filename, content: a.content }
+    // a.content es base64 string desde el frontend
+    return {
+      filename: a.filename,
+      content: Buffer.from(a.content, 'base64'),
+    }
   })
 
   const payload = {
