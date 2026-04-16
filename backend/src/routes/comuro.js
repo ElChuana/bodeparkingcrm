@@ -2,10 +2,14 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 
-// Middleware: autenticar por API Key (Bearer token)
+// Middleware: autenticar por API Key (header Authorization, X-API-Key, o query param)
 const autenticarApiKey = async (req, res, next) => {
-  const authHeader = req.headers['authorization']
-  const key = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+  const authHeader = req.headers['authorization'] || ''
+  const key =
+    req.headers['x-api-key'] ||
+    req.query.api_key ||
+    (authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader) ||
+    null
   if (!key) return res.status(401).json({ error: 'API Key requerida.' })
 
   const apiKey = await prisma.apiKey.findUnique({ where: { key } })
