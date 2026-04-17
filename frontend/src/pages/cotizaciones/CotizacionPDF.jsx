@@ -329,8 +329,11 @@ function fmtPesos(uf, valorUF) {
 
 // ── Componente ─────────────────────────────────────────────────────────────
 export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
-  const { lead, items, promociones, notas, validezDias, creadoEn, id, estado } = cotizacion
+  const { lead, items, promociones, notas, validezDias, creadoEn, id, estado, descuentoAprobadoUF } = cotizacion
   const resumen  = calcularResumen(items, promociones)
+  const aprobado = descuentoAprobadoUF || 0
+  const totalFinal = Math.max(resumen.final - aprobado, 0)
+  const ahorroTotal = resumen.descuentoTotal + aprobado
   const contacto = lead?.contacto
   const vendedor = lead?.vendedor || lead?.broker
 
@@ -409,7 +412,7 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
           ))}
 
           {/* ── Descuentos ── */}
-          {resumen.descuentos.length > 0 && (
+          {(resumen.descuentos.length > 0 || aprobado > 0) && (
             <View style={{ marginTop: 18 }}>
               <Text style={s.secTitle}>DESCUENTOS APLICADOS</Text>
               {resumen.descuentos.map((d, i) => (
@@ -419,6 +422,13 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
                   <Text style={s.promoAhorro}>− {d.ahorro.toFixed(2)} UF</Text>
                 </View>
               ))}
+              {aprobado > 0 && (
+                <View style={[s.promoRow, s.promoDescuento]}>
+                  <Text style={[s.promoBadge, s.badgeDescuento]}>Dto. aprobado</Text>
+                  <Text style={s.promoNombre}>Descuento especial aprobado</Text>
+                  <Text style={s.promoAhorro}>− {aprobado.toFixed(2)} UF</Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -450,12 +460,12 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
                     </Text>
                   </View>
                 )}
-                {resumen.descuentoTotal > 0 && (
+                {ahorroTotal > 0 && (
                   <View style={s.totalLineRow}>
                     <Text style={s.totalLineLabel}>Total descuentos</Text>
                     <Text style={s.totalSaving}>
-                      − {fmtUF(resumen.descuentoTotal)}
-                      {fmtPesos(resumen.descuentoTotal, valorUF) ? `  (${fmtPesos(resumen.descuentoTotal, valorUF)})` : ''}
+                      − {fmtUF(ahorroTotal)}
+                      {fmtPesos(ahorroTotal, valorUF) ? `  (${fmtPesos(ahorroTotal, valorUF)})` : ''}
                     </Text>
                   </View>
                 )}
@@ -463,16 +473,16 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
               {/* Derecha: precio final en PESOS grande, UF secundario */}
               <View style={s.totalRight}>
                 <Text style={s.totalEtiqueta}>PRECIO FINAL</Text>
-                {fmtPesos(resumen.final, valorUF)
-                  ? <Text style={s.totalValorPesos}>{fmtPesos(resumen.final, valorUF)}</Text>
-                  : <Text style={s.totalValorPesos}>{fmtUF(resumen.final)}</Text>
+                {fmtPesos(totalFinal, valorUF)
+                  ? <Text style={s.totalValorPesos}>{fmtPesos(totalFinal, valorUF)}</Text>
+                  : <Text style={s.totalValorPesos}>{fmtUF(totalFinal)}</Text>
                 }
-                {fmtPesos(resumen.final, valorUF) && (
-                  <Text style={s.totalValorUF}>{fmtUF(resumen.final)}</Text>
+                {fmtPesos(totalFinal, valorUF) && (
+                  <Text style={s.totalValorUF}>{fmtUF(totalFinal)}</Text>
                 )}
-                {resumen.descuentoTotal > 0 && (
+                {ahorroTotal > 0 && (
                   <Text style={s.totalAhorro}>
-                    Ahorro: {fmtPesos(resumen.descuentoTotal, valorUF) || fmtUF(resumen.descuentoTotal)}
+                    Ahorro: {fmtPesos(ahorroTotal, valorUF) || fmtUF(ahorroTotal)}
                   </Text>
                 )}
               </View>
