@@ -55,7 +55,7 @@ async function notificarLead({ leadId, mensaje, tipo, excluirUsuarioId }) {
       skipDuplicates: true
     })
   } catch (err) {
-    console.error('[notificarLead]', err.message)
+    console.error(`[notificarLead lead=${leadId}]`, err.message)
   }
 }
 
@@ -346,7 +346,7 @@ const cambiarEtapa = async (req, res) => {
     res.json(actualizado)
     notificarLead({
       leadId: Number(id),
-      mensaje: `Lead ${lead.contacto ? lead.contacto.nombre + ' ' + lead.contacto.apellido : '#' + id} → ${ETAPA_LABEL[etapa] || etapa}`,
+      mensaje: `Lead ${lead.contacto?.nombre || ''} ${lead.contacto?.apellido || ''}`.trim() + ` → ${ETAPA_LABEL[etapa] || etapa}`,
       tipo: 'LEAD_ETAPA_CAMBIO',
       excluirUsuarioId: req.usuario.id
     })
