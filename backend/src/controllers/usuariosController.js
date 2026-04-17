@@ -8,7 +8,7 @@ const listar = async (req, res) => {
       select: {
         id: true, nombre: true, apellido: true, email: true,
         telefono: true, rol: true, comisionPorcentaje: true,
-        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true
+        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true, campanasFiltro: true, edificiosFiltro: true, leadsIndividualesFiltro: true
       },
       orderBy: { nombre: 'asc' }
     })
@@ -28,7 +28,7 @@ const obtener = async (req, res) => {
       select: {
         id: true, nombre: true, apellido: true, email: true,
         telefono: true, rol: true, comisionPorcentaje: true,
-        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true
+        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true, campanasFiltro: true, edificiosFiltro: true, leadsIndividualesFiltro: true
       }
     })
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado.' })
@@ -67,7 +67,7 @@ const crear = async (req, res) => {
       select: {
         id: true, nombre: true, apellido: true, email: true,
         telefono: true, rol: true, comisionPorcentaje: true,
-        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true
+        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true, campanasFiltro: true, edificiosFiltro: true, leadsIndividualesFiltro: true
       }
     })
     res.status(201).json(usuario)
@@ -82,7 +82,7 @@ const MODULOS_VALIDOS = ['dashboard','inventario','leads','visitas','ventas','le
 // PUT /api/usuarios/:id — solo Gerente
 const actualizar = async (req, res) => {
   const { id } = req.params
-  const { nombre, apellido, email, telefono, rol, comisionPorcentaje, comisionFijo, activo, modulosVisibles } = req.body
+  const { nombre, apellido, email, telefono, rol, comisionPorcentaje, comisionFijo, activo, modulosVisibles, campanasFiltro, edificiosFiltro, leadsIndividualesFiltro } = req.body
 
   if (modulosVisibles !== undefined) {
     if (!Array.isArray(modulosVisibles) || !modulosVisibles.every(m => MODULOS_VALIDOS.includes(m))) {
@@ -94,11 +94,14 @@ const actualizar = async (req, res) => {
     const usuario = await prisma.usuario.update({
       where: { id: Number(id) },
       data: { nombre, apellido, email, telefono, rol, comisionPorcentaje, comisionFijo, activo,
-        ...(modulosVisibles !== undefined && { modulosVisibles }) },
+        ...(modulosVisibles !== undefined && { modulosVisibles }),
+        ...(campanasFiltro !== undefined && { campanasFiltro }),
+        ...(edificiosFiltro !== undefined && { edificiosFiltro }),
+        ...(leadsIndividualesFiltro !== undefined && { leadsIndividualesFiltro }) },
       select: {
         id: true, nombre: true, apellido: true, email: true,
         telefono: true, rol: true, comisionPorcentaje: true,
-        comisionFijo: true, activo: true, modulosVisibles: true
+        comisionFijo: true, activo: true, modulosVisibles: true, campanasFiltro: true, edificiosFiltro: true, leadsIndividualesFiltro: true
       }
     })
     res.json(usuario)
