@@ -182,6 +182,8 @@ enum TipoAlerta {
   FECHA_LEGAL_PROXIMA
   ARRIENDO_POR_VENCER
   DESCUENTO_PENDIENTE
+  LEAD_ETAPA_CAMBIO
+  LEAD_NUEVO
 }
 
 // ─── MODELOS ──────────────────────────────────────────────────
@@ -199,6 +201,7 @@ model Usuario {
   comisionPorcentaje    Float?
   comisionFijo          Float?
   activo                Boolean   @default(true)
+  notificacionesActivas Boolean   @default(true)
   creadoEn              DateTime  @default(now())
   actualizadoEn         DateTime  @updatedAt
 
