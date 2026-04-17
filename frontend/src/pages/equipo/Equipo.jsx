@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Table, Button, Tag, Modal, Form, Input, Select, Typography, Space, Avatar, Switch, App, Card, Divider, Popconfirm, Alert } from 'antd'
-import { PlusOutlined, UserOutlined, KeyOutlined, CopyOutlined, StopOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Table, Button, Tag, Modal, Form, Input, Select, Typography, Space, Avatar, Switch, App, Card, Divider, Popconfirm, Alert, Checkbox } from 'antd'
+import { PlusOutlined, UserOutlined, KeyOutlined, CopyOutlined, StopOutlined, DeleteOutlined, AppstoreOutlined } from '@ant-design/icons'
 import api from '../../services/api'
 import { ROL_LABEL } from '../../components/ui'
 
@@ -10,6 +10,119 @@ const { Title, Text } = Typography
 const ROL_COLOR = {
   GERENTE: 'purple', JEFE_VENTAS: 'blue', VENDEDOR: 'green',
   BROKER_EXTERNO: 'cyan', ABOGADO: 'orange'
+}
+
+const MODULOS_POR_ROL = {
+  GERENTE:        ['dashboard','inventario','leads','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','equipo','reportes','automatizaciones','api-keys'],
+  JEFE_VENTAS:    ['dashboard','inventario','leads','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','reportes','automatizaciones'],
+  VENDEDOR:       ['dashboard','leads','comisiones','promociones','descuentos'],
+  BROKER_EXTERNO: ['dashboard','leads','comisiones','promociones','descuentos'],
+  ABOGADO:        ['dashboard','ventas','legal'],
+}
+
+const SECCIONES_MODULOS = [
+  { label: 'General',  modulos: [
+    { key: 'dashboard',  label: 'Dashboard' },
+    { key: 'inventario', label: 'Inventario' },
+    { key: 'leads',      label: 'Leads' },
+    { key: 'visitas',    label: 'Visitas' },
+  ]},
+  { label: 'Ventas', modulos: [
+    { key: 'ventas',      label: 'Ventas' },
+    { key: 'legal',       label: 'Legal' },
+    { key: 'pagos',       label: 'Pagos' },
+    { key: 'comisiones',  label: 'Comisiones' },
+  ]},
+  { label: 'Gestión', modulos: [
+    { key: 'promociones',  label: 'Promociones' },
+    { key: 'descuentos',   label: 'Descuentos' },
+    { key: 'arriendos',    label: 'Arriendos' },
+    { key: 'llaves',       label: 'Llaves' },
+  ]},
+  { label: 'Admin', modulos: [
+    { key: 'equipo',           label: 'Equipo' },
+    { key: 'reportes',         label: 'Reportes' },
+    { key: 'automatizaciones', label: 'Automatizaciones' },
+    { key: 'api-keys',         label: 'API Keys' },
+  ]},
+]
+
+function ModalModulos({ open, onClose, usuario }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [seleccionados, setSeleccionados] = useState([])
+
+  const handleOpen = () => {
+    const base = usuario?.modulosVisibles?.length > 0
+      ? usuario.modulosVisibles
+      : (MODULOS_POR_ROL[usuario?.rol] || [])
+    setSeleccionados(base)
+  }
+
+  const guardar = useMutation({
+    mutationFn: (modulos) => api.put(`/usuarios/${usuario.id}`, { modulosVisibles: modulos }),
+    onSuccess: () => {
+      message.success('Módulos actualizados')
+      qc.invalidateQueries(['usuarios'])
+      onClose()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const restablecer = useMutation({
+    mutationFn: () => api.put(`/usuarios/${usuario.id}`, { modulosVisibles: [] }),
+    onSuccess: () => {
+      message.success('Módulos restablecidos al rol')
+      qc.invalidateQueries(['usuarios'])
+      onClose()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const toggle = (key) => {
+    setSeleccionados(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    )
+  }
+
+  return (
+    <Modal
+      title={`Módulos de ${usuario?.nombre || ''}`}
+      open={open}
+      onCancel={onClose}
+      afterOpenChange={(v) => { if (v) handleOpen() }}
+      footer={[
+        <Button key="reset" onClick={() => restablecer.mutate()} loading={restablecer.isPending}>
+          Restablecer a rol
+        </Button>,
+        <Button key="cancel" onClick={onClose}>Cancelar</Button>,
+        <Button key="save" type="primary" onClick={() => guardar.mutate(seleccionados)} loading={guardar.isPending}>
+          Guardar
+        </Button>,
+      ]}
+      width={520}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px', marginTop: 16 }}>
+        {SECCIONES_MODULOS.map(sec => (
+          <div key={sec.label}>
+            <div style={{ fontWeight: 600, fontSize: 12, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
+              {sec.label}
+            </div>
+            {sec.modulos.map(m => (
+              <div key={m.key} style={{ marginBottom: 6 }}>
+                <Checkbox
+                  checked={seleccionados.includes(m.key)}
+                  onChange={() => toggle(m.key)}
+                >
+                  {m.label}
+                </Checkbox>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </Modal>
+  )
 }
 
 function ModalUsuario({ open, onClose, usuario }) {
@@ -70,6 +183,8 @@ function ModalUsuario({ open, onClose, usuario }) {
 export default function Equipo() {
   const [modalOpen, setModalOpen] = useState(false)
   const [usuarioEditar, setUsuarioEditar] = useState(null)
+  const [modalModulosOpen, setModalModulosOpen] = useState(false)
+  const [usuarioModulos, setUsuarioModulos] = useState(null)
   const qc = useQueryClient()
   const { message } = App.useApp()
 
@@ -118,9 +233,15 @@ export default function Equipo() {
     {
       title: '', key: 'acciones',
       render: (_, u) => (
-        <Button size="small" type="link" onClick={() => { setUsuarioEditar(u); setModalOpen(true) }}>
-          Editar
-        </Button>
+        <Space>
+          <Button size="small" type="link" icon={<AppstoreOutlined />}
+            onClick={() => { setUsuarioModulos(u); setModalModulosOpen(true) }}>
+            Módulos
+          </Button>
+          <Button size="small" type="link" onClick={() => { setUsuarioEditar(u); setModalOpen(true) }}>
+            Editar
+          </Button>
+        </Space>
       )
     },
   ]
@@ -148,6 +269,12 @@ export default function Equipo() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         usuario={usuarioEditar}
+      />
+
+      <ModalModulos
+        open={modalModulosOpen}
+        onClose={() => setModalModulosOpen(false)}
+        usuario={usuarioModulos}
       />
 
       <Divider />
