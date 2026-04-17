@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Table, Button, Tag, Modal, Form, Input, Select, Typography, Space, Avatar, Switch, App, Card, Divider, Popconfirm, Alert, Checkbox } from 'antd'
-import { PlusOutlined, UserOutlined, KeyOutlined, CopyOutlined, StopOutlined, DeleteOutlined, AppstoreOutlined } from '@ant-design/icons'
+import { PlusOutlined, UserOutlined, KeyOutlined, CopyOutlined, StopOutlined, DeleteOutlined, AppstoreOutlined, EyeOutlined } from '@ant-design/icons'
 import api from '../../services/api'
 import { ROL_LABEL } from '../../components/ui'
 
@@ -125,6 +125,128 @@ function ModalModulos({ open, onClose, usuario }) {
   )
 }
 
+function ModalVisibilidad({ open, onClose, usuario }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [campanas, setCampanas] = useState([])
+  const [edificios, setEdificios] = useState([])
+  const [leadsIndividuales, setLeadsIndividuales] = useState([])
+  const [busquedaLeads, setBusquedaLeads] = useState([])
+
+  const { data: campanaOpciones = [] } = useQuery({
+    queryKey: ['campanas'],
+    queryFn: () => api.get('/leads/campanas').then(r => r.data),
+    enabled: open
+  })
+
+  const { data: edificioOpciones = [] } = useQuery({
+    queryKey: ['edificios'],
+    queryFn: () => api.get('/edificios').then(r => r.data),
+    enabled: open
+  })
+
+  const handleOpen = () => {
+    setCampanas(usuario?.campanasFiltro || [])
+    setEdificios(usuario?.edificiosFiltro || [])
+    setLeadsIndividuales(usuario?.leadsIndividualesFiltro || [])
+  }
+
+  const buscarLeads = async (search) => {
+    if (!search || search.length < 2) { setBusquedaLeads([]); return }
+    const res = await api.get('/leads', { params: { search, limit: 20 } })
+    setBusquedaLeads(res.data.map ? res.data : (res.data.leads || []))
+  }
+
+  const guardar = useMutation({
+    mutationFn: () => api.put(`/usuarios/${usuario.id}`, {
+      campanasFiltro: campanas,
+      edificiosFiltro: edificios,
+      leadsIndividualesFiltro: leadsIndividuales
+    }),
+    onSuccess: () => {
+      message.success('Visibilidad actualizada')
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
+      onClose()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const limpiar = useMutation({
+    mutationFn: () => api.put(`/usuarios/${usuario.id}`, {
+      campanasFiltro: [],
+      edificiosFiltro: [],
+      leadsIndividualesFiltro: []
+    }),
+    onSuccess: () => {
+      message.success('Filtros limpiados')
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
+      onClose()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  return (
+    <Modal
+      title={`Visibilidad de leads — ${usuario?.nombre || ''}`}
+      open={open}
+      onCancel={onClose}
+      afterOpenChange={(v) => { if (v) handleOpen() }}
+      footer={[
+        <Button key="clear" onClick={() => limpiar.mutate()} loading={limpiar.isPending}>
+          Limpiar todo
+        </Button>,
+        <Button key="cancel" onClick={onClose}>Cancelar</Button>,
+        <Button key="save" type="primary" onClick={() => guardar.mutate()} loading={guardar.isPending}>
+          Guardar
+        </Button>,
+      ]}
+      width={520}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 16 }}>
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>Campañas</div>
+          <Select
+            mode="multiple"
+            style={{ width: '100%' }}
+            placeholder="Selecciona campañas..."
+            value={campanas}
+            onChange={setCampanas}
+            options={campanaOpciones.map(c => ({ value: c, label: c }))}
+          />
+        </div>
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>Edificios</div>
+          <Select
+            mode="multiple"
+            style={{ width: '100%' }}
+            placeholder="Selecciona edificios..."
+            value={edificios}
+            onChange={setEdificios}
+            options={edificioOpciones.map(e => ({ value: e.id, label: e.nombre }))}
+          />
+        </div>
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>Leads individuales</div>
+          <Select
+            mode="multiple"
+            style={{ width: '100%' }}
+            placeholder="Busca por nombre o teléfono..."
+            value={leadsIndividuales}
+            onChange={setLeadsIndividuales}
+            showSearch
+            filterOption={false}
+            onSearch={buscarLeads}
+            options={busquedaLeads.map(l => ({
+              value: l.id,
+              label: `${l.contacto?.nombre || ''} ${l.contacto?.apellido || ''} — ${l.campana || 'Sin campaña'}`
+            }))}
+          />
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function ModalUsuario({ open, onClose, usuario }) {
   const qc = useQueryClient()
   const [form] = Form.useForm()
@@ -185,6 +307,8 @@ export default function Equipo() {
   const [usuarioEditar, setUsuarioEditar] = useState(null)
   const [modalModulosOpen, setModalModulosOpen] = useState(false)
   const [usuarioModulos, setUsuarioModulos] = useState(null)
+  const [modalVisibilidadOpen, setModalVisibilidadOpen] = useState(false)
+  const [usuarioVisibilidad, setUsuarioVisibilidad] = useState(null)
   const qc = useQueryClient()
   const { message } = App.useApp()
 
@@ -238,6 +362,10 @@ export default function Equipo() {
             onClick={() => { setUsuarioModulos(u); setModalModulosOpen(true) }}>
             Módulos
           </Button>
+          <Button size="small" type="link" icon={<EyeOutlined />}
+            onClick={() => { setUsuarioVisibilidad(u); setModalVisibilidadOpen(true) }}>
+            Visibilidad
+          </Button>
           <Button size="small" type="link" onClick={() => { setUsuarioEditar(u); setModalOpen(true) }}>
             Editar
           </Button>
@@ -275,6 +403,12 @@ export default function Equipo() {
         open={modalModulosOpen}
         onClose={() => setModalModulosOpen(false)}
         usuario={usuarioModulos}
+      />
+
+      <ModalVisibilidad
+        open={modalVisibilidadOpen}
+        onClose={() => setModalVisibilidadOpen(false)}
+        usuario={usuarioVisibilidad}
       />
 
       <Divider />
