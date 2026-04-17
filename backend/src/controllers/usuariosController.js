@@ -77,10 +77,18 @@ const crear = async (req, res) => {
   }
 }
 
+const MODULOS_VALIDOS = ['dashboard','inventario','leads','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','equipo','reportes','automatizaciones','api-keys']
+
 // PUT /api/usuarios/:id — solo Gerente
 const actualizar = async (req, res) => {
   const { id } = req.params
   const { nombre, apellido, email, telefono, rol, comisionPorcentaje, comisionFijo, activo, modulosVisibles } = req.body
+
+  if (modulosVisibles !== undefined) {
+    if (!Array.isArray(modulosVisibles) || !modulosVisibles.every(m => MODULOS_VALIDOS.includes(m))) {
+      return res.status(400).json({ error: 'modulosVisibles contiene valores inválidos.' })
+    }
+  }
 
   try {
     const usuario = await prisma.usuario.update({
