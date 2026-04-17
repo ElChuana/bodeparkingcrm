@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Form, Input, Button, App, Space, Tag } from 'antd'
-import { MailOutlined, CheckCircleOutlined, SettingOutlined } from '@ant-design/icons'
+import { Card, Form, Input, Button, App, Space, Tag, Switch } from 'antd'
+import { MailOutlined, CheckCircleOutlined, SettingOutlined, BellOutlined } from '@ant-design/icons'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -10,11 +10,17 @@ export default function MiPerfil() {
   const [form] = Form.useForm()
   const [guardando, setGuardando] = useState(false)
   const [emailConfigurado, setEmailConfigurado] = useState(null)
+  const [notificacionesActivas, setNotificacionesActivas] = useState(true)
+  const [guardandoNotif, setGuardandoNotif] = useState(false)
 
   useEffect(() => {
     api.get('/email/config').then(r => {
       setEmailConfigurado(r.data.smtpEmail)
       if (r.data.smtpEmail) form.setFieldValue('smtpEmail', r.data.smtpEmail)
+    }).catch(() => {})
+
+    api.get('/alertas/preferencias').then(r => {
+      setNotificacionesActivas(r.data.notificacionesActivas)
     }).catch(() => {})
   }, [])
 
@@ -27,10 +33,22 @@ export default function MiPerfil() {
       setEmailConfigurado(valores.smtpEmail)
     } catch (err) {
       if (err?.errorFields) return
-      const msg = err.response?.data?.error || 'No se pudo guardar'
-      message.error(msg)
+      message.error(err.response?.data?.error || 'No se pudo guardar')
     } finally {
       setGuardando(false)
+    }
+  }
+
+  const handleToggleNotif = async (valor) => {
+    setGuardandoNotif(true)
+    try {
+      await api.put('/alertas/preferencias', { notificacionesActivas: valor })
+      setNotificacionesActivas(valor)
+      message.success(valor ? 'Notificaciones activadas' : 'Notificaciones desactivadas')
+    } catch {
+      message.error('No se pudo actualizar')
+    } finally {
+      setGuardandoNotif(false)
     }
   }
 
@@ -49,43 +67,44 @@ export default function MiPerfil() {
       </Card>
 
       <Card
-        title={
-          <span>
-            <MailOutlined style={{ marginRight: 8, color: '#1677ff' }} />
-            Email para envío de correos
-          </span>
-        }
+        title={<span><MailOutlined style={{ marginRight: 8, color: '#1677ff' }} />Email para envío de correos</span>}
+        style={{ marginBottom: 20 }}
       >
         <p style={{ color: '#666', marginBottom: 16, fontSize: 13 }}>
           Configura el email desde el que se enviarán tus correos a clientes (ej: <strong>tuusuario@bodeparking.cl</strong>).
         </p>
-
         {emailConfigurado && (
           <div style={{ marginBottom: 16, padding: '8px 12px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
             <CheckCircleOutlined style={{ color: '#52c41a' }} />
             <span style={{ fontSize: 13 }}>Email configurado: <strong>{emailConfigurado}</strong></span>
           </div>
         )}
-
         <Form form={form} layout="vertical">
           <Form.Item
             label="Tu email (@bodeparking.cl)"
             name="smtpEmail"
-            rules={[
-              { required: true, message: 'Ingresa tu email' },
-              { type: 'email', message: 'Email inválido' },
-            ]}
+            rules={[{ required: true, message: 'Ingresa tu email' }, { type: 'email', message: 'Email inválido' }]}
           >
-            <Input
-              prefix={<MailOutlined style={{ color: '#bbb' }} />}
-              placeholder="tuusuario@bodeparking.cl"
-            />
+            <Input prefix={<MailOutlined style={{ color: '#bbb' }} />} placeholder="tuusuario@bodeparking.cl" />
           </Form.Item>
-
-          <Button type="primary" loading={guardando} onClick={handleGuardar}>
-            Guardar
-          </Button>
+          <Button type="primary" loading={guardando} onClick={handleGuardar}>Guardar</Button>
         </Form>
+      </Card>
+
+      <Card title={<span><BellOutlined style={{ marginRight: 8, color: '#faad14' }} />Notificaciones</span>}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>Notificaciones de leads</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+              Recibe alertas cuando llegue un lead nuevo o cambie de etapa
+            </div>
+          </div>
+          <Switch
+            checked={notificacionesActivas}
+            onChange={handleToggleNotif}
+            loading={guardandoNotif}
+          />
+        </div>
       </Card>
     </div>
   )
