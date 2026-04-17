@@ -153,8 +153,12 @@ function ModalVisibilidad({ open, onClose, usuario }) {
 
   const buscarLeads = async (search) => {
     if (!search || search.length < 2) { setBusquedaLeads([]); return }
-    const res = await api.get('/leads', { params: { search, limit: 20 } })
-    setBusquedaLeads(res.data.map ? res.data : (res.data.leads || []))
+    try {
+      const res = await api.get('/leads', { params: { search, limit: 20 } })
+      setBusquedaLeads(Array.isArray(res.data) ? res.data : (res.data?.leads || []))
+    } catch {
+      setBusquedaLeads([])
+    }
   }
 
   const guardar = useMutation({
@@ -238,7 +242,7 @@ function ModalVisibilidad({ open, onClose, usuario }) {
             onSearch={buscarLeads}
             options={busquedaLeads.map(l => ({
               value: l.id,
-              label: `${l.contacto?.nombre || ''} ${l.contacto?.apellido || ''} — ${l.campana || 'Sin campaña'}`
+              label: `${[l.contacto?.nombre, l.contacto?.apellido].filter(Boolean).join(' ') || 'Sin nombre'} — ${l.campana || 'Sin campaña'}`
             }))}
           />
         </div>
