@@ -62,13 +62,22 @@ async function notificarLead({ leadId, mensaje, tipo, excluirUsuarioId }) {
 // Filtro de acceso según rol
 const filtroAcceso = (usuario) => {
   if (['GERENTE', 'JEFE_VENTAS', 'ABOGADO'].includes(usuario.rol)) return {}
-  // Vendedor y Broker solo ven sus propios leads
-  return {
-    OR: [
-      { vendedorId: usuario.id },
-      { brokerId: usuario.id }
-    ]
-  }
+
+  const condiciones = [
+    { vendedorId: usuario.id },
+    { brokerId: usuario.id }
+  ]
+
+  if (usuario.campanasFiltro?.length > 0)
+    condiciones.push({ campana: { in: usuario.campanasFiltro } })
+
+  if (usuario.edificiosFiltro?.length > 0)
+    condiciones.push({ unidadInteres: { edificioId: { in: usuario.edificiosFiltro } } })
+
+  if (usuario.leadsIndividualesFiltro?.length > 0)
+    condiciones.push({ id: { in: usuario.leadsIndividualesFiltro } })
+
+  return { OR: condiciones }
 }
 
 const listar = async (req, res) => {
@@ -422,4 +431,19 @@ const eliminar = async (req, res) => {
   }
 }
 
-module.exports = { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar }
+const listarCampanas = async (req, res) => {
+  try {
+    const leads = await prisma.lead.findMany({
+      where: { campana: { not: null } },
+      select: { campana: true },
+      distinct: ['campana'],
+      orderBy: { campana: 'asc' }
+    })
+    res.json(leads.map(l => l.campana))
+  } catch (err) {
+    console.error('[listarCampanas]', err)
+    res.status(500).json({ error: 'Error al obtener campañas.' })
+  }
+}
+
+module.exports = { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar, listarCampanas }
