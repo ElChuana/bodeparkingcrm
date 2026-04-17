@@ -202,6 +202,7 @@ model Usuario {
   comisionFijo          Float?
   activo                Boolean   @default(true)
   notificacionesActivas Boolean   @default(true)
+  modulosVisibles       String[]  @default([])
   creadoEn              DateTime  @default(now())
   actualizadoEn         DateTime  @updatedAt
 
