@@ -236,6 +236,10 @@ const unidadesDisponibles = async (req, res) => {
     const unidades = await prisma.unidad.findMany({
       where: {
         estado: 'DISPONIBLE',
+        // Excluir unidades con venta activa (reservada, promesada o escriturada)
+        NOT: {
+          venta: { estado: { in: ['RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGADO'] } }
+        },
         ...(edificioId && { edificioId: Number(edificioId) }),
         ...(tipo && { tipo }),
         ...(search && {
