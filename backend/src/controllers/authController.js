@@ -35,7 +35,8 @@ const login = async (req, res) => {
         nombre: usuario.nombre,
         apellido: usuario.apellido,
         email: usuario.email,
-        rol: usuario.rol
+        rol: usuario.rol,
+        modulosVisibles: usuario.modulosVisibles
       }
     })
   } catch (err) {

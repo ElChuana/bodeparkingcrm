@@ -8,7 +8,7 @@ const listar = async (req, res) => {
       select: {
         id: true, nombre: true, apellido: true, email: true,
         telefono: true, rol: true, comisionPorcentaje: true,
-        comisionFijo: true, activo: true, creadoEn: true
+        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true
       },
       orderBy: { nombre: 'asc' }
     })
@@ -28,7 +28,7 @@ const obtener = async (req, res) => {
       select: {
         id: true, nombre: true, apellido: true, email: true,
         telefono: true, rol: true, comisionPorcentaje: true,
-        comisionFijo: true, activo: true, creadoEn: true
+        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true
       }
     })
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado.' })
@@ -67,7 +67,7 @@ const crear = async (req, res) => {
       select: {
         id: true, nombre: true, apellido: true, email: true,
         telefono: true, rol: true, comisionPorcentaje: true,
-        comisionFijo: true, activo: true, creadoEn: true
+        comisionFijo: true, activo: true, creadoEn: true, modulosVisibles: true
       }
     })
     res.status(201).json(usuario)
@@ -80,16 +80,17 @@ const crear = async (req, res) => {
 // PUT /api/usuarios/:id — solo Gerente
 const actualizar = async (req, res) => {
   const { id } = req.params
-  const { nombre, apellido, email, telefono, rol, comisionPorcentaje, comisionFijo, activo } = req.body
+  const { nombre, apellido, email, telefono, rol, comisionPorcentaje, comisionFijo, activo, modulosVisibles } = req.body
 
   try {
     const usuario = await prisma.usuario.update({
       where: { id: Number(id) },
-      data: { nombre, apellido, email, telefono, rol, comisionPorcentaje, comisionFijo, activo },
+      data: { nombre, apellido, email, telefono, rol, comisionPorcentaje, comisionFijo, activo,
+        ...(modulosVisibles !== undefined && { modulosVisibles }) },
       select: {
         id: true, nombre: true, apellido: true, email: true,
         telefono: true, rol: true, comisionPorcentaje: true,
-        comisionFijo: true, activo: true
+        comisionFijo: true, activo: true, modulosVisibles: true
       }
     })
     res.json(usuario)
