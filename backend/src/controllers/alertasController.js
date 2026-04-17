@@ -192,4 +192,32 @@ async function _ejecutarChequeo() {
   return { alertasGeneradas, acciones }
 }
 
-module.exports = { misNotificaciones, marcarLeida, marcarTodasLeidas, obtenerConfig, actualizarConfig, ejecutarChequeo }
+const obtenerPreferencias = async (req, res) => {
+  try {
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: req.usuario.id },
+      select: { notificacionesActivas: true }
+    })
+    res.json({ notificacionesActivas: usuario.notificacionesActivas })
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener preferencias.' })
+  }
+}
+
+const actualizarPreferencias = async (req, res) => {
+  const { notificacionesActivas } = req.body
+  if (typeof notificacionesActivas !== 'boolean') {
+    return res.status(400).json({ error: 'notificacionesActivas debe ser true o false.' })
+  }
+  try {
+    await prisma.usuario.update({
+      where: { id: req.usuario.id },
+      data: { notificacionesActivas }
+    })
+    res.json({ ok: true, notificacionesActivas })
+  } catch (err) {
+    res.status(500).json({ error: 'Error al actualizar preferencias.' })
+  }
+}
+
+module.exports = { misNotificaciones, marcarLeida, marcarTodasLeidas, obtenerConfig, actualizarConfig, ejecutarChequeo, obtenerPreferencias, actualizarPreferencias }
