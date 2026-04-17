@@ -20,6 +20,45 @@ const ORDEN_ETAPAS = [
   'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA', 'PERDIDO'
 ]
 
+const ETAPA_LABEL = {
+  NUEVO: 'Nuevo', NO_CONTESTA: 'No contesta', SEGUIMIENTO: 'Seguimiento',
+  COTIZACION_ENVIADA: 'Cotización enviada', VISITA_AGENDADA: 'Visita agendada',
+  VISITA_REALIZADA: 'Visita realizada', SEGUIMIENTO_POST_VISITA: 'Seguimiento post visita',
+  NEGOCIACION: 'Negociación', RESERVA: 'Reserva', PROMESA: 'Promesa',
+  ESCRITURA: 'Escritura', ENTREGA: 'Entrega', POSTVENTA: 'Postventa', PERDIDO: 'Perdido'
+}
+
+async function notificarLead({ leadId, mensaje, tipo, excluirUsuarioId }) {
+  try {
+    const destinatarios = await prisma.usuario.findMany({
+      where: {
+        notificacionesActivas: true,
+        activo: true,
+        OR: [
+          { rol: 'GERENTE' },
+          { rol: 'JEFE_VENTAS' },
+          { leadsAsignados: { some: { id: leadId } } }
+        ],
+        ...(excluirUsuarioId ? { id: { not: excluirUsuarioId } } : {})
+      },
+      select: { id: true }
+    })
+    if (!destinatarios.length) return
+    await prisma.notificacion.createMany({
+      data: destinatarios.map(u => ({
+        usuarioId: u.id,
+        tipo,
+        mensaje,
+        referenciaId: leadId,
+        referenciaTipo: 'lead'
+      })),
+      skipDuplicates: true
+    })
+  } catch (err) {
+    console.error('[notificarLead]', err.message)
+  }
+}
+
 // Filtro de acceso según rol
 const filtroAcceso = (usuario) => {
   if (['GERENTE', 'JEFE_VENTAS', 'ABOGADO'].includes(usuario.rol)) return {}
@@ -233,6 +272,12 @@ const crear = async (req, res) => {
     })
 
     res.status(201).json(lead)
+    notificarLead({
+      leadId: lead.id,
+      mensaje: `Nuevo lead: ${lead.contacto.nombre} ${lead.contacto.apellido}`,
+      tipo: 'LEAD_NUEVO',
+      excluirUsuarioId: req.usuario.id
+    })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al crear lead.' })
@@ -276,7 +321,8 @@ const cambiarEtapa = async (req, res) => {
 
   try {
     const lead = await prisma.lead.findFirst({
-      where: { id: Number(id), ...filtroAcceso(req.usuario) }
+      where: { id: Number(id), ...filtroAcceso(req.usuario) },
+      include: { contacto: { select: { nombre: true, apellido: true } } }
     })
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado.' })
 
@@ -298,6 +344,12 @@ const cambiarEtapa = async (req, res) => {
     })
 
     res.json(actualizado)
+    notificarLead({
+      leadId: Number(id),
+      mensaje: `Lead ${lead.contacto ? lead.contacto.nombre + ' ' + lead.contacto.apellido : '#' + id} → ${ETAPA_LABEL[etapa] || etapa}`,
+      tipo: 'LEAD_ETAPA_CAMBIO',
+      excluirUsuarioId: req.usuario.id
+    })
   } catch (err) {
     res.status(500).json({ error: 'Error al cambiar etapa.' })
   }
