@@ -2,6 +2,29 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 
+// Helper: notificar a gerentes y jefes de ventas sobre nuevo lead
+async function notificarLead({ leadId, mensaje, tipo }) {
+  try {
+    const destinatarios = await prisma.usuario.findMany({
+      where: {
+        notificacionesActivas: true,
+        activo: true,
+        OR: [{ rol: 'GERENTE' }, { rol: 'JEFE_VENTAS' }]
+      },
+      select: { id: true }
+    })
+    if (!destinatarios.length) return
+    await prisma.notificacion.createMany({
+      data: destinatarios.map(u => ({
+        usuarioId: u.id, tipo, mensaje, referenciaId: leadId, referenciaTipo: 'lead'
+      })),
+      skipDuplicates: true
+    })
+  } catch (err) {
+    console.error(`[comuro notificarLead lead=${leadId}]`, err.message)
+  }
+}
+
 // Middleware: autenticar por API Key (header Authorization, X-API-Key, o query param)
 const autenticarApiKey = async (req, res, next) => {
   const authHeader = req.headers['authorization'] || ''
@@ -101,6 +124,12 @@ router.post('/upsert', autenticarApiKey, async (req, res) => {
         ...(internal_uuid && { comuroUuid: internal_uuid }),
         ...(body.thread_id && { comuroThreadId: body.thread_id }),
       }
+    })
+
+    notificarLead({
+      leadId: leadNuevo.id,
+      mensaje: `Nuevo lead de Comuro: ${nombreContacto} ${apellidoContacto}`,
+      tipo: 'LEAD_NUEVO'
     })
 
     return res.status(201).json({ lead_id: String(leadNuevo.id), status: 'created' })
