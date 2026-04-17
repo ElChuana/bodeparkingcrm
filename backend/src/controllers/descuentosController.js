@@ -126,7 +126,7 @@ const revisar = async (req, res) => {
 
       await prisma.cotizacion.update({
         where: { id: solicitud.cotizacionId },
-        data: { descuentoAprobadoUF: { increment: descuentoAplicadoUF } },
+        data: { descuentoAprobadoUF: (solicitud.cotizacion.descuentoAprobadoUF || 0) + descuentoAplicadoUF },
       })
     }
 
@@ -191,7 +191,7 @@ const aplicarDirecto = async (req, res) => {
     // Sumar al descuento existente (no reemplazar)
     const actualizada = await prisma.cotizacion.update({
       where: { id: cotizacion.id },
-      data: { descuentoAprobadoUF: { increment: descuentoUF } },
+      data: { descuentoAprobadoUF: (cotizacion.descuentoAprobadoUF || 0) + descuentoUF },
     })
 
     res.json({ solicitud, descuentoAprobadoUF: actualizada.descuentoAprobadoUF })
