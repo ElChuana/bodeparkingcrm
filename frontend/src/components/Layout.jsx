@@ -36,37 +36,37 @@ function SidebarContent({ selectedKey, onNavigate }) {
     {
       label: 'General',
       items: [
-        { key: '/dashboard',  label: 'Dashboard',   icon: <DashboardOutlined />, roles: null },
-        { key: '/inventario', label: 'Inventario',  icon: <AppstoreOutlined />,  roles: ['GERENTE','JEFE_VENTAS'] },
-        { key: '/leads',      label: 'Leads',       icon: <TeamOutlined />,      roles: null },
-        { key: '/visitas',    label: 'Visitas',     icon: <CalendarOutlined />,  roles: ['GERENTE','JEFE_VENTAS'] },
+        { key: '/dashboard',  label: 'Dashboard',   icon: <DashboardOutlined />, roles: null,                              modulo: 'dashboard' },
+        { key: '/inventario', label: 'Inventario',  icon: <AppstoreOutlined />,  roles: ['GERENTE','JEFE_VENTAS'],          modulo: 'inventario' },
+        { key: '/leads',      label: 'Leads',       icon: <TeamOutlined />,      roles: null,                              modulo: 'leads' },
+        { key: '/visitas',    label: 'Visitas',     icon: <CalendarOutlined />,  roles: ['GERENTE','JEFE_VENTAS'],          modulo: 'visitas' },
       ]
     },
     {
       label: 'Ventas',
       items: [
-        { key: '/ventas',      label: 'Ventas',     icon: <ShoppingOutlined />,   roles: ['GERENTE','JEFE_VENTAS','ABOGADO'] },
-        { key: '/legal',       label: 'Legal',      icon: <AuditOutlined />,      roles: ['GERENTE','JEFE_VENTAS','ABOGADO'] },
-        { key: '/pagos',       label: 'Pagos',      icon: <CreditCardOutlined />, roles: ['GERENTE','JEFE_VENTAS'] },
-        { key: '/comisiones',  label: 'Comisiones', icon: <DollarOutlined />,     roles: null },
+        { key: '/ventas',      label: 'Ventas',     icon: <ShoppingOutlined />,   roles: ['GERENTE','JEFE_VENTAS','ABOGADO'], modulo: 'ventas' },
+        { key: '/legal',       label: 'Legal',      icon: <AuditOutlined />,      roles: ['GERENTE','JEFE_VENTAS','ABOGADO'], modulo: 'legal' },
+        { key: '/pagos',       label: 'Pagos',      icon: <CreditCardOutlined />, roles: ['GERENTE','JEFE_VENTAS'],           modulo: 'pagos' },
+        { key: '/comisiones',  label: 'Comisiones', icon: <DollarOutlined />,     roles: null,                               modulo: 'comisiones' },
       ]
     },
     {
       label: 'Gestión',
       items: [
-        { key: '/promociones', label: 'Promociones',  icon: <TagOutlined />,        roles: null },
-        { key: '/descuentos',  label: 'Descuentos',   icon: <PercentageOutlined />, roles: null, badge: nPendientes },
-        { key: '/arriendos',   label: 'Arriendos',    icon: <CarOutlined />,        roles: ['GERENTE','JEFE_VENTAS'] },
-        { key: '/llaves',      label: 'Llaves',       icon: <KeyOutlined />,        roles: ['GERENTE','JEFE_VENTAS'] },
+        { key: '/promociones', label: 'Promociones',  icon: <TagOutlined />,        roles: null,                     modulo: 'promociones',    badge: undefined },
+        { key: '/descuentos',  label: 'Descuentos',   icon: <PercentageOutlined />, roles: null,                     modulo: 'descuentos',     badge: nPendientes },
+        { key: '/arriendos',   label: 'Arriendos',    icon: <CarOutlined />,        roles: ['GERENTE','JEFE_VENTAS'], modulo: 'arriendos' },
+        { key: '/llaves',      label: 'Llaves',       icon: <KeyOutlined />,        roles: ['GERENTE','JEFE_VENTAS'], modulo: 'llaves' },
       ]
     },
     {
       label: 'Admin',
       items: [
-        { key: '/equipo',                label: 'Equipo',          icon: <UserSwitchOutlined />,  roles: ['GERENTE'] },
-        { key: '/reportes',              label: 'Reportes',        icon: <BarChartOutlined />,    roles: ['GERENTE','JEFE_VENTAS'] },
-        { key: '/automatizaciones',      label: 'Automatizaciones',icon: <ThunderboltOutlined />, roles: ['GERENTE','JEFE_VENTAS'] },
-        { key: '/configuracion/api-keys',label: 'API Keys',        icon: <ApiOutlined />,         roles: ['GERENTE'] },
+        { key: '/equipo',                label: 'Equipo',           icon: <UserSwitchOutlined />,  roles: ['GERENTE'],              modulo: 'equipo' },
+        { key: '/reportes',              label: 'Reportes',         icon: <BarChartOutlined />,    roles: ['GERENTE','JEFE_VENTAS'], modulo: 'reportes' },
+        { key: '/automatizaciones',      label: 'Automatizaciones', icon: <ThunderboltOutlined />, roles: ['GERENTE','JEFE_VENTAS'], modulo: 'automatizaciones' },
+        { key: '/configuracion/api-keys',label: 'API Keys',         icon: <ApiOutlined />,         roles: ['GERENTE'],              modulo: 'api-keys' },
       ]
     },
   ]
@@ -96,7 +96,11 @@ function SidebarContent({ selectedKey, onNavigate }) {
       {/* Nav */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
         {NAV_SECTIONS.map(section => {
-          const visibles = section.items.filter(item => !item.roles || item.roles.includes(usuario?.rol))
+          const modulosActivos = usuario?.modulosVisibles || []
+          const visibles = section.items.filter(item => {
+            if (modulosActivos.length > 0) return modulosActivos.includes(item.modulo)
+            return !item.roles || item.roles.includes(usuario?.rol)
+          })
           if (!visibles.length) return null
           return (
             <div key={section.label}>
