@@ -203,6 +203,9 @@ model Usuario {
   activo                Boolean   @default(true)
   notificacionesActivas Boolean   @default(true)
   modulosVisibles       String[]  @default([])
+  campanasFiltro          String[]  @default([])
+  edificiosFiltro         Int[]     @default([])
+  leadsIndividualesFiltro Int[]     @default([])
   creadoEn              DateTime  @default(now())
   actualizadoEn         DateTime  @updatedAt
 
