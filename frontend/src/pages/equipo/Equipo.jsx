@@ -63,7 +63,7 @@ function ModalModulos({ open, onClose, usuario }) {
     mutationFn: (modulos) => api.put(`/usuarios/${usuario.id}`, { modulosVisibles: modulos }),
     onSuccess: () => {
       message.success('Módulos actualizados')
-      qc.invalidateQueries(['usuarios'])
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -73,7 +73,7 @@ function ModalModulos({ open, onClose, usuario }) {
     mutationFn: () => api.put(`/usuarios/${usuario.id}`, { modulosVisibles: [] }),
     onSuccess: () => {
       message.success('Módulos restablecidos al rol')
-      qc.invalidateQueries(['usuarios'])
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -134,7 +134,7 @@ function ModalUsuario({ open, onClose, usuario }) {
     mutationFn: (d) => usuario ? api.put(`/usuarios/${usuario.id}`, d) : api.post('/usuarios', d),
     onSuccess: () => {
       message.success(usuario ? 'Usuario actualizado' : 'Usuario creado')
-      qc.invalidateQueries(['usuarios'])
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
       onClose()
       form.resetFields()
     },
