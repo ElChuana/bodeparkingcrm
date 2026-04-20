@@ -608,10 +608,17 @@ export default function LeadDetalle() {
             Nueva cotización
           </Button>
           <Button size="small" icon={<ArrowRightOutlined />} onClick={() => setModalEtapa(true)}>Cambiar etapa</Button>
-          {lead.venta && (
-            <Button type="primary" size="small" icon={<ShoppingOutlined />} onClick={() => navigate(`/ventas/${lead.venta.id}`)}>
+          {lead.ventas?.length === 1 && (
+            <Button type="primary" size="small" icon={<ShoppingOutlined />} onClick={() => navigate(`/ventas/${lead.ventas[0].id}`)}>
               Ver Venta
             </Button>
+          )}
+          {lead.ventas?.length > 1 && (
+            lead.ventas.map(v => (
+              <Button key={v.id} size="small" icon={<ShoppingOutlined />} onClick={() => navigate(`/ventas/${v.id}`)}>
+                Venta #{v.id} — {v.estado}
+              </Button>
+            ))
           )}
         </Space>
       </div>
