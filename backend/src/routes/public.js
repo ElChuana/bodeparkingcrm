@@ -89,25 +89,63 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
       if (unidad) unidadInteresId = unidad.id
     }
 
-    // ── 3. Verificar que no exista ya un lead activo del mismo contacto ──
+    // ── 3. Si el contacto ya existe, actualizar con campos nuevos no nulos ──
+    if (contacto) {
+      const actualizarContacto = {}
+      if (email    && !contacto.email)    actualizarContacto.email    = email.trim()
+      if (telefono && !contacto.telefono) actualizarContacto.telefono = telefono.trim()
+      if (rut      && !contacto.rut)      actualizarContacto.rut      = rut.trim()
+      if (empresa  && !contacto.empresa)  actualizarContacto.empresa  = empresa.trim()
+      if (Object.keys(actualizarContacto).length > 0) {
+        contacto = await prisma.contacto.update({
+          where: { id: contacto.id },
+          data: actualizarContacto
+        })
+      }
+    }
+
+    // ── 4. Verificar que no exista ya un lead activo del mismo contacto ──
     const leadExistente = await prisma.lead.findFirst({
       where: {
         contactoId: contacto.id,
         etapa: { notIn: ['PERDIDO'] }
+      },
+      include: {
+        contacto:      { select: { nombre: true, apellido: true, email: true, telefono: true } },
+        unidadInteres: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
       }
     })
 
     if (leadExistente) {
+      // Actualizar el lead existente con datos nuevos no nulos
+      const actualizarLead = {}
+      if (campana          && !leadExistente.campana)          actualizarLead.campana          = campana.trim()
+      if (presupuestoAprox && !leadExistente.presupuestoAprox) actualizarLead.presupuestoAprox = Number(presupuestoAprox)
+      if (notas)                                               actualizarLead.notas            = [leadExistente.notas, notas.trim()].filter(Boolean).join('\n---\n')
+      if (unidadInteresId  && !leadExistente.unidadInteresId)  actualizarLead.unidadInteresId  = unidadInteresId
+      if (vendedorId       && !leadExistente.vendedorId)       actualizarLead.vendedorId       = Number(vendedorId)
+
+      if (Object.keys(actualizarLead).length > 0) {
+        await prisma.lead.update({ where: { id: leadExistente.id }, data: actualizarLead })
+        await prisma.interaccion.create({
+          data: {
+            leadId:      leadExistente.id,
+            tipo:        'NOTA',
+            descripcion: `Lead actualizado vía API (${req.apiKey.nombre}) — contacto ya existía en el sistema.`,
+          }
+        })
+      }
+
       return res.status(200).json({
         ok: true,
         duplicado: true,
-        mensaje: 'El contacto ya tiene un lead activo en el sistema.',
-        leadId: leadExistente.id,
+        mensaje: 'El contacto ya tiene un lead activo en el sistema. Se actualizaron los datos disponibles.',
+        leadId:    leadExistente.id,
         contactoId: contacto.id,
       })
     }
 
-    // ── 4. Crear el lead ──────────────────────────────────────────
+    // ── 5. Crear el lead ──────────────────────────────────────────
     const lead = await prisma.lead.create({
       data: {
         contactoId:      contacto.id,

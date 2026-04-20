@@ -446,4 +446,163 @@ const listarCampanas = async (req, res) => {
   }
 }
 
-module.exports = { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar, listarCampanas }
+// POST /api/leads/fusionar-duplicados — solo GERENTE
+// Fusiona contactos y leads duplicados por número de teléfono
+const fusionarDuplicados = async (req, res) => {
+  if (req.usuario.rol !== 'GERENTE')
+    return res.status(403).json({ error: 'Solo el gerente puede fusionar duplicados.' })
+
+  const { confirmar = false } = req.body
+
+  try {
+    // 1. Encontrar teléfonos que aparecen en más de un contacto
+    const contactosConTelefono = await prisma.contacto.findMany({
+      where: { telefono: { not: null } },
+      select: { id: true, nombre: true, apellido: true, email: true, telefono: true, creadoEn: true },
+      orderBy: { creadoEn: 'asc' }
+    })
+
+    // Agrupar por teléfono normalizado
+    const grupos = {}
+    for (const c of contactosConTelefono) {
+      const tel = c.telefono.replace(/\D/g, '')
+      if (!tel) continue
+      if (!grupos[tel]) grupos[tel] = []
+      grupos[tel].push(c)
+    }
+
+    // Solo grupos con duplicados
+    const duplicados = Object.entries(grupos)
+      .filter(([, grupo]) => grupo.length > 1)
+      .map(([tel, grupo]) => ({ telefono: tel, contactos: grupo }))
+
+    if (duplicados.length === 0) {
+      return res.json({ ok: true, mensaje: 'No se encontraron duplicados por teléfono.', fusionados: 0 })
+    }
+
+    if (!confirmar) {
+      // Modo preview: describir qué se fusionaría
+      const preview = await Promise.all(duplicados.map(async ({ telefono, contactos }) => {
+        const ids = contactos.map(c => c.id)
+        const leads = await prisma.lead.findMany({
+          where: { contactoId: { in: ids } },
+          select: { id: true, contactoId: true, etapa: true, campana: true, creadoEn: true,
+            venta: { select: { id: true } }, cotizaciones: { select: { id: true } } }
+        })
+        return { telefono, contactos, leads }
+      }))
+      return res.json({ ok: true, preview, mensaje: `${duplicados.length} grupo(s) de duplicados encontrados. Envía confirmar:true para fusionar.` })
+    }
+
+    // Modo fusión real
+    let totalFusionados = 0
+    const errores = []
+
+    for (const { contactos } of duplicados) {
+      // Primario: el que tiene email, o el más antiguo
+      const primario = contactos.find(c => c.email) || contactos[0]
+      const secundarios = contactos.filter(c => c.id !== primario.id)
+
+      try {
+        await prisma.$transaction(async (tx) => {
+          for (const sec of secundarios) {
+            // Mover leads del secundario al primario
+            const leadsSecundario = await tx.lead.findMany({
+              where: { contactoId: sec.id },
+              include: { venta: true, cotizaciones: true, interacciones: true, visitas: true }
+            })
+
+            for (const leadSec of leadsSecundario) {
+              // Ver si el primario ya tiene un lead activo
+              const leadPrimario = await tx.lead.findFirst({
+                where: { contactoId: primario.id, etapa: { notIn: ['PERDIDO'] } },
+                include: { venta: true }
+              })
+
+              if (leadPrimario) {
+                // Fusionar: mover interacciones y cotizaciones al lead primario
+                await tx.interaccion.updateMany({
+                  where: { leadId: leadSec.id },
+                  data: { leadId: leadPrimario.id }
+                })
+                await tx.visita.updateMany({
+                  where: { leadId: leadSec.id },
+                  data: { leadId: leadPrimario.id }
+                })
+                // Cotizaciones solo si el lead primario no tiene venta (para evitar conflictos)
+                if (!leadPrimario.venta) {
+                  await tx.cotizacion.updateMany({
+                    where: { leadId: leadSec.id },
+                    data: { leadId: leadPrimario.id }
+                  })
+                }
+                // Fusionar comuroData
+                if (leadSec.comuroData) {
+                  const dataActual = (leadPrimario.comuroData && typeof leadPrimario.comuroData === 'object') ? leadPrimario.comuroData : {}
+                  await tx.lead.update({
+                    where: { id: leadPrimario.id },
+                    data: {
+                      comuroData: { ...leadSec.comuroData, ...dataActual },
+                      ...(leadSec.comuroUuid && !leadPrimario.comuroUuid && { comuroUuid: leadSec.comuroUuid }),
+                      ...(leadSec.comuroThreadId && !leadPrimario.comuroThreadId && { comuroThreadId: leadSec.comuroThreadId }),
+                    }
+                  })
+                }
+                // Marcar el lead secundario como perdido
+                await tx.lead.update({
+                  where: { id: leadSec.id },
+                  data: { etapa: 'PERDIDO', motivoPerdida: `Fusionado con lead #${leadPrimario.id} por duplicado de teléfono` }
+                })
+              } else {
+                // No hay lead activo en primario: reasignar este lead
+                await tx.lead.update({
+                  where: { id: leadSec.id },
+                  data: { contactoId: primario.id }
+                })
+              }
+            }
+
+            // Mover ventas (comprador) del contacto secundario al primario
+            await tx.venta.updateMany({
+              where: { compradorId: sec.id },
+              data: { compradorId: primario.id }
+            })
+            // Mover arriendos
+            await tx.arriendo.updateMany({
+              where: { contactoId: sec.id },
+              data: { contactoId: primario.id }
+            })
+
+            // Actualizar datos del primario si le falta info
+            const update = {}
+            if (!primario.email    && sec.email)    update.email    = sec.email
+            if (!primario.rut      && sec.rut)      update.rut      = sec.rut
+            if (!primario.empresa  && sec.empresa)  update.empresa  = sec.empresa
+            if (Object.keys(update).length > 0) {
+              await tx.contacto.update({ where: { id: primario.id }, data: update })
+              Object.assign(primario, update) // actualizar referencia local
+            }
+
+            // Eliminar contacto secundario
+            await tx.contacto.delete({ where: { id: sec.id } })
+          }
+        })
+        totalFusionados++
+      } catch (err) {
+        errores.push({ telefono: primario.telefono, error: err.message })
+      }
+    }
+
+    res.json({
+      ok: true,
+      fusionados: totalFusionados,
+      errores,
+      mensaje: `${totalFusionados} grupo(s) fusionados.${errores.length > 0 ? ` ${errores.length} error(es).` : ''}`
+    })
+  } catch (err) {
+    console.error('[fusionarDuplicados]', err)
+    res.status(500).json({ error: 'Error al fusionar duplicados.' })
+  }
+}
+
+module.exports = { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar, listarCampanas, fusionarDuplicados }

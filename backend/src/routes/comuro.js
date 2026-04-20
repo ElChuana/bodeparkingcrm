@@ -54,23 +54,43 @@ router.post('/upsert', autenticarApiKey, async (req, res) => {
       lead = await prisma.lead.findUnique({ where: { comuroUuid: internal_uuid } })
     }
 
-    // 2. Buscar por phone + project
-    if (!lead && phone && project) {
+    // 2. Buscar por phone — primero exacto con project, luego cualquier lead activo del contacto
+    if (!lead && phone) {
       const telefonoNormalizado = phone.replace(/\D/g, '')
       const contacto = await prisma.contacto.findFirst({
         where: { telefono: { contains: telefonoNormalizado } }
       })
       if (contacto) {
+        // Intentar coincidir por campaña primero
+        if (project) {
+          lead = await prisma.lead.findFirst({
+            where: { contactoId: contacto.id, campana: { contains: project, mode: 'insensitive' } }
+          })
+        }
+        // Si no hay coincidencia por campaña, tomar cualquier lead activo del mismo contacto
+        if (!lead) {
+          lead = await prisma.lead.findFirst({
+            where: { contactoId: contacto.id, etapa: { notIn: ['PERDIDO'] } },
+            orderBy: { creadoEn: 'desc' }
+          })
+        }
+      }
+    }
+
+    // 3. Buscar por email si aún no encontrado
+    if (!lead && body.email) {
+      const contactoPorEmail = await prisma.contacto.findFirst({
+        where: { email: { equals: body.email, mode: 'insensitive' } }
+      })
+      if (contactoPorEmail) {
         lead = await prisma.lead.findFirst({
-          where: {
-            contactoId: contacto.id,
-            campana: { contains: project, mode: 'insensitive' }
-          }
+          where: { contactoId: contactoPorEmail.id, etapa: { notIn: ['PERDIDO'] } },
+          orderBy: { creadoEn: 'desc' }
         })
       }
     }
 
-    // 3. Buscar por external_id (comuroThreadId como fallback si se usa como external_id)
+    // 4. Buscar por external_id (comuroThreadId como fallback)
     if (!lead && external_id) {
       lead = await prisma.lead.findFirst({ where: { comuroThreadId: external_id } })
     }
