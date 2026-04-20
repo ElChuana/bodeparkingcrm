@@ -85,16 +85,20 @@ const obtener = async (req, res) => {
 }
 
 const crear = async (req, res) => {
-  const { leadId, unidadId, compradorId, brokerId, precioUF, descuentoUF, fechaReserva, notas, cotizacionOrigenId } = req.body
+  const { leadId, unidadId, unidadIds, compradorId, brokerId, precioUF, descuentoUF, fechaReserva, notas, cotizacionOrigenId } = req.body
+  // Normalizar: acepta unidadId (singular) o unidadIds (array)
+  const idsUnidades = unidadIds
+    ? (Array.isArray(unidadIds) ? unidadIds : [unidadIds]).map(Number)
+    : unidadId ? [Number(unidadId)] : []
 
-  if (!leadId || !unidadId || !compradorId || !precioUF) {
-    return res.status(400).json({ error: 'Lead, unidad, comprador y precio UF son requeridos.' })
+  if (!leadId || idsUnidades.length === 0 || !compradorId || !precioUF) {
+    return res.status(400).json({ error: 'Lead, al menos una unidad, comprador y precio UF son requeridos.' })
   }
 
 
   // Validar precio mínimo si hay descuento
   if (descuentoUF) {
-    const unidad = await prisma.unidad.findUnique({ where: { id: Number(unidadId) } })
+    const unidad = await prisma.unidad.findUnique({ where: { id: idsUnidades[0] } })
     const precioFinal = Number(precioUF) - Number(descuentoUF)
 
     if (unidad.precioMinimoUF && precioFinal < unidad.precioMinimoUF) {
@@ -152,8 +156,10 @@ const crear = async (req, res) => {
       }
     })
 
-    // Vincular unidad a la venta y marcarla como reservada
-    await prisma.unidad.update({ where: { id: Number(unidadId) }, data: { ventaId: venta.id, estado: 'RESERVADO' } })
+    // Vincular unidades a la venta y marcarlas como reservadas
+    for (const uid of idsUnidades) {
+      await prisma.unidad.update({ where: { id: uid }, data: { ventaId: venta.id, estado: 'RESERVADO' } })
+    }
 
     // Actualizar etapa del lead
     await prisma.lead.update({ where: { id: Number(leadId) }, data: { etapa: 'RESERVA' } })
