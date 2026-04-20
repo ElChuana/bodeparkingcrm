@@ -676,16 +676,6 @@ function ModalConvertirVenta({ open, onClose, cotizacion, resumen }) {
   const precioFinal = (Number(precioWatch) || 0) - (Number(descWatch) || 0)
 
   // Al cambiar la unidad seleccionada, actualizar precio y descuento
-  const handleUnidadChange = (unidadId) => {
-    const item = items.find(i => i.unidadId === unidadId)
-    if (!item) return
-    const desc = descuentoPorUnidad(unidadId)
-    form.setFieldsValue({
-      precioUF: item.precioListaUF,
-      descuentoUF: desc,
-    })
-  }
-
   const crear = useMutation({
     mutationFn: async (data) => {
       const res = await api.post('/ventas', data)
@@ -712,18 +702,18 @@ function ModalConvertirVenta({ open, onClose, cotizacion, resumen }) {
     form.validateFields().then(values => {
       crear.mutate({
         leadId: lead.id,
-        unidadId: Number(values.unidadId),
+        unidadIds: items.map(i => i.unidadId),
         compradorId: lead.contacto.id,
         precioUF: Number(values.precioUF),
         descuentoUF: Number(values.descuentoUF) || 0,
         fechaReserva: values.fechaReserva,
         notas: values.notas,
+        cotizacionOrigenId: cotizacion.id,
       })
     })
   }
 
-  const initialUnidadId = items[0]?.unidadId
-  const initialDesc = initialUnidadId ? descuentoPorUnidad(initialUnidadId) : 0
+  const initialDesc = items.length > 0 ? descuentoPorUnidad(items[0].unidadId) : 0
 
   return (
     <Modal
@@ -738,7 +728,6 @@ function ModalConvertirVenta({ open, onClose, cotizacion, resumen }) {
       afterOpenChange={o => {
         if (o && items.length > 0) {
           form.setFieldsValue({
-            unidadId: initialUnidadId,
             precioUF: items[0].precioListaUF,
             descuentoUF: initialDesc,
             fechaReserva: new Date().toISOString().split('T')[0],
@@ -756,24 +745,12 @@ function ModalConvertirVenta({ open, onClose, cotizacion, resumen }) {
           )}
         </div>
 
-        {/* Unidad */}
-        <Form.Item name="unidadId" label="Unidad a vender" rules={[{ required: true }]}>
-          <Select
-            onChange={handleUnidadChange}
-            options={items.map(i => ({
-              value: i.unidadId,
-              label: `${i.unidad.edificio.nombre} — ${i.unidad.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${i.unidad.numero} (lista: ${i.precioListaUF} UF)`
-            }))}
-          />
+        {/* Unidades */}
+        <Form.Item label="Unidades">
+          <div style={{ fontSize: 12, color: '#6b7280' }}>
+            {items.map(i => `${i.unidad?.edificio?.nombre} ${i.unidad?.numero}`).join(', ')}
+          </div>
         </Form.Item>
-
-        {items.length > 1 && (
-          <Alert
-            type="info"
-            style={{ marginBottom: 12, fontSize: 12 }}
-            message="La cotización tiene varias unidades. Selecciona una — el descuento se distribuye proporcionalmente. Para vender las otras, crea una nueva venta desde el lead."
-          />
-        )}
 
         {/* Precio */}
         <Row gutter={12}>
@@ -1043,7 +1020,7 @@ export default function CotizacionEditor() {
   const estado = cotizacion?.estado || 'BORRADOR'
   const soloLectura = ['ACEPTADA', 'RECHAZADA'].includes(estado)
   const unidadesBloqueadas = !esNueva // una vez guardada, las unidades no se pueden modificar
-  const puedeConvertir = !esNueva && cotizacion && items.length > 0 && estado !== 'RECHAZADA' && !cotizacion.lead?.venta
+  const puedeConvertir = !esNueva && cotizacion && items.length > 0 && estado !== 'RECHAZADA' && estado !== 'ACEPTADA'
 
   const ESTADO_COLOR = { BORRADOR: 'default', ENVIADA: 'blue', ACEPTADA: 'green', RECHAZADA: 'red' }
   const ESTADO_LABEL = { BORRADOR: 'Borrador', ENVIADA: 'Enviada', ACEPTADA: 'Aceptada', RECHAZADA: 'Rechazada' }
@@ -1082,14 +1059,15 @@ export default function CotizacionEditor() {
               Crear Venta
             </Button>
           )}
-          {cotizacion?.lead?.venta && (
+          {cotizacion?.lead?.ventas?.map(v => (
             <Button
+              key={v.id}
               icon={<ShoppingOutlined />}
-              onClick={() => navigate(`/ventas/${cotizacion.lead.venta.id}`)}
+              onClick={() => navigate(`/ventas/${v.id}`)}
             >
-              Ver Venta
+              Venta #{v.id}
             </Button>
-          )}
+          ))}
           {!esNueva && cotizacion && items.length > 0 && (
             <>
               <PDFDownloadLink
