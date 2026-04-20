@@ -96,35 +96,40 @@ const crear = async (req, res) => {
   }
 
 
-  // Validar precio mínimo si hay descuento
-  if (descuentoUF) {
-    const unidad = await prisma.unidad.findUnique({ where: { id: idsUnidades[0] } })
-    const precioFinal = Number(precioUF) - Number(descuentoUF)
+  try {
+    // Validar precio mínimo si hay descuento
+    if (descuentoUF) {
+      const unidad = await prisma.unidad.findUnique({ where: { id: idsUnidades[0] } })
 
-    if (unidad.precioMinimoUF && precioFinal < unidad.precioMinimoUF) {
-      // Crear notificación para el gerente y solicitar aprobación
-      const gerentes = await prisma.usuario.findMany({
-        where: { rol: 'GERENTE', activo: true }
-      })
-      for (const g of gerentes) {
-        await prisma.notificacion.create({
-          data: {
-            usuarioId: g.id,
-            tipo: 'DESCUENTO_PENDIENTE',
-            mensaje: `Descuento bajo precio mínimo solicitado para unidad ${unidad.numero}. Precio final: ${precioFinal} UF (mínimo: ${unidad.precioMinimoUF} UF)`,
-            referenciaId: Number(leadId),
-            referenciaTipo: 'lead'
-          }
+      if (!unidad) {
+        return res.status(404).json({ error: 'Unidad no encontrada.' })
+      }
+
+      const precioFinal = Number(precioUF) - Number(descuentoUF)
+
+      if (unidad.precioMinimoUF && precioFinal < unidad.precioMinimoUF) {
+        // Crear notificación para el gerente y solicitar aprobación
+        const gerentes = await prisma.usuario.findMany({
+          where: { rol: 'GERENTE', activo: true }
+        })
+        for (const g of gerentes) {
+          await prisma.notificacion.create({
+            data: {
+              usuarioId: g.id,
+              tipo: 'DESCUENTO_PENDIENTE',
+              mensaje: `Descuento bajo precio mínimo solicitado para unidad ${unidad.numero}. Precio final: ${precioFinal} UF (mínimo: ${unidad.precioMinimoUF} UF)`,
+              referenciaId: Number(leadId),
+              referenciaTipo: 'lead'
+            }
+          })
+        }
+        return res.status(202).json({
+          mensaje: 'Descuento requiere aprobación del Gerente. Se ha enviado una notificación.',
+          requiereAprobacion: true
         })
       }
-      return res.status(202).json({
-        mensaje: 'Descuento requiere aprobación del Gerente. Se ha enviado una notificación.',
-        requiereAprobacion: true
-      })
     }
-  }
 
-  try {
     const lead = await prisma.lead.findUnique({
       where: { id: Number(leadId) },
       select: { vendedorId: true, brokerId: true }
