@@ -549,6 +549,35 @@ function TablaCampanas({ datos }) {
   )
 }
 
+function InventarioEdificios({ datos }) {
+  if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>Sin datos</div>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {datos.map(e => {
+        const total = e.total || 1
+        return (
+          <div key={e.edificio}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#1e293b' }}>{e.edificio}</span>
+              <span style={{ fontSize: 11, color: '#6b7280' }}>
+                <span style={{ color: '#16a34a', fontWeight: 600 }}>{e.disponible}</span> disp · {' '}
+                <span style={{ color: '#d97706', fontWeight: 600 }}>{e.reservado}</span> reserv · {' '}
+                <span style={{ color: '#dc2626', fontWeight: 600 }}>{e.vendido}</span> vendido
+                <span style={{ color: '#9ca3af' }}> / {e.total} total</span>
+              </span>
+            </div>
+            <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: '#f3f4f6' }}>
+              <div style={{ width: `${(e.disponible/total)*100}%`, background: '#16a34a' }} />
+              <div style={{ width: `${(e.reservado/total)*100}%`, background: '#d97706' }} />
+              <div style={{ width: `${(e.vendido/total)*100}%`, background: '#dc2626' }} />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [presetActivo, setPresetActivo] = useState('mes')
@@ -722,29 +751,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Inventario */}
-      <Card title="Inventario" size="small" style={{ marginBottom: 16 }}>
-        {!unidadesPorEstado?.length ? (
-          <div style={{ textAlign: 'center', color: '#aaa', padding: '20px 0' }}>Sin unidades</div>
-        ) : (
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            {unidadesPorEstado.map(u => (
-              <div key={u.estado} style={{ minWidth: 120 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, textTransform: 'capitalize' }}>{u.estado.toLowerCase().replace('_', ' ')}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{u._count.id}</span>
-                </div>
-                <Progress
-                  percent={Math.round((u._count.id / totalUnidades) * 100)}
-                  showInfo={false}
-                  strokeColor={u.estado === 'DISPONIBLE' ? '#52c41a' : u.estado === 'RESERVADO' ? '#faad14' : u.estado === 'VENDIDO' ? '#ef4444' : '#1677ff'}
-                  size="small"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+      {/* Inventario por edificio */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Inventario por propiedad</div>
+        <InventarioEdificios datos={inventarioPorEdificio} />
+      </div>
 
       {/* Tabla de ventas del período */}
       <TablaVentas ventas={ventasRecientes || []} />
