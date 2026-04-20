@@ -336,7 +336,7 @@ model Lead {
   broker                Usuario?    @relation("BrokerLead", fields: [brokerId], references: [id])
   visitas               Visita[]
   interacciones         Interaccion[]
-  venta                 Venta?
+  ventas                Venta[]
   cotizaciones          Cotizacion[]
 
   @@map("leads")
@@ -376,7 +376,7 @@ model Interaccion {
 
 model Venta {
   id                    Int         @id @default(autoincrement())
-  leadId                Int         @unique
+  leadId                Int
   compradorId           Int
   vendedorId            Int?
   brokerId              Int?
