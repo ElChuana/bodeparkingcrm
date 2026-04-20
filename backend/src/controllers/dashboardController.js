@@ -137,7 +137,7 @@ const obtener = async (req, res) => {
 
       // Ventas activas para legal y cuotas (sin filtro de fecha)
       prisma.venta.findMany({
-        where: { estado: { in: ['RESERVA', 'PROMESA', 'ESCRITURA', 'VENDIDO'] } },
+        where: { estado: { in: ['RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGADO'] } },
         orderBy: { fechaReserva: 'desc' },
         include: {
           comprador: { select: { nombre: true, apellido: true } },
