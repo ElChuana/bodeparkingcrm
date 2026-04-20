@@ -534,7 +534,7 @@ export default function Dashboard() {
     {
       label: 'Ventas',
       value: kpis?.ventas ?? 0,
-      diff: kpis != null ? (kpis.ventas - kpis.ventasAnterior) : null,
+      diff: (kpis?.ventas != null && kpis?.ventasAnterior != null) ? (kpis.ventas - kpis.ventasAnterior) : null,
       color: '#7c3aed',
     },
     {
