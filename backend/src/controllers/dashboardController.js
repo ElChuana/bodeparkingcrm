@@ -1,62 +1,92 @@
 const prisma = require('../lib/prisma')
 
+// Calcula el período anterior con la misma duración
+function calcPeriodoAnterior(desde, hasta) {
+  if (!desde || !hasta) return { desdeAnt: null, hastaAnt: null }
+  const d = new Date(desde), h = new Date(hasta)
+  const dur = h - d
+  return { desdeAnt: new Date(d - dur), hastaAnt: new Date(d) }
+}
+
+// Agrupa ventas por semana dentro del período
+function agruparPorSemana(ventas, desde, hasta) {
+  const inicio = desde ? new Date(desde) : new Date(ventas[0]?.fechaReserva || Date.now())
+  const fin    = hasta ? new Date(hasta)  : new Date()
+  const semanas = []
+  let cursor = new Date(inicio)
+  let i = 1
+  while (cursor < fin) {
+    const finSemana = new Date(Math.min(cursor.getTime() + 7 * 86400000, fin.getTime()))
+    semanas.push({ label: `S${i}`, desde: new Date(cursor), hasta: finSemana })
+    cursor = finSemana
+    i++
+  }
+  return semanas.map(s => {
+    const vendidoUF = ventas
+      .filter(v => v.fechaReserva && new Date(v.fechaReserva) >= s.desde && new Date(v.fechaReserva) < s.hasta)
+      .reduce((sum, v) => sum + (v.precioUF || 0), 0)
+    const recolectadoUF = ventas
+      .filter(v => v.fechaReserva && new Date(v.fechaReserva) >= s.desde && new Date(v.fechaReserva) < s.hasta)
+      .flatMap(v => v.planPago?.cuotas || [])
+      .filter(c => c.estado === 'PAGADO' && c.fechaPagoReal && new Date(c.fechaPagoReal) >= s.desde && new Date(c.fechaPagoReal) < s.hasta)
+      .reduce((sum, c) => sum + (c.montoUF || 0), 0)
+    return { semana: s.label, vendidoUF: +vendidoUF.toFixed(2), recolectadoUF: +recolectadoUF.toFixed(2) }
+  })
+}
+
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
 const obtener = async (req, res) => {
   const { desde, hasta } = req.query
-
   const hayFecha = desde || hasta
+  const { desdeAnt, hastaAnt } = calcPeriodoAnterior(desde, hasta)
 
-  // Filtro por creadoEn del lead
-  const filtroLead = hayFecha ? {
-    creadoEn: {
-      ...(desde && { gte: new Date(desde) }),
-      ...(hasta && { lte: new Date(hasta) })
-    }
-  } : {}
+  const filtroLead     = hayFecha ? { creadoEn:     { ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}
+  const filtroReserva  = hayFecha ? { fechaReserva: { ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}
+  const filtroEscritura= hayFecha ? { fechaEscritura:{ ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}
+  const filtroLeadAnt  = desdeAnt ? { creadoEn:     { gte: desdeAnt, lte: hastaAnt } } : {}
+  const filtroReservaAnt = desdeAnt ? { fechaReserva:{ gte: desdeAnt, lte: hastaAnt } } : {}
 
-  // Filtro por fechaReserva de la venta
-  const filtroReserva = hayFecha ? {
-    fechaReserva: {
-      ...(desde && { gte: new Date(desde) }),
-      ...(hasta && { lte: new Date(hasta) })
-    }
-  } : {}
-
-  // Filtro por fechaEscritura de la venta
-  const filtroEscritura = hayFecha ? {
-    fechaEscritura: {
-      ...(desde && { gte: new Date(desde) }),
-      ...(hasta && { lte: new Date(hasta) })
-    }
-  } : {}
+  const anioActual = new Date().getFullYear()
 
   try {
     const [
-      totalLeads,
-      notificacionesSinLeer,
-      unidadesPorEstado,
+      // KPIs actuales
+      leadsIngresados,
       ventasRecientes,
+      // KPIs período anterior
+      leadsIngresadosAnt,
+      ventasAnt,
+      // Inventario por edificio
+      unidadesPorEdificio,
+      // Ventas activas para legal y cuotas
       ventasActivas,
-      recibidos,
+      // Ventas año completo para gráfico por mes
+      ventasAnio,
+      // Leads para embudo
       contactados,
       visitaAgendada,
       reservas,
-      escriturados
+      escriturados,
+      // Notificaciones
+      notificacionesSinLeer,
+      // Visitas del período
+      visitasDelPeriodo,
+      // Visitas próximas
+      visitasProximas,
     ] = await Promise.all([
       // Leads ingresados en el período
-      prisma.lead.count({ where: { ...filtroLead } }),
+      prisma.lead.count({ where: filtroLead }),
 
-      // Notificaciones sin leer — siempre sin filtro de fecha
-      prisma.notificacion.count({ where: { usuarioId: req.usuario.id, leida: false } }),
-
-      // Inventario — sin filtro de fecha
-      prisma.unidad.groupBy({ by: ['estado'], _count: { id: true } }),
-
-      // Ventas (reservas) en el período — filtradas por fechaReserva
+      // Ventas del período con planPago para ingresos por semana
       prisma.venta.findMany({
         where: { ...filtroReserva, estado: { not: 'ANULADO' } },
         orderBy: { fechaReserva: 'desc' },
-        include: {
+        select: {
+          id: true, estado: true, precioUF: true, descuentoUF: true,
+          fechaReserva: true,
           comprador: { select: { nombre: true, apellido: true } },
+          vendedor:  { select: { nombre: true, apellido: true } },
           broker:    { select: { nombre: true, apellido: true } },
           unidades: {
             select: {
@@ -65,30 +95,55 @@ const obtener = async (req, res) => {
             }
           },
           planPago: {
-            include: {
+            select: {
               cuotas: {
-                where: { tipo: 'RESERVA' },
-                orderBy: { numeroCuota: 'asc' },
-                take: 1
+                select: { montoUF: true, estado: true, fechaPagoReal: true, fechaVencimiento: true, tipo: true, numeroCuota: true, metodoPago: true },
+                orderBy: { numeroCuota: 'asc' }
               }
             }
           }
         }
       }),
 
-      // Ventas activas (sin filtro de fecha — estado actual)
+      // Leads período anterior
+      prisma.lead.count({ where: filtroLeadAnt }),
+
+      // Ventas período anterior
+      prisma.venta.count({ where: { ...filtroReservaAnt, estado: { not: 'ANULADO' } } }),
+
+      // Inventario por edificio — groupBy edificioId + estado
+      prisma.unidad.groupBy({
+        by: ['edificioId', 'estado'],
+        _count: { id: true },
+        orderBy: { edificioId: 'asc' }
+      }).then(async rows => {
+        const edificioIds = [...new Set(rows.map(r => r.edificioId))]
+        const edificios = await prisma.edificio.findMany({
+          where: { id: { in: edificioIds } },
+          select: { id: true, nombre: true }
+        })
+        const edMap = Object.fromEntries(edificios.map(e => [e.id, e.nombre]))
+        const result = {}
+        for (const r of rows) {
+          const eid = r.edificioId
+          if (!result[eid]) result[eid] = { edificio: edMap[eid] || `Edificio ${eid}`, disponible: 0, reservado: 0, vendido: 0, otro: 0 }
+          if (r.estado === 'DISPONIBLE')  result[eid].disponible  += r._count.id
+          else if (r.estado === 'RESERVADO') result[eid].reservado += r._count.id
+          else if (r.estado === 'VENDIDO')   result[eid].vendido   += r._count.id
+          else result[eid].otro += r._count.id
+        }
+        return Object.values(result).map(e => ({ ...e, total: e.disponible + e.reservado + e.vendido + e.otro }))
+          .sort((a, b) => a.edificio.localeCompare(b.edificio))
+      }),
+
+      // Ventas activas para legal y cuotas (sin filtro de fecha)
       prisma.venta.findMany({
         where: { estado: { in: ['RESERVA', 'PROMESA', 'ESCRITURA'] } },
         orderBy: { fechaReserva: 'desc' },
         include: {
           comprador: { select: { nombre: true, apellido: true } },
           vendedor:  { select: { nombre: true, apellido: true } },
-          unidades: {
-            select: {
-              numero: true, tipo: true,
-              edificio: { select: { nombre: true } }
-            }
-          },
+          unidades:  { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
           procesoLegal: {
             select: {
               estadoActual: true, tienePromesa: true,
@@ -103,52 +158,167 @@ const obtener = async (req, res) => {
         }
       }),
 
-      // Embudo paso 1: leads recibidos en el período
-      prisma.lead.count({ where: { ...filtroLead } }),
-
-      // Embudo paso 2: leads contactados (etapa >= SEGUIMIENTO)
-      prisma.lead.count({
+      // Ventas año completo para gráfico mensual
+      prisma.venta.findMany({
         where: {
-          ...filtroLead,
-          etapa: { in: ['SEGUIMIENTO', 'COTIZACION_ENVIADA', 'VISITA_AGENDADA', 'VISITA_REALIZADA',
-            'SEGUIMIENTO_POST_VISITA', 'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA'] }
-        }
+          estado: { not: 'ANULADO' },
+          fechaReserva: {
+            gte: new Date(anioActual, 0, 1),
+            lte: new Date(anioActual, 11, 31, 23, 59, 59)
+          }
+        },
+        select: { fechaReserva: true }
       }),
 
-      // Embudo paso 3: visita agendada o más
+      // Embudo: contactados
       prisma.lead.count({
-        where: {
-          ...filtroLead,
-          etapa: { in: ['VISITA_AGENDADA', 'VISITA_REALIZADA', 'SEGUIMIENTO_POST_VISITA',
-            'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA'] }
-        }
+        where: { ...filtroLead, etapa: { in: ['SEGUIMIENTO','COTIZACION_ENVIADA','VISITA_AGENDADA','VISITA_REALIZADA','SEGUIMIENTO_POST_VISITA','NEGOCIACION','RESERVA','PROMESA','ESCRITURA','ENTREGA','POSTVENTA'] } }
       }),
 
-      // Embudo paso 4: reservas en el período (por fechaReserva)
-      prisma.venta.count({
-        where: { ...filtroReserva, estado: { not: 'ANULADO' } }
+      // Embudo: visita agendada+
+      prisma.lead.count({
+        where: { ...filtroLead, etapa: { in: ['VISITA_AGENDADA','VISITA_REALIZADA','SEGUIMIENTO_POST_VISITA','NEGOCIACION','RESERVA','PROMESA','ESCRITURA','ENTREGA','POSTVENTA'] } }
       }),
 
-      // Embudo paso 5: escriturados en el período (por fechaEscritura)
+      // Embudo: reservas
+      prisma.venta.count({ where: { ...filtroReserva, estado: { not: 'ANULADO' } } }),
+
+      // Embudo: escriturados
       prisma.venta.count({
         where: hayFecha
           ? { ...filtroEscritura, estado: { not: 'ANULADO' } }
           : { fechaEscritura: { not: null }, estado: { not: 'ANULADO' } }
-      })
+      }),
+
+      // Notificaciones sin leer
+      prisma.notificacion.count({ where: { usuarioId: req.usuario.id, leida: false } }),
+
+      // Visitas del período
+      prisma.visita.findMany({
+        where: hayFecha ? { fechaHora: { gte: new Date(desde), lte: new Date(hasta) } } : {},
+        orderBy: { fechaHora: 'desc' },
+        include: {
+          lead: {
+            select: {
+              contacto: { select: { nombre: true, apellido: true } },
+              unidadInteres: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
+            }
+          },
+          vendedor: { select: { nombre: true, apellido: true } }
+        }
+      }),
+
+      // Visitas próximas (después de ahora, máx 10)
+      prisma.visita.findMany({
+        where: { fechaHora: { gt: new Date() } },
+        orderBy: { fechaHora: 'asc' },
+        take: 10,
+        include: {
+          lead: {
+            select: {
+              contacto: { select: { nombre: true, apellido: true } },
+              unidadInteres: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
+            }
+          },
+          vendedor: { select: { nombre: true, apellido: true } }
+        }
+      }),
     ])
 
+    // Leads por campaña: actual vs anterior
+    const leadsActualRaw = await prisma.lead.groupBy({
+      by: ['campana'],
+      where: filtroLead,
+      _count: { id: true }
+    })
+    const leadsAntRaw = desdeAnt ? await prisma.lead.groupBy({
+      by: ['campana'],
+      where: filtroLeadAnt,
+      _count: { id: true }
+    }) : []
+
+    const antMap = Object.fromEntries(leadsAntRaw.map(r => [r.campana ?? '__sin_campana__', r._count.id]))
+    const leadsPorCampana = leadsActualRaw
+      .map(r => ({
+        campana: r.campana || 'Sin campaña',
+        actual:   r._count.id,
+        anterior: antMap[r.campana ?? '__sin_campana__'] || 0,
+      }))
+      .sort((a, b) => b.actual - a.actual)
+
+    // Ingresos por semana
+    const ingresosPorSemana = agruparPorSemana(ventasRecientes, desde, hasta)
+
+    // Ventas por mes (año completo)
+    const ventasPorMes = MESES.map((nombre, i) => ({
+      mes: i + 1,
+      nombre,
+      cantidad: ventasAnio.filter(v => v.fechaReserva && new Date(v.fechaReserva).getMonth() === i).length
+    }))
+
+    // KPIs
+    const montoUF = ventasRecientes.reduce((s, v) => s + (v.precioUF || 0), 0)
+    const montoUFAnt = 0
+    const ventasAntCount = ventasAnt
+
+    // Cuotas pendientes de ventas activas
+    const cuotasPendientes = ventasActivas
+      .flatMap(v => (v.planPago?.cuotas || [])
+        .filter(c => c.estado !== 'PAGADO' && c.estado !== 'CONDONADO')
+        .map(c => ({
+          compradorNombre: `${v.comprador?.nombre || ''} ${v.comprador?.apellido || ''}`.trim(),
+          ventaId: v.id,
+          numeroCuota: c.numeroCuota,
+          totalCuotas: v.planPago.cuotas.length,
+          fechaVencimiento: c.fechaVencimiento,
+          montoUF: c.montoUF,
+          estado: c.estado,
+          vencida: new Date(c.fechaVencimiento) < new Date()
+        }))
+      )
+      .sort((a, b) => {
+        if (a.vencida && !b.vencida) return -1
+        if (!a.vencida && b.vencida) return 1
+        return new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento)
+      })
+
+    // Proceso legal — solo ventas con pasos incompletos
+    const PASOS_CON_PROMESA  = ['FIRMA_CLIENTE_PROMESA','FIRMA_INMOBILIARIA_PROMESA','ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
+    const procesoLegalPendiente = ventasActivas.filter(v => {
+      if (!v.procesoLegal) return false
+      const pasos = v.procesoLegal.tienePromesa === false
+        ? ['ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
+        : PASOS_CON_PROMESA
+      const idx = pasos.indexOf(v.procesoLegal.estadoActual)
+      return idx < pasos.length - 1
+    })
+
     res.json({
-      resumen: { totalLeads, notificacionesSinLeer },
-      embudo: [
-        { paso: 'Leads recibidos',  cantidad: recibidos },
-        { paso: 'Contactados',      cantidad: contactados },
-        { paso: 'Visita agendada',  cantidad: visitaAgendada },
-        { paso: 'Reservas',         cantidad: reservas },
-        { paso: 'Escriturados',     cantidad: escriturados },
-      ],
-      unidadesPorEstado,
+      kpis: {
+        leadsIngresados,
+        leadsIngresadosAnterior: leadsIngresadosAnt,
+        ventas: ventasRecientes.length,
+        ventasAnterior: ventasAntCount,
+        montoUF: +montoUF.toFixed(2),
+        montoUFAnterior: montoUFAnt,
+      },
+      ingresosPorSemana,
+      ventasPorMes,
+      leadsPorCampana,
+      inventarioPorEdificio: unidadesPorEdificio,
+      visitasDelPeriodo,
+      visitasProximas,
+      cuotasPendientes,
       ventasRecientes,
-      ventasActivas
+      procesoLegalPendiente,
+      embudo: [
+        { paso: 'Leads recibidos', cantidad: leadsIngresados },
+        { paso: 'Contactados',     cantidad: contactados },
+        { paso: 'Visita agendada', cantidad: visitaAgendada },
+        { paso: 'Reservas',        cantidad: reservas },
+        { paso: 'Escriturados',    cantidad: escriturados },
+      ],
+      resumen: { totalLeads: leadsIngresados, notificacionesSinLeer },
     })
   } catch (err) {
     console.error(err)
