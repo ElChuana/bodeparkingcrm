@@ -487,7 +487,7 @@ const fusionarDuplicados = async (req, res) => {
         const leads = await prisma.lead.findMany({
           where: { contactoId: { in: ids } },
           select: { id: true, contactoId: true, etapa: true, campana: true, creadoEn: true,
-            venta: { select: { id: true } }, cotizaciones: { select: { id: true } } }
+            ventas: { select: { id: true } }, cotizaciones: { select: { id: true } } }
         })
         return { telefono, contactos, leads }
       }))
@@ -509,14 +509,14 @@ const fusionarDuplicados = async (req, res) => {
             // Mover leads del secundario al primario
             const leadsSecundario = await tx.lead.findMany({
               where: { contactoId: sec.id },
-              include: { venta: true, cotizaciones: true, interacciones: true, visitas: true }
+              include: { ventas: true, cotizaciones: true, interacciones: true, visitas: true }
             })
 
             for (const leadSec of leadsSecundario) {
               // Ver si el primario ya tiene un lead activo
               const leadPrimario = await tx.lead.findFirst({
                 where: { contactoId: primario.id, etapa: { notIn: ['PERDIDO'] } },
-                include: { venta: true }
+                include: { ventas: true }
               })
 
               if (leadPrimario) {
