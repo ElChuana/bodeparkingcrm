@@ -230,7 +230,7 @@ const obtener = async (req, res) => {
           orderBy: { fecha: 'desc' },
           include: { usuario: { select: { id: true, nombre: true, apellido: true } } }
         },
-        venta: { select: { id: true, estado: true } }
+        ventas: { select: { id: true, estado: true, unidades: { select: { numero: true, edificio: { select: { nombre: true } } } } } }
       }
     })
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado.' })
