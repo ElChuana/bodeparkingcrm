@@ -578,6 +578,63 @@ function InventarioEdificios({ datos }) {
   )
 }
 
+function SeccionVisitas({ delPeriodo, proximas }) {
+  const [tab, setTab] = useState('periodo')
+  const datos = tab === 'periodo' ? (delPeriodo || []) : (proximas || [])
+
+  const tagResultado = (resultado) => {
+    if (!resultado) return <Tag color="orange" style={{ fontSize: 10 }}>Pendiente</Tag>
+    if (resultado === 'REALIZADA') return <Tag color="green" style={{ fontSize: 10 }}>Realizada</Tag>
+    if (resultado === 'NO_ASISTIO') return <Tag color="red" style={{ fontSize: 10 }}>No asistió</Tag>
+    return <Tag style={{ fontSize: 10 }}>{resultado}</Tag>
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', marginBottom: 10, borderRadius: 6, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+        {[['periodo', `Del período (${(delPeriodo||[]).length})`], ['proximas', `Próximas (${(proximas||[]).length})`]].map(([key, label]) => (
+          <div
+            key={key}
+            onClick={() => setTab(key)}
+            style={{
+              flex: 1, textAlign: 'center', padding: '6px 0', fontSize: 11, cursor: 'pointer', fontWeight: tab === key ? 600 : 400,
+              background: tab === key ? '#1d4ed8' : '#f9fafb', color: tab === key ? '#fff' : '#6b7280',
+            }}
+          >{label}</div>
+        ))}
+      </div>
+      {datos.length === 0 ? (
+        <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>Sin visitas</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 220, overflowY: 'auto' }}>
+          {datos.map(v => {
+            const contacto = v.lead?.contacto
+            const unidad   = v.lead?.unidadInteres
+            const prop = unidad
+              ? `${unidad.edificio?.nombre || '—'} · ${unidad.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${unidad.numero}`
+              : '—'
+            return (
+              <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', background: '#f9fafb', borderRadius: 6 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: '#1e293b' }}>
+                    {contacto?.nombre} {contacto?.apellido}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#6b7280' }}>
+                    {prop}
+                    {v.vendedor && ` · ${v.vendedor.nombre}`}
+                    {tab === 'proximas' && v.fechaHora && ` · ${format(new Date(v.fechaHora), "d MMM HH:mm", { locale: es })}`}
+                  </div>
+                </div>
+                {tagResultado(v.resultado)}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [presetActivo, setPresetActivo] = useState('mes')
@@ -734,21 +791,25 @@ export default function Dashboard() {
         <TablaCampanas datos={leadsPorCampana} />
       </div>
 
-      {/* Embudo + Legal */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 14, marginBottom: 16 }}>
+      {/* Embudo + Visitas */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Embudo de ventas</div>
-          </div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Embudo de ventas</div>
           <EmbudoVisual datos={embudo} />
         </div>
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Proceso legal</div>
-            <span onClick={() => navigate('/legal')} style={{ fontSize: 9, color: '#3b82f6', fontWeight: 500, cursor: 'pointer' }}>Ver legal →</span>
-          </div>
-          <LegalWidget ventasActivas={ventasActivas} />
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Visitas</div>
+          <SeccionVisitas delPeriodo={visitasDelPeriodo} proximas={visitasProximas} />
         </div>
+      </div>
+
+      {/* Proceso legal */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Proceso legal</div>
+          <span onClick={() => navigate('/legal')} style={{ fontSize: 9, color: '#3b82f6', fontWeight: 500, cursor: 'pointer' }}>Ver legal →</span>
+        </div>
+        <LegalWidget ventasActivas={ventasActivas} />
       </div>
 
       {/* Inventario por edificio */}
