@@ -7,7 +7,7 @@ const INCLUDE_COMPLETO = {
       contacto: { select: { id: true, nombre: true, apellido: true, email: true, telefono: true } },
       vendedor: { select: { id: true, nombre: true, apellido: true } },
       broker:   { select: { id: true, nombre: true, apellido: true } },
-      venta:    { select: { id: true } },
+      ventas:   { select: { id: true, estado: true } },
     }
   },
   creadoPor: { select: { id: true, nombre: true, apellido: true } },
