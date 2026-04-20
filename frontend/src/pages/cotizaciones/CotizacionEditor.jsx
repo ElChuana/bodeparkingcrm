@@ -748,7 +748,7 @@ function ModalConvertirVenta({ open, onClose, cotizacion, resumen }) {
         {/* Unidades */}
         <Form.Item label="Unidades">
           <div style={{ fontSize: 12, color: '#6b7280' }}>
-            {items.map(i => `${i.unidad?.edificio?.nombre} ${i.unidad?.numero}`).join(', ')}
+            {items.map(i => `${i.edificio} ${i.numero}`).join(', ')}
           </div>
         </Form.Item>
 
