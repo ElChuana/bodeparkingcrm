@@ -2,6 +2,27 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 
+// ─── Similitud de nombres (Levenshtein normalizado) ───────────────
+function normalizarNombre(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, '').trim()
+}
+function levenshtein(a, b) {
+  const m = a.length, n = b.length
+  const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0))
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+  return dp[m][n]
+}
+function mismoNombre(nombreCompleto1, nombreCompleto2) {
+  const s1 = normalizarNombre(nombreCompleto1)
+  const s2 = normalizarNombre(nombreCompleto2)
+  if (!s1 || !s2) return true
+  const maxLen = Math.max(s1.length, s2.length)
+  if (maxLen === 0) return true
+  return (1 - levenshtein(s1, s2) / maxLen) >= 0.6
+}
+
 // Helper: notificar a gerentes y jefes de ventas sobre nuevo lead
 async function notificarLead({ leadId, mensaje, tipo }) {
   try {
@@ -54,12 +75,19 @@ router.post('/upsert', autenticarApiKey, async (req, res) => {
       lead = await prisma.lead.findUnique({ where: { comuroUuid: internal_uuid } })
     }
 
-    // 2. Buscar por phone — primero exacto con project, luego cualquier lead activo del contacto
+    // 2. Buscar por phone + nombre similar
     if (!lead && phone) {
       const telefonoNormalizado = phone.replace(/\D/g, '')
-      const contacto = await prisma.contacto.findFirst({
-        where: { telefono: { contains: telefonoNormalizado } }
+      const nombreEntrante = name || body.nombre_whatsapp || ''
+      const candidatos = await prisma.contacto.findMany({
+        where: { telefono: { contains: telefonoNormalizado } },
+        select: { id: true, nombre: true, apellido: true }
       })
+      // Filtrar por similitud de nombre
+      const contacto = candidatos.find(c =>
+        mismoNombre(nombreEntrante, `${c.nombre} ${c.apellido}`)
+      ) || null
+
       if (contacto) {
         // Intentar coincidir por campaña primero
         if (project) {
@@ -77,7 +105,7 @@ router.post('/upsert', autenticarApiKey, async (req, res) => {
       }
     }
 
-    // 3. Buscar por email si aún no encontrado
+    // 3. Buscar por email (email es identificador seguro, no requiere validar nombre)
     if (!lead && body.email) {
       const contactoPorEmail = await prisma.contacto.findFirst({
         where: { email: { equals: body.email, mode: 'insensitive' } }
