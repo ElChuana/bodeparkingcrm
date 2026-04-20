@@ -508,7 +508,7 @@ export default function Dashboard() {
 
   // Helper comparación
   const calcPct = (actual, anterior) => {
-    if (!anterior) return null
+    if (actual == null || !anterior) return null
     return Math.round(((actual - anterior) / anterior) * 100)
   }
   const totalUnidades = unidadesPorEstado?.reduce((s, u) => s + u._count.id, 0) || 1
