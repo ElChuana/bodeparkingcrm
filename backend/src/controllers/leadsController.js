@@ -425,7 +425,7 @@ const eliminar = async (req, res) => {
     res.json({ ok: true })
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Lead no encontrado.' })
-    if (err.code === 'P2003') return res.status(409).json({ error: 'No se puede eliminar: el lead tiene una venta asociada.' })
+    if (err.code === 'P2003') return res.status(409).json({ error: 'No se puede eliminar: el lead tiene ventas o datos asociados que deben eliminarse primero.' })
     console.error('[eliminar lead]', err)
     res.status(500).json({ error: 'Error al eliminar lead.' })
   }

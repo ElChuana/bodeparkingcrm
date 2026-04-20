@@ -728,7 +728,7 @@ function ModalConvertirVenta({ open, onClose, cotizacion, resumen }) {
       afterOpenChange={o => {
         if (o && items.length > 0) {
           form.setFieldsValue({
-            precioUF: items[0].precioListaUF,
+            precioUF: items.reduce((s, i) => s + (i.precioListaUF || 0), 0),
             descuentoUF: initialDesc,
             fechaReserva: new Date().toISOString().split('T')[0],
           })
