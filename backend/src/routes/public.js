@@ -3,6 +3,28 @@ const router = express.Router()
 const crypto = require('crypto')
 const prisma = require('../lib/prisma')
 
+// ─── Similitud de nombres (Levenshtein normalizado) ───────────────
+function normalizarNombre(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, '').trim()
+}
+function levenshtein(a, b) {
+  const m = a.length, n = b.length
+  const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0))
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+  return dp[m][n]
+}
+function mismoNombre(n1, a1, n2, a2) {
+  const s1 = normalizarNombre(`${n1} ${a1}`)
+  const s2 = normalizarNombre(`${n2} ${a2}`)
+  if (!s1 || !s2) return true // si falta nombre, no bloqueamos
+  const maxLen = Math.max(s1.length, s2.length)
+  if (maxLen === 0) return true
+  const similitud = 1 - levenshtein(s1, s2) / maxLen
+  return similitud >= 0.6
+}
+
 // ─── Middleware: autenticar por API Key ───────────────────────────
 async function autenticarApiKey(req, res, next) {
   const key = req.headers['x-api-key']
@@ -45,11 +67,11 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
   const origenFinal = origenesValidos.includes(origen) ? origen : 'WEB'
 
   try {
-    // ── 1. Deduplicar contacto por email o teléfono ───────────────
+    // ── 1. Deduplicar contacto por email o teléfono + similitud de nombre ──
     let contacto = null
 
     if (email || telefono) {
-      contacto = await prisma.contacto.findFirst({
+      const candidatos = await prisma.contacto.findMany({
         where: {
           OR: [
             ...(email    ? [{ email:    { equals: email,    mode: 'insensitive' } }] : []),
@@ -57,6 +79,15 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
           ]
         }
       })
+      // Email siempre es match seguro; teléfono requiere nombre similar
+      for (const c of candidatos) {
+        const matchEmail = email && c.email && c.email.toLowerCase() === email.toLowerCase()
+        const matchTel   = telefono && c.telefono === telefono
+        if (matchEmail || (matchTel && mismoNombre(nombre, apellido, c.nombre, c.apellido))) {
+          contacto = c
+          break
+        }
+      }
     }
 
     if (!contacto) {
