@@ -26,7 +26,6 @@ function agruparPorSemana(ventas, desde, hasta) {
       .filter(v => v.fechaReserva && new Date(v.fechaReserva) >= s.desde && new Date(v.fechaReserva) < s.hasta)
       .reduce((sum, v) => sum + (v.precioUF || 0), 0)
     const recolectadoUF = ventas
-      .filter(v => v.fechaReserva && new Date(v.fechaReserva) >= s.desde && new Date(v.fechaReserva) < s.hasta)
       .flatMap(v => v.planPago?.cuotas || [])
       .filter(c => c.estado === 'PAGADO' && c.fechaPagoReal && new Date(c.fechaPagoReal) >= s.desde && new Date(c.fechaPagoReal) < s.hasta)
       .reduce((sum, c) => sum + (c.montoUF || 0), 0)
@@ -132,7 +131,7 @@ const obtener = async (req, res) => {
           else if (r.estado === 'VENDIDO')   result[eid].vendido   += r._count.id
           else result[eid].otro += r._count.id
         }
-        return Object.values(result).map(e => ({ ...e, total: e.disponible + e.reservado + e.vendido + e.otro }))
+        return Object.values(result).map(({ otro: _otro, ...e }) => ({ ...e, total: e.disponible + e.reservado + e.vendido + (_otro || 0) }))
           .sort((a, b) => a.edificio.localeCompare(b.edificio))
       }),
 
@@ -238,11 +237,16 @@ const obtener = async (req, res) => {
     }) : []
 
     const antMap = Object.fromEntries(leadsAntRaw.map(r => [r.campana ?? '__sin_campana__', r._count.id]))
-    const leadsPorCampana = leadsActualRaw
-      .map(r => ({
-        campana: r.campana || 'Sin campaña',
-        actual:   r._count.id,
-        anterior: antMap[r.campana ?? '__sin_campana__'] || 0,
+    const todasCampanas = new Set([
+      ...leadsActualRaw.map(r => r.campana ?? '__sin_campana__'),
+      ...leadsAntRaw.map(r => r.campana ?? '__sin_campana__'),
+    ])
+    const actualMap = Object.fromEntries(leadsActualRaw.map(r => [r.campana ?? '__sin_campana__', r._count.id]))
+    const leadsPorCampana = [...todasCampanas]
+      .map(key => ({
+        campana: key === '__sin_campana__' ? 'Sin campaña' : key,
+        actual:   actualMap[key] || 0,
+        anterior: antMap[key] || 0,
       }))
       .sort((a, b) => b.actual - a.actual)
 
