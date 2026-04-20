@@ -516,6 +516,39 @@ function GraficoVentasMes({ datos }) {
   )
 }
 
+function TablaCampanas({ datos }) {
+  if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>Sin datos de campañas</div>
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+      <thead>
+        <tr>
+          <th style={{ textAlign: 'left', padding: '3px 0', color: '#6b7280', fontWeight: 500, borderBottom: '1px solid #e5e7eb' }}>Campaña</th>
+          <th style={{ textAlign: 'right', padding: '3px 6px', color: '#6b7280', fontWeight: 500, borderBottom: '1px solid #e5e7eb' }}>Actual</th>
+          <th style={{ textAlign: 'right', padding: '3px 6px', color: '#6b7280', fontWeight: 500, borderBottom: '1px solid #e5e7eb' }}>Ant.</th>
+          <th style={{ textAlign: 'right', padding: '3px 0', color: '#6b7280', fontWeight: 500, borderBottom: '1px solid #e5e7eb' }}>Δ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {datos.map((row, i) => {
+          const delta = row.anterior > 0
+            ? Math.round(((row.actual - row.anterior) / row.anterior) * 100)
+            : row.actual > 0 ? null : 0
+          return (
+            <tr key={i} style={{ borderBottom: '1px solid #f9fafb' }}>
+              <td style={{ padding: '5px 0', color: '#374151', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.campana}</td>
+              <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>{row.actual}</td>
+              <td style={{ padding: '5px 6px', textAlign: 'right', color: '#9ca3af' }}>{row.anterior}</td>
+              <td style={{ padding: '5px 0', textAlign: 'right', color: delta == null ? '#1d4ed8' : delta >= 0 ? '#16a34a' : '#dc2626', fontWeight: 500 }}>
+                {delta == null ? 'nuevo' : `${delta >= 0 ? '↑' : '↓'}${Math.abs(delta)}%`}
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [presetActivo, setPresetActivo] = useState('mes')
@@ -664,6 +697,12 @@ export default function Dashboard() {
           <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Ventas por mes {new Date().getFullYear()}</div>
           <GraficoVentasMes datos={ventasPorMes} />
         </div>
+      </div>
+
+      {/* Leads por campaña */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Leads por campaña</div>
+        <TablaCampanas datos={leadsPorCampana} />
       </div>
 
       {/* Embudo + Legal */}
