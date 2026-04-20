@@ -9,8 +9,8 @@ function calcPeriodoAnterior(desde, hasta) {
 }
 
 // Agrupa ventas por semana dentro del período
-function agruparPorSemana(ventas, desde, hasta) {
-  const inicio = desde ? new Date(desde) : new Date(ventas[0]?.fechaReserva || Date.now())
+function agruparPorSemana(ventasPeriodo, todasVentas, desde, hasta) {
+  const inicio = desde ? new Date(desde) : new Date(ventasPeriodo[0]?.fechaReserva || Date.now())
   const fin    = hasta ? new Date(hasta)  : new Date()
   const semanas = []
   let cursor = new Date(inicio)
@@ -22,10 +22,10 @@ function agruparPorSemana(ventas, desde, hasta) {
     i++
   }
   return semanas.map(s => {
-    const vendidoUF = ventas
+    const vendidoUF = ventasPeriodo
       .filter(v => v.fechaReserva && new Date(v.fechaReserva) >= s.desde && new Date(v.fechaReserva) < s.hasta)
       .reduce((sum, v) => sum + (v.precioUF || 0), 0)
-    const recolectadoUF = ventas
+    const recolectadoUF = todasVentas
       .flatMap(v => v.planPago?.cuotas || [])
       .filter(c => c.estado === 'PAGADO' && c.fechaPagoReal && new Date(c.fechaPagoReal) >= s.desde && new Date(c.fechaPagoReal) < s.hasta)
       .reduce((sum, c) => sum + (c.montoUF || 0), 0)
@@ -251,7 +251,7 @@ const obtener = async (req, res) => {
       .sort((a, b) => b.actual - a.actual)
 
     // Ingresos por semana
-    const ingresosPorSemana = agruparPorSemana(ventasRecientes, desde, hasta)
+    const ingresosPorSemana = agruparPorSemana(ventasRecientes, ventasActivas, desde, hasta)
 
     // Ventas por mes (año completo)
     const ventasPorMes = MESES.map((nombre, i) => ({
