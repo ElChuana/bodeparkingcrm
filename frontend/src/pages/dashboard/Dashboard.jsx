@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
 import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Progress, DatePicker, Space, Button, Tooltip, Steps } from 'antd'
 import { TeamOutlined, BellOutlined, WarningOutlined, CheckCircleOutlined } from '@ant-design/icons'
@@ -468,6 +469,53 @@ function LegalWidget({ ventasActivas }) {
   )
 }
 
+function GraficoIngresosSemana({ datos }) {
+  if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>Sin datos</div>
+  const total = datos.reduce((s, d) => ({ vendido: s.vendido + d.vendidoUF, recolectado: s.recolectado + d.recolectadoUF }), { vendido: 0, recolectado: 0 })
+  return (
+    <div>
+      <ResponsiveContainer width="100%" height={120}>
+        <BarChart data={datos} barSize={14} barGap={2}>
+          <XAxis dataKey="semana" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+          <YAxis hide />
+          <RechartsTooltip
+            contentStyle={{ fontSize: 11, borderRadius: 6 }}
+            formatter={(v, name) => [`${v.toFixed(1)} UF`, name === 'vendidoUF' ? 'Vendido' : 'Recolectado']}
+          />
+          <Bar dataKey="vendidoUF"      fill="#1d4ed8" radius={[3,3,0,0]} />
+          <Bar dataKey="recolectadoUF"  fill="#86efac" radius={[3,3,0,0]} />
+        </BarChart>
+      </ResponsiveContainer>
+      <div style={{ display: 'flex', gap: 14, fontSize: 11, marginTop: 4 }}>
+        <span><span style={{ color: '#1d4ed8' }}>■</span> Vendido: <strong>{total.vendido.toFixed(1)} UF</strong></span>
+        <span><span style={{ color: '#16a34a' }}>■</span> Recolectado: <strong>{total.recolectado.toFixed(1)} UF</strong></span>
+      </div>
+    </div>
+  )
+}
+
+function GraficoVentasMes({ datos }) {
+  if (!datos?.length) return null
+  const mesActual = new Date().getMonth() + 1
+  return (
+    <ResponsiveContainer width="100%" height={120}>
+      <BarChart data={datos} barSize={18}>
+        <XAxis dataKey="nombre" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+        <YAxis hide allowDecimals={false} />
+        <RechartsTooltip
+          contentStyle={{ fontSize: 11, borderRadius: 6 }}
+          formatter={(v) => [v, 'Ventas']}
+        />
+        <Bar dataKey="cantidad" radius={[3,3,0,0]}>
+          {datos.map(entry => (
+            <Cell key={entry.mes} fill={entry.mes === mesActual ? '#1d4ed8' : '#c7d2fe'} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [presetActivo, setPresetActivo] = useState('mes')
@@ -604,6 +652,18 @@ export default function Dashboard() {
             )}
           </div>
         ))}
+      </div>
+
+      {/* Fila: Ingresos por semana + Ventas por mes */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Ingresos por semana (UF)</div>
+          <GraficoIngresosSemana datos={ingresosPorSemana} />
+        </div>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Ventas por mes {new Date().getFullYear()}</div>
+          <GraficoVentasMes datos={ventasPorMes} />
+        </div>
       </div>
 
       {/* Embudo + Legal */}
