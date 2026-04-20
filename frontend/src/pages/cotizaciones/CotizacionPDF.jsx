@@ -298,6 +298,30 @@ const s = StyleSheet.create({
 })
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+function calcularAhorroPromo(promo, items, base) {
+  // Usa el valor almacenado si existe; si no, recalcula desde los datos del promo
+  if (promo.tipo === 'DESCUENTO_PORCENTAJE') {
+    if (promo.minUnidades && items.length < promo.minUnidades) return 0
+    return base * ((promo.valorPorcentaje || 0) / 100)
+  }
+  if (promo.tipo === 'DESCUENTO_UF') {
+    if (promo.minUnidades && items.length < promo.minUnidades) return 0
+    return promo.valorUF || 0
+  }
+  if (promo.tipo === 'PAQUETE' && promo.valorUF) {
+    const packIds = (promo.unidades || []).map(u => u.unidadId)
+    if (packIds.length === 0) return 0
+    const todosEnCot = packIds.every(id => items.some(i => i.unidadId === id))
+    if (!todosEnCot) return 0
+    const sumaPrecios = packIds.reduce((s, id) => {
+      const item = items.find(i => i.unidadId === id)
+      return s + (item?.precioListaUF || 0)
+    }, 0)
+    return Math.max(sumaPrecios - promo.valorUF, 0)
+  }
+  return 0
+}
+
 function calcularResumen(items, promociones) {
   const base = items.reduce((s, i) => s + i.precioListaUF, 0)
   const descuentos = []
@@ -306,7 +330,7 @@ function calcularResumen(items, promociones) {
   ;(promociones || []).filter(cp => cp.aplicada).forEach(cp => {
     const promo = cp.promocion
     if (TIPOS_DESCUENTO.includes(promo.tipo)) {
-      const ahorro = cp.ahorroUF || 0
+      const ahorro = cp.ahorroUF > 0 ? cp.ahorroUF : calcularAhorroPromo(promo, items, base)
       if (ahorro > 0) {
         descuentos.push({ nombre: promo.nombre, tipo: promo.tipo, ahorro, label: TIPO_PROMO_LABEL[promo.tipo] })
         descuentoTotal += ahorro
@@ -499,7 +523,13 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
               <Text style={s.validezLabel}>VENCE EL</Text>
               <Text style={s.validezVal}>{fechaVence}</Text>
             </View>
-            <View style={[s.validezItem, { flex: 2 }]}>
+            {valorUF && (
+              <View style={s.validezItem}>
+                <Text style={s.validezLabel}>VALOR UF HOY</Text>
+                <Text style={s.validezVal}>${Math.round(valorUF).toLocaleString('es-CL')}</Text>
+              </View>
+            )}
+            <View style={[s.validezItem, { flex: valorUF ? 1 : 2 }]}>
               <Text style={s.validezLabel}>PRECIOS EN UF</Text>
               <Text style={[s.validezVal, { fontSize: 8.5, color: MUTED }]}>
                 Valor UF al día de escrituración. Sujeto a disponibilidad.
