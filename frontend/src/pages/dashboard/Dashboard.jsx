@@ -635,6 +635,32 @@ function SeccionVisitas({ delPeriodo, proximas }) {
   )
 }
 
+function CuotasPendientes({ datos }) {
+  const navigate = useNavigate()
+  if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>Sin cuotas pendientes</div>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 220, overflowY: 'auto' }}>
+      {datos.map((c, i) => (
+        <div
+          key={i}
+          onClick={() => navigate(`/ventas/${c.ventaId}`)}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', background: c.vencida ? '#fff1f2' : '#f9fafb', borderRadius: 6, cursor: 'pointer', border: c.vencida ? '1px solid #fecdd3' : '1px solid transparent' }}
+        >
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 500, color: '#1e293b' }}>{c.compradorNombre}</div>
+            <div style={{ fontSize: 10, color: c.vencida ? '#dc2626' : '#6b7280' }}>
+              Cuota {c.numeroCuota}/{c.totalCuotas} · {c.vencida ? '⚠ Vencida · ' : ''}{format(new Date(c.fechaVencimiento), 'd MMM yyyy', { locale: es })}
+            </div>
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 600, color: c.vencida ? '#dc2626' : '#16a34a' }}>
+            {c.montoUF != null ? `${c.montoUF.toFixed(1)} UF` : '—'}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [presetActivo, setPresetActivo] = useState('mes')
@@ -803,13 +829,19 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Proceso legal */}
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Proceso legal</div>
-          <span onClick={() => navigate('/legal')} style={{ fontSize: 9, color: '#3b82f6', fontWeight: 500, cursor: 'pointer' }}>Ver legal →</span>
+      {/* Proceso legal pendiente + Cuotas pendientes */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Proceso legal <span style={{ color: '#dc2626' }}>(pendientes)</span></div>
+            <span onClick={() => navigate('/legal')} style={{ fontSize: 9, color: '#3b82f6', fontWeight: 500, cursor: 'pointer' }}>Ver legal →</span>
+          </div>
+          <LegalWidget ventasActivas={procesoLegalPendiente} />
         </div>
-        <LegalWidget ventasActivas={ventasActivas} />
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Cuotas pendientes de pago</div>
+          <CuotasPendientes datos={cuotasPendientes} />
+        </div>
       </div>
 
       {/* Inventario por edificio */}
