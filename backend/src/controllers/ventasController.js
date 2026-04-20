@@ -99,15 +99,15 @@ const crear = async (req, res) => {
   try {
     // Validar precio mínimo si hay descuento
     if (descuentoUF) {
-      const unidad = await prisma.unidad.findUnique({ where: { id: idsUnidades[0] } })
+      const unidades = await prisma.unidad.findMany({
+        where: { id: { in: idsUnidades } },
+        select: { id: true, numero: true, precioMinimoUF: true }
+      })
 
-      if (!unidad) {
-        return res.status(404).json({ error: 'Unidad no encontrada.' })
-      }
-
+      const sumMinimoUF = unidades.reduce((s, u) => s + (u.precioMinimoUF || 0), 0)
       const precioFinal = Number(precioUF) - Number(descuentoUF)
 
-      if (unidad.precioMinimoUF && precioFinal < unidad.precioMinimoUF) {
+      if (sumMinimoUF > 0 && precioFinal < sumMinimoUF) {
         // Crear notificación para el gerente y solicitar aprobación
         const gerentes = await prisma.usuario.findMany({
           where: { rol: 'GERENTE', activo: true }
@@ -117,7 +117,7 @@ const crear = async (req, res) => {
             data: {
               usuarioId: g.id,
               tipo: 'DESCUENTO_PENDIENTE',
-              mensaje: `Descuento bajo precio mínimo solicitado para unidad ${unidad.numero}. Precio final: ${precioFinal} UF (mínimo: ${unidad.precioMinimoUF} UF)`,
+              mensaje: `Descuento bajo precio mínimo solicitado para ${unidades.length} unidad(es). Precio final: ${precioFinal} UF (mínimo total: ${sumMinimoUF} UF)`,
               referenciaId: Number(leadId),
               referenciaTipo: 'lead'
             }
@@ -156,8 +156,7 @@ const crear = async (req, res) => {
         notas
       },
       include: {
-        comprador: { select: { nombre: true, apellido: true } },
-        unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } }
+        comprador: { select: { nombre: true, apellido: true } }
       }
     })
 
@@ -186,7 +185,11 @@ const crear = async (req, res) => {
     // Calcular comisiones automáticamente
     await calcularComisiones(venta.id, Number(precioUF) - (Number(descuentoUF) || 0), lead)
 
-    res.status(201).json(venta)
+    const ventaConUnidades = await prisma.venta.findUnique({
+      where: { id: venta.id },
+      include: { unidades: { select: { id: true, numero: true, tipo: true, edificio: { select: { nombre: true } } } } }
+    })
+    return res.status(201).json(ventaConUnidades)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al crear venta.' })
