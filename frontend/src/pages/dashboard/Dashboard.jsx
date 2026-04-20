@@ -552,29 +552,28 @@ function TablaCampanas({ datos }) {
 function InventarioEdificios({ datos }) {
   if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>Sin datos</div>
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {datos.map(e => {
-        const total = e.total || 1
-        return (
-          <div key={e.edificio}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#1e293b' }}>{e.edificio}</span>
-              <span style={{ fontSize: 11, color: '#6b7280' }}>
-                <span style={{ color: '#16a34a', fontWeight: 600 }}>{e.disponible}</span> disp · {' '}
-                <span style={{ color: '#d97706', fontWeight: 600 }}>{e.reservado}</span> reserv · {' '}
-                <span style={{ color: '#dc2626', fontWeight: 600 }}>{e.vendido}</span> vendido
-                <span style={{ color: '#9ca3af' }}> / {e.total} total</span>
-              </span>
-            </div>
-            <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: '#f3f4f6' }}>
-              <div style={{ width: `${(e.disponible/total)*100}%`, background: '#16a34a' }} />
-              <div style={{ width: `${(e.reservado/total)*100}%`, background: '#d97706' }} />
-              <div style={{ width: `${(e.vendido/total)*100}%`, background: '#dc2626' }} />
-            </div>
-          </div>
-        )
-      })}
-    </div>
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+      <thead>
+        <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+          <th style={{ textAlign: 'left', padding: '4px 0', color: '#6b7280', fontWeight: 500 }}>Edificio</th>
+          <th style={{ textAlign: 'right', padding: '4px 8px', color: '#16a34a', fontWeight: 600 }}>Disp.</th>
+          <th style={{ textAlign: 'right', padding: '4px 8px', color: '#d97706', fontWeight: 600 }}>Reserv.</th>
+          <th style={{ textAlign: 'right', padding: '4px 8px', color: '#dc2626', fontWeight: 600 }}>Vendido</th>
+          <th style={{ textAlign: 'right', padding: '4px 0', color: '#9ca3af', fontWeight: 500 }}>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {datos.map(e => (
+          <tr key={e.edificio} style={{ borderBottom: '1px solid #f9fafb' }}>
+            <td style={{ padding: '6px 0', fontWeight: 600, color: '#1e293b' }}>{e.edificio}</td>
+            <td style={{ padding: '6px 8px', textAlign: 'right', color: '#16a34a', fontWeight: 700 }}>{e.disponible}</td>
+            <td style={{ padding: '6px 8px', textAlign: 'right', color: '#d97706', fontWeight: 700 }}>{e.reservado}</td>
+            <td style={{ padding: '6px 8px', textAlign: 'right', color: '#dc2626', fontWeight: 700 }}>{e.vendido}</td>
+            <td style={{ padding: '6px 0', textAlign: 'right', color: '#6b7280' }}>{e.total}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
