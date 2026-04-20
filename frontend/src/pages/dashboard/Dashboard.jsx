@@ -693,7 +693,7 @@ export default function Dashboard() {
 
   if (isLoading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
 
-  const { resumen, embudo, unidadesPorEstado, ventasRecientes, ventasActivas } = data || {}
+  const { resumen, embudo, unidadesPorEstado, ventasActivas } = data || {}
   const { kpis, ingresosPorSemana, ventasPorMes, leadsPorCampana,
           inventarioPorEdificio, visitasDelPeriodo, visitasProximas,
           cuotasPendientes, ventasRecientes: ventasPeriodo,
@@ -851,12 +851,7 @@ export default function Dashboard() {
       </div>
 
       {/* Tabla de ventas del período */}
-      <TablaVentas ventas={ventasRecientes || []} />
-
-      {/* Ventas activas */}
-      <div style={{ marginTop: 16 }}>
-        <TablaVentasActivas ventas={ventasActivas || []} />
-      </div>
+      <TablaVentas ventas={ventasPeriodo || []} />
     </div>
   )
 }
