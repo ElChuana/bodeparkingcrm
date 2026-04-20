@@ -137,7 +137,7 @@ const obtener = async (req, res) => {
 
       // Ventas activas para legal y cuotas (sin filtro de fecha)
       prisma.venta.findMany({
-        where: { estado: { in: ['RESERVA', 'PROMESA', 'ESCRITURA'] } },
+        where: { estado: { in: ['RESERVA', 'PROMESA', 'ESCRITURA', 'VENDIDO'] } },
         orderBy: { fechaReserva: 'desc' },
         include: {
           comprador: { select: { nombre: true, apellido: true } },
@@ -163,7 +163,7 @@ const obtener = async (req, res) => {
           estado: { not: 'ANULADO' },
           fechaReserva: {
             gte: new Date(anioActual, 0, 1),
-            lte: new Date(anioActual, 11, 31, 23, 59, 59)
+            lt: new Date(anioActual + 1, 0, 1)
           }
         },
         select: { fechaReserva: true }
@@ -196,6 +196,7 @@ const obtener = async (req, res) => {
       prisma.visita.findMany({
         where: hayFecha ? { fechaHora: { gte: new Date(desde), lte: new Date(hasta) } } : {},
         orderBy: { fechaHora: 'desc' },
+        take: 200,
         include: {
           lead: {
             select: {
