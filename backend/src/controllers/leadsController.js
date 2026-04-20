@@ -530,7 +530,7 @@ const fusionarDuplicados = async (req, res) => {
                   data: { leadId: leadPrimario.id }
                 })
                 // Cotizaciones solo si el lead primario no tiene venta (para evitar conflictos)
-                if (!leadPrimario.venta) {
+                if (!leadPrimario.ventas?.length) {
                   await tx.cotizacion.updateMany({
                     where: { leadId: leadSec.id },
                     data: { leadId: leadPrimario.id }
