@@ -496,9 +496,21 @@ export default function Dashboard() {
     queryFn: ({ queryKey }) => api.get('/dashboard', { params: queryKey[1] }).then(r => r.data)
   })
 
+  const { valorUF, ufAPesos, formatPesos } = useUF()
+
   if (isLoading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
 
   const { resumen, embudo, unidadesPorEstado, ventasRecientes, ventasActivas } = data || {}
+  const { kpis, ingresosPorSemana, ventasPorMes, leadsPorCampana,
+          inventarioPorEdificio, visitasDelPeriodo, visitasProximas,
+          cuotasPendientes, ventasRecientes: ventasPeriodo,
+          procesoLegalPendiente } = data || {}
+
+  // Helper comparación
+  const calcPct = (actual, anterior) => {
+    if (!anterior) return null
+    return Math.round(((actual - anterior) / anterior) * 100)
+  }
   const totalUnidades = unidadesPorEstado?.reduce((s, u) => s + u._count.id, 0) || 1
   const unidadesOcupadas = unidadesPorEstado?.filter(u => u.estado !== 'DISPONIBLE').reduce((s, u) => s + u._count.id, 0) || 0
   const ocupacionPct = totalUnidades > 0 ? Math.round((unidadesOcupadas / totalUnidades) * 100) : 0
@@ -512,28 +524,24 @@ export default function Dashboard() {
 
   const hoy = format(new Date(), "EEEE d 'de' MMMM, yyyy", { locale: es })
 
-  const STAT_CARDS = [
+  const KPI_CARDS = [
     {
-      label: 'Ventas del período',
-      value: ventasRecientes?.length || 0,
-      hint: `${(ventasActivas || []).filter(v => v.estado === 'RESERVA').length} en reserva`,
-      highlight: true,
+      label: 'Leads ingresados',
+      value: kpis?.leadsIngresados ?? 0,
+      pct: calcPct(kpis?.leadsIngresados, kpis?.leadsIngresadosAnterior),
+      color: '#1d4ed8',
     },
     {
-      label: 'Leads activos',
-      value: resumen?.totalLeads || 0,
-      hint: `${resumen?.notificacionesSinLeer || 0} notif. sin leer`,
+      label: 'Ventas',
+      value: kpis?.ventas ?? 0,
+      diff: kpis != null ? (kpis.ventas - kpis.ventasAnterior) : null,
+      color: '#7c3aed',
     },
     {
-      label: 'Ocupación',
-      value: `${ocupacionPct}%`,
-      hint: `${unidadesOcupadas} de ${totalUnidades} unidades`,
-    },
-    {
-      label: 'En proceso legal',
-      value: ventasEnLegal,
-      hint: alertasLegal > 0 ? `${alertasLegal} con fechas vencidas` : 'Sin alertas',
-      hintColor: alertasLegal > 0 ? '#f59e0b' : '#10b981',
+      label: 'Monto vendido',
+      value: `${(kpis?.montoUF ?? 0).toLocaleString('es-CL', { minimumFractionDigits: 1 })} UF`,
+      subValue: kpis?.montoUF && valorUF ? formatPesos(ufAPesos(kpis.montoUF)) : null,
+      color: '#16a34a',
     },
   ]
 
@@ -573,23 +581,27 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* 4 Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
-        {STAT_CARDS.map((s, i) => (
-          <div key={i} style={{
-            background: s.highlight ? 'linear-gradient(135deg, #1d4ed8, #3b82f6)' : '#fff',
-            border: s.highlight ? 'none' : '1px solid #e2e8f0',
-            borderRadius: 10, padding: 14,
-          }}>
-            <div style={{ fontSize: 9, fontWeight: 600, color: s.highlight ? 'rgba(255,255,255,0.65)' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
-              {s.label}
+      {/* 3 KPI cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 }}>
+        {KPI_CARDS.map((k, i) => (
+          <div key={i} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, borderTop: `3px solid ${k.color}` }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>
+              {k.label}
             </div>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 26, fontWeight: 800, color: s.highlight ? '#fff' : '#0f172a', lineHeight: 1 }}>
-              {s.value}
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 26, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
+              {k.value}
             </div>
-            <div style={{ fontSize: 10, color: s.highlight ? 'rgba(255,255,255,0.75)' : (s.hintColor || '#10b981'), marginTop: 4 }}>
-              {s.hint}
-            </div>
+            {k.subValue && <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{k.subValue}</div>}
+            {k.pct != null && (
+              <div style={{ fontSize: 10, color: k.pct >= 0 ? '#16a34a' : '#dc2626', marginTop: 4 }}>
+                {k.pct >= 0 ? '↑' : '↓'} {Math.abs(k.pct)}% vs período ant.
+              </div>
+            )}
+            {k.diff != null && (
+              <div style={{ fontSize: 10, color: k.diff >= 0 ? '#16a34a' : '#dc2626', marginTop: 4 }}>
+                {k.diff >= 0 ? '+' : ''}{k.diff} vs período ant.
+              </div>
+            )}
           </div>
         ))}
       </div>
