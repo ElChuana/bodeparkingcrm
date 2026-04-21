@@ -14,7 +14,6 @@ import {
   InputNumber, Radio
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, WarningOutlined, CheckCircleOutlined, GiftOutlined, AppstoreOutlined, EditOutlined, HomeOutlined, ExpandOutlined } from '@ant-design/icons'
-import { TIPO_PROMO_LABEL, TIPO_PROMO_COLOR, resumenPromo } from '../promociones/Promociones'
 import { isPast } from 'date-fns'
 
 const { Title, Text } = Typography
@@ -508,7 +507,7 @@ function PlanDePagos({ venta }) {
       )}
 
       <ModalPlanPago open={modalPlan} onClose={() => setModalPlan(false)}
-        ventaId={venta?.id} precioUF={venta?.precioUF - (venta?.descuentoUF || 0)} />
+        ventaId={venta?.id} precioUF={venta?.precioFinalUF || 0} />
     </Card>
   )
 }
@@ -539,7 +538,7 @@ function ModalComision({ open, onClose, venta, comisionEditando }) {
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
-  const precioFinal = (venta?.precioUF || 0) - (venta?.descuentoUF || 0)
+  const precioFinal = venta?.precioFinalUF || 0
 
   // Al abrir: precargar si estamos editando
   const handleAfterOpen = () => {
@@ -1040,8 +1039,7 @@ export default function VentaDetalle() {
   if (isLoading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
   if (!venta) return <Text type="secondary" style={{ padding: 24, display: 'block' }}>Venta no encontrada.</Text>
 
-  const precioFinal = venta.precioUF - (venta.descuentoUF || 0)
-  const precioLista = venta.precioUF
+  const precioFinal = venta.precioFinalUF || 0
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -1082,22 +1080,39 @@ export default function VentaDetalle() {
         <Col xs={24} md={8}>
           <Space direction="vertical" style={{ width: '100%' }} size={12}>
             <Card size="small" title="Precio">
-              {venta.descuentoUF > 0 ? (
-                <>
-                  <div style={{ marginBottom: 4 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>Precio lista </Text>
-                    <Text delete style={{ fontSize: 13, color: '#8c8c8c' }}>{formatUF(precioLista)}</Text>
+              <div style={{ background: '#f8faff', border: '1px solid #d6e4ff', borderRadius: 8, padding: '12px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                  <Text type="secondary">Precio de lista</Text>
+                  <Text>{(venta.precioListaUF || 0).toFixed(2)} UF</Text>
+                </div>
+                {venta.descuentoPacksUF > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                    <Text style={{ color: '#d46b08' }}>− Descuento packs</Text>
+                    <Text style={{ color: '#d46b08' }}>−{venta.descuentoPacksUF.toFixed(2)} UF</Text>
                   </div>
-                  <div style={{ marginBottom: 2 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>Descuento </Text>
-                    <Text style={{ fontSize: 13, color: '#52c41a' }}>-{formatUF(venta.descuentoUF)}</Text>
+                )}
+                {venta.descuentoAprobadoUF > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                    <Text style={{ color: '#d46b08' }}>− Desc. aprobado</Text>
+                    <Text style={{ color: '#d46b08' }}>−{venta.descuentoAprobadoUF.toFixed(2)} UF</Text>
                   </div>
-                  <Title level={3} style={{ margin: '4px 0 0' }}>{formatUF(precioFinal)}</Title>
-                </>
-              ) : (
-                <Title level={3} style={{ margin: 0 }}>{formatUF(precioFinal)}</Title>
+                )}
+                <Divider style={{ margin: '8px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text strong>Precio final</Text>
+                  <Text strong style={{ fontSize: 16, color: '#1677ff' }}>{precioFinal.toFixed(2)} UF</Text>
+                </div>
+              </div>
+              <Text type="secondary" style={{ fontSize: 12, marginTop: 6, display: 'block' }}>{formatPesos(ufAPesos(precioFinal))}</Text>
+              {venta.cotizacionOrigen && (
+                <div style={{ marginTop: 8, fontSize: 12 }}>
+                  <Text type="secondary">Cotización: </Text>
+                  <a href={`/cotizaciones/${venta.cotizacionOrigen.id}`}>#{venta.cotizacionOrigen.id}</a>
+                  <Tag style={{ marginLeft: 8 }} color={venta.cotizacionOrigen.estado === 'ACEPTADA' ? 'green' : 'blue'}>
+                    {venta.cotizacionOrigen.estado}
+                  </Tag>
+                </div>
               )}
-              <Text type="secondary">{formatPesos(ufAPesos(precioFinal))}</Text>
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
                 {venta.fechaReserva && <div style={{ fontSize: 12, color: '#8c8c8c' }}>Reserva: {format(new Date(venta.fechaReserva), 'd MMM yyyy', { locale: es })}</div>}
                 {venta.fechaPromesa && <div style={{ fontSize: 12, color: '#8c8c8c' }}>Promesa: {format(new Date(venta.fechaPromesa), 'd MMM yyyy', { locale: es })}</div>}
@@ -1129,7 +1144,29 @@ export default function VentaDetalle() {
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <ProcesoLegal ventaId={id} venta={venta} />
             <PlanDePagos venta={venta} />
-            <PromocionesVenta venta={venta} />
+            {venta.beneficios?.length > 0 && (
+              <Card title="Beneficios" size="small">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {venta.beneficios.map(vb => (
+                    <div key={vb.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '8px 12px', borderRadius: 8, background: '#f6ffed', border: '1px solid #b7eb8f'
+                    }}>
+                      <div>
+                        <Tag color="green">{vb.beneficio.tipo}</Tag>
+                        <Text strong style={{ fontSize: 13 }}>{vb.beneficio.nombre}</Text>
+                        {vb.beneficio.descripcion && <div><Text type="secondary" style={{ fontSize: 12 }}>{vb.beneficio.descripcion}</Text></div>}
+                      </div>
+                      <Tag color={
+                        vb.estado === 'COMPLETADO' ? 'green' :
+                        vb.estado === 'EN_CURSO' ? 'blue' :
+                        vb.estado === 'CANCELADO' ? 'red' : 'orange'
+                      }>{vb.estado}</Tag>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
             <Comisiones venta={venta} />
 
             {venta.postventa?.length > 0 && (
