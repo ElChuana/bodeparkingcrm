@@ -1,16 +1,15 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Card, Button, Typography, Space, Tag, Input, Select, InputNumber,
-  Divider, Switch, Empty, Spin, Row, Col, App, Tooltip, Badge, Alert,
-  Modal, Form
+  Divider, Empty, Spin, Row, Col, App, Tooltip, Alert,
+  Modal, Form, Popconfirm
 } from 'antd'
 import {
   PlusOutlined, DeleteOutlined, SaveOutlined, SendOutlined,
-  GiftOutlined, CheckCircleOutlined, InfoCircleOutlined, ArrowLeftOutlined,
-  PercentageOutlined, TagOutlined, FilePdfOutlined, ShoppingOutlined,
-  PercentageOutlined as PctIcon, DollarOutlined, ClockCircleOutlined
+  CheckCircleOutlined, ArrowLeftOutlined,
+  FilePdfOutlined, ShoppingOutlined
 } from '@ant-design/icons'
 import { PDFDownloadLink, pdf } from '@react-pdf/renderer'
 import { CotizacionDocumento } from './CotizacionPDF'
@@ -21,67 +20,6 @@ import logoUrl from '../../assets/logo.png'
 import ModalEmail from '../../components/ModalEmail'
 
 const { Title, Text } = Typography
-
-// ── Tipos de promoción ──────────────────────────────────────────
-const TIPO_PROMO_LABEL = {
-  DESCUENTO_PORCENTAJE: 'Descuento %',
-  DESCUENTO_UF: 'Descuento UF fijo',
-  PAQUETE: 'Pack de unidades',
-  BENEFICIO: 'Beneficio',
-  ARRIENDO_ASEGURADO: 'Arriendo asegurado',
-  GASTOS_NOTARIALES: 'Gastos notariales',
-  CUOTAS_SIN_INTERES: 'Cuotas sin interés',
-  COMBO: 'Combo',
-  OTRO: 'Otro',
-}
-const TIPO_PROMO_COLOR = {
-  DESCUENTO_PORCENTAJE: 'orange', DESCUENTO_UF: 'gold', PAQUETE: 'blue',
-  BENEFICIO: 'green', ARRIENDO_ASEGURADO: 'purple', GASTOS_NOTARIALES: 'cyan',
-  CUOTAS_SIN_INTERES: 'geekblue', COMBO: 'magenta', OTRO: 'default',
-}
-const TIPOS_PACK = ['DESCUENTO_PORCENTAJE', 'DESCUENTO_UF', 'PAQUETE', 'COMBO']
-
-// ── Cálculo de precio ───────────────────────────────────────────
-function calcularResumen(items, promos) {
-  const base = items.reduce((s, i) => s + (i.precioListaUF || 0), 0)
-  const lineas = []
-  let descuentoTotal = 0
-
-  promos.filter(p => p.aplicada && TIPOS_PACK.includes(p.tipo)).forEach(p => {
-    let ahorro = 0
-    if (p.tipo === 'DESCUENTO_PORCENTAJE') {
-      ahorro = base * ((p.valorPorcentaje || 0) / 100)
-    } else if (p.tipo === 'DESCUENTO_UF') {
-      ahorro = p.valorUF || 0
-    } else if (p.tipo === 'PAQUETE') {
-      const idsEnPaquete = p.unidadesIds || []
-      const enComun = items.filter(i => idsEnPaquete.includes(i.unidadId))
-      if (enComun.length >= idsEnPaquete.length && idsEnPaquete.length > 0) {
-        const sumaIndividual = enComun.reduce((s, i) => s + i.precioListaUF, 0)
-        ahorro = Math.max(sumaIndividual - (p.valorUF || 0), 0)
-      }
-    }
-    if (ahorro > 0) {
-      lineas.push({ nombre: p.nombre, ahorro, tipo: p.tipo })
-      descuentoTotal += ahorro
-    }
-    p._ahorroCalculado = ahorro
-  })
-
-  const beneficios = promos.filter(p => p.aplicada && !TIPOS_PACK.includes(p.tipo))
-
-  return { base, descuentoTotal, final: Math.max(base - descuentoTotal, 0), lineas, beneficios }
-}
-
-function calcularResumenConAprobado(items, promos, descuentoAprobadoUF) {
-  const base = calcularResumen(items, promos)
-  const aprobado = descuentoAprobadoUF || 0
-  return {
-    ...base,
-    descuentoAprobadoUF: aprobado,
-    finalTotal: Math.max(base.final - aprobado, 0),
-  }
-}
 
 // ── Panel selector de unidades ──────────────────────────────────
 function SelectorUnidades({ items, onAdd, onRemove }) {
@@ -132,7 +70,6 @@ function SelectorUnidades({ items, onAdd, onRemove }) {
         <div style={{ maxHeight: 400, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
           {disponibles.map(u => {
             const agregado = yaAgregados.has(u.id)
-            const tienePromos = u.promociones?.length > 0
             return (
               <div
                 key={u.id}
@@ -150,13 +87,6 @@ function SelectorUnidades({ items, onAdd, onRemove }) {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>{u.precioUF} UF</Text>
                     {u.precioMinimoUF && <Text type="secondary" style={{ fontSize: 11 }}>mín. {u.precioMinimoUF} UF</Text>}
-                    {tienePromos && (
-                      <Tooltip title={u.promociones.map(p => p.promocion.nombre).join(', ')}>
-                        <Tag color="green" style={{ fontSize: 11, margin: 0, cursor: 'default' }}>
-                          <GiftOutlined /> {u.promociones.length} promo{u.promociones.length > 1 ? 's' : ''}
-                        </Tag>
-                      </Tooltip>
-                    )}
                   </div>
                 </div>
                 <Button
@@ -178,20 +108,25 @@ function SelectorUnidades({ items, onAdd, onRemove }) {
 }
 
 // ── Panel de resumen de precio ──────────────────────────────────
-function ResumenPrecio({ items, promos, descuentoAprobadoUF }) {
-  const resumen = useMemo(() => calcularResumen(items, promos), [items, promos])
-  const aprobado = descuentoAprobadoUF || 0
-  const totalFinal = Math.max(resumen.final - aprobado, 0)
+function ResumenPrecio({ cotizacion }) {
+  const items = cotizacion?.items || []
+  const packs = cotizacion?.packs || []
+  const beneficios = cotizacion?.beneficios || []
+  const descAprobado = cotizacion?.descuentoAprobadoUF || 0
+
+  const precioLista = items.reduce((s, i) => s + (i.precioListaUF || 0), 0)
+  const descPacks = packs.reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
+  const precioFinal = Math.max(precioLista - descPacks - descAprobado, 0)
 
   return (
     <Card title="Resumen de precio" size="small" style={{ background: '#f8faff', border: '1px solid #d6e4ff' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-
-        {/* Items */}
         {items.map(i => (
-          <div key={i.unidadId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-            <Text type="secondary">{i.edificio} — {i.tipo} {i.numero}</Text>
-            <Text strong>{i.precioListaUF?.toFixed(2)} UF</Text>
+          <div key={i.unidadId || i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+            <Text type="secondary">
+              {i.unidad?.edificio?.nombre || i.edificio} — {i.unidad?.tipo === 'BODEGA' || i.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {i.unidad?.numero || i.numero}
+            </Text>
+            <Text strong>{(i.precioListaUF || 0).toFixed(2)} UF</Text>
           </div>
         ))}
 
@@ -199,42 +134,25 @@ function ResumenPrecio({ items, promos, descuentoAprobadoUF }) {
           <>
             <Divider style={{ margin: '4px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <Text>Subtotal</Text>
-              <Text strong>{resumen.base.toFixed(2)} UF</Text>
+              <Text>Precio de lista</Text>
+              <Text strong>{precioLista.toFixed(2)} UF</Text>
             </div>
           </>
         )}
 
-        {/* Descuentos */}
-        {resumen.lineas.length > 0 && (
+        {descPacks > 0 && (
           <>
             <Divider style={{ margin: '4px 0' }} />
-            {resumen.lineas.map((l, idx) => (
-              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <Text style={{ color: '#52c41a' }}>
-                  <TagOutlined /> {l.nombre}
-                </Text>
-                <Text style={{ color: '#52c41a' }}>− {l.ahorro.toFixed(2)} UF</Text>
+            {packs.map(p => (
+              <div key={p.packId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                <Text style={{ color: '#d46b08' }}>− Pack: {p.pack.nombre}</Text>
+                <Text style={{ color: '#d46b08' }}>−{p.descuentoAplicadoUF.toFixed(2)} UF</Text>
               </div>
             ))}
           </>
         )}
 
-        {/* Beneficios */}
-        {resumen.beneficios.length > 0 && (
-          <>
-            <Divider style={{ margin: '4px 0' }} />
-            {resumen.beneficios.map(b => (
-              <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                <Text style={{ color: '#52c41a' }}>{b.nombre}</Text>
-              </div>
-            ))}
-          </>
-        )}
-
-        {/* Descuento aprobado por gerente */}
-        {aprobado > 0 && (
+        {descAprobado > 0 && (
           <>
             <Divider style={{ margin: '4px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
@@ -242,189 +160,30 @@ function ResumenPrecio({ items, promos, descuentoAprobadoUF }) {
                 <CheckCircleOutlined style={{ color: '#d46b08', marginRight: 4 }} />
                 Descuento aprobado
               </Text>
-              <Text style={{ color: '#d46b08' }}>− {aprobado.toFixed(2)} UF</Text>
+              <Text style={{ color: '#d46b08' }}>−{descAprobado.toFixed(2)} UF</Text>
             </div>
+          </>
+        )}
+
+        {beneficios.length > 0 && (
+          <>
+            <Divider style={{ margin: '4px 0' }} />
+            {beneficios.map(b => (
+              <div key={b.beneficioId} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                <Text style={{ color: '#52c41a' }}>{b.beneficio.nombre}</Text>
+              </div>
+            ))}
           </>
         )}
 
         <Divider style={{ margin: '6px 0' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <Text strong style={{ fontSize: 15 }}>Total</Text>
-          <Text strong style={{ fontSize: 17, color: '#1677ff' }}>{totalFinal.toFixed(2)} UF</Text>
+          <Text strong style={{ fontSize: 17, color: '#1677ff' }}>{precioFinal.toFixed(2)} UF</Text>
         </div>
-        {(resumen.descuentoTotal > 0 || aprobado > 0) && (
-          <div style={{ textAlign: 'right' }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Ahorro total: {(resumen.descuentoTotal + aprobado).toFixed(2)} UF
-            </Text>
-          </div>
-        )}
       </div>
     </Card>
-  )
-}
-
-// ── Fila de promo/pack reutilizable ─────────────────────────────
-function FilaPromo({ p, onToggle, onRemovePromo, esPack }) {
-  const detalleAhorro = () => {
-    if (!p.aplicada) return null
-    if (p.tipo === 'DESCUENTO_PORCENTAJE') {
-      const cond = p.minUnidades ? ` (${p.minUnidades}+ uds.)` : ''
-      return `${p.valorPorcentaje}% de descuento${cond}`
-    }
-    if (p.tipo === 'DESCUENTO_UF') {
-      const cond = p.minUnidades ? ` (${p.minUnidades}+ uds.)` : ''
-      return `${p.valorUF} UF de descuento${cond}`
-    }
-    if (p.tipo === 'PAQUETE' && p.valorUF) return `Precio pack: ${p.valorUF} UF`
-    return null
-  }
-  const detalle = detalleAhorro()
-
-  return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '6px 10px', borderRadius: 8,
-        background: p.aplicada ? (esPack ? '#fff7e6' : '#f6ffed') : '#fafafa',
-        border: `1px solid ${p.aplicada ? (esPack ? '#ffd591' : '#b7eb8f') : '#f0f0f0'}`,
-      }}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Space size={6}>
-          <Tag color={TIPO_PROMO_COLOR[p.tipo]} style={{ fontSize: 11, margin: 0 }}>
-            {TIPO_PROMO_LABEL[p.tipo]}
-          </Tag>
-          <Text style={{ fontSize: 13 }}>{p.nombre}</Text>
-        </Space>
-        {p.descripcion && <Text type="secondary" style={{ fontSize: 11 }}>{p.descripcion}</Text>}
-        {detalle && <Text style={{ fontSize: 12, color: esPack ? '#d46b08' : '#52c41a' }}>{detalle}</Text>}
-      </div>
-      <Space size={4}>
-        <Tooltip title={p.aplicada ? 'Aplicado' : 'No aplicado'}>
-          <Switch size="small" checked={p.aplicada} onChange={v => onToggle(p.promocionId, v)} />
-        </Tooltip>
-        <Button size="small" danger type="text" icon={<DeleteOutlined />} onClick={() => onRemovePromo(p.promocionId)} />
-      </Space>
-    </div>
-  )
-}
-
-// ── Panel de packs y promociones ────────────────────────────────
-function PanelPromociones({ items, promos, onToggle, onAddPromo, onRemovePromo }) {
-  const { data: todasPromos = [] } = useQuery({
-    queryKey: ['promociones-activas-cot'],
-    queryFn: () => api.get('/promociones', { params: { activa: true } }).then(r => r.data)
-  })
-
-  const promoIds = new Set(promos.map(p => p.promocionId))
-
-  // Separar en packs y beneficios
-  const packsActivos    = promos.filter(p => TIPOS_PACK.includes(p.tipo))
-  const beneficiosActivos = promos.filter(p => !TIPOS_PACK.includes(p.tipo))
-
-  // Sugeridas vinculadas a las unidades seleccionadas
-  const sugeridas = todasPromos.filter(p =>
-    !promoIds.has(p.id) &&
-    p.unidades?.some(u => items.some(i => i.unidadId === u.unidadId))
-  )
-
-  const noAgregadas = todasPromos.filter(p => !promoIds.has(p.id))
-  const packsDisp = noAgregadas.filter(p => TIPOS_PACK.includes(p.tipo))
-  const promosDisp = noAgregadas.filter(p => !TIPOS_PACK.includes(p.tipo))
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-      {/* Sugeridas automáticamente */}
-      {sugeridas.length > 0 && (
-        <Alert
-          type="info" showIcon
-          style={{ fontSize: 12 }}
-          message={
-            <div>
-              <Text strong style={{ fontSize: 12 }}>Disponibles para las unidades seleccionadas</Text>
-              <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {sugeridas.map(p => (
-                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Space size={4}>
-                      <Tag color={TIPOS_PACK.includes(p.tipo) ? 'orange' : 'green'} style={{ fontSize: 11, margin: 0 }}>
-                        {TIPOS_PACK.includes(p.tipo) ? 'Pack' : 'Beneficio'}
-                      </Tag>
-                      <Text style={{ fontSize: 12 }}>{p.nombre}</Text>
-                    </Space>
-                    <Button size="small" type="link" onClick={() => onAddPromo(p)}>Agregar</Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          }
-        />
-      )}
-
-      {/* ── Packs (afectan precio) ── */}
-      <Card
-        size="small"
-        title={<Text strong style={{ color: '#d46b08' }}>Packs — descuentos sobre el precio</Text>}
-        extra={
-          packsDisp.length > 0 && (
-            <Select
-              placeholder="Agregar pack..."
-              size="small"
-              style={{ width: 220 }}
-              showSearch
-              filterOption={(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())}
-              options={packsDisp.map(p => ({ value: p.id, label: p.nombre }))}
-              onChange={id => { const p = todasPromos.find(x => x.id === id); if (p) onAddPromo(p) }}
-              value={null}
-            />
-          )
-        }
-        style={{ borderColor: '#ffd591' }}
-      >
-        {packsActivos.length === 0 ? (
-          <Text type="secondary" style={{ fontSize: 12 }}>Sin packs aplicados</Text>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {packsActivos.map(p => (
-              <FilaPromo key={p.promocionId} p={p} onToggle={onToggle} onRemovePromo={onRemovePromo} esPack />
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {/* ── Promociones (beneficios) ── */}
-      <Card
-        size="small"
-        title={<Text strong style={{ color: '#389e0d' }}>Promociones — beneficios adicionales</Text>}
-        extra={
-          promosDisp.length > 0 && (
-            <Select
-              placeholder="Agregar promoción..."
-              size="small"
-              style={{ width: 220 }}
-              showSearch
-              filterOption={(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())}
-              options={promosDisp.map(p => ({ value: p.id, label: p.nombre }))}
-              onChange={id => { const p = todasPromos.find(x => x.id === id); if (p) onAddPromo(p) }}
-              value={null}
-            />
-          )
-        }
-        style={{ borderColor: '#b7eb8f' }}
-      >
-        {beneficiosActivos.length === 0 ? (
-          <Text type="secondary" style={{ fontSize: 12 }}>Sin beneficios aplicados</Text>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {beneficiosActivos.map(p => (
-              <FilaPromo key={p.promocionId} p={p} onToggle={onToggle} onRemovePromo={onRemovePromo} esPack={false} />
-            ))}
-          </div>
-        )}
-      </Card>
-
-    </div>
   )
 }
 
@@ -648,153 +407,143 @@ function PanelDescuento({ cotizacionId, esGerente, soloLectura }) {
   )
 }
 
-// ── Modal convertir cotización a venta ──────────────────────────
-function ModalConvertirVenta({ open, onClose, cotizacion, resumen }) {
-  const navigate = useNavigate()
-  const [form] = Form.useForm()
-  const { message } = App.useApp()
+// ── Panels de packs y beneficios ───────────────────────────────
+function PanelPacks({ cotizacionId, packs, soloLectura }) {
   const qc = useQueryClient()
+  const { message } = App.useApp()
 
-  const items = cotizacion?.items || []
-  const lead = cotizacion?.lead
-  const promos = cotizacion?.promociones || []
-
-  // Calcular descuento proporcional por unidad
-  const descuentoPorUnidad = (unidadId) => {
-    if (items.length === 0) return 0
-    const item = items.find(i => i.unidadId === unidadId)
-    if (!item) return 0
-    if (items.length === 1) return resumen.descuentoTotal
-    // Proporcional al precio de lista de la unidad
-    const proporcion = item.precioListaUF / resumen.base
-    return +(resumen.descuentoTotal * proporcion).toFixed(2)
-  }
-
-  const unidadWatch = Form.useWatch('unidadId', form)
-  const precioWatch = Form.useWatch('precioUF', form)
-  const descWatch = Form.useWatch('descuentoUF', form)
-  const precioFinal = (Number(precioWatch) || 0) - (Number(descWatch) || 0)
-
-  // Al cambiar la unidad seleccionada, actualizar precio y descuento
-  const crear = useMutation({
-    mutationFn: async (data) => {
-      const res = await api.post('/ventas', data)
-      // Marcar cotización como aceptada
-      await api.put(`/cotizaciones/${cotizacion.id}/estado`, { estado: 'ACEPTADA' })
-      return res
-    },
-    onSuccess: (res) => {
-      message.success('¡Venta creada! La cotización fue marcada como aceptada.')
-      qc.invalidateQueries({ queryKey: ['cotizacion', String(cotizacion.id)] })
-      qc.invalidateQueries({ queryKey: ['cotizaciones'] })
-      navigate(`/ventas/${res.data.id}`)
-    },
-    onError: (err) => {
-      if (err.response?.status === 202) {
-        message.warning(err.response.data.mensaje, 6)
-      } else {
-        message.error(err.response?.data?.error || 'Error al crear venta')
-      }
-    }
+  const { data: todosLosPacks = [] } = useQuery({
+    queryKey: ['packs-activos'],
+    queryFn: () => api.get('/packs', { params: { activa: true } }).then(r => r.data)
   })
 
-  const handleOk = () => {
-    form.validateFields().then(values => {
-      crear.mutate({
-        leadId: lead.id,
-        unidadIds: items.map(i => i.unidadId),
-        compradorId: lead.contacto.id,
-        precioUF: Number(values.precioUF),
-        descuentoUF: Number(values.descuentoUF) || 0,
-        fechaReserva: values.fechaReserva,
-        notas: values.notas,
-        cotizacionOrigenId: cotizacion.id,
-      })
-    })
-  }
+  const packIds = new Set(packs.map(p => p.packId))
+  const packsDisponibles = todosLosPacks.filter(p => !packIds.has(p.id))
 
-  const initialDesc = items.length > 0 ? descuentoPorUnidad(items[0].unidadId) : 0
+  const agregar = useMutation({
+    mutationFn: (packId) => api.post(`/cotizaciones/${cotizacionId}/packs`, { packId }),
+    onSuccess: () => { message.success('Pack agregado'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
+    onError: err => message.error(err.response?.data?.error || 'Error al agregar pack')
+  })
+
+  const quitar = useMutation({
+    mutationFn: (packId) => api.delete(`/cotizaciones/${cotizacionId}/packs/${packId}`),
+    onSuccess: () => { message.success('Pack quitado'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
 
   return (
-    <Modal
-      title={<><ShoppingOutlined /> Convertir cotización a Venta</>}
-      open={open}
-      onCancel={onClose}
-      onOk={handleOk}
-      okText="Crear Venta"
-      cancelText="Cancelar"
-      confirmLoading={crear.isPending}
-      width={520}
-      afterOpenChange={o => {
-        if (o && items.length > 0) {
-          form.setFieldsValue({
-            precioUF: items.reduce((s, i) => s + (i.precioListaUF || 0), 0),
-            descuentoUF: initialDesc,
-            fechaReserva: new Date().toISOString().split('T')[0],
-          })
-        }
-      }}
+    <Card
+      size="small"
+      title={<Text strong style={{ color: '#d46b08' }}>Packs — descuentos sobre el precio</Text>}
+      style={{ borderColor: '#ffd591' }}
+      extra={
+        !soloLectura && packsDisponibles.length > 0 && (
+          <Select
+            placeholder="Agregar pack..."
+            size="small"
+            style={{ width: 200 }}
+            showSearch
+            filterOption={(v, o) => o.label.toLowerCase().includes(v.toLowerCase())}
+            options={packsDisponibles.map(p => ({ value: p.id, label: `${p.nombre} (−${p.descuentoUF} UF)` }))}
+            onChange={id => agregar.mutate(id)}
+            value={null}
+          />
+        )
+      }
     >
-      <Form form={form} layout="vertical" style={{ marginTop: 12 }}>
-
-        {/* Cliente */}
-        <div style={{ background: '#e6f4ff', borderRadius: 8, padding: '8px 14px', marginBottom: 16 }}>
-          <Text>Comprador: <Text strong>{lead?.contacto?.nombre} {lead?.contacto?.apellido}</Text></Text>
-          {lead?.vendedor && (
-            <Text style={{ marginLeft: 16 }}>Vendedor: <Text strong>{lead.vendedor.nombre} {lead.vendedor.apellido}</Text></Text>
-          )}
-        </div>
-
-        {/* Unidades */}
-        <Form.Item label="Unidades">
-          <div style={{ fontSize: 12, color: '#6b7280' }}>
-            {items.map(i => `${i.edificio} ${i.numero}`).join(', ')}
-          </div>
-        </Form.Item>
-
-        {/* Precio */}
-        <Row gutter={12}>
-          <Col span={12}>
-            <Form.Item name="precioUF" label="Precio de lista (UF)" rules={[{ required: true }]}>
-              <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="UF" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="descuentoUF" label="Descuento (UF)">
-              <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="UF" />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        {/* Resumen promos */}
-        {resumen.descuentoTotal > 0 && (
-          <div style={{ background: '#f6ffed', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12 }}>
-            {resumen.lineas.map((l, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 12, color: '#52c41a' }}>{l.nombre}</Text>
-                <Text style={{ fontSize: 12, color: '#52c41a' }}>− {l.ahorro.toFixed(2)} UF total</Text>
+      {packs.length === 0 ? (
+        <Text type="secondary" style={{ fontSize: 12 }}>Sin packs aplicados</Text>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {packs.map(cp => (
+            <div key={cp.packId} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 10px', borderRadius: 8, background: '#fff7e6', border: '1px solid #ffd591'
+            }}>
+              <div>
+                <Text strong style={{ fontSize: 13 }}>{cp.pack.nombre}</Text>
+                {cp.pack.descripcion && <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>{cp.pack.descripcion}</Text>}
+                <div><Text style={{ color: '#d46b08', fontSize: 12 }}>−{cp.descuentoAplicadoUF} UF</Text></div>
               </div>
-            ))}
-          </div>
-        )}
+              {!soloLectura && (
+                <Button size="small" danger type="text" icon={<DeleteOutlined />} onClick={() => quitar.mutate(cp.packId)} />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
 
-        {/* Precio final */}
-        {precioFinal > 0 && (
-          <div style={{ background: '#e6f4ff', borderRadius: 8, padding: '10px 14px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text strong>Precio final:</Text>
-            <Text strong style={{ fontSize: 18, color: '#1677ff' }}>{precioFinal.toFixed(2)} UF</Text>
-          </div>
-        )}
+function PanelBeneficios({ cotizacionId, beneficios, soloLectura }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
 
-        <Form.Item name="fechaReserva" label="Fecha de reserva" rules={[{ required: true }]}>
-          <Input type="date" />
-        </Form.Item>
+  const { data: todosBeneficios = [] } = useQuery({
+    queryKey: ['beneficios-activos'],
+    queryFn: () => api.get('/beneficios', { params: { activa: true } }).then(r => r.data)
+  })
 
-        <Form.Item name="notas" label="Notas">
-          <Input.TextArea rows={2} placeholder="Condiciones acordadas, observaciones..." />
-        </Form.Item>
-      </Form>
-    </Modal>
+  const beneficioIds = new Set(beneficios.map(b => b.beneficioId))
+  const disponibles = todosBeneficios.filter(b => !beneficioIds.has(b.id))
+
+  const agregar = useMutation({
+    mutationFn: (beneficioId) => api.post(`/cotizaciones/${cotizacionId}/beneficios`, { beneficioId }),
+    onSuccess: () => { message.success('Beneficio agregado'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const quitar = useMutation({
+    mutationFn: (beneficioId) => api.delete(`/cotizaciones/${cotizacionId}/beneficios/${beneficioId}`),
+    onSuccess: () => { message.success('Beneficio quitado'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const TIPO_LABEL = { ARRIENDO_ASEGURADO: 'Arriendo asegurado', GASTOS_NOTARIALES: 'Gastos notariales', CUOTAS_SIN_INTERES: 'Cuotas sin interés', OTRO: 'Otro' }
+
+  return (
+    <Card
+      size="small"
+      title={<Text strong style={{ color: '#389e0d' }}>Beneficios adicionales</Text>}
+      style={{ borderColor: '#b7eb8f' }}
+      extra={
+        !soloLectura && disponibles.length > 0 && (
+          <Select
+            placeholder="Agregar beneficio..."
+            size="small"
+            style={{ width: 200 }}
+            showSearch
+            filterOption={(v, o) => o.label.toLowerCase().includes(v.toLowerCase())}
+            options={disponibles.map(b => ({ value: b.id, label: b.nombre }))}
+            onChange={id => agregar.mutate(id)}
+            value={null}
+          />
+        )
+      }
+    >
+      {beneficios.length === 0 ? (
+        <Text type="secondary" style={{ fontSize: 12 }}>Sin beneficios aplicados</Text>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {beneficios.map(cb => (
+            <div key={cb.beneficioId} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 10px', borderRadius: 8, background: '#f6ffed', border: '1px solid #b7eb8f'
+            }}>
+              <div>
+                <Tag color="green" style={{ fontSize: 11 }}>{TIPO_LABEL[cb.beneficio.tipo] || cb.beneficio.tipo}</Tag>
+                <Text style={{ fontSize: 13 }}>{cb.beneficio.nombre}</Text>
+              </div>
+              {!soloLectura && (
+                <Button size="small" danger type="text" icon={<DeleteOutlined />} onClick={() => quitar.mutate(cb.beneficioId)} />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   )
 }
 
@@ -813,11 +562,9 @@ export default function CotizacionEditor() {
 
   // Estado del editor
   const [items, setItems] = useState([])          // { unidadId, precioListaUF, numero, tipo, edificio }
-  const [promos, setPromos] = useState([])        // { promocionId, nombre, tipo, descripcion, aplicada, valorPorcentaje, valorUF, unidadesIds }
   const [notas, setNotas] = useState('')
   const [validezDias, setValidezDias] = useState(30)
   const [leadId, setLeadId] = useState(leadIdParam ? Number(leadIdParam) : null)
-  const [modalVenta, setModalVenta] = useState(false)
   const [modalEmail, setModalEmail] = useState(false)
   const [pdfBase64, setPdfBase64] = useState(null)
   const [generandoPdf, setGenerandoPdf] = useState(false)
@@ -841,16 +588,6 @@ export default function CotizacionEditor() {
         tipo: i.unidad.tipo,
         edificio: i.unidad.edificio.nombre,
       })))
-      setPromos(cotizacion.promociones.map(cp => ({
-        promocionId: cp.promocionId,
-        nombre: cp.promocion.nombre,
-        tipo: cp.promocion.tipo,
-        descripcion: cp.promocion.descripcion,
-        aplicada: cp.aplicada,
-        valorPorcentaje: cp.promocion.valorPorcentaje,
-        valorUF: cp.promocion.valorUF,
-        unidadesIds: (cp.promocion.unidades || []).map(u => u.unidadId),
-      })))
     }
   }, [cotizacion])
 
@@ -864,120 +601,28 @@ export default function CotizacionEditor() {
   // ─── Handlers ───────────────────────────────────────────────
   const agregarUnidad = (unidad) => {
     if (items.some(i => i.unidadId === unidad.id)) return
-    const newItem = {
+    setItems(prev => [...prev, {
       unidadId: unidad.id,
       precioListaUF: unidad.precioUF,
       numero: unidad.numero,
       tipo: unidad.tipo,
       edificio: unidad.edificio.nombre,
-    }
-    setItems(prev => [...prev, newItem])
-
-    // Auto-agregar promos vinculadas que no estén ya en la lista
-    const promoIds = new Set(promos.map(p => p.promocionId))
-    const promosSugeridas = (unidad.promociones || [])
-      .filter(up => !promoIds.has(up.promocion.id))
-      .map(up => ({
-        promocionId: up.promocion.id,
-        nombre: up.promocion.nombre,
-        tipo: up.promocion.tipo,
-        descripcion: up.promocion.descripcion,
-        aplicada: true,
-        valorPorcentaje: up.promocion.valorPorcentaje,
-        valorUF: up.promocion.valorUF,
-        unidadesIds: (up.promocion.unidades || []).map(u => u.unidadId),
-      }))
-    if (promosSugeridas.length > 0) {
-      setPromos(prev => [...prev, ...promosSugeridas])
-    }
+    }])
   }
 
   const quitarUnidad = (unidadId) => {
     setItems(prev => prev.filter(i => i.unidadId !== unidadId))
-    // Auto-remove packs that required this unit
-    setPromos(prev => {
-      const packsAEliminar = prev.filter(p =>
-        p.tipo === 'PAQUETE' &&
-        Array.isArray(p.unidadesIds) &&
-        p.unidadesIds.includes(unidadId)
-      )
-      if (packsAEliminar.length > 0) {
-        const nombres = packsAEliminar.map(p => p.nombre).join(', ')
-        message.warning(`Pack eliminado por quitar unidad requerida: ${nombres}`)
-      }
-      return prev.filter(p => !(
-        p.tipo === 'PAQUETE' &&
-        Array.isArray(p.unidadesIds) &&
-        p.unidadesIds.includes(unidadId)
-      ))
-    })
   }
 
   const cambiarPrecio = (unidadId, precio) => {
     setItems(prev => prev.map(i => i.unidadId === unidadId ? { ...i, precioListaUF: precio } : i))
   }
 
-  const togglePromo = (promocionId, aplicada) => {
-    setPromos(prev => prev.map(p => p.promocionId === promocionId ? { ...p, aplicada } : p))
-  }
-
-  const agregarPromo = (promo) => {
-    if (promos.some(p => p.promocionId === promo.id)) return
-
-    // Si es un pack de unidades, todas deben estar disponibles o ya en la cotización
-    if (promo.tipo === 'PAQUETE' && promo.unidades?.length > 0) {
-      const unidadesNoDisponibles = promo.unidades.filter(
-        pu => !items.some(i => i.unidadId === pu.unidadId) && pu.unidad?.estado !== 'DISPONIBLE'
-      )
-      if (unidadesNoDisponibles.length > 0) {
-        const nums = unidadesNoDisponibles.map(pu => pu.unidad?.numero || pu.unidadId).join(', ')
-        message.error(`No se puede agregar el pack: unidad(es) no disponible(s): ${nums}`)
-        return
-      }
-      const nuevasUnidades = promo.unidades
-        .filter(pu => !items.some(i => i.unidadId === pu.unidadId))
-        .map(pu => ({
-          unidadId: pu.unidadId,
-          precioListaUF: pu.unidad.precioUF,
-          numero: pu.unidad.numero,
-          tipo: pu.unidad.tipo,
-          edificio: pu.unidad.edificio?.nombre,
-        }))
-      if (nuevasUnidades.length > 0) {
-        setItems(prev => [...prev, ...nuevasUnidades])
-      }
-    }
-
-    setPromos(prev => [...prev, {
-      promocionId: promo.id,
-      nombre: promo.nombre,
-      tipo: promo.tipo,
-      descripcion: promo.descripcion,
-      aplicada: true,
-      valorPorcentaje: promo.valorPorcentaje,
-      valorUF: promo.valorUF,
-      minUnidades: promo.minUnidades,
-      unidadesIds: (promo.unidades || []).map(u => u.unidadId),
-    }])
-  }
-
-  const quitarPromo = (promocionId) => {
-    setPromos(prev => prev.filter(p => p.promocionId !== promocionId))
-  }
-
-  // ─── Calcular ahorro final para guardar ────────────────────
-  const resumen = useMemo(() => calcularResumen(items, promos), [items, promos])
-
   const buildPayload = () => ({
     leadId,
     notas,
     validezDias,
     items: items.map(i => ({ unidadId: i.unidadId, precioListaUF: i.precioListaUF })),
-    promociones: promos.map(p => ({
-      promocionId: p.promocionId,
-      aplicada: p.aplicada,
-      ahorroUF: p._ahorroCalculado || 0,
-    })),
   })
 
   // ─── Mutations ──────────────────────────────────────────────
@@ -1015,12 +660,22 @@ export default function CotizacionEditor() {
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
+  const convertir = useMutation({
+    mutationFn: () => api.post(`/cotizaciones/${id}/convertir`),
+    onSuccess: (res) => {
+      message.success('¡Venta creada exitosamente!')
+      qc.invalidateQueries({ queryKey: ['cotizacion', id] })
+      navigate(`/ventas/${res.data.id}`)
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error al convertir')
+  })
+
   if (cargando) return <div style={{ textAlign: 'center', padding: 60 }}><Spin /></div>
 
   const estado = cotizacion?.estado || 'BORRADOR'
   const soloLectura = ['ACEPTADA', 'RECHAZADA'].includes(estado)
   const unidadesBloqueadas = !esNueva // una vez guardada, las unidades no se pueden modificar
-  const puedeConvertir = !esNueva && cotizacion && items.length > 0 && estado !== 'RECHAZADA' && estado !== 'ACEPTADA'
+  const puedeConvertir = !soloLectura && cotizacion && !cotizacion.ventaOrigen && (cotizacion.items?.length || 0) > 0
 
   const ESTADO_COLOR = { BORRADOR: 'default', ENVIADA: 'blue', ACEPTADA: 'green', RECHAZADA: 'red' }
   const ESTADO_LABEL = { BORRADOR: 'Borrador', ENVIADA: 'Enviada', ACEPTADA: 'Aceptada', RECHAZADA: 'Rechazada' }
@@ -1051,13 +706,21 @@ export default function CotizacionEditor() {
             </Button>
           )}
           {puedeConvertir && (
-            <Button
-              type="primary"
-              icon={<ShoppingOutlined />}
-              onClick={() => setModalVenta(true)}
+            <Popconfirm
+              title="Convertir cotización a venta"
+              description={`¿Confirmas la conversión? Se creará la venta con precio final ${(cotizacion?.precioFinalUF || 0).toFixed(2)} UF.`}
+              onConfirm={() => convertir.mutate()}
+              okText="Sí, convertir"
+              cancelText="Cancelar"
             >
-              Crear Venta
-            </Button>
+              <Button
+                type="primary"
+                icon={<ShoppingOutlined />}
+                loading={convertir.isPending}
+              >
+                Convertir a Venta
+              </Button>
+            </Popconfirm>
           )}
           {cotizacion?.lead?.ventas?.map(v => (
             <Button
@@ -1186,15 +849,22 @@ export default function CotizacionEditor() {
         <Col xs={24} lg={10}>
           <Space direction="vertical" style={{ width: '100%' }} size={12}>
 
-            <ResumenPrecio items={items} promos={promos} descuentoAprobadoUF={cotizacion?.descuentoAprobadoUF} />
+            <ResumenPrecio cotizacion={cotizacion} />
 
-            <PanelPromociones
-              items={items}
-              promos={promos}
-              onToggle={togglePromo}
-              onAddPromo={agregarPromo}
-              onRemovePromo={quitarPromo}
-            />
+            {!esNueva && (
+              <>
+                <PanelPacks
+                  cotizacionId={Number(id)}
+                  packs={cotizacion?.packs || []}
+                  soloLectura={soloLectura}
+                />
+                <PanelBeneficios
+                  cotizacionId={Number(id)}
+                  beneficios={cotizacion?.beneficios || []}
+                  soloLectura={soloLectura}
+                />
+              </>
+            )}
 
             {/* Validez y notas */}
             <Card title="Detalles" size="small">
@@ -1227,15 +897,6 @@ export default function CotizacionEditor() {
           </Space>
         </Col>
       </Row>
-
-      {cotizacion && (
-        <ModalConvertirVenta
-          open={modalVenta}
-          onClose={() => setModalVenta(false)}
-          cotizacion={cotizacion}
-          resumen={resumen}
-        />
-      )}
 
       {cotizacion?.lead?.contacto?.email && (
         <ModalEmail
