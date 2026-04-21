@@ -54,7 +54,7 @@ function SidebarContent({ selectedKey, onNavigate }) {
     {
       label: 'Gestión',
       items: [
-        { key: '/promociones', label: 'Promociones',  icon: <TagOutlined />,        roles: null,                     modulo: 'promociones',    badge: undefined },
+        { key: '/configuracion/packs-beneficios', label: 'Packs y Beneficios', icon: <TagOutlined />, roles: ['GERENTE','JEFE_VENTAS'], modulo: 'packs-beneficios' },
         { key: '/descuentos',  label: 'Descuentos',   icon: <PercentageOutlined />, roles: null,                     modulo: 'descuentos',     badge: nPendientes },
         { key: '/arriendos',   label: 'Arriendos',    icon: <CarOutlined />,        roles: ['GERENTE','JEFE_VENTAS'], modulo: 'arriendos' },
         { key: '/llaves',      label: 'Llaves',       icon: <KeyOutlined />,        roles: ['GERENTE','JEFE_VENTAS'], modulo: 'llaves' },
