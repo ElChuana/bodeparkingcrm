@@ -120,23 +120,6 @@ enum TipoCuota {
   ESCRITURA
 }
 
-enum TipoPromocion {
-  PAQUETE
-  BENEFICIO
-  DESCUENTO_PORCENTAJE
-  DESCUENTO_UF
-  ARRIENDO_ASEGURADO
-  GASTOS_NOTARIALES
-  CUOTAS_SIN_INTERES
-  COMBO
-  OTRO
-}
-
-enum CategoriaPromocion {
-  PROMOCION
-  PACK
-}
-
 enum EstadoCotizacion {
   BORRADOR
   ENVIADA
@@ -184,6 +167,25 @@ enum TipoAlerta {
   DESCUENTO_PENDIENTE
   LEAD_ETAPA_CAMBIO
   LEAD_NUEVO
+}
+
+enum TipoPack {
+  COMBO_ESPECIFICO
+  POR_CANTIDAD
+}
+
+enum TipoBeneficio {
+  ARRIENDO_ASEGURADO
+  GASTOS_NOTARIALES
+  CUOTAS_SIN_INTERES
+  OTRO
+}
+
+enum EstadoBeneficio {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADO
+  CANCELADO
 }
 
 // ─── MODELOS ──────────────────────────────────────────────────
@@ -273,8 +275,9 @@ model Unidad {
   llaves                Llave[]
   leads                 Lead[]
   arriendos             Arriendo[]
-  promociones           UnidadPromocion[]
   cotizacionItems       CotizacionItem[]
+  packs                 UnidadPack[]
+  beneficios            UnidadBeneficio[]
 
   @@map("unidades")
 }
@@ -381,9 +384,13 @@ model Venta {
   vendedorId            Int?
   brokerId              Int?
   gerenteId             Int?
-  cotizacionOrigenId    Int?      @unique
-  precioUF              Float
-  descuentoUF           Float?      @default(0)
+  cotizacionOrigenId    Int         @unique
+
+  precioListaUF         Float
+  descuentoPacksUF      Float       @default(0)
+  descuentoAprobadoUF   Float       @default(0)
+  precioFinalUF         Float
+
   estado                EstadoVenta @default(RESERVA)
   fechaReserva          DateTime?
   fechaPromesa          DateTime?
@@ -399,11 +406,11 @@ model Venta {
   vendedor              Usuario?    @relation("VendedorVenta", fields: [vendedorId], references: [id])
   broker                Usuario?    @relation("BrokerVenta", fields: [brokerId], references: [id])
   gerente               Usuario?    @relation("GerenteVenta", fields: [gerenteId], references: [id])
-  cotizacionOrigen      Cotizacion? @relation(fields: [cotizacionOrigenId], references: [id])
+  cotizacionOrigen      Cotizacion  @relation(fields: [cotizacionOrigenId], references: [id])
   planPago              PlanPago?
   procesoLegal          ProcesoLegal?
   comisiones            Comision[]
-  promociones           VentaPromocion[]
+  beneficios            VentaBeneficio[]
   postventa             Postventa[]
 
   @@map("ventas")
@@ -505,90 +512,22 @@ model Comision {
   @@map("comisiones")
 }
 
-model Promocion {
-  id                    Int           @id @default(autoincrement())
-  nombre                String
-  descripcion           String?
-  detalle               String?
-  tipo                  TipoPromocion
-  categoria             CategoriaPromocion @default(PROMOCION)
-  valorPorcentaje       Float?
-  valorUF               Float?
-  minUnidades           Int?
-  mesesArriendo         Int?
-  montoMensualUF        Float?
-  cuotasSinInteres      Int?
-  fechaInicio           DateTime?
-  fechaFin              DateTime?
-  activa                Boolean       @default(true)
-  creadoEn              DateTime      @default(now())
-  actualizadoEn         DateTime      @updatedAt
-
-  unidades              UnidadPromocion[]
-  ventas                VentaPromocion[]
-  cotizaciones          CotizacionPromocion[]
-
-  @@map("promociones")
-}
-
-model UnidadPromocion {
-  unidadId              Int
-  promocionId           Int
-  asignadoEn            DateTime  @default(now())
-
-  unidad                Unidad    @relation(fields: [unidadId], references: [id])
-  promocion             Promocion @relation(fields: [promocionId], references: [id])
-
-  @@id([unidadId, promocionId])
-  @@map("unidades_promociones")
-}
-
-model VentaPromocion {
-  id                          Int       @id @default(autoincrement())
-  ventaId                     Int
-  promocionId                 Int
-  gastosNotarialesPagados     Boolean?  @default(false)
-  gastosMonto                 Float?
-
-  venta                       Venta     @relation(fields: [ventaId], references: [id])
-  promocion                   Promocion @relation(fields: [promocionId], references: [id])
-  pagosArriendoAsegurado      PagoArriendoAsegurado[]
-
-  @@unique([ventaId, promocionId])
-  @@map("ventas_promociones")
-}
-
-model PagoArriendoAsegurado {
-  id                    Int            @id @default(autoincrement())
-  ventaPromocionId      Int
-  mes                   Int
-  montoUF               Float
-  estado                EstadoPago     @default(PENDIENTE)
-  fechaPago             DateTime?
-  comprobante           String?
-  creadoEn              DateTime       @default(now())
-
-  ventaPromocion        VentaPromocion @relation(fields: [ventaPromocionId], references: [id])
-
-  @@map("pagos_arriendo_asegurado")
-}
-
 model Cotizacion {
-  id              Int                  @id @default(autoincrement())
-  leadId          Int
-  creadoPorId     Int
-  estado          EstadoCotizacion     @default(BORRADOR)
-  validezDias     Int                  @default(30)
-  notas           String?
-  creadoEn        DateTime             @default(now())
-  actualizadoEn   DateTime             @updatedAt
-
-  descuentoAprobadoUF   Float?
+  id                    Int                  @id @default(autoincrement())
+  leadId                Int
+  creadoPorId           Int
+  estado                EstadoCotizacion     @default(BORRADOR)
+  validezDias           Int                  @default(30)
+  descuentoAprobadoUF   Float                @default(0)
+  notas                 String?
+  creadoEn              DateTime             @default(now())
+  actualizadoEn         DateTime             @updatedAt
 
   lead                  Lead                 @relation(fields: [leadId], references: [id])
   creadoPor             Usuario              @relation(fields: [creadoPorId], references: [id])
   items                 CotizacionItem[]
-  promociones           CotizacionPromocion[]
+  packs                 CotizacionPack[]
+  beneficios            CotizacionBeneficio[]
   solicitudesDescuento  SolicitudDescuento[]
   ventaOrigen           Venta?
 
@@ -596,30 +535,112 @@ model Cotizacion {
 }
 
 model CotizacionItem {
-  id              Int         @id @default(autoincrement())
-  cotizacionId    Int
-  unidadId        Int
-  precioListaUF   Float
-  descuentoUF     Float       @default(0)
+  id             Int        @id @default(autoincrement())
+  cotizacionId   Int
+  unidadId       Int
+  precioListaUF  Float
 
-  cotizacion      Cotizacion  @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
-  unidad          Unidad      @relation(fields: [unidadId], references: [id])
+  cotizacion     Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  unidad         Unidad     @relation(fields: [unidadId], references: [id])
 
   @@map("cotizacion_items")
 }
 
-model CotizacionPromocion {
-  id              Int         @id @default(autoincrement())
-  cotizacionId    Int
-  promocionId     Int
-  aplicada        Boolean     @default(true)
-  ahorroUF        Float       @default(0)
+model Pack {
+  id           Int       @id @default(autoincrement())
+  nombre       String
+  descripcion  String?
+  tipo         TipoPack
+  descuentoUF  Float
+  minUnidades  Int       @default(2)
+  fechaInicio  DateTime?
+  fechaFin     DateTime?
+  activa       Boolean   @default(true)
+  creadoEn     DateTime  @default(now())
 
-  cotizacion      Cotizacion  @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
-  promocion       Promocion   @relation(fields: [promocionId], references: [id])
+  unidades     UnidadPack[]
+  cotizaciones CotizacionPack[]
 
-  @@unique([cotizacionId, promocionId])
-  @@map("cotizacion_promociones")
+  @@map("packs")
+}
+
+model UnidadPack {
+  unidadId Int
+  packId   Int
+  unidad   Unidad @relation(fields: [unidadId], references: [id])
+  pack     Pack   @relation(fields: [packId], references: [id])
+
+  @@id([unidadId, packId])
+  @@map("unidades_packs")
+}
+
+model CotizacionPack {
+  id                  Int        @id @default(autoincrement())
+  cotizacionId        Int
+  packId              Int
+  descuentoAplicadoUF Float
+
+  cotizacion          Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  pack                Pack       @relation(fields: [packId], references: [id])
+
+  @@unique([cotizacionId, packId])
+  @@map("cotizacion_packs")
+}
+
+model Beneficio {
+  id             Int           @id @default(autoincrement())
+  nombre         String
+  descripcion    String?
+  tipo           TipoBeneficio
+  meses          Int?
+  montoMensualUF Float?
+  detalle        String?
+  fechaInicio    DateTime?
+  fechaFin       DateTime?
+  activa         Boolean       @default(true)
+  creadoEn       DateTime      @default(now())
+
+  unidades     UnidadBeneficio[]
+  cotizaciones CotizacionBeneficio[]
+  ventas       VentaBeneficio[]
+
+  @@map("beneficios")
+}
+
+model UnidadBeneficio {
+  unidadId    Int
+  beneficioId Int
+  unidad      Unidad    @relation(fields: [unidadId], references: [id])
+  beneficio   Beneficio @relation(fields: [beneficioId], references: [id])
+
+  @@id([unidadId, beneficioId])
+  @@map("unidades_beneficios")
+}
+
+model CotizacionBeneficio {
+  cotizacionId Int
+  beneficioId  Int
+
+  cotizacion   Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  beneficio    Beneficio  @relation(fields: [beneficioId], references: [id])
+
+  @@id([cotizacionId, beneficioId])
+  @@map("cotizacion_beneficios")
+}
+
+model VentaBeneficio {
+  id          Int             @id @default(autoincrement())
+  ventaId     Int
+  beneficioId Int
+  estado      EstadoBeneficio @default(PENDIENTE)
+  notas       String?
+  creadoEn    DateTime        @default(now())
+
+  venta       Venta     @relation(fields: [ventaId], references: [id])
+  beneficio   Beneficio @relation(fields: [beneficioId], references: [id])
+
+  @@unique([ventaId, beneficioId])
+  @@map("ventas_beneficios")
 }
 
 model Arriendo {
@@ -764,7 +785,7 @@ model SolicitudDescuento {
   cotizacionId    Int
   solicitadoPorId Int
   revisadoPorId   Int?
-  tipo            String                   // 'UF' | 'PORCENTAJE'
+  tipo            String
   valor           Float
   motivo          String
   estado          EstadoSolicitudDescuento @default(PENDIENTE)
