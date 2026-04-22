@@ -2,28 +2,10 @@ const express = require('express')
 const router = express.Router()
 const crypto = require('crypto')
 const prisma = require('../lib/prisma')
+const { mismoNombre: _mismoNombre } = require('../lib/deduplication')
 
-// ─── Similitud de nombres (Levenshtein normalizado) ───────────────
-function normalizarNombre(s) {
-  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, '').trim()
-}
-function levenshtein(a, b) {
-  const m = a.length, n = b.length
-  const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0))
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
-  return dp[m][n]
-}
-function mismoNombre(n1, a1, n2, a2) {
-  const s1 = normalizarNombre(`${n1} ${a1}`)
-  const s2 = normalizarNombre(`${n2} ${a2}`)
-  if (!s1 || !s2) return true // si falta nombre, no bloqueamos
-  const maxLen = Math.max(s1.length, s2.length)
-  if (maxLen === 0) return true
-  const similitud = 1 - levenshtein(s1, s2) / maxLen
-  return similitud >= 0.6
-}
+// Wrapper para compatibilidad: public.js llama con (nombre, apellido, nombre2, apellido2)
+const mismoNombre = (n1, a1, n2, a2) => _mismoNombre(`${n1} ${a1}`, `${n2} ${a2}`)
 
 // ─── Middleware: autenticar por API Key ───────────────────────────
 async function autenticarApiKey(req, res, next) {

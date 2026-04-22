@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { notificarLead } = require('../lib/notifications')
 
 // Búsqueda por nombre, apellido, email o teléfono (case-insensitive)
 const buscarContactoIds = async (search) => {
@@ -26,37 +27,6 @@ const ETAPA_LABEL = {
   VISITA_REALIZADA: 'Visita realizada', SEGUIMIENTO_POST_VISITA: 'Seguimiento post visita',
   NEGOCIACION: 'Negociación', RESERVA: 'Reserva', PROMESA: 'Promesa',
   ESCRITURA: 'Escritura', ENTREGA: 'Entrega', POSTVENTA: 'Postventa', PERDIDO: 'Perdido'
-}
-
-async function notificarLead({ leadId, mensaje, tipo, excluirUsuarioId }) {
-  try {
-    const destinatarios = await prisma.usuario.findMany({
-      where: {
-        notificacionesActivas: true,
-        activo: true,
-        OR: [
-          { rol: 'GERENTE' },
-          { rol: 'JEFE_VENTAS' },
-          { leadsAsignados: { some: { id: leadId } } }
-        ],
-        ...(excluirUsuarioId ? { id: { not: excluirUsuarioId } } : {})
-      },
-      select: { id: true }
-    })
-    if (!destinatarios.length) return
-    await prisma.notificacion.createMany({
-      data: destinatarios.map(u => ({
-        usuarioId: u.id,
-        tipo,
-        mensaje,
-        referenciaId: leadId,
-        referenciaTipo: 'lead'
-      })),
-      skipDuplicates: true
-    })
-  } catch (err) {
-    console.error(`[notificarLead lead=${leadId}]`, err.message)
-  }
 }
 
 // Filtro de acceso según rol
