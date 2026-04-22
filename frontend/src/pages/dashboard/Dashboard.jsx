@@ -108,7 +108,7 @@ function TablaVentas({ ventas }) {
   const navigate = useNavigate()
   const { ufAPesos, formatPesos } = useUF()
 
-  const totalUF = ventas.reduce((s, v) => s + (v.precioUF - (v.descuentoUF || 0)), 0)
+  const totalUF = ventas.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
 
   const columns = [
     {
@@ -135,7 +135,7 @@ function TablaVentas({ ventas }) {
     {
       title: 'Valor UF', key: 'uf', width: 100, align: 'right',
       render: (_, v) => {
-        const precio = v.precioUF - (v.descuentoUF || 0)
+        const precio = v.precioFinalUF || 0
         return (
           <Text strong style={{ fontSize: 12 }}>
             {precio.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF
@@ -146,7 +146,7 @@ function TablaVentas({ ventas }) {
     {
       title: 'Valor CLP', key: 'clp', width: 130, align: 'right',
       render: (_, v) => {
-        const precio = v.precioUF - (v.descuentoUF || 0)
+        const precio = v.precioFinalUF || 0
         const clp = ufAPesos(precio)
         return clp
           ? <Text style={{ fontSize: 12 }}>{formatPesos(clp)}</Text>
@@ -162,7 +162,7 @@ function TablaVentas({ ventas }) {
     {
       title: 'Múltiplo', key: 'multiplo', width: 85, align: 'center',
       render: (_, v) => {
-        const precio = v.precioUF - (v.descuentoUF || 0)
+        const precio = v.precioFinalUF || 0
         const costo  = v.unidades?.[0]?.precioCostoUF
         if (!costo || !precio) return <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
         const m = precio / costo
@@ -730,6 +730,12 @@ export default function Dashboard() {
       color: '#7c3aed',
     },
     {
+      label: 'Unidades vendidas',
+      value: kpis?.unidadesVendidas ?? 0,
+      diff: (kpis?.unidadesVendidas != null && kpis?.unidadesVendidasAnterior != null) ? (kpis.unidadesVendidas - kpis.unidadesVendidasAnterior) : null,
+      color: '#0891b2',
+    },
+    {
       label: 'Monto vendido',
       value: `${(kpis?.montoUF ?? 0).toLocaleString('es-CL', { minimumFractionDigits: 1 })} UF`,
       subValue: kpis?.montoUF && valorUF ? formatPesos(ufAPesos(kpis.montoUF)) : null,
@@ -774,7 +780,7 @@ export default function Dashboard() {
       </div>
 
       {/* 3 KPI cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 16 }}>
         {KPI_CARDS.map((k, i) => (
           <div key={i} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, borderTop: `3px solid ${k.color}` }}>
             <div style={{ fontSize: 9, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 6 }}>

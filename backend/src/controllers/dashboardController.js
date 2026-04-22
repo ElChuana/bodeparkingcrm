@@ -69,6 +69,8 @@ const obtener = async (req, res) => {
       escriturados,
       // Notificaciones
       notificacionesSinLeer,
+      // Unidades vendidas período anterior
+      unidadesVendidasAnt,
       // Visitas del período
       visitasDelPeriodo,
       // Visitas próximas
@@ -82,7 +84,7 @@ const obtener = async (req, res) => {
         where: { ...filtroReserva, estado: { not: 'ANULADO' } },
         orderBy: { fechaReserva: 'desc' },
         select: {
-          id: true, estado: true, precioUF: true, descuentoUF: true,
+          id: true, estado: true, precioFinalUF: true,
           fechaReserva: true,
           comprador: { select: { nombre: true, apellido: true } },
           vendedor:  { select: { nombre: true, apellido: true } },
@@ -208,6 +210,11 @@ const obtener = async (req, res) => {
         }
       }),
 
+      // Unidades vendidas período anterior
+      desdeAnt ? prisma.unidad.count({
+        where: { ventaId: { not: null }, venta: { ...filtroReservaAnt, estado: { not: 'ANULADO' } } }
+      }) : Promise.resolve(0),
+
       // Visitas próximas (después de ahora, máx 10)
       prisma.visita.findMany({
         where: { fechaHora: { gt: new Date() } },
@@ -262,7 +269,8 @@ const obtener = async (req, res) => {
     }))
 
     // KPIs
-    const montoUF = ventasRecientes.reduce((s, v) => s + (v.precioUF || 0), 0)
+    const montoUF = ventasRecientes.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
+    const unidadesVendidas = ventasRecientes.reduce((s, v) => s + (v.unidades?.length || 0), 0)
     const montoUFAnt = 0
     const ventasAntCount = ventasAnt
 
@@ -304,6 +312,8 @@ const obtener = async (req, res) => {
         leadsIngresadosAnterior: leadsIngresadosAnt,
         ventas: ventasRecientes.length,
         ventasAnterior: ventasAntCount,
+        unidadesVendidas,
+        unidadesVendidasAnterior: unidadesVendidasAnt,
         montoUF: +montoUF.toFixed(2),
         montoUFAnterior: montoUFAnt,
       },
