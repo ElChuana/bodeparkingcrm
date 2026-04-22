@@ -9,12 +9,13 @@ import { useAuth } from '../../context/AuthContext'
 import { ETAPA_COLOR, ETAPA_LABEL } from '../../components/ui'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
-  Space, Spin, Row, Col, Timeline, Descriptions, App
+  Space, Spin, Row, Col, Timeline, Descriptions, App, DatePicker
 } from 'antd'
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
   EditOutlined, ArrowRightOutlined, ShoppingOutlined, UserOutlined,
-  FileTextOutlined, PlusOutlined, DeleteOutlined, RobotOutlined, ExpandOutlined
+  FileTextOutlined, PlusOutlined, DeleteOutlined, RobotOutlined,
+  ExpandOutlined, BellOutlined, CheckOutlined
 } from '@ant-design/icons'
 
 const { Title, Text } = Typography
@@ -455,6 +456,114 @@ function ModalEditarLead({ open, onClose, lead }) {
   )
 }
 
+// ─── Recordatorios ────────────────────────────────────────────────
+function SeccionRecordatorios({ leadId, vendedorId }) {
+  const { usuario } = useAuth()
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [descripcion, setDescripcion] = useState('')
+  const [fechaHora, setFechaHora] = useState(null)
+
+  const tieneAcceso = ['GERENTE', 'JEFE_VENTAS'].includes(usuario?.rol) || usuario?.id === vendedorId
+  if (!tieneAcceso) return null
+
+  const { data: recordatorios = [], isLoading } = useQuery({
+    queryKey: ['recordatorios', leadId],
+    queryFn: () => api.get(`/leads/${leadId}/recordatorios`).then(r => r.data)
+  })
+
+  const crear = useMutation({
+    mutationFn: () => api.post(`/leads/${leadId}/recordatorios`, {
+      descripcion,
+      fechaHora: fechaHora?.toISOString()
+    }),
+    onSuccess: () => {
+      message.success('Recordatorio creado')
+      setDescripcion('')
+      setFechaHora(null)
+      qc.invalidateQueries({ queryKey: ['recordatorios', leadId] })
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const completar = useMutation({
+    mutationFn: (id) => api.patch(`/recordatorios/${id}/completar`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recordatorios', leadId] }),
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const ahora = new Date()
+  const badgeColor = (r) => r.completado ? 'green' : new Date(r.fechaHora) < ahora ? 'red' : 'orange'
+  const badgeLabel = (r) => r.completado ? 'Completado' : new Date(r.fechaHora) < ahora ? 'Vencido' : 'Pendiente'
+
+  return (
+    <Card title={<Space><BellOutlined /> Recordatorios</Space>} size="small" style={{ marginTop: 16 }}>
+      {isLoading ? <Spin size="small" /> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+          {recordatorios.length === 0 && (
+            <Text type="secondary" style={{ fontSize: 12 }}>Sin recordatorios</Text>
+          )}
+          {recordatorios.map(r => (
+            <div key={r.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '8px 10px', borderRadius: 6,
+              background: r.completado ? '#f6ffed' : new Date(r.fechaHora) < ahora ? '#fff2f0' : '#fffbe6',
+              border: `1px solid ${r.completado ? '#b7eb8f' : new Date(r.fechaHora) < ahora ? '#ffccc7' : '#ffe58f'}`
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#1e293b' }}>{r.descripcion}</div>
+                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                  {format(new Date(r.fechaHora), "d MMM yyyy 'a las' HH:mm", { locale: es })}
+                  {' · '}{r.creadoPor?.nombre}
+                </div>
+              </div>
+              <Tag color={badgeColor(r)} style={{ fontSize: 10 }}>{badgeLabel(r)}</Tag>
+              {!r.completado && (
+                <Button
+                  size="small"
+                  icon={<CheckOutlined />}
+                  onClick={() => completar.mutate(r.id)}
+                  loading={completar.isPending}
+                >
+                  Completar
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Input
+          placeholder="Descripción del recordatorio..."
+          value={descripcion}
+          onChange={e => setDescripcion(e.target.value)}
+          style={{ flex: 1, minWidth: 180 }}
+          size="small"
+        />
+        <DatePicker
+          showTime={{ format: 'HH:mm' }}
+          format="DD/MM/YYYY HH:mm"
+          placeholder="Fecha y hora"
+          value={fechaHora}
+          onChange={setFechaHora}
+          size="small"
+          style={{ width: 180 }}
+        />
+        <Button
+          type="primary"
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={() => crear.mutate()}
+          loading={crear.isPending}
+          disabled={!descripcion.trim() || !fechaHora}
+        >
+          Agregar
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
 // ─── Página principal ──────────────────────────────────────────────
 export default function LeadDetalle() {
   const { id } = useParams()
@@ -822,6 +931,8 @@ export default function LeadDetalle() {
           </Space>
         </Col>
       </Row>
+
+      <SeccionRecordatorios leadId={Number(id)} vendedorId={lead.vendedorId} />
 
       <ModalEmail
         open={modalEmail}
