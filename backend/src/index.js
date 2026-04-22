@@ -42,6 +42,8 @@ app.use('/api/public',      require('./routes/public'))
 app.use('/api/buscar',      require('./routes/buscar'))
 app.use('/api/descuentos',  require('./routes/descuentos'))
 app.use('/api/email',       require('./routes/email'))
+app.use('/api/leads/:id/recordatorios', require('./routes/recordatorios'))
+app.use('/api/recordatorios',           require('./routes/recordatorios-completar'))
 
 
 // Health check
@@ -90,6 +92,43 @@ async function actualizarUF() {
 
 // Ejecutar cada día a las 09:00 AM (hora del servidor)
 cron.schedule('0 9 * * *', actualizarUF)
+
+// ─── Cron: recordatorios vencidos → notificación ──────────────────
+cron.schedule('*/15 * * * *', async () => {
+  try {
+    const pendientes = await prisma.recordatorio.findMany({
+      where: { fechaHora: { lte: new Date() }, completado: false, notificado: false },
+      include: {
+        lead: {
+          select: {
+            id: true,
+            vendedorId: true,
+            contacto: { select: { nombre: true, apellido: true } }
+          }
+        }
+      }
+    })
+    for (const r of pendientes) {
+      if (r.lead.vendedorId) {
+        await prisma.notificacion.create({
+          data: {
+            usuarioId:      r.lead.vendedorId,
+            tipo:           'RECORDATORIO_LEAD',
+            mensaje:        `Recordatorio: ${r.descripcion} — ${r.lead.contacto.nombre} ${r.lead.contacto.apellido}`,
+            referenciaId:   r.leadId,
+            referenciaTipo: 'lead'
+          }
+        })
+      }
+      await prisma.recordatorio.update({ where: { id: r.id }, data: { notificado: true } })
+    }
+    if (pendientes.length > 0) {
+      console.log(`[Recordatorios] ${pendientes.length} procesados`)
+    }
+  } catch (err) {
+    console.error('[Recordatorios] Error en cron:', err.message)
+  }
+})
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
