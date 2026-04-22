@@ -24,7 +24,7 @@ function agruparPorSemana(ventasPeriodo, todasVentas, desde, hasta) {
   return semanas.map(s => {
     const vendidoUF = ventasPeriodo
       .filter(v => v.fechaReserva && new Date(v.fechaReserva) >= s.desde && new Date(v.fechaReserva) < s.hasta)
-      .reduce((sum, v) => sum + (v.precioUF || 0), 0)
+      .reduce((sum, v) => sum + (v.precioFinalUF || 0), 0)
     const recolectadoUF = todasVentas
       .flatMap(v => v.planPago?.cuotas || [])
       .filter(c => c.estado === 'PAGADO' && c.fechaPagoReal && new Date(c.fechaPagoReal) >= s.desde && new Date(c.fechaPagoReal) < s.hasta)
@@ -181,14 +181,14 @@ const obtener = async (req, res) => {
         where: { ...filtroLead, etapa: { in: ['VISITA_AGENDADA','VISITA_REALIZADA','SEGUIMIENTO_POST_VISITA','NEGOCIACION','RESERVA','PROMESA','ESCRITURA','ENTREGA','POSTVENTA'] } }
       }),
 
-      // Embudo: reservas
-      prisma.venta.count({ where: { ...filtroReserva, estado: { not: 'ANULADO' } } }),
+      // Embudo: reservas (leads en etapa RESERVA o superior)
+      prisma.lead.count({
+        where: { ...filtroLead, etapa: { in: ['RESERVA','PROMESA','ESCRITURA','ENTREGA','POSTVENTA'] } }
+      }),
 
-      // Embudo: escriturados
-      prisma.venta.count({
-        where: hayFecha
-          ? { ...filtroEscritura, estado: { not: 'ANULADO' } }
-          : { fechaEscritura: { not: null }, estado: { not: 'ANULADO' } }
+      // Embudo: escriturados (leads en etapa ESCRITURA o superior)
+      prisma.lead.count({
+        where: { ...filtroLead, etapa: { in: ['ESCRITURA','ENTREGA','POSTVENTA'] } }
       }),
 
       // Notificaciones sin leer
