@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import dayjs from 'dayjs'
 import ModalEmail from '../../components/ModalEmail'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -352,7 +353,7 @@ function CotizacionesLead({ leadId }) {
   )
 }
 
-// ─── Modal editar contacto (nombre, telefono, email, empresa) ─────
+// ─── Modal editar contacto ─────────────────────────────────────────
 function ModalEditarContacto({ open, onClose, lead }) {
   const qc = useQueryClient()
   const [form] = Form.useForm()
@@ -368,41 +369,116 @@ function ModalEditarContacto({ open, onClose, lead }) {
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
+  const c = lead?.contacto
   return (
     <Modal
       title="Editar contacto"
       open={open}
       onCancel={onClose}
-      onOk={() => form.validateFields().then(editar.mutate)}
+      onOk={() => form.validateFields().then(vals => editar.mutate({
+        ...vals,
+        fechaNacimiento: vals.fechaNacimiento ? vals.fechaNacimiento.toISOString() : null,
+      }))}
       okText="Guardar"
       cancelText="Cancelar"
       confirmLoading={editar.isPending}
+      width={600}
       afterOpenChange={(o) => {
-        if (o) form.setFieldsValue({
-          nombre: lead?.contacto.nombre,
-          apellido: lead?.contacto.apellido,
-          telefono: lead?.contacto.telefono || '',
-          email: lead?.contacto.email || '',
-          empresa: lead?.contacto.empresa || '',
+        if (o && c) form.setFieldsValue({
+          nombre: c.nombre,
+          apellido: c.apellido,
+          rut: c.rut || '',
+          telefono: c.telefono || '',
+          email: c.email || '',
+          empresa: c.empresa || '',
+          fechaNacimiento: c.fechaNacimiento ? dayjs(c.fechaNacimiento) : null,
+          ciudadNacimiento: c.ciudadNacimiento || '',
+          estadoCivil: c.estadoCivil || '',
+          profesion: c.profesion || '',
+          nacionalidad: c.nacionalidad || '',
+          regimenMatrimonial: c.regimenMatrimonial || '',
+          direccionParticular: c.direccionParticular || '',
         })
       }}
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-        <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
-          <Input />
-        </Form.Item>
-        <Form.Item name="apellido" label="Apellido">
-          <Input />
-        </Form.Item>
-        <Form.Item name="telefono" label="Teléfono">
-          <Input />
-        </Form.Item>
-        <Form.Item name="email" label="Email">
-          <Input type="email" />
-        </Form.Item>
-        <Form.Item name="empresa" label="Empresa">
-          <Input />
-        </Form.Item>
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="apellido" label="Apellido">
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="rut" label="RUT">
+              <Input placeholder="12.345.678-9" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="telefono" label="Teléfono">
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="email" label="Email">
+              <Input type="email" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="empresa" label="Empresa">
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="fechaNacimiento" label="Fecha de nacimiento">
+              <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="ciudadNacimiento" label="Ciudad de nacimiento">
+              <Input placeholder="Ej: Santiago, Chile" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="estadoCivil" label="Estado civil">
+              <Select allowClear options={[
+                { value: 'Soltero/a', label: 'Soltero/a' },
+                { value: 'Casado/a', label: 'Casado/a' },
+                { value: 'Divorciado/a', label: 'Divorciado/a' },
+                { value: 'Viudo/a', label: 'Viudo/a' },
+                { value: 'Conviviente civil', label: 'Conviviente civil' },
+              ]} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="regimenMatrimonial" label="Régimen matrimonial">
+              <Select allowClear options={[
+                { value: 'Sociedad conyugal', label: 'Sociedad conyugal' },
+                { value: 'Separación Total de Bienes', label: 'Separación Total de Bienes' },
+                { value: 'Participación en los gananciales', label: 'Participación en los gananciales' },
+              ]} />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="profesion" label="Profesión">
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="nacionalidad" label="Nacionalidad">
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item name="direccionParticular" label="Dirección particular">
+              <Input placeholder="Ej: Radal 1225, Quinta Normal. Depto 908" />
+            </Form.Item>
+          </Col>
+        </Row>
       </Form>
     </Modal>
   )
@@ -742,7 +818,7 @@ export default function LeadDetalle() {
               title={<><UserOutlined /> Contacto</>}
               extra={<Button type="text" size="small" icon={<EditOutlined />} onClick={() => setModalEditarContacto(true)} />}
             >
-              <Space direction="vertical" size={4}>
+              <Space direction="vertical" size={4} style={{ width: '100%' }}>
                 {lead.contacto.telefono && (
                   <a href={`tel:${lead.contacto.telefono}`}>
                     <Space><PhoneOutlined /><Text style={{ fontSize: 13 }}>{lead.contacto.telefono}</Text></Space>
@@ -755,8 +831,15 @@ export default function LeadDetalle() {
                     <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setModalEmail(true)}>Enviar</Button>
                   </Space>
                 )}
-                {lead.contacto.empresa && <Text type="secondary" style={{ fontSize: 13 }}>🏢 {lead.contacto.empresa}</Text>}
                 {lead.contacto.rut && <Text type="secondary" style={{ fontSize: 13 }}>RUT: {lead.contacto.rut}</Text>}
+                {lead.contacto.empresa && <Text type="secondary" style={{ fontSize: 13 }}>🏢 {lead.contacto.empresa}</Text>}
+                {lead.contacto.fechaNacimiento && <Text type="secondary" style={{ fontSize: 13 }}>📅 {format(new Date(lead.contacto.fechaNacimiento), 'dd/MM/yyyy')}</Text>}
+                {lead.contacto.ciudadNacimiento && <Text type="secondary" style={{ fontSize: 13 }}>🌍 {lead.contacto.ciudadNacimiento}</Text>}
+                {lead.contacto.estadoCivil && <Text type="secondary" style={{ fontSize: 13 }}>💍 {lead.contacto.estadoCivil}</Text>}
+                {lead.contacto.regimenMatrimonial && <Text type="secondary" style={{ fontSize: 13 }}>📄 {lead.contacto.regimenMatrimonial}</Text>}
+                {lead.contacto.profesion && <Text type="secondary" style={{ fontSize: 13 }}>💼 {lead.contacto.profesion}</Text>}
+                {lead.contacto.nacionalidad && <Text type="secondary" style={{ fontSize: 13 }}>🏳️ {lead.contacto.nacionalidad}</Text>}
+                {lead.contacto.direccionParticular && <Text type="secondary" style={{ fontSize: 13 }}>📍 {lead.contacto.direccionParticular}</Text>}
               </Space>
             </Card>
 

@@ -308,6 +308,13 @@ model Contacto {
   tipoPersona           TipoPersona @default(NATURAL)
   origen                OrigenLead  @default(OTRO)
   notas                 String?
+  fechaNacimiento       DateTime?
+  ciudadNacimiento      String?
+  estadoCivil           String?
+  profesion             String?
+  nacionalidad          String?
+  regimenMatrimonial    String?
+  direccionParticular   String?
   creadoEn              DateTime    @default(now())
   actualizadoEn         DateTime    @updatedAt
 
