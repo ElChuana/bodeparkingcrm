@@ -167,6 +167,7 @@ enum TipoAlerta {
   DESCUENTO_PENDIENTE
   LEAD_ETAPA_CAMBIO
   LEAD_NUEVO
+  RECORDATORIO_LEAD
 }
 
 enum TipoPack {
@@ -226,6 +227,7 @@ model Usuario {
   cotizaciones              Cotizacion[]
   solicitudesHechas         SolicitudDescuento[] @relation("SolicitudesHechas")
   solicitudesRevisadas      SolicitudDescuento[] @relation("SolicitudesRevisadas")
+  recordatoriosCreadosPor   Recordatorio[]       @relation("RecordatoriosCreadosPor")
 
   @@map("usuarios")
 }
@@ -341,6 +343,7 @@ model Lead {
   interacciones         Interaccion[]
   ventas                Venta[]
   cotizaciones          Cotizacion[]
+  recordatorios         Recordatorio[]
 
   @@map("leads")
 }
@@ -798,4 +801,20 @@ model SolicitudDescuento {
   revisadoPor   Usuario?   @relation("SolicitudesRevisadas", fields: [revisadoPorId],   references: [id])
 
   @@map("solicitudes_descuento")
+}
+
+model Recordatorio {
+  id          Int      @id @default(autoincrement())
+  leadId      Int
+  creadoPorId Int
+  descripcion String
+  fechaHora   DateTime
+  completado  Boolean  @default(false)
+  notificado  Boolean  @default(false)
+  creadoEn    DateTime @default(now())
+
+  lead      Lead    @relation(fields: [leadId], references: [id])
+  creadoPor Usuario @relation("RecordatoriosCreadosPor", fields: [creadoPorId], references: [id])
+
+  @@map("recordatorios")
 }
