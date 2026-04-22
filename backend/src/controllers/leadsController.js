@@ -281,12 +281,6 @@ const crear = async (req, res) => {
     })
 
     res.status(201).json(lead)
-    notificarLead({
-      leadId: lead.id,
-      mensaje: `Nuevo lead: ${lead.contacto.nombre} ${lead.contacto.apellido}`,
-      tipo: 'LEAD_NUEVO',
-      excluirUsuarioId: req.usuario.id
-    })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al crear lead.' })
