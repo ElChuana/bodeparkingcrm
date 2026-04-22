@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Input, Tag, Typography, Divider, Spin } from 'antd'
-import { SearchOutlined, TeamOutlined, AppstoreOutlined, ShoppingOutlined, UserOutlined, TagOutlined } from '@ant-design/icons'
+import { Input, Tag, Typography, Spin } from 'antd'
+import { SearchOutlined, TeamOutlined, AppstoreOutlined, ShoppingOutlined, UserOutlined } from '@ant-design/icons'
 import api from '../services/api'
 
 const { Text } = Typography
@@ -15,16 +15,6 @@ const ETAPA_LABEL = {
 }
 const ESTADO_VENTA_COLOR = { RESERVA: 'orange', PROMESA: 'blue', ESCRITURA: 'purple', ENTREGADO: 'green', ANULADO: 'red' }
 const ESTADO_UNIDAD_COLOR = { DISPONIBLE: 'green', RESERVADO: 'orange', VENDIDO: 'red', ARRENDADO: 'blue' }
-const TIPO_PROMO_LABEL = {
-  DESCUENTO_PORCENTAJE: 'Descuento %', DESCUENTO_UF: 'Descuento UF', PAQUETE: 'Pack de unidades',
-  BENEFICIO: 'Beneficio', ARRIENDO_ASEGURADO: 'Arriendo asegurado',
-  GASTOS_NOTARIALES: 'Gastos notariales', CUOTAS_SIN_INTERES: 'Cuotas sin interés', OTRO: 'Otro',
-}
-const TIPO_PROMO_COLOR = {
-  DESCUENTO_PORCENTAJE: 'orange', DESCUENTO_UF: 'gold', PAQUETE: 'blue',
-  BENEFICIO: 'green', ARRIENDO_ASEGURADO: 'purple', GASTOS_NOTARIALES: 'cyan',
-  CUOTAS_SIN_INTERES: 'geekblue', OTRO: 'default',
-}
 
 function GrupoResultados({ icono, titulo, color, items, renderItem }) {
   if (!items?.length) return null
@@ -115,8 +105,7 @@ export default function BuscadorUniversal() {
 
   const hayResultados = resultados && (
     resultados.leads?.length || resultados.unidades?.length ||
-    resultados.ventas?.length || resultados.contactos?.length ||
-    resultados.promociones?.length
+    resultados.ventas?.length || resultados.contactos?.length
   )
 
   const mostrarDropdown = abierto && query.trim().length >= 2
@@ -214,7 +203,7 @@ export default function BuscadorUniversal() {
                     </Text>
                     <div style={{ marginTop: 2 }}>
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        {v.unidad?.edificio?.nombre} — {v.unidad?.numero} · {v.precioUF} UF
+                        {v.unidades?.[0]?.edificio?.nombre}{v.unidades?.length > 0 ? ` — ${v.unidades.map(u => u.numero).join(', ')}` : ''} · {v.precioFinalUF} UF
                       </Text>
                     </div>
                   </div>
@@ -247,35 +236,6 @@ export default function BuscadorUniversal() {
             )}
           />
 
-          {/* ── Promociones y Packs ── */}
-          <GrupoResultados
-            icono={<TagOutlined />} titulo="Packs y Promociones" color="#eb2f96"
-            items={resultados?.promociones}
-            renderItem={(p, i) => (
-              <FilaResultado key={i} onClick={() => ir('/promociones')}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <Text strong style={{ fontSize: 13 }}>{p.nombre}</Text>
-                    <div style={{ marginTop: 2 }}>
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        {p.categoria === 'PACK' ? 'Pack' : 'Promoción'}
-                        {p.valorPorcentaje ? ` · ${p.valorPorcentaje}%` : ''}
-                        {p.valorUF ? ` · ${p.valorUF} UF` : ''}
-                        {p.minUnidades ? ` · ${p.minUnidades}+ unidades` : ''}
-                        {` · ${p._count.ventas} uso${p._count.ventas !== 1 ? 's' : ''}`}
-                      </Text>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-                    <Tag color={TIPO_PROMO_COLOR[p.tipo]} style={{ fontSize: 11, margin: 0 }}>
-                      {TIPO_PROMO_LABEL[p.tipo] || p.tipo}
-                    </Tag>
-                    {!p.activa && <Tag color="default" style={{ fontSize: 11 }}>Inactiva</Tag>}
-                  </div>
-                </div>
-              </FilaResultado>
-            )}
-          />
 
         </div>
       )}
