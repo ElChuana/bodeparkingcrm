@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
   const modo = 'insensitive'
 
   try {
-    const [leads, unidades, ventas, contactos, promociones] = await Promise.all([
+    const [leads, unidades, ventas, contactos] = await Promise.all([
 
       // Leads — busca por nombre/email/teléfono del contacto
       prisma.lead.findMany({
@@ -64,7 +64,7 @@ router.get('/', async (req, res) => {
           ]
         },
         select: {
-          id: true, estado: true, precioUF: true,
+          id: true, estado: true, precioFinalUF: true,
           comprador: { select: { nombre: true, apellido: true } },
           unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
         },
@@ -72,7 +72,7 @@ router.get('/', async (req, res) => {
         take: 5,
       }),
 
-      // Contactos — búsqueda directa sin lead asociado
+      // Contactos — búsqueda directa
       prisma.contacto.findMany({
         where: {
           OR: [
@@ -91,27 +91,9 @@ router.get('/', async (req, res) => {
         orderBy: { nombre: 'asc' },
         take: 5,
       }),
-
-      // Promociones y packs
-      prisma.promocion.findMany({
-        where: {
-          OR: [
-            { nombre: { contains: texto, mode: modo } },
-            { descripcion: { contains: texto, mode: modo } },
-            { detalle: { contains: texto, mode: modo } },
-          ]
-        },
-        select: {
-          id: true, nombre: true, tipo: true, categoria: true, activa: true,
-          valorPorcentaje: true, valorUF: true, minUnidades: true,
-          _count: { select: { ventas: true } },
-        },
-        orderBy: { nombre: 'asc' },
-        take: 5,
-      }),
     ])
 
-    res.json({ leads, unidades, ventas, contactos, promociones })
+    res.json({ leads, unidades, ventas, contactos })
   } catch (err) {
     console.error('[Buscar]', err)
     res.status(500).json({ error: 'Error al buscar.' })
