@@ -5,8 +5,8 @@ const INCLUDE_COMPLETO = {
     select: {
       id: true,
       contacto: { select: { id: true, nombre: true, apellido: true, email: true, telefono: true } },
-      vendedor: { select: { id: true, nombre: true, apellido: true } },
-      broker:   { select: { id: true, nombre: true, apellido: true } },
+      vendedor: { select: { id: true, nombre: true, apellido: true, email: true, telefono: true } },
+      broker:   { select: { id: true, nombre: true, apellido: true, email: true, telefono: true } },
       ventas:   { select: { id: true, estado: true } },
     }
   },

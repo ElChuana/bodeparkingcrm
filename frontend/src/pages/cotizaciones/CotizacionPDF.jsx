@@ -161,6 +161,7 @@ const s = StyleSheet.create({
   cEdificio: { flex: 3 },
   cUnidad:   { flex: 2 },
   cTipo:     { flex: 1.5 },
+  cM2:       { flex: 1, alignItems: 'flex-end' },
   cPrecio:   { flex: 1.8, alignItems: 'flex-end' },
   tCell:     { fontSize: 10, color: TEXT },
   tCellBold: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
@@ -406,7 +407,8 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
               <View style={s.infoCard}>
                 <Text style={s.infoEtiqueta}>EJECUTIVO DE VENTAS</Text>
                 <Text style={s.infoNombre}>{vendedor.nombre} {vendedor.apellido}</Text>
-                {vendedor.email && <Text style={s.infoSub}>{vendedor.email}</Text>}
+                {vendedor.email    && <Text style={s.infoSub}>{vendedor.email}</Text>}
+                {vendedor.telefono && <Text style={s.infoSub}>{vendedor.telefono}</Text>}
               </View>
             )}
           </View>
@@ -417,6 +419,7 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
             <Text style={[s.tHeadText, s.cEdificio]}>PROYECTO</Text>
             <Text style={[s.tHeadText, s.cUnidad]}>UNIDAD</Text>
             <Text style={[s.tHeadText, s.cTipo]}>TIPO</Text>
+            <Text style={[s.tHeadText, s.cM2]}>M²</Text>
             <Text style={[s.tHeadText, s.cPrecio]}>PRECIO LISTA</Text>
           </View>
           {items.map((item, i) => (
@@ -426,12 +429,15 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
               <Text style={[s.tCell, s.cTipo]}>
                 {item.unidad.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento'}
               </Text>
+              <Text style={[s.tCell, s.cM2]}>
+                {item.unidad.tipo === 'BODEGA' && item.unidad.m2 ? `${item.unidad.m2} m²` : '—'}
+              </Text>
               <View style={[s.cPrecio, { alignItems: 'flex-end' }]}>
-              <Text style={s.tCellBold}>{fmtUF(item.precioListaUF)}</Text>
-              {fmtPesos(item.precioListaUF, valorUF) && (
-                <Text style={s.tCellPesos}>{fmtPesos(item.precioListaUF, valorUF)}</Text>
-              )}
-            </View>
+                <Text style={s.tCellBold}>{fmtUF(item.precioListaUF)}</Text>
+                {fmtPesos(item.precioListaUF, valorUF) && (
+                  <Text style={s.tCellPesos}>{fmtPesos(item.precioListaUF, valorUF)}</Text>
+                )}
+              </View>
             </View>
           ))}
 
