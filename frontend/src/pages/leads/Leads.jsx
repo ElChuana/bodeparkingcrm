@@ -575,6 +575,7 @@ function VistaLista({ filtros, onPreview, esGerenciaOJV, vendedores, selectedRow
     },
     {
       title: 'Etapa', dataIndex: 'etapa', key: 'etapa', width: 150,
+      sorter: (a, b) => a.etapa.localeCompare(b.etapa),
       render: (e) => <Tag color={ETAPA_COLOR[e]}>{ETAPA_LABEL[e]}</Tag>
     },
     {
@@ -590,6 +591,11 @@ function VistaLista({ filtros, onPreview, esGerenciaOJV, vendedores, selectedRow
     },
     {
       title: 'Vendedor', key: 'vendedor', width: 140,
+      sorter: (a, b) => {
+        const na = a.vendedor ? `${a.vendedor.nombre} ${a.vendedor.apellido}` : ''
+        const nb = b.vendedor ? `${b.vendedor.nombre} ${b.vendedor.apellido}` : ''
+        return na.localeCompare(nb)
+      },
       render: (_, lead) => lead.vendedor
         ? <span style={{ fontSize: 13 }}>{lead.vendedor.nombre} {lead.vendedor.apellido}</span>
         : <Text type="secondary">—</Text>
@@ -604,11 +610,25 @@ function VistaLista({ filtros, onPreview, esGerenciaOJV, vendedores, selectedRow
       )
     },
     {
-      title: 'Fecha de ingreso', dataIndex: 'creadoEn', key: 'creadoEn', width: 130,
-      render: (d) => <Text type="secondary" style={{ fontSize: 12 }}>{format(new Date(d), "d MMM yyyy", { locale: es })}</Text>
+      title: 'Última actividad', key: 'fechas', width: 130,
+      defaultSortOrder: 'descend',
+      sorter: (a, b) => new Date(a.actualizadoEn || a.creadoEn) - new Date(b.actualizadoEn || b.creadoEn),
+      render: (_, lead) => (
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {format(new Date(lead.actualizadoEn || lead.creadoEn), "d MMM yyyy", { locale: es })}
+          </Text>
+          {lead.actualizadoEn && lead.actualizadoEn !== lead.creadoEn && (
+            <div style={{ fontSize: 11, color: '#cbd5e1' }}>
+              Ingreso: {format(new Date(lead.creadoEn), "d MMM yyyy", { locale: es })}
+            </div>
+          )}
+        </div>
+      )
     },
     {
       title: 'Actividades', dataIndex: '_count', key: 'acciones', width: 80, align: 'center',
+      sorter: (a, b) => (a._count?.interacciones || 0) - (b._count?.interacciones || 0),
       render: (c) => <Text type="secondary" style={{ fontSize: 13 }}>{c?.interacciones || 0}</Text>
     },
   ]
