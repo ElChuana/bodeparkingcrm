@@ -86,6 +86,7 @@ function SelectorUnidades({ items, onAdd, onRemove }) {
                   </Text>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>{u.precioUF} UF</Text>
+                    {u.tipo === 'BODEGA' && u.m2 && <Text type="secondary" style={{ fontSize: 12 }}>{u.m2} m²</Text>}
                     {u.precioMinimoUF && <Text type="secondary" style={{ fontSize: 11 }}>mín. {u.precioMinimoUF} UF</Text>}
                   </div>
                 </div>
@@ -125,6 +126,7 @@ function ResumenPrecio({ cotizacion }) {
           <div key={i.unidadId || i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
             <Text type="secondary">
               {i.unidad?.edificio?.nombre || i.edificio} — {i.unidad?.tipo === 'BODEGA' || i.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {i.unidad?.numero || i.numero}
+              {(i.unidad?.tipo === 'BODEGA' || i.tipo === 'BODEGA') && (i.unidad?.m2 || i.m2) ? ` · ${i.unidad?.m2 || i.m2} m²` : ''}
             </Text>
             <Text strong>{(i.precioListaUF || 0).toFixed(2)} UF</Text>
           </div>
