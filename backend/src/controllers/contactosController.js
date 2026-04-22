@@ -67,11 +67,18 @@ const crear = async (req, res) => {
 
 const actualizar = async (req, res) => {
   const { id } = req.params
-  const { nombre, apellido, rut, email, telefono, empresa, tipoPersona, origen, notas } = req.body
+  const {
+    nombre, apellido, rut, email, telefono, empresa, tipoPersona, origen, notas,
+    fechaNacimiento, ciudadNacimiento, estadoCivil, profesion, nacionalidad, regimenMatrimonial, direccionParticular
+  } = req.body
   try {
     const contacto = await prisma.contacto.update({
       where: { id: Number(id) },
-      data: { nombre, apellido, rut, email, telefono, empresa, tipoPersona, origen, notas }
+      data: {
+        nombre, apellido, rut, email, telefono, empresa, tipoPersona, origen, notas,
+        fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : undefined,
+        ciudadNacimiento, estadoCivil, profesion, nacionalidad, regimenMatrimonial, direccionParticular
+      }
     })
     res.json(contacto)
   } catch (err) {
