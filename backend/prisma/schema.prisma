@@ -200,6 +200,7 @@ model Usuario {
   telefono              String?
   smtpEmail             String?
   smtpPassword          String?
+  firma                 String?
   rol                   Rol
   comisionPorcentaje    Float?
   comisionFijo          Float?

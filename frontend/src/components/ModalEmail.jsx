@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Modal, Form, Input, Button, App, Divider } from 'antd'
 import { MailOutlined, SendOutlined, PaperClipOutlined } from '@ant-design/icons'
 import api from '../services/api'
@@ -19,21 +19,26 @@ const { TextArea } = Input
 export default function ModalEmail({ open, onClose, para = '', nombre = '', leadId, cotizacionId, pdfBase64, pdfNombre }) {
   const [form] = Form.useForm()
   const [enviando, setEnviando] = useState(false)
+  const [firma, setFirma] = useState(null)
   const { message } = App.useApp()
 
   const asuntoDefault = nombre ? `BodeParking — Información para ${nombre}` : 'BodeParking — Información'
 
   const cuerpoDefault = nombre
-    ? `Estimado/a ${nombre},\n\nMe comunico desde BodeParking para...\n\n\nSaludos,\nEquipo BodeParking`
+    ? `Estimado/a ${nombre},\n\nMe comunico desde BodeParking para...\n\n\nSaludos,`
     : ''
 
-  const handleOpen = () => {
+  useEffect(() => {
+    api.get('/email/firma').then(r => setFirma(r.data.firma)).catch(() => {})
+  }, [])
+
+  const handleOpen2 = () => {
     form.setFieldsValue({
       para,
       cc: '',
       asunto: cotizacionId ? `BodeParking — Cotización para ${nombre}` : asuntoDefault,
       cuerpo: cotizacionId
-        ? `Estimado/a ${nombre},\n\nAdjunto encontrará la cotización solicitada para nuestras bodegas/estacionamientos.\n\nQuedo a su disposición para cualquier consulta.\n\n\nSaludos cordiales,\nEquipo BodeParking`
+        ? `Estimado/a ${nombre},\n\nAdjunto encontrará la cotización solicitada para nuestras bodegas/estacionamientos.\n\nQuedo a su disposición para cualquier consulta.\n\nSaludos cordiales,`
         : cuerpoDefault,
     })
   }
@@ -77,7 +82,7 @@ export default function ModalEmail({ open, onClose, para = '', nombre = '', lead
       }
       open={open}
       onCancel={onClose}
-      afterOpenChange={isOpen => { if (isOpen) handleOpen() }}
+      afterOpenChange={isOpen => { if (isOpen) handleOpen2() }}
       width={640}
       footer={null}
       destroyOnHide
@@ -112,11 +117,27 @@ export default function ModalEmail({ open, onClose, para = '', nombre = '', lead
           rules={[{ required: true, message: 'Escribe el mensaje' }]}
         >
           <TextArea
-            rows={10}
+            rows={8}
             placeholder="Escribe tu mensaje aquí..."
             style={{ fontFamily: 'inherit', fontSize: 14 }}
           />
         </Form.Item>
+
+        {firma && (
+          <>
+            <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>Vista previa firma:</div>
+            <div
+              style={{
+                padding: '10px 12px',
+                background: '#fafafa',
+                border: '1px solid #f0f0f0',
+                borderRadius: 6,
+                marginBottom: 16,
+              }}
+              dangerouslySetInnerHTML={{ __html: firma }}
+            />
+          </>
+        )}
 
         <Divider style={{ margin: '8px 0 16px' }} />
 

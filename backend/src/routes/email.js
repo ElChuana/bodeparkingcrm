@@ -22,7 +22,7 @@ router.post('/enviar',
     // Obtener el email del usuario para usarlo como "from"
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.usuario.id },
-      select: { smtpEmail: true, nombre: true, apellido: true },
+      select: { smtpEmail: true, nombre: true, apellido: true, firma: true },
     })
 
     if (!usuario?.smtpEmail) {
@@ -43,13 +43,14 @@ router.post('/enviar',
 
       const htmlCuerpo = cuerpo.includes('<') ? cuerpo : cuerpo.replace(/\n/g, '<br>')
 
+      const firmaHtml = usuario.firma
+        ? `<hr style="margin-top: 32px; border: none; border-top: 1px solid #eee;">${usuario.firma}`
+        : `<hr style="margin-top: 32px; border: none; border-top: 1px solid #eee;"><p style="color: #999; font-size: 12px;">Enviado desde BodeParking CRM · <a href="https://bodeparking.cl">bodeparking.cl</a></p>`
+
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           ${htmlCuerpo}
-          <hr style="margin-top: 32px; border: none; border-top: 1px solid #eee;">
-          <p style="color: #999; font-size: 12px;">
-            Enviado desde BodeParking CRM · <a href="https://bodeparking.cl">bodeparking.cl</a>
-          </p>
+          ${firmaHtml}
         </div>
       `
 
@@ -126,5 +127,24 @@ router.put('/config',
     res.json({ ok: true, mensaje: 'Email configurado correctamente.' })
   }
 )
+
+// ─── GET /api/email/firma ─────────────────────────────────────────────────────
+router.get('/firma', autenticar, async (req, res) => {
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: req.usuario.id },
+    select: { firma: true },
+  })
+  res.json({ firma: usuario?.firma || null })
+})
+
+// ─── PUT /api/email/firma ─────────────────────────────────────────────────────
+router.put('/firma', autenticar, async (req, res) => {
+  const { firma } = req.body
+  await prisma.usuario.update({
+    where: { id: req.usuario.id },
+    data: { firma: firma || null },
+  })
+  res.json({ ok: true })
+})
 
 module.exports = router
