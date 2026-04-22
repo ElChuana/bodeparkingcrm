@@ -194,6 +194,11 @@ const obtener = async (req, res) => {
       // Notificaciones sin leer
       prisma.notificacion.count({ where: { usuarioId: req.usuario.id, leida: false } }),
 
+      // Unidades vendidas período anterior
+      desdeAnt ? prisma.unidad.count({
+        where: { ventaId: { not: null }, venta: { ...filtroReservaAnt, estado: { not: 'ANULADO' } } }
+      }) : Promise.resolve(0),
+
       // Visitas del período
       prisma.visita.findMany({
         where: hayFecha ? { fechaHora: { gte: new Date(desde), lte: new Date(hasta) } } : {},
@@ -209,11 +214,6 @@ const obtener = async (req, res) => {
           vendedor: { select: { nombre: true, apellido: true } }
         }
       }),
-
-      // Unidades vendidas período anterior
-      desdeAnt ? prisma.unidad.count({
-        where: { ventaId: { not: null }, venta: { ...filtroReservaAnt, estado: { not: 'ANULADO' } } }
-      }) : Promise.resolve(0),
 
       // Visitas próximas (después de ahora, máx 10)
       prisma.visita.findMany({
