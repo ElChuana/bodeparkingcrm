@@ -54,7 +54,11 @@ export default function Ventas() {
     queryFn: () => api.get('/edificios').then(r => r.data)
   })
 
-  const totales = ventas.reduce((acc, v) => { acc[v.estado] = (acc[v.estado] || 0) + 1; return acc }, {})
+  const totales = ventas.reduce((acc, v) => {
+    acc[v.estado] = (acc[v.estado] || 0) + 1
+    acc[`${v.estado}_unidades`] = (acc[`${v.estado}_unidades`] || 0) + (v.unidades?.length || 0)
+    return acc
+  }, {})
 
   const filtrosActivos = Object.values(filtros).filter(v => v !== undefined && v !== '' && v !== null && v !== false).length
 
@@ -95,16 +99,17 @@ export default function Ventas() {
     },
     {
       title: 'Precio final', key: 'precio',
-      render: (_, v) => {
-        const pf = v.precioUF - (v.descuentoUF || 0)
-        return (
-          <div>
-            <div style={{ fontWeight: 600 }}>{formatUF(pf)}</div>
-            <div style={{ fontSize: 12, color: '#8c8c8c' }}>{formatPesos(ufAPesos(pf))}</div>
-            {v.descuentoUF > 0 && <div style={{ fontSize: 12, color: '#52c41a' }}>Dcto: {v.descuentoUF} UF</div>}
-          </div>
-        )
-      }
+      render: (_, v) => (
+        <div>
+          <div style={{ fontWeight: 600 }}>{formatUF(v.precioFinalUF)}</div>
+          <div style={{ fontSize: 12, color: '#8c8c8c' }}>{formatPesos(ufAPesos(v.precioFinalUF))}</div>
+          {(v.descuentoAprobadoUF > 0 || v.descuentoPacksUF > 0) && (
+            <div style={{ fontSize: 12, color: '#52c41a' }}>
+              Dcto: {((v.descuentoAprobadoUF || 0) + (v.descuentoPacksUF || 0)).toFixed(2)} UF
+            </div>
+          )}
+        </div>
+      )
     },
     {
       title: 'Estado', dataIndex: 'estado', key: 'estado',
@@ -144,6 +149,11 @@ export default function Ventas() {
                 valueStyle={{ fontSize: 22, fontWeight: 700 }}
                 suffix={<Tag color={ESTADO_VENTA_COLOR[est]} style={{ marginLeft: 4 }}>{ESTADO_LABEL[est]}</Tag>}
               />
+              {totales[`${est}_unidades`] > 0 && (
+                <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
+                  {totales[`${est}_unidades`]} unidad{totales[`${est}_unidades`] !== 1 ? 'es' : ''}
+                </div>
+              )}
             </Card>
           </Col>
         ))}
