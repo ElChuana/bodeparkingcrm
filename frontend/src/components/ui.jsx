@@ -5,6 +5,7 @@ export const ETAPA_LABEL = {
   NO_CONTESTA: 'No contesta',
   SEGUIMIENTO: 'Seguimiento',
   COTIZACION_ENVIADA: 'Cotización enviada',
+  INTERESADO: 'Interesado',
   VISITA_AGENDADA: 'Visita agendada',
   VISITA_REALIZADA: 'Visita realizada',
   SEGUIMIENTO_POST_VISITA: 'Seguimiento post-visita',
@@ -22,10 +23,11 @@ export const ETAPA_COLOR = {
   NO_CONTESTA: 'orange',
   SEGUIMIENTO: 'blue',
   COTIZACION_ENVIADA: 'cyan',
+  INTERESADO: 'gold',
   VISITA_AGENDADA: 'geekblue',
   VISITA_REALIZADA: 'purple',
   SEGUIMIENTO_POST_VISITA: 'blue',
-  NEGOCIACION: 'gold',
+  NEGOCIACION: 'volcano',
   RESERVA: 'orange',
   PROMESA: 'lime',
   ESCRITURA: 'green',
@@ -33,6 +35,18 @@ export const ETAPA_COLOR = {
   POSTVENTA: 'cyan',
   PERDIDO: 'red',
 }
+
+export const MOTIVO_PERDIDA_LABEL = {
+  NO_CONTESTA:        'No contesta',
+  PRECIO_ALTO:        'Precio alto',
+  ELIGIO_COMPETENCIA: 'Eligió competencia',
+  NO_CALIFICA_FINANC: 'No califica financ.',
+  NO_GUSTO_PRODUCTO:  'No gustó producto',
+  PERDIO_INTERES:     'Perdió interés',
+  OTRO:               'Otro',
+}
+
+export const MOTIVO_PERDIDA_OPTIONS = Object.entries(MOTIVO_PERDIDA_LABEL).map(([value, label]) => ({ value, label }))
 
 export const ESTADO_VENTA_COLOR = {
   RESERVA: 'orange',
