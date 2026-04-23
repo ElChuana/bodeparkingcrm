@@ -39,6 +39,7 @@ function SidebarContent({ selectedKey, onNavigate }) {
         { key: '/dashboard',  label: 'Dashboard',   icon: <DashboardOutlined />, roles: null,                              modulo: 'dashboard' },
         { key: '/inventario', label: 'Inventario',  icon: <AppstoreOutlined />,  roles: ['GERENTE','JEFE_VENTAS'],          modulo: 'inventario' },
         { key: '/leads',      label: 'Leads',       icon: <TeamOutlined />,      roles: null,                              modulo: 'leads' },
+        { key: '/asignacion', label: 'Asignación',  icon: <UserSwitchOutlined />, roles: ['GERENTE','JEFE_VENTAS'],         modulo: 'asignacion' },
         { key: '/visitas',    label: 'Visitas',     icon: <CalendarOutlined />,  roles: ['GERENTE','JEFE_VENTAS'],          modulo: 'visitas' },
       ]
     },

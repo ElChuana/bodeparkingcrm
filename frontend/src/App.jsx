@@ -25,6 +25,7 @@ import CotizacionEditor from './pages/cotizaciones/CotizacionEditor'
 import Descuentos from './pages/descuentos/Descuentos'
 import ApiKeys from './pages/configuracion/ApiKeys'
 import MiPerfil from './pages/perfil/MiPerfil'
+import CentroAsignacion from './pages/asignacion/CentroAsignacion'
 import PreviewPDF from './pages/cotizaciones/PreviewPDF'
 
 const qc = new QueryClient({
@@ -67,6 +68,7 @@ export default function App() {
                   <Route path="inventario"  element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']}><Inventario /></RutaProtegida>} />
                   <Route path="leads"       element={<Leads />} />
                   <Route path="leads/:id"   element={<LeadDetalle />} />
+                  <Route path="asignacion" element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']}><CentroAsignacion /></RutaProtegida>} />
                   <Route path="cotizaciones/nueva"  element={<CotizacionEditor />} />
                   <Route path="cotizaciones/:id"    element={<CotizacionEditor />} />
                   <Route path="visitas"     element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']}><Visitas /></RutaProtegida>} />
