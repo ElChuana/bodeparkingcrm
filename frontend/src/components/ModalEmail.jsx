@@ -5,6 +5,13 @@ import api from '../services/api'
 
 const { TextArea } = Input
 
+const PLANTILLA_EMAIL_DEFAULT = `Estimado/a {nombre},\n\nMe comunico desde BodeParking para...\n\n\nSaludos cordiales,`
+const PLANTILLA_COTIZACION_DEFAULT = `Estimado/a {nombre},\n\nAdjunto encontrará la cotización solicitada para nuestras bodegas/estacionamientos.\n\nQuedo a su disposición para cualquier consulta.\n\nSaludos cordiales,`
+
+function aplicarNombre(plantilla, nombre) {
+  return plantilla.replace(/\{nombre\}/g, nombre || '')
+}
+
 /**
  * Modal para enviar emails desde el CRM.
  *
@@ -20,26 +27,31 @@ export default function ModalEmail({ open, onClose, para = '', nombre = '', lead
   const [form] = Form.useForm()
   const [enviando, setEnviando] = useState(false)
   const [firma, setFirma] = useState(null)
+  const [plantillas, setPlantillas] = useState({ email: null, cotizacion: null })
   const { message } = App.useApp()
-
-  const asuntoDefault = nombre ? `BodeParking — Información para ${nombre}` : 'BodeParking — Información'
-
-  const cuerpoDefault = nombre
-    ? `Estimado/a ${nombre},\n\nMe comunico desde BodeParking para...\n\n\nSaludos,`
-    : ''
 
   useEffect(() => {
     api.get('/email/firma').then(r => setFirma(r.data.firma)).catch(() => {})
+    api.get('/email/config').then(r => {
+      setPlantillas({
+        email: r.data.plantillaEmail || null,
+        cotizacion: r.data.plantillaCotizacion || null,
+      })
+    }).catch(() => {})
   }, [])
 
-  const handleOpen2 = () => {
+  const handleOpen = () => {
+    const plantilla = cotizacionId
+      ? (plantillas.cotizacion || PLANTILLA_COTIZACION_DEFAULT)
+      : (plantillas.email || PLANTILLA_EMAIL_DEFAULT)
+
     form.setFieldsValue({
       para,
       cc: '',
-      asunto: cotizacionId ? `BodeParking — Cotización para ${nombre}` : asuntoDefault,
-      cuerpo: cotizacionId
-        ? `Estimado/a ${nombre},\n\nAdjunto encontrará la cotización solicitada para nuestras bodegas/estacionamientos.\n\nQuedo a su disposición para cualquier consulta.\n\nSaludos cordiales,`
-        : cuerpoDefault,
+      asunto: cotizacionId
+        ? `BodeParking — Cotización para ${nombre}`
+        : (nombre ? `BodeParking — Información para ${nombre}` : 'BodeParking — Información'),
+      cuerpo: aplicarNombre(plantilla, nombre),
     })
   }
 
@@ -58,7 +70,7 @@ export default function ModalEmail({ open, onClose, para = '', nombre = '', lead
       form.resetFields()
       onClose()
     } catch (err) {
-      if (err?.errorFields) return // validación de form, no hacer nada
+      if (err?.errorFields) return
       const msg = err.response?.data?.error || 'No se pudo enviar el email'
       const detalle = err.response?.data?.detalle || ''
       message.error(`${msg}${detalle ? `: ${detalle}` : ''}`)
@@ -82,7 +94,7 @@ export default function ModalEmail({ open, onClose, para = '', nombre = '', lead
       }
       open={open}
       onCancel={onClose}
-      afterOpenChange={isOpen => { if (isOpen) handleOpen2() }}
+      afterOpenChange={isOpen => { if (isOpen) handleOpen() }}
       width={640}
       footer={null}
       destroyOnHide

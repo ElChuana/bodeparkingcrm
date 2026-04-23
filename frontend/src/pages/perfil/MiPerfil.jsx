@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Form, Input, Button, App, Space, Tag, Switch, Tabs } from 'antd'
-import { MailOutlined, CheckCircleOutlined, SettingOutlined, BellOutlined, EditOutlined } from '@ant-design/icons'
+import { Card, Form, Input, Button, App, Space, Tag, Switch, Tabs, Typography } from 'antd'
+import { MailOutlined, CheckCircleOutlined, SettingOutlined, BellOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
 const { TextArea } = Input
+const { Text } = Typography
 
 const FIRMA_DEFAULT = `<table style="font-family: Arial, sans-serif; font-size: 13px; color: #333; border-collapse: collapse;">
   <tr>
@@ -21,6 +22,21 @@ const FIRMA_DEFAULT = `<table style="font-family: Arial, sans-serif; font-size: 
   </tr>
 </table>`
 
+const PLANTILLA_EMAIL_DEFAULT = `Estimado/a {nombre},
+
+Me comunico desde BodeParking para...
+
+
+Saludos cordiales,`
+
+const PLANTILLA_COTIZACION_DEFAULT = `Estimado/a {nombre},
+
+Adjunto encontrará la cotización solicitada para nuestras bodegas/estacionamientos.
+
+Quedo a su disposición para cualquier consulta.
+
+Saludos cordiales,`
+
 export default function MiPerfil() {
   const { usuario } = useAuth()
   const { message } = App.useApp()
@@ -32,11 +48,16 @@ export default function MiPerfil() {
   const [firmaHtml, setFirmaHtml] = useState('')
   const [guardandoFirma, setGuardandoFirma] = useState(false)
   const [firmaTab, setFirmaTab] = useState('editor')
+  const [plantillaEmail, setPlantillaEmail] = useState(PLANTILLA_EMAIL_DEFAULT)
+  const [plantillaCotizacion, setPlantillaCotizacion] = useState(PLANTILLA_COTIZACION_DEFAULT)
+  const [guardandoPlantillas, setGuardandoPlantillas] = useState(false)
 
   useEffect(() => {
     api.get('/email/config').then(r => {
       setEmailConfigurado(r.data.smtpEmail)
       if (r.data.smtpEmail) form.setFieldValue('smtpEmail', r.data.smtpEmail)
+      if (r.data.plantillaEmail) setPlantillaEmail(r.data.plantillaEmail)
+      if (r.data.plantillaCotizacion) setPlantillaCotizacion(r.data.plantillaCotizacion)
     }).catch(() => {})
 
     api.get('/alertas/preferencias').then(r => {
@@ -60,6 +81,19 @@ export default function MiPerfil() {
       message.error(err.response?.data?.error || 'No se pudo guardar')
     } finally {
       setGuardando(false)
+    }
+  }
+
+  const handleGuardarPlantillas = async () => {
+    setGuardandoPlantillas(true)
+    try {
+      const smtpEmail = form.getFieldValue('smtpEmail') || emailConfigurado
+      await api.put('/email/config', { smtpEmail, plantillaEmail, plantillaCotizacion })
+      message.success('Plantillas guardadas correctamente')
+    } catch {
+      message.error('No se pudo guardar las plantillas')
+    } finally {
+      setGuardandoPlantillas(false)
     }
   }
 
@@ -125,6 +159,52 @@ export default function MiPerfil() {
           </Form.Item>
           <Button type="primary" loading={guardando} onClick={handleGuardar}>Guardar</Button>
         </Form>
+      </Card>
+
+      <Card
+        title={<span><FileTextOutlined style={{ marginRight: 8, color: '#13c2c2' }} />Plantillas de email</span>}
+        style={{ marginBottom: 20 }}
+      >
+        <p style={{ color: '#666', marginBottom: 12, fontSize: 13 }}>
+          Texto que se pre-carga al abrir el modal de email. Usa <Text code>{'{nombre}'}</Text> para insertar el nombre del destinatario.
+        </p>
+        <Tabs
+          size="small"
+          items={[
+            {
+              key: 'general',
+              label: 'Email general',
+              children: (
+                <TextArea
+                  value={plantillaEmail}
+                  onChange={e => setPlantillaEmail(e.target.value)}
+                  rows={8}
+                  style={{ fontFamily: 'inherit', fontSize: 13 }}
+                />
+              ),
+            },
+            {
+              key: 'cotizacion',
+              label: 'Email con cotización',
+              children: (
+                <TextArea
+                  value={plantillaCotizacion}
+                  onChange={e => setPlantillaCotizacion(e.target.value)}
+                  rows={8}
+                  style={{ fontFamily: 'inherit', fontSize: 13 }}
+                />
+              ),
+            },
+          ]}
+        />
+        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+          <Button type="primary" loading={guardandoPlantillas} onClick={handleGuardarPlantillas}>
+            Guardar plantillas
+          </Button>
+          <Button onClick={() => { setPlantillaEmail(PLANTILLA_EMAIL_DEFAULT); setPlantillaCotizacion(PLANTILLA_COTIZACION_DEFAULT) }}>
+            Restaurar por defecto
+          </Button>
+        </div>
       </Card>
 
       <Card

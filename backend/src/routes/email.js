@@ -102,9 +102,13 @@ router.get('/verificar', autenticar, async (req, res) => {
 router.get('/config', autenticar, async (req, res) => {
   const usuario = await prisma.usuario.findUnique({
     where: { id: req.usuario.id },
-    select: { smtpEmail: true },
+    select: { smtpEmail: true, plantillaEmail: true, plantillaCotizacion: true },
   })
-  res.json({ smtpEmail: usuario?.smtpEmail || null })
+  res.json({
+    smtpEmail: usuario?.smtpEmail || null,
+    plantillaEmail: usuario?.plantillaEmail || null,
+    plantillaCotizacion: usuario?.plantillaCotizacion || null,
+  })
 })
 
 // ─── PUT /api/email/config ────────────────────────────────────────────────────
@@ -117,14 +121,18 @@ router.put('/config',
     const errores = validationResult(req)
     if (!errores.isEmpty()) return res.status(400).json({ errores: errores.array() })
 
-    const { smtpEmail } = req.body
+    const { smtpEmail, plantillaEmail, plantillaCotizacion } = req.body
 
     await prisma.usuario.update({
       where: { id: req.usuario.id },
-      data: { smtpEmail },
+      data: {
+        smtpEmail,
+        ...(plantillaEmail !== undefined && { plantillaEmail: plantillaEmail || null }),
+        ...(plantillaCotizacion !== undefined && { plantillaCotizacion: plantillaCotizacion || null }),
+      },
     })
 
-    res.json({ ok: true, mensaje: 'Email configurado correctamente.' })
+    res.json({ ok: true, mensaje: 'Configuración guardada correctamente.' })
   }
 )
 
