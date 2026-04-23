@@ -111,13 +111,19 @@ router.post('/upsert', autenticarApiKey, async (req, res) => {
     const apellidoContacto = partes.slice(1).join(' ') || '-'
     const telefonoContacto = phone ? phone.replace(/\D/g, '') : null
 
+    // Inferir origen desde nombre de campaña
+    const proyectoLower = (project || '').toLowerCase()
+    const origenComuro = proyectoLower.includes('google') ? 'GOOGLE'
+      : (proyectoLower.includes('instagram') || proyectoLower.includes('meta') || proyectoLower.includes('facebook')) ? 'INSTAGRAM'
+      : 'OTRO'
+
     const contactoNuevo = await prisma.contacto.create({
       data: {
         nombre: nombreContacto,
         apellido: apellidoContacto,
         email: email || body.correo || null,
         telefono: telefonoContacto,
-        origen: 'WEB',
+        origen: origenComuro,
       }
     })
 

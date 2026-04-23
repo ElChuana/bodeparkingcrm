@@ -110,6 +110,10 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
       if (telefono && !contacto.telefono) actualizarContacto.telefono = telefono.trim()
       if (rut      && !contacto.rut)      actualizarContacto.rut      = rut.trim()
       if (empresa  && !contacto.empresa)  actualizarContacto.empresa  = empresa.trim()
+      // Actualizar origen si el contacto tiene uno genérico y llega uno específico
+      if (origenFinal !== 'WEB' && ['WEB', 'OTRO'].includes(contacto.origen)) {
+        actualizarContacto.origen = origenFinal
+      }
       if (Object.keys(actualizarContacto).length > 0) {
         contacto = await prisma.contacto.update({
           where: { id: contacto.id },
