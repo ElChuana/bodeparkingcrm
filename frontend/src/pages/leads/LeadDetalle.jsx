@@ -7,10 +7,11 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
-import { ETAPA_COLOR, ETAPA_LABEL } from '../../components/ui'
+import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components/ui'
+import ModalPerdido from '../../components/ModalPerdido'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
-  Space, Spin, Row, Col, Timeline, Descriptions, App, DatePicker
+  Space, Spin, Row, Col, Timeline, Descriptions, App, DatePicker, Alert
 } from 'antd'
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
@@ -22,7 +23,7 @@ import {
 const { Title, Text } = Typography
 
 const ETAPAS_PIPELINE = [
-  'NUEVO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA',
+  'NUEVO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO',
   'VISITA_AGENDADA', 'VISITA_REALIZADA', 'SEGUIMIENTO_POST_VISITA',
   'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA', 'PERDIDO'
 ]
@@ -37,11 +38,10 @@ const TIPO_COLOR = {
 }
 
 // ─── Modal cambiar etapa ─────────────────────────────────────────
-function ModalCambiarEtapa({ open, onClose, lead }) {
+function ModalCambiarEtapa({ open, onClose, lead, onPerdido }) {
   const qc = useQueryClient()
   const [form] = Form.useForm()
   const { message } = App.useApp()
-  const etapa = Form.useWatch('etapa', form)
 
   const cambiar = useMutation({
     mutationFn: (d) => api.put(`/leads/${lead.id}/etapa`, d),
@@ -54,19 +54,25 @@ function ModalCambiarEtapa({ open, onClose, lead }) {
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
+  const handleOk = () => {
+    form.validateFields().then(values => {
+      if (values.etapa === 'PERDIDO') {
+        onClose()
+        onPerdido()
+      } else {
+        cambiar.mutate(values)
+      }
+    })
+  }
+
   return (
     <Modal title="Cambiar Etapa" open={open} onCancel={onClose}
-      onOk={() => form.validateFields().then(cambiar.mutate)}
+      onOk={handleOk}
       okText="Guardar" cancelText="Cancelar" confirmLoading={cambiar.isPending}>
       <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{ etapa: lead?.etapa }}>
         <Form.Item name="etapa" label="Nueva etapa" rules={[{ required: true }]}>
           <Select options={ETAPAS_PIPELINE.map(e => ({ value: e, label: ETAPA_LABEL[e] }))} />
         </Form.Item>
-        {etapa === 'PERDIDO' && (
-          <Form.Item name="motivoPerdida" label="Motivo de pérdida" rules={[{ required: true }]}>
-            <Input.TextArea rows={3} placeholder="¿Por qué se perdió este lead?" />
-          </Form.Item>
-        )}
       </Form>
     </Modal>
   )
@@ -545,6 +551,7 @@ export default function LeadDetalle() {
   const { esGerenciaOJV, usuario } = useAuth()
 
   const [modalEtapa, setModalEtapa] = useState(false)
+  const [modalPerdido, setModalPerdido] = useState(false)
   const [modalInteraccion, setModalInteraccion] = useState(false)
   const [modalVisita, setModalVisita] = useState(false)
   const [modalEditarContacto, setModalEditarContacto] = useState(false)
@@ -556,6 +563,24 @@ export default function LeadDetalle() {
 
   const qc = useQueryClient()
   const { message, modal } = App.useApp()
+
+  const cambiarEtapa = useMutation({
+    mutationFn: ({ etapa, motivoPerdidaCat, motivoPerdidaNota }) =>
+      api.put(`/leads/${id}/etapa`, { etapa, motivoPerdidaCat, motivoPerdidaNota }),
+    onSuccess: () => {
+      message.success('Etapa actualizada')
+      qc.invalidateQueries(['lead', Number(id)])
+      qc.invalidateQueries(['leads-kanban'])
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error al cambiar etapa')
+  })
+
+  const handleConfirmarPerdido = (values) => {
+    cambiarEtapa.mutate(
+      { etapa: 'PERDIDO', ...values },
+      { onSettled: () => setModalPerdido(false) }
+    )
+  }
 
   const mutEliminarVisita = useMutation({
     mutationFn: (visitaId) => api.delete(`/leads/${id}/visitas/${visitaId}`),
@@ -725,6 +750,34 @@ export default function LeadDetalle() {
         {/* Columna izquierda */}
         <Col xs={24} md={8}>
           <Space direction="vertical" style={{ width: '100%' }} size={12}>
+            {/* Banners pérdida */}
+            {lead.perdidaAutomatica && (
+              <Alert
+                type="info"
+                showIcon
+                icon={<span>🤖</span>}
+                message="Perdido automáticamente"
+                description={`Estaba en ${ETAPA_LABEL[lead.etapaAntesDePerdido] || lead.etapaAntesDePerdido || '—'} sin actividad. Regla aplicada el ${dayjs(lead.perdidaAutomaticaEn).format('DD/MM/YYYY HH:mm')}.`}
+                style={{ marginBottom: 12 }}
+              />
+            )}
+            {lead.etapa === 'PERDIDO' && lead.motivoPerdidaCat && (
+              <Alert
+                type="error"
+                showIcon
+                message={
+                  <span>
+                    Motivo: <Tag color="red" style={{ margin: '0 4px' }}>{MOTIVO_PERDIDA_LABEL[lead.motivoPerdidaCat] || lead.motivoPerdidaCat}</Tag>
+                    {lead.etapaAntesDePerdido && (
+                      <> · Desde: <Tag style={{ margin: '0 4px' }}>{ETAPA_LABEL[lead.etapaAntesDePerdido] || lead.etapaAntesDePerdido}</Tag></>
+                    )}
+                  </span>
+                }
+                description={lead.motivoPerdidaNota || undefined}
+                style={{ marginBottom: 12 }}
+              />
+            )}
+
             {/* Contacto */}
             <Card
               size="small"
@@ -827,9 +880,10 @@ export default function LeadDetalle() {
                 )
               })}
               {lead.etapa === 'PERDIDO' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                   <Text style={{ fontSize: 12, color: '#ff4d4f', fontWeight: 600 }}>✗ Perdido</Text>
-                  {lead.motivoPerdida && <Text type="secondary" style={{ fontSize: 11 }}>— {lead.motivoPerdida}</Text>}
+                  {lead.motivoPerdidaCat && <Tag color="red" style={{ fontSize: 11, margin: 0 }}>{MOTIVO_PERDIDA_LABEL[lead.motivoPerdidaCat] || lead.motivoPerdidaCat}</Tag>}
+                  {lead.perdidaAutomatica && <Tag color="blue" style={{ fontSize: 11, margin: 0 }}>🤖 Auto</Tag>}
                 </div>
               )}
             </Card>
@@ -951,7 +1005,14 @@ export default function LeadDetalle() {
         nombre={`${lead.contacto.nombre} ${lead.contacto.apellido}`.trim()}
         leadId={parseInt(id)}
       />
-      <ModalCambiarEtapa   open={modalEtapa}          onClose={() => setModalEtapa(false)}          lead={lead} />
+      <ModalCambiarEtapa   open={modalEtapa}          onClose={() => setModalEtapa(false)}          lead={lead} onPerdido={() => setModalPerdido(true)} />
+      <ModalPerdido
+        open={modalPerdido}
+        etapaActual={lead?.etapa}
+        onConfirm={handleConfirmarPerdido}
+        onCancel={() => setModalPerdido(false)}
+        loading={cambiarEtapa.isPending}
+      />
       <ModalInteraccion    open={modalInteraccion}    onClose={() => setModalInteraccion(false)}    leadId={id} />
       <ModalVisita         open={modalVisita}         onClose={() => setModalVisita(false)}         leadId={id} />
       <ModalEditarContacto open={modalEditarContacto} onClose={() => setModalEditarContacto(false)} lead={lead} />
