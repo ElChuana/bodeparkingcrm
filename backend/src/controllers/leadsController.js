@@ -16,14 +16,15 @@ const buscarContactoIds = async (search) => {
 
 // Etapas en orden para el pipeline
 const ORDEN_ETAPAS = [
-  'NUEVO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA',
+  'NUEVO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO',
   'VISITA_AGENDADA', 'VISITA_REALIZADA', 'SEGUIMIENTO_POST_VISITA',
   'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA', 'PERDIDO'
 ]
 
 const ETAPA_LABEL = {
   NUEVO: 'Nuevo', NO_CONTESTA: 'No contesta', SEGUIMIENTO: 'Seguimiento',
-  COTIZACION_ENVIADA: 'Cotización enviada', VISITA_AGENDADA: 'Visita agendada',
+  COTIZACION_ENVIADA: 'Cotización enviada', INTERESADO: 'Interesado',
+  VISITA_AGENDADA: 'Visita agendada',
   VISITA_REALIZADA: 'Visita realizada', SEGUIMIENTO_POST_VISITA: 'Seguimiento post visita',
   NEGOCIACION: 'Negociación', RESERVA: 'Reserva', PROMESA: 'Promesa',
   ESCRITURA: 'Escritura', ENTREGA: 'Entrega', POSTVENTA: 'Postventa', PERDIDO: 'Perdido'
@@ -281,16 +282,22 @@ const actualizar = async (req, res) => {
   }
 }
 
+const MOTIVOS_VALIDOS = ['NO_CONTESTA','PRECIO_ALTO','ELIGIO_COMPETENCIA','NO_CALIFICA_FINANC','NO_GUSTO_PRODUCTO','PERDIO_INTERES','OTRO']
+
 const cambiarEtapa = async (req, res) => {
   const { id } = req.params
-  const { etapa, motivoPerdida } = req.body
+  const { etapa, motivoPerdida, motivoPerdidaCat, motivoPerdidaNota } = req.body
 
   if (!ORDEN_ETAPAS.includes(etapa)) {
     return res.status(400).json({ error: 'Etapa inválida.' })
   }
 
-  if (etapa === 'PERDIDO' && !motivoPerdida) {
-    return res.status(400).json({ error: 'Debe indicar el motivo de pérdida.' })
+  if (etapa === 'PERDIDO' && !motivoPerdidaCat) {
+    return res.status(400).json({ error: 'Debe indicar el motivo de pérdida (motivoPerdidaCat).' })
+  }
+
+  if (etapa === 'PERDIDO' && !MOTIVOS_VALIDOS.includes(motivoPerdidaCat)) {
+    return res.status(400).json({ error: `motivoPerdidaCat inválido. Válidos: ${MOTIVOS_VALIDOS.join(', ')}` })
   }
 
   try {
@@ -302,18 +309,28 @@ const cambiarEtapa = async (req, res) => {
 
     const etapaAnterior = lead.etapa
 
+    const dataUpdate = {
+      etapa,
+      ...(etapa === 'PERDIDO' && {
+        etapaAntesDePerdido: etapaAnterior,
+        motivoPerdidaCat,
+        motivoPerdidaNota: motivoPerdidaNota || null,
+        motivoPerdida: motivoPerdida || motivoPerdidaCat,
+        perdidaAutomatica: false,
+      })
+    }
+
     const actualizado = await prisma.lead.update({
       where: { id: Number(id) },
-      data: { etapa, ...(motivoPerdida && { motivoPerdida }) }
+      data: dataUpdate
     })
 
-    // Log del cambio de etapa
     await prisma.interaccion.create({
       data: {
         leadId: Number(id),
         usuarioId: req.usuario.id,
         tipo: 'NOTA',
-        descripcion: `Etapa cambiada: ${etapaAnterior} → ${etapa}${motivoPerdida ? `. Motivo: ${motivoPerdida}` : ''}`
+        descripcion: `Etapa cambiada: ${etapaAnterior} → ${etapa}${motivoPerdidaCat ? `. Motivo: ${motivoPerdidaCat}` : ''}${motivoPerdidaNota ? ` — ${motivoPerdidaNota}` : ''}`
       }
     })
 
@@ -325,6 +342,7 @@ const cambiarEtapa = async (req, res) => {
       excluirUsuarioId: req.usuario.id
     })
   } catch (err) {
+    console.error(err)
     res.status(500).json({ error: 'Error al cambiar etapa.' })
   }
 }
