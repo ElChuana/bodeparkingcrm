@@ -578,6 +578,21 @@ export default function LeadDetalle() {
     })
   }
 
+  const { data: todosVendedores = [] } = useQuery({
+    queryKey: ['usuarios-todos-activos'],
+    queryFn: () => api.get('/usuarios').then(r => r.data.filter(u => u.activo)),
+    enabled: esGerenciaOJV,
+  })
+
+  const cambiarVendedor = useMutation({
+    mutationFn: (vendedorId) => api.put(`/leads/${id}`, { vendedorId: vendedorId || null }),
+    onSuccess: () => {
+      message.success('Vendedor actualizado')
+      qc.invalidateQueries(['lead', id])
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error al cambiar vendedor'),
+  })
+
   const { data: lead, isLoading } = useQuery({
     queryKey: ['lead', id],
     queryFn: () => api.get(`/leads/${id}`).then(r => r.data)
@@ -754,9 +769,25 @@ export default function LeadDetalle() {
 
             {/* Equipo */}
             <Card size="small" title="Equipo asignado">
-              {lead.vendedor ? (
-                <Text style={{ fontSize: 13 }}>👤 <Text strong>{lead.vendedor.nombre} {lead.vendedor.apellido}</Text> <Text type="secondary">· Vendedor</Text></Text>
-              ) : <Text type="secondary" style={{ fontSize: 13 }}>Sin vendedor asignado</Text>}
+              <div style={{ marginBottom: lead.broker ? 8 : 0 }}>
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>👤 Vendedor</div>
+                {esGerenciaOJV ? (
+                  <Select
+                    style={{ width: '100%' }}
+                    size="small"
+                    allowClear
+                    placeholder="Sin vendedor asignado"
+                    value={lead.vendedor?.id || undefined}
+                    onChange={(val) => cambiarVendedor.mutate(val)}
+                    loading={cambiarVendedor.isPending}
+                    options={todosVendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))}
+                  />
+                ) : (
+                  lead.vendedor
+                    ? <Text style={{ fontSize: 13 }}><Text strong>{lead.vendedor.nombre} {lead.vendedor.apellido}</Text></Text>
+                    : <Text type="secondary" style={{ fontSize: 13 }}>Sin vendedor asignado</Text>
+                )}
+              </div>
               {lead.broker && (
                 <div><Text style={{ fontSize: 13 }}>🤝 <Text strong>{lead.broker.nombre} {lead.broker.apellido}</Text> <Text type="secondary">· Broker</Text></Text></div>
               )}
