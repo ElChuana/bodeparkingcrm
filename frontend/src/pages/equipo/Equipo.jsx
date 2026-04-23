@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Table, Button, Tag, Modal, Form, Input, Select, Typography, Space, Avatar, Switch, App, Card, Divider, Popconfirm, Alert, Checkbox } from 'antd'
-import { PlusOutlined, UserOutlined, KeyOutlined, CopyOutlined, StopOutlined, DeleteOutlined, AppstoreOutlined, EyeOutlined } from '@ant-design/icons'
+import { Table, Button, Tag, Modal, Form, Input, Select, Typography, Space, Avatar, Switch, App, Popconfirm, Checkbox } from 'antd'
+import { PlusOutlined, UserOutlined, AppstoreOutlined, EyeOutlined } from '@ant-design/icons'
 import api from '../../services/api'
 import { ROL_LABEL } from '../../components/ui'
 
@@ -415,149 +415,7 @@ export default function Equipo() {
         usuario={usuarioVisibilidad}
       />
 
-      <Divider />
-      <ApiKeys />
     </div>
   )
 }
 
-// ─── Gestión de API Keys ──────────────────────────────────────────
-function ApiKeys() {
-  const qc = useQueryClient()
-  const { message } = App.useApp()
-  const [nuevaKey, setNuevaKey] = useState(null)
-  const [nombre, setNombre] = useState('')
-
-  const { data: keys = [], isLoading } = useQuery({
-    queryKey: ['api-keys'],
-    queryFn: () => api.get('/public/keys').then(r => r.data)
-  })
-
-  const crear = useMutation({
-    mutationFn: () => api.post('/public/keys', { nombre }),
-    onSuccess: (res) => {
-      setNuevaKey(res.data.key)
-      setNombre('')
-      qc.invalidateQueries({ queryKey: ['api-keys'] })
-    },
-    onError: err => message.error(err.response?.data?.error || 'Error')
-  })
-
-  const desactivar = useMutation({
-    mutationFn: (id) => api.put(`/public/keys/${id}/desactivar`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] })
-  })
-
-  const eliminar = useMutation({
-    mutationFn: (id) => api.delete(`/public/keys/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] })
-  })
-
-  const copiar = (text) => {
-    navigator.clipboard.writeText(text)
-    message.success('Copiado al portapapeles')
-  }
-
-  return (
-    <Card
-      title={<><KeyOutlined /> API Keys</>}
-      size="small"
-      style={{ marginTop: 8 }}
-    >
-      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-        Las API Keys permiten que sistemas externos (formularios web, apps, CRMs) envíen leads directamente al sistema.
-        Usa el header <code>X-Api-Key</code> en cada request.
-      </Text>
-
-      {/* Crear nueva key */}
-      <Space.Compact style={{ marginBottom: 16, width: '100%', maxWidth: 500 }}>
-        <Input
-          placeholder="Nombre de la integración (ej: Formulario Web)"
-          value={nombre}
-          onChange={e => setNombre(e.target.value)}
-          onPressEnter={() => nombre && crear.mutate()}
-        />
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          loading={crear.isPending}
-          onClick={() => nombre && crear.mutate()}
-          disabled={!nombre}
-        >
-          Generar
-        </Button>
-      </Space.Compact>
-
-      {/* Mostrar key recién creada */}
-      {nuevaKey && (
-        <Alert
-          type="success"
-          style={{ marginBottom: 16 }}
-          message={
-            <div>
-              <Text strong>API Key generada — guárdala ahora, no se mostrará de nuevo</Text>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                <code style={{ fontSize: 13, background: '#f6f6f6', padding: '4px 8px', borderRadius: 4, flex: 1, wordBreak: 'break-all' }}>
-                  {nuevaKey}
-                </code>
-                <Button size="small" icon={<CopyOutlined />} onClick={() => copiar(nuevaKey)}>
-                  Copiar
-                </Button>
-              </div>
-            </div>
-          }
-          closable
-          onClose={() => setNuevaKey(null)}
-        />
-      )}
-
-      {/* Lista de keys */}
-      <Table
-        dataSource={keys}
-        rowKey="id"
-        loading={isLoading}
-        size="small"
-        locale={{ emptyText: 'Sin API Keys' }}
-        pagination={false}
-        columns={[
-          {
-            title: 'Nombre', dataIndex: 'nombre', key: 'nombre',
-            render: (v) => <Text strong>{v}</Text>
-          },
-          {
-            title: 'Key', dataIndex: 'key', key: 'key',
-            render: (v) => (
-              <Space>
-                <code style={{ fontSize: 12 }}>{v.slice(0, 12)}••••••••</code>
-                <Button size="small" type="text" icon={<CopyOutlined />} onClick={() => copiar(v)} />
-              </Space>
-            )
-          },
-          {
-            title: 'Estado', dataIndex: 'activa', key: 'activa',
-            render: (v) => <Tag color={v ? 'green' : 'red'}>{v ? 'Activa' : 'Desactivada'}</Tag>
-          },
-          {
-            title: 'Creada', dataIndex: 'creadoEn', key: 'creadoEn',
-            render: (v) => new Date(v).toLocaleDateString('es-CL')
-          },
-          {
-            title: '', key: 'acciones',
-            render: (_, k) => (
-              <Space>
-                {k.activa && (
-                  <Popconfirm title="¿Desactivar esta key?" onConfirm={() => desactivar.mutate(k.id)} okText="Sí" cancelText="No">
-                    <Button size="small" icon={<StopOutlined />}>Desactivar</Button>
-                  </Popconfirm>
-                )}
-                <Popconfirm title="¿Eliminar esta key?" onConfirm={() => eliminar.mutate(k.id)} okText="Eliminar" cancelText="No" okButtonProps={{ danger: true }}>
-                  <Button size="small" danger icon={<DeleteOutlined />} />
-                </Popconfirm>
-              </Space>
-            )
-          }
-        ]}
-      />
-    </Card>
-  )
-}
