@@ -201,6 +201,8 @@ model Usuario {
   smtpEmail             String?
   smtpPassword          String?
   firma                 String?
+  plantillaEmail        String?
+  plantillaCotizacion   String?
   rol                   Rol
   comisionPorcentaje    Float?
   comisionFijo          Float?
