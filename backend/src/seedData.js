@@ -260,6 +260,20 @@ async function main() {
     await prisma.alertaConfig.upsert({ where: { tipo: a.tipo }, update: {}, create: { ...a, activa: true, canalEmail: true } })
   }
 
+  // ─── REGLAS PIPELINE ──────────────────────────────────────────
+  const reglasPipeline = [
+    { nombre: 'Nuevo sin contacto', etapaOrigen: 'NUEVO', etapaDestino: 'NO_CONTESTA', umbralDias: 3, activa: false },
+    { nombre: 'No contesta → Perdido', etapaOrigen: 'NO_CONTESTA', etapaDestino: 'PERDIDO', umbralDias: 14, activa: false, motivoAuto: 'NO_CONTESTA' },
+    { nombre: 'Cotización sin respuesta', etapaOrigen: 'COTIZACION_ENVIADA', etapaDestino: 'INTERESADO', umbralDias: 5, activa: false },
+    { nombre: 'Visita sin seguimiento', etapaOrigen: 'VISITA_REALIZADA', etapaDestino: 'SEGUIMIENTO_POST_VISITA', umbralDias: 3, activa: false },
+    { nombre: 'Negociación estancada', etapaOrigen: 'NEGOCIACION', etapaDestino: 'PERDIDO', umbralDias: 21, activa: false, motivoAuto: 'PERDIO_INTERES' },
+  ]
+  for (const r of reglasPipeline) {
+    const existe = await prisma.reglaPipeline.findFirst({ where: { etapaOrigen: r.etapaOrigen, etapaDestino: r.etapaDestino } })
+    if (!existe) await prisma.reglaPipeline.create({ data: r })
+  }
+  console.log('✅ Reglas pipeline creadas')
+
   // ─── UF DEL DÍA ───────────────────────────────────────────────
   const hoy = new Date(); hoy.setHours(0,0,0,0)
   await prisma.uFDiaria.upsert({ where: { fecha: hoy }, update: {}, create: { fecha: hoy, valorPesos: 38450.32 } })
