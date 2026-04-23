@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Card, Switch, Button, InputNumber, Typography, Space, Tag, Modal,
-  Form, Tooltip, Alert, Divider, Row, Col, Statistic, App, List, Badge
+  Form, Tooltip, Alert, Divider, Row, Col, Statistic, App, List, Badge, Select, Input
 } from 'antd'
 import {
   ThunderboltOutlined, PlayCircleOutlined, CheckCircleOutlined,
@@ -12,8 +12,21 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
+import { ETAPA_LABEL } from '../../components/ui'
 
 const { Title, Text, Paragraph } = Typography
+
+const MOTIVO_AUTO_OPTIONS = [
+  { value: 'NO_CONTESTA', label: 'No contesta' },
+  { value: 'PRECIO_ALTO', label: 'Precio alto' },
+  { value: 'ELIGIO_COMPETENCIA', label: 'Eligió competencia' },
+  { value: 'NO_CALIFICA_FINANC', label: 'No califica financ.' },
+  { value: 'NO_GUSTO_PRODUCTO', label: 'No gustó producto' },
+  { value: 'PERDIO_INTERES', label: 'Perdió interés' },
+  { value: 'OTRO', label: 'Otro' },
+]
+
+const ETAPA_OPTIONS = Object.entries(ETAPA_LABEL).map(([k, v]) => ({ value: k, label: v }))
 
 const TIPO_META = {
   LEAD_SIN_ACTIVIDAD: {
@@ -64,6 +77,93 @@ const TIPO_META = {
     accion: null,
     unidad: 'días antes del vencimiento',
   },
+}
+
+function ReglaPipelineCard({ regla, onEdit }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+
+  const toggle = useMutation({
+    mutationFn: (activa) => api.put(`/alertas/reglas-pipeline/${regla.id}`, { activa }),
+    onSuccess: () => qc.invalidateQueries(['reglas-pipeline']),
+    onError: () => message.error('Error al actualizar')
+  })
+
+  return (
+    <Card
+      style={{ borderLeft: `4px solid ${regla.activa ? '#1677ff' : '#d9d9d9'}` }}
+      bodyStyle={{ padding: '14px 18px' }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <Space align="center" wrap>
+          <Tag color={regla.activa ? 'blue' : 'default'}>{ETAPA_LABEL[regla.etapaOrigen] || regla.etapaOrigen}</Tag>
+          <span style={{ color: '#94a3b8', fontSize: 16 }}>→</span>
+          <Tag color={regla.etapaDestino === 'PERDIDO' ? 'red' : 'green'}>{ETAPA_LABEL[regla.etapaDestino] || regla.etapaDestino}</Tag>
+          <Text type="secondary" style={{ fontSize: 12 }}>si pasan <Text strong>{regla.umbralDias}</Text> días sin avance</Text>
+          {regla.activa && <Tag color="green" style={{ fontSize: 11 }}>Activa</Tag>}
+        </Space>
+        <Space>
+          <Button size="small" onClick={() => onEdit(regla)}>Configurar</Button>
+          <Switch checked={regla.activa} size="small" loading={toggle.isPending} onChange={v => toggle.mutate(v)} />
+        </Space>
+      </div>
+    </Card>
+  )
+}
+
+function ModalReglaPipeline({ regla, onClose }) {
+  const qc = useQueryClient()
+  const [form] = Form.useForm()
+  const { message } = App.useApp()
+  const etapaDestino = Form.useWatch('etapaDestino', form)
+
+  const guardar = useMutation({
+    mutationFn: (d) => api.put(`/alertas/reglas-pipeline/${regla.id}`, d),
+    onSuccess: () => {
+      message.success('Regla actualizada')
+      qc.invalidateQueries(['reglas-pipeline'])
+      onClose()
+    },
+    onError: () => message.error('Error al guardar')
+  })
+
+  if (!regla) return null
+
+  return (
+    <Modal
+      title={`Configurar regla: ${regla.nombre}`}
+      open={!!regla}
+      onCancel={onClose}
+      onOk={() => form.validateFields().then(guardar.mutate)}
+      okText="Guardar"
+      cancelText="Cancelar"
+      confirmLoading={guardar.isPending}
+      width={480}
+    >
+      <Form form={form} layout="vertical" initialValues={regla} style={{ marginTop: 16 }}>
+        <Form.Item name="nombre" label="Nombre de la regla" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item name="etapaOrigen" label="Etapa origen" rules={[{ required: true }]}>
+          <Select options={ETAPA_OPTIONS.filter(e => !['PERDIDO','ENTREGA','POSTVENTA'].includes(e.value))} />
+        </Form.Item>
+        <Form.Item name="etapaDestino" label="Etapa destino" rules={[{ required: true }]}>
+          <Select options={ETAPA_OPTIONS} />
+        </Form.Item>
+        <Form.Item name="umbralDias" label="Días sin avance" rules={[{ required: true }, { type: 'number', min: 1, max: 365 }]}>
+          <InputNumber min={1} max={365} style={{ width: '100%' }} addonAfter="días" />
+        </Form.Item>
+        {etapaDestino === 'PERDIDO' && (
+          <Form.Item name="motivoAuto" label="Motivo automático asignado">
+            <Select options={MOTIVO_AUTO_OPTIONS} allowClear />
+          </Form.Item>
+        )}
+        <Form.Item name="activa" label="Estado" valuePropName="checked">
+          <Switch checkedChildren="Activa" unCheckedChildren="Inactiva" />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
 }
 
 function AutomatizacionCard({ config, onEdit }) {
@@ -220,12 +320,18 @@ function ModalConfigurar({ config, onClose }) {
 
 export default function Automatizaciones() {
   const [configurando, setConfigurando] = useState(null)
+  const [configurandoRegla, setConfigurandoRegla] = useState(null)
   const { message } = App.useApp()
   const qc = useQueryClient()
 
   const { data: configs = [], isLoading } = useQuery({
     queryKey: ['alertas-config'],
     queryFn: () => api.get('/alertas/config').then(r => r.data)
+  })
+
+  const { data: reglasPipeline = [], isLoading: loadingReglas } = useQuery({
+    queryKey: ['reglas-pipeline'],
+    queryFn: () => api.get('/alertas/reglas-pipeline').then(r => r.data)
   })
 
   const { data: notifs = [] } = useQuery({
@@ -326,7 +432,24 @@ export default function Automatizaciones() {
         </div>
       )}
 
+      {/* Reglas de pipeline */}
+      <div style={{ marginTop: 32 }}>
+        <Title level={5} style={{ marginBottom: 4 }}>
+          <ThunderboltOutlined style={{ marginRight: 6, color: '#1677ff' }} />
+          Reglas de pipeline
+        </Title>
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
+          Si un lead lleva X días en una etapa sin avanzar, se mueve automáticamente.
+        </Text>
+        <Space direction="vertical" style={{ width: '100%' }} size={10}>
+          {loadingReglas ? <Card loading /> : reglasPipeline.map(r => (
+            <ReglaPipelineCard key={r.id} regla={r} onEdit={setConfigurandoRegla} />
+          ))}
+        </Space>
+      </div>
+
       <ModalConfigurar config={configurando} onClose={() => setConfigurando(null)} />
+      <ModalReglaPipeline regla={configurandoRegla} onClose={() => setConfigurandoRegla(null)} />
     </div>
   )
 }
