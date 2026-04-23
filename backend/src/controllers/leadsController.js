@@ -51,7 +51,7 @@ const filtroAcceso = (usuario) => {
 }
 
 const listar = async (req, res) => {
-  const { etapa, vendedorId, brokerId, edificioId, origen, tipoUnidad, search, desde, hasta, sinActividad, campana } = req.query
+  const { etapa, vendedorId, brokerId, edificioId, origen, tipoUnidad, search, desde, hasta, sinActividad, campana, sinAsignar } = req.query
   try {
     const contactoIds = search ? await buscarContactoIds(search) : null
 
@@ -75,6 +75,7 @@ const listar = async (req, res) => {
         }),
         ...(campana && { campana: { contains: campana, mode: 'insensitive' } }),
         ...(contactoIds && { contactoId: { in: contactoIds } }),
+        ...(sinAsignar === 'true' && { vendedorId: null }),
       },
       include: {
         contacto: { select: { id: true, nombre: true, apellido: true, email: true, telefono: true, origen: true } },
