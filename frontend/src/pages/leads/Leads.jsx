@@ -21,12 +21,13 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
-import { ETAPA_COLOR, ETAPA_LABEL } from '../../components/ui'
+import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components/ui'
+import ModalPerdido from '../../components/ModalPerdido'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
-const ETAPAS = Object.keys(ETAPA_LABEL).filter(e => e !== 'PERDIDO')
+const ETAPAS = Object.keys(ETAPA_LABEL)
 
 const TIPO_ICON = {
   LLAMADA: <PhoneOutlined />, EMAIL: <MailOutlined />,
@@ -296,9 +297,19 @@ const LeadCard = React.memo(function LeadCard({ lead, onPreview }) {
         onClick={() => { if (!isDragging) onPreview(lead.id) }}
         bodyStyle={{ padding: '8px 10px' }}
       >
-        <Text strong style={{ display: 'block', fontSize: 13 }}>
-          {lead.contacto.nombre} {lead.contacto.apellido}
-        </Text>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 2 }}>
+          <Text strong style={{ fontSize: 13 }}>
+            {lead.contacto.nombre} {lead.contacto.apellido}
+          </Text>
+          {lead.perdidaAutomatica && (
+            <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>🤖 Auto</Tag>
+          )}
+          {lead.etapa === 'PERDIDO' && lead.motivoPerdidaCat && (
+            <Tag color="red" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>
+              {MOTIVO_PERDIDA_LABEL[lead.motivoPerdidaCat] || lead.motivoPerdidaCat}
+            </Tag>
+          )}
+        </div>
         <Text type="secondary" style={{ fontSize: 12 }}>
           {lead.contacto.telefono || lead.contacto.email || '-'}
         </Text>
@@ -366,6 +377,7 @@ function VistaKanban({ filtros, onPreview }) {
   const { message } = App.useApp()
   const qc = useQueryClient()
   const [activeId, setActiveId] = useState(null)
+  const [modalPerdido, setModalPerdido] = useState(null) // { leadId, etapaActual }
   const dragStartEtapa = useRef(null)
 
   const params = {
@@ -388,7 +400,8 @@ function VistaKanban({ filtros, onPreview }) {
   })
 
   const cambiarEtapa = useMutation({
-    mutationFn: ({ id, etapa }) => api.put(`/leads/${id}/etapa`, { etapa }),
+    mutationFn: ({ id, etapa, motivoPerdidaCat, motivoPerdidaNota }) =>
+      api.put(`/leads/${id}/etapa`, { etapa, motivoPerdidaCat, motivoPerdidaNota }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['leads-kanban'] }),
     onError: () => message.error('No se pudo cambiar la etapa')
   })
@@ -430,10 +443,23 @@ function VistaKanban({ filtros, onPreview }) {
       }
     }
     const etapaOrigen = dragStartEtapa.current
-    if (ETAPAS.includes(etapaDestino) && etapaDestino !== etapaOrigen) {
+    dragStartEtapa.current = null
+
+    if (!ETAPAS.includes(etapaDestino) || etapaDestino === etapaOrigen) return
+
+    if (etapaDestino === 'PERDIDO') {
+      setModalPerdido({ leadId: active.id, etapaActual: etapaOrigen })
+    } else {
       cambiarEtapa.mutate({ id: active.id, etapa: etapaDestino })
     }
-    dragStartEtapa.current = null
+  }
+
+  const handleConfirmarPerdido = (values) => {
+    if (!modalPerdido) return
+    cambiarEtapa.mutate(
+      { id: modalPerdido.leadId, etapa: 'PERDIDO', ...values },
+      { onSettled: () => setModalPerdido(null) }
+    )
   }
 
   if (isLoading) return <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
@@ -461,6 +487,13 @@ function VistaKanban({ filtros, onPreview }) {
         ) : null}
       </DragOverlay>
     </DndContext>
+    <ModalPerdido
+      open={!!modalPerdido}
+      etapaActual={modalPerdido?.etapaActual}
+      onConfirm={handleConfirmarPerdido}
+      onCancel={() => setModalPerdido(null)}
+      loading={cambiarEtapa.isPending}
+    />
     </>
   )
 }
