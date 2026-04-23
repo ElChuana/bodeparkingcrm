@@ -79,7 +79,7 @@
 
 ### LEADS — `/api/leads`
 - Archivos: `routes/leads.js`, `controllers/leadsController.js`
-- `GET /` — listar con filtros (etapa, vendedor, edificio, origen, búsqueda, fechas). Orden: actualizadoEn DESC
+- `GET /` — listar con filtros (etapa, vendedor, edificio, origen, búsqueda, fechas, `sinAsignar=true`). Orden: actualizadoEn DESC
 - `GET /kanban` — vista Kanban por etapa
 - `GET /kanban/por-vendedor` — Kanban agrupado por vendedor
 - `GET /campanas` — campañas disponibles
@@ -95,6 +95,7 @@
 - Acceso filtrado por rol: VENDEDOR/BROKER solo ven sus leads asignados o en sus filtros
 - **Auto-asignación a JEFE_VENTAS** cuando ingresan por API sin vendedor asignado
 - Frontend: `pages/leads/Leads.jsx`, `pages/leads/LeadDetalle.jsx`
+- LeadDetalle muestra Select editable de vendedor para GERENTE/JEFE_VENTAS (usa `PUT /:id`)
 
 ### LEADS (API Comuro) — `POST /api/leads/upsert`
 - Archivo: `routes/comuro.js`
@@ -303,10 +304,21 @@
 
 ### EMAIL — `/api/email`
 - Archivo: `routes/email.js`
-- `POST /enviar` — enviar email (con adjuntos)
-- `GET /verificar`, `GET /config`, `PUT /config` — configuración SMTP por usuario
+- `POST /enviar` — enviar email (con adjuntos). Adjunta firma HTML del usuario al pie.
+- `GET /verificar`, `GET /config`, `PUT /config` — configuración SMTP + plantillas por usuario
+- `GET /firma`, `PUT /firma` — firma HTML personal por usuario
+- Config incluye: `smtpEmail`, `plantillaEmail`, `plantillaCotizacion` (variable `{nombre}` reemplazada en frontend)
 - Registra interacción automática en el lead si se pasa `leadId`
-- Componente: `components/ModalEmail.jsx`
+- Componente: `components/ModalEmail.jsx` (muestra preview de firma, carga plantilla del usuario)
+- Configuración en `pages/perfil/MiPerfil.jsx`: email, plantillas (2 tabs), firma (editor HTML + preview)
+
+### CENTRO DE ASIGNACIÓN — `/asignacion`
+- Archivo: `pages/asignacion/CentroAsignacion.jsx`
+- Acceso: GERENTE y JEFE_VENTAS únicamente
+- Filtros: campaña (multiselect), origen, fecha (Hoy/Ayer/Esta semana/rango), toggle "solo sin asignar"
+- Tabla con selección múltiple (checkbox)
+- Barra flotante al seleccionar: elegir vendedor → `POST /api/leads/asignar-masivo`
+- Usa endpoints existentes: `GET /api/leads`, `GET /api/leads/campanas`, `GET /api/usuarios`
 
 ---
 
@@ -349,7 +361,7 @@
 
 - `pages/automatizaciones/Automatizaciones.jsx` — página de automatizaciones (UI solamente)
 - `pages/promociones/Promociones.jsx` — gestión de packs/beneficios (usa `/api/packs` y `/api/beneficios`)
-- `pages/perfil/MiPerfil.jsx` — perfil propio (usa `/api/auth/me`)
+- `pages/perfil/MiPerfil.jsx` — perfil propio: email de envío, plantillas de email (general + cotización), firma HTML, notificaciones
 
 ---
 
@@ -364,5 +376,5 @@
 
 ---
 
-*Última actualización: Abril 2026*
+*Última actualización: 23 Abril 2026*
 *Actualizar este archivo después de cada cambio significativo.*
