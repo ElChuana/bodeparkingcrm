@@ -189,6 +189,61 @@ async function _ejecutarChequeo() {
     }
   }
 
+  // ── Reglas de Pipeline (ReglaPipeline) ────────────────────────
+  const reglasPipeline = await prisma.reglaPipeline.findMany({ where: { activa: true } })
+
+  for (const regla of reglasPipeline) {
+    const fechaLimitePipeline = new Date()
+    fechaLimitePipeline.setDate(fechaLimitePipeline.getDate() - regla.umbralDias)
+
+    const leads = await prisma.lead.findMany({
+      where: {
+        etapa: regla.etapaOrigen,
+        actualizadoEn: { lt: fechaLimitePipeline },
+      }
+    })
+
+    const etapasFinales = ['PERDIDO', 'ENTREGA', 'POSTVENTA']
+    const leadsElegibles = leads.filter(l => !etapasFinales.includes(l.etapa))
+
+    for (const lead of leadsElegibles) {
+      const dataUpdate = { etapa: regla.etapaDestino }
+
+      if (regla.etapaDestino === 'PERDIDO') {
+        dataUpdate.etapaAntesDePerdido = regla.etapaOrigen
+        dataUpdate.motivoPerdidaCat = regla.motivoAuto || 'NO_CONTESTA'
+        dataUpdate.motivoPerdida = `Auto: ${regla.umbralDias} días en ${regla.etapaOrigen} sin avance`
+        dataUpdate.perdidaAutomatica = true
+        dataUpdate.perdidaAutomaticaEn = new Date()
+      }
+
+      await prisma.lead.update({ where: { id: lead.id }, data: dataUpdate })
+
+      await prisma.interaccion.create({
+        data: {
+          leadId: lead.id,
+          usuarioId: gerentes[0]?.id || null,
+          tipo: 'NOTA',
+          descripcion: `Automatización: lead movido de ${regla.etapaOrigen} a ${regla.etapaDestino} por inactividad de ${regla.umbralDias} días (regla: ${regla.nombre})`
+        }
+      })
+
+      if (lead.vendedorId) {
+        await prisma.notificacion.create({
+          data: {
+            usuarioId: lead.vendedorId,
+            tipo: 'LEAD_ESTANCADO',
+            mensaje: `Lead movido automáticamente: ${regla.etapaOrigen} → ${regla.etapaDestino} (${regla.nombre})`,
+            referenciaId: lead.id,
+            referenciaTipo: 'lead'
+          }
+        })
+      }
+
+      acciones.push({ tipo: 'PIPELINE_TIMEOUT', leadId: lead.id, de: regla.etapaOrigen, a: regla.etapaDestino })
+    }
+  }
+
   return { alertasGeneradas, acciones }
 }
 
@@ -220,4 +275,66 @@ const actualizarPreferencias = async (req, res) => {
   }
 }
 
-module.exports = { misNotificaciones, marcarLeida, marcarTodasLeidas, obtenerConfig, actualizarConfig, ejecutarChequeo, obtenerPreferencias, actualizarPreferencias }
+// ─── CRUD ReglaPipeline ────────────────────────────────────────────
+const listarReglasPipeline = async (req, res) => {
+  try {
+    const reglas = await prisma.reglaPipeline.findMany({ orderBy: { id: 'asc' } })
+    res.json(reglas)
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener reglas.' })
+  }
+}
+
+const crearReglaPipeline = async (req, res) => {
+  const { nombre, etapaOrigen, etapaDestino, umbralDias, activa, motivoAuto } = req.body
+  if (!nombre || !etapaOrigen || !etapaDestino || !umbralDias) {
+    return res.status(400).json({ error: 'nombre, etapaOrigen, etapaDestino y umbralDias son requeridos.' })
+  }
+  try {
+    const regla = await prisma.reglaPipeline.create({
+      data: { nombre, etapaOrigen, etapaDestino, umbralDias: Number(umbralDias), activa: !!activa, motivoAuto: motivoAuto || null }
+    })
+    res.status(201).json(regla)
+  } catch (err) {
+    res.status(500).json({ error: 'Error al crear regla.' })
+  }
+}
+
+const actualizarReglaPipeline = async (req, res) => {
+  const { id } = req.params
+  const { nombre, etapaOrigen, etapaDestino, umbralDias, activa, motivoAuto } = req.body
+  try {
+    const regla = await prisma.reglaPipeline.update({
+      where: { id: Number(id) },
+      data: {
+        ...(nombre !== undefined && { nombre }),
+        ...(etapaOrigen !== undefined && { etapaOrigen }),
+        ...(etapaDestino !== undefined && { etapaDestino }),
+        ...(umbralDias !== undefined && { umbralDias: Number(umbralDias) }),
+        ...(activa !== undefined && { activa }),
+        ...(motivoAuto !== undefined && { motivoAuto: motivoAuto || null }),
+      }
+    })
+    res.json(regla)
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Regla no encontrada.' })
+    res.status(500).json({ error: 'Error al actualizar regla.' })
+  }
+}
+
+const eliminarReglaPipeline = async (req, res) => {
+  try {
+    await prisma.reglaPipeline.delete({ where: { id: Number(req.params.id) } })
+    res.json({ ok: true })
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Regla no encontrada.' })
+    res.status(500).json({ error: 'Error al eliminar regla.' })
+  }
+}
+
+module.exports = {
+  misNotificaciones, marcarLeida, marcarTodasLeidas,
+  obtenerConfig, actualizarConfig, ejecutarChequeo,
+  obtenerPreferencias, actualizarPreferencias,
+  listarReglasPipeline, crearReglaPipeline, actualizarReglaPipeline, eliminarReglaPipeline
+}
