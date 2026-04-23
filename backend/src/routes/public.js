@@ -46,7 +46,8 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
   }
 
   const origenesValidos = ['INSTAGRAM', 'GOOGLE', 'REFERIDO', 'BROKER', 'VISITA_DIRECTA', 'WEB', 'OTRO']
-  const origenFinal = origenesValidos.includes(origen) ? origen : 'WEB'
+  const origenNorm = origen?.toUpperCase().trim()
+  const origenFinal = origenesValidos.includes(origenNorm) ? origenNorm : 'WEB'
 
   try {
     // ── 1. Deduplicar contacto por email o teléfono + similitud de nombre ──
