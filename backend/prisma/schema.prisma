@@ -44,6 +44,7 @@ enum EtapaLead {
   NO_CONTESTA
   SEGUIMIENTO
   COTIZACION_ENVIADA
+  INTERESADO
   VISITA_AGENDADA
   VISITA_REALIZADA
   SEGUIMIENTO_POST_VISITA
@@ -338,6 +339,11 @@ model Lead {
   campana               String?
   presupuestoAprox      Float?
   motivoPerdida         String?
+  etapaAntesDePerdido   EtapaLead?
+  motivoPerdidaCat      String?
+  motivoPerdidaNota     String?
+  perdidaAutomatica     Boolean    @default(false)
+  perdidaAutomaticaEn   DateTime?
   notas                 String?
   comuroData            Json?
   comuroUuid            String?     @unique
@@ -827,4 +833,18 @@ model Recordatorio {
   creadoPor Usuario @relation("RecordatoriosCreadosPor", fields: [creadoPorId], references: [id])
 
   @@map("recordatorios")
+}
+
+model ReglaPipeline {
+  id            Int      @id @default(autoincrement())
+  nombre        String
+  etapaOrigen   String
+  etapaDestino  String
+  umbralDias    Int      @default(7)
+  activa        Boolean  @default(false)
+  motivoAuto    String?
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@map("reglas_pipeline")
 }
