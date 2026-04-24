@@ -1023,13 +1023,68 @@ function UnidadesCard({ unidades }) {
   )
 }
 
+// ─── Modal editar venta ───────────────────────────────────────────
+function ModalEditarVenta({ open, onClose, venta }) {
+  const qc = useQueryClient()
+  const [form] = Form.useForm()
+  const { message } = App.useApp()
+
+  const editar = useMutation({
+    mutationFn: (d) => api.put(`/ventas/${venta.id}`, d),
+    onSuccess: () => {
+      message.success('Venta actualizada')
+      qc.invalidateQueries(['venta', String(venta.id)])
+      onClose()
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error al editar')
+  })
+
+  return (
+    <Modal
+      title="Editar venta"
+      open={open}
+      onCancel={onClose}
+      onOk={() => form.validateFields().then(editar.mutate)}
+      okText="Guardar"
+      cancelText="Cancelar"
+      confirmLoading={editar.isPending}
+      width={460}
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{
+        precioListaUF: venta?.precioListaUF,
+        descuentoPacksUF: venta?.descuentoPacksUF,
+        descuentoAprobadoUF: venta?.descuentoAprobadoUF,
+        precioFinalUF: venta?.precioFinalUF,
+        notas: venta?.notas,
+      }}>
+        <Form.Item name="precioListaUF" label="Precio de lista (UF)" rules={[{ required: true }]}>
+          <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="UF" />
+        </Form.Item>
+        <Form.Item name="descuentoPacksUF" label="Descuento packs (UF)">
+          <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="UF" />
+        </Form.Item>
+        <Form.Item name="descuentoAprobadoUF" label="Descuento aprobado (UF)">
+          <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="UF" />
+        </Form.Item>
+        <Form.Item name="precioFinalUF" label="Precio final (UF)" rules={[{ required: true }]}>
+          <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="UF" />
+        </Form.Item>
+        <Form.Item name="notas" label="Notas">
+          <Input.TextArea rows={2} />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
 // ─── Página principal ──────────────────────────────────────────────
 export default function VentaDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { esGerenciaOJV } = useAuth()
+  const { esGerenciaOJV, usuario } = useAuth()
   const { formatUF, formatPesos, ufAPesos } = useUF()
   const [modalEstado, setModalEstado] = useState(false)
+  const [modalEditar, setModalEditar] = useState(false)
 
   const { data: venta, isLoading } = useQuery({
     queryKey: ['venta', id],
@@ -1070,9 +1125,14 @@ export default function VentaDetalle() {
             ))}
           </div>
         </div>
-        {esGerenciaOJV && !['ENTREGADO','ANULADO'].includes(venta.estado) && (
-          <Button onClick={() => setModalEstado(true)}>Cambiar estado</Button>
-        )}
+        <Space wrap>
+          {esGerenciaOJV && !['ENTREGADO','ANULADO'].includes(venta.estado) && (
+            <Button onClick={() => setModalEstado(true)}>Cambiar estado</Button>
+          )}
+          {usuario?.rol === 'GERENTE' && venta.estado !== 'ENTREGADO' && (
+            <Button icon={<EditOutlined />} onClick={() => setModalEditar(true)}>Editar precios</Button>
+          )}
+        </Space>
       </div>
 
       <Row gutter={[16, 16]}>
@@ -1191,6 +1251,7 @@ export default function VentaDetalle() {
       </Row>
 
       <ModalEstado open={modalEstado} onClose={() => setModalEstado(false)} venta={venta} />
+      <ModalEditarVenta open={modalEditar} onClose={() => setModalEditar(false)} venta={venta} />
     </div>
   )
 }

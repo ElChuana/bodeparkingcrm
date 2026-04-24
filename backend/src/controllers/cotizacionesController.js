@@ -126,6 +126,14 @@ const actualizar = async (req, res) => {
   const { items, notas, validezDias } = req.body
 
   try {
+    const cot = await prisma.cotizacion.findUnique({
+      where: { id: Number(id) },
+      select: { ventaOrigen: { select: { id: true } } }
+    })
+    if (cot?.ventaOrigen) {
+      return res.status(400).json({ error: 'No se puede editar una cotización que ya fue convertida en venta.' })
+    }
+
     if (Array.isArray(items)) {
       await prisma.cotizacionItem.deleteMany({ where: { cotizacionId: Number(id) } })
     }
