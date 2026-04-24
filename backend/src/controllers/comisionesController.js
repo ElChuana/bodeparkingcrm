@@ -24,7 +24,7 @@ const listar = async (req, res) => {
         usuario: { select: { nombre: true, apellido: true, rol: true } },
         venta: {
           select: {
-            id: true, estado: true, precioUF: true,
+            id: true, estado: true, precioFinalUF: true,
             unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
             comprador: { select: { nombre: true, apellido: true } }
           }
@@ -47,9 +47,6 @@ const calcularMontos = (precioVentaUF, porcentaje, montoFijo) => {
 }
 
 const crear = async (req, res) => {
-  if (!['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)) {
-    return res.status(403).json({ error: 'Acceso denegado.' })
-  }
   const { ventaId, usuarioId, concepto, porcentaje, montoFijo, montoPrimera, montoSegunda } = req.body
 
   if (!ventaId || !usuarioId) {
@@ -62,15 +59,27 @@ const crear = async (req, res) => {
   try {
     const venta = await prisma.venta.findUnique({
       where: { id: Number(ventaId) },
-      select: { precioUF: true, descuentoUF: true, estado: true }
+      select: { precioFinalUF: true, estado: true, conPromesa: true }
     })
     if (!venta) return res.status(404).json({ error: 'Venta no encontrada.' })
     if (venta.estado === 'ANULADO') return res.status(400).json({ error: 'No se pueden crear comisiones para ventas anuladas.' })
 
-    const precioFinal = venta.precioUF - (venta.descuentoUF || 0)
-    const total = calcularMontos(precioFinal, porcentaje != null ? Number(porcentaje) : null, montoFijo != null ? Number(montoFijo) : null)
-    const primera = montoPrimera != null ? Number(montoPrimera) : total / 2
-    const segunda = montoSegunda != null ? Number(montoSegunda) : total / 2
+    const total = calcularMontos(venta.precioFinalUF, porcentaje != null ? Number(porcentaje) : null, montoFijo != null ? Number(montoFijo) : null)
+
+    let primera, segunda
+    if (montoPrimera != null && montoSegunda != null) {
+      // usuario pasó valores manuales explícitos
+      primera = Number(montoPrimera)
+      segunda = Number(montoSegunda)
+    } else if (!venta.conPromesa) {
+      // directo a escritura: 100% en segunda
+      primera = 0
+      segunda = total
+    } else {
+      // con promesa: 50/50 default
+      primera = montoPrimera != null ? Number(montoPrimera) : total / 2
+      segunda = montoSegunda != null ? Number(montoSegunda) : total / 2
+    }
 
     const comision = await prisma.comision.create({
       data: {
@@ -93,31 +102,35 @@ const crear = async (req, res) => {
 }
 
 const editar = async (req, res) => {
-  if (!['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)) {
-    return res.status(403).json({ error: 'Acceso denegado.' })
-  }
   const { id } = req.params
   const { concepto, porcentaje, montoFijo, montoPrimera, montoSegunda } = req.body
 
   try {
     const comision = await prisma.comision.findUnique({
       where: { id: Number(id) },
-      include: { venta: { select: { precioUF: true, descuentoUF: true } } }
+      include: { venta: { select: { precioFinalUF: true, conPromesa: true } } }
     })
     if (!comision) return res.status(404).json({ error: 'Comisión no encontrada.' })
 
-    const precioFinal = comision.venta.precioUF - (comision.venta.descuentoUF || 0)
     const newPct = porcentaje != null ? Number(porcentaje) : null
     const newFijo = montoFijo != null ? Number(montoFijo) : null
 
     // Recalcular total si cambiaron porcentaje o montoFijo
     const total = (newPct != null || newFijo != null)
-      ? calcularMontos(precioFinal, newPct, newFijo)
+      ? calcularMontos(comision.venta.precioFinalUF, newPct, newFijo)
       : comision.montoCalculadoUF
 
-    // Split: si el usuario no envió valores explícitos, mantener proporcional
-    const primera = montoPrimera != null ? Number(montoPrimera) : total / 2
-    const segunda = montoSegunda != null ? Number(montoSegunda) : total / 2
+    let primera, segunda
+    if (montoPrimera != null && montoSegunda != null) {
+      primera = Number(montoPrimera)
+      segunda = Number(montoSegunda)
+    } else if (!comision.venta.conPromesa) {
+      primera = 0
+      segunda = total
+    } else {
+      primera = montoPrimera != null ? Number(montoPrimera) : total / 2
+      segunda = montoSegunda != null ? Number(montoSegunda) : total / 2
+    }
 
     const actualizado = await prisma.comision.update({
       where: { id: Number(id) },
@@ -140,9 +153,6 @@ const editar = async (req, res) => {
 }
 
 const eliminar = async (req, res) => {
-  if (!['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)) {
-    return res.status(403).json({ error: 'Acceso denegado.' })
-  }
   const { id } = req.params
   try {
     await prisma.comision.delete({ where: { id: Number(id) } })
