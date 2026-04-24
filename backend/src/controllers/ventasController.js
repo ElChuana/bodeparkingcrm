@@ -108,6 +108,30 @@ const actualizarEstado = async (req, res) => {
       await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'PROMESA' } })
     } else if (estado === 'ESCRITURA') {
       await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'ESCRITURA' } })
+
+      // Notificar comisiones pendientes de escritura
+      const comisionesPendientes = await prisma.comision.findMany({
+        where: { ventaId: Number(id), estadoSegunda: { not: 'PAGADO' } },
+        select: { id: true }
+      })
+      if (comisionesPendientes.length > 0) {
+        const destinatarios = await prisma.usuario.findMany({
+          where: { activo: true, rol: { in: ['GERENTE', 'JEFE_VENTAS'] } },
+          select: { id: true }
+        })
+        if (destinatarios.length > 0) {
+          await prisma.notificacion.createMany({
+            data: destinatarios.map(u => ({
+              usuarioId: u.id,
+              tipo: 'COMISION_ESCRITURA',
+              mensaje: `Venta #${id} llegó a escritura. ${comisionesPendientes.length} comisión(es) pendiente(s) de pago.`,
+              referenciaId: Number(id),
+              referenciaTipo: 'venta'
+            })),
+            skipDuplicates: true
+          })
+        }
+      }
     }
 
     res.json(venta)
