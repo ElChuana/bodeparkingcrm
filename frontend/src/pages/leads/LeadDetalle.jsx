@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import dayjs from 'dayjs'
 import ModalEmail from '../../components/ModalEmail'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -261,32 +261,30 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
-  useEffect(() => {
-    if (open && visita) {
-      form.setFieldsValue({
-        fechaHora: toLocalDatetime(visita.fechaHora),
-        tipo: visita.tipo,
-        notas: visita.notas || '',
-        edificioId: visita.edificioId || undefined,
-        vendedorId: visita.vendedor?.id || undefined,
-      })
-    } else if (!open) {
-      form.resetFields()
-    }
-  }, [open, visita])
-
   return (
     <Modal
       title="Editar visita"
       open={open}
       onCancel={onClose}
-      onOk={() => form.validateFields().then(values => editar.mutate(values))}
+      onOk={() => form.submit()}
       okText="Guardar"
       cancelText="Cancelar"
       confirmLoading={editar.isPending}
-      destroyOnClose={false}
+      destroyOnClose
     >
-      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+      <Form
+        form={form}
+        layout="vertical"
+        style={{ marginTop: 16 }}
+        onFinish={(values) => editar.mutate(values)}
+        initialValues={visita ? {
+          fechaHora: toLocalDatetime(visita.fechaHora),
+          tipo: visita.tipo || 'presencial',
+          notas: visita.notas || '',
+          edificioId: visita.edificioId || undefined,
+          vendedorId: visita.vendedor?.id || undefined,
+        } : undefined}
+      >
         <Form.Item name="fechaHora" label="Fecha y hora" rules={[{ required: true }]}>
           <Input type="datetime-local" />
         </Form.Item>
