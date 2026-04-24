@@ -549,6 +549,23 @@ function PanelBeneficios({ cotizacionId, beneficios, soloLectura }) {
   )
 }
 
+// Transforma packs/beneficios al formato promociones que espera CotizacionDocumento
+function cotizacionParaPDF(cot) {
+  const promociones = [
+    ...(cot.packs || []).map(cp => ({
+      aplicada: true,
+      ahorroUF: cp.descuentoAplicadoUF,
+      promocion: { nombre: cp.pack?.nombre || 'Pack', tipo: 'DESCUENTO_UF', valorUF: cp.descuentoAplicadoUF }
+    })),
+    ...(cot.beneficios || []).map(cb => ({
+      aplicada: true,
+      ahorroUF: 0,
+      promocion: { nombre: cb.beneficio?.nombre || 'Beneficio', tipo: cb.beneficio?.tipo || 'OTRO' }
+    }))
+  ]
+  return { ...cot, promociones }
+}
+
 // ── Página principal editor ─────────────────────────────────────
 export default function CotizacionEditor() {
   const { id } = useParams()
@@ -757,7 +774,7 @@ export default function CotizacionEditor() {
           {!esNueva && cotizacion && items.length > 0 && (
             <>
               <PDFDownloadLink
-                document={<CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} valorUF={valorUF} />}
+                document={<CotizacionDocumento cotizacion={cotizacionParaPDF(cotizacion)} logoUrl={logoUrl} valorUF={valorUF} />}
                 fileName={`Cotizacion-${id}-${cotizacion.lead?.contacto?.apellido || 'cliente'}.pdf`}
               >
                 {({ loading }) => (
@@ -774,7 +791,7 @@ export default function CotizacionEditor() {
                     setGenerandoPdf(true)
                     try {
                       const blob = await pdf(
-                        <CotizacionDocumento cotizacion={{ ...cotizacion, items: cotizacion.items }} logoUrl={logoUrl} valorUF={valorUF} />
+                        <CotizacionDocumento cotizacion={cotizacionParaPDF(cotizacion)} logoUrl={logoUrl} valorUF={valorUF} />
                       ).toBlob()
                       const base64 = await new Promise((resolve, reject) => {
                         const reader = new FileReader()

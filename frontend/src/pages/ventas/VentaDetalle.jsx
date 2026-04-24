@@ -1200,10 +1200,17 @@ export default function VentaDetalle() {
                   <Text>{(venta.precioListaUF || 0).toFixed(2)} UF</Text>
                 </div>
                 {venta.descuentoPacksUF > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                    <Text style={{ color: '#d46b08' }}>− Descuento packs</Text>
-                    <Text style={{ color: '#d46b08' }}>−{venta.descuentoPacksUF.toFixed(2)} UF</Text>
-                  </div>
+                  <>
+                    {(venta.cotizacionOrigen?.packs?.length > 0
+                      ? venta.cotizacionOrigen.packs
+                      : [{ pack: { nombre: 'Descuento packs' }, descuentoAplicadoUF: venta.descuentoPacksUF }]
+                    ).map((cp, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                        <Text style={{ color: '#d46b08' }}>− {cp.pack.nombre}</Text>
+                        <Text style={{ color: '#d46b08' }}>−{cp.descuentoAplicadoUF.toFixed(2)} UF</Text>
+                      </div>
+                    ))}
+                  </>
                 )}
                 {venta.descuentoAprobadoUF > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
