@@ -61,7 +61,19 @@ const obtener = async (req, res) => {
         gerente: { select: { id: true, nombre: true, apellido: true } },
         unidades: { include: { edificio: true } },
         lead: { select: { id: true, etapa: true } },
-        cotizacionOrigen: { select: { id: true, estado: true, descuentoAprobadoUF: true } },
+        cotizacionOrigen: {
+          select: {
+            id: true,
+            estado: true,
+            descuentoAprobadoUF: true,
+            packs: {
+              select: {
+                descuentoAplicadoUF: true,
+                pack: { select: { nombre: true, descripcion: true } }
+              }
+            }
+          }
+        },
         planPago: { include: { cuotas: { orderBy: { numeroCuota: 'asc' } } } },
         procesoLegal: { include: { documentos: { orderBy: { creadoEn: 'desc' } } } },
         comisiones: { include: { usuario: { select: { nombre: true, apellido: true, rol: true } } } },
