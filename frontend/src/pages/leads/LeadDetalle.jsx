@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
 import ModalEmail from '../../components/ModalEmail'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -229,8 +229,30 @@ function ModalResultadoVisita({ open, onClose, visita, leadId }) {
 // ─── Modal editar visita ──────────────────────────────────────────
 function ModalEditarVisita({ open, onClose, visita, leadId }) {
   const qc = useQueryClient()
-  const [form] = Form.useForm()
   const { message } = App.useApp()
+  const [loading, setLoading] = useState(false)
+  const [fechaHora, setFechaHora] = useState('')
+  const [tipo, setTipo] = useState('presencial')
+  const [notas, setNotas] = useState('')
+  const [vendedorId, setVendedorId] = useState(undefined)
+  const [edificioId, setEdificioId] = useState(undefined)
+
+  const toLocalDatetime = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    const pad = n => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+
+  useEffect(() => {
+    if (visita) {
+      setFechaHora(toLocalDatetime(visita.fechaHora))
+      setTipo(visita.tipo || 'presencial')
+      setNotas(visita.notas || '')
+      setVendedorId(visita.vendedor?.id || undefined)
+      setEdificioId(visita.edificioId || undefined)
+    }
+  }, [visita?.id])
 
   const { data: edificios = [] } = useQuery({
     queryKey: ['edificios-activos'],
@@ -243,22 +265,21 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
     enabled: open
   })
 
-  const editar = useMutation({
-    mutationFn: (d) => api.patch(`/leads/${leadId}/visitas/${visita.id}`, d),
-    onSuccess: () => {
+  const handleSave = async () => {
+    if (!fechaHora) { message.error('La fecha y hora son requeridas'); return }
+    if (!visita?.id) return
+    setLoading(true)
+    try {
+      await api.patch(`/leads/${leadId}/visitas/${visita.id}`, { fechaHora, tipo, notas, vendedorId, edificioId })
       message.success('Visita actualizada')
-      qc.invalidateQueries(['lead', String(leadId)])
-      qc.invalidateQueries(['visitas-todas'])
+      qc.invalidateQueries({ queryKey: ['lead', String(leadId)] })
+      qc.invalidateQueries({ queryKey: ['visitas-todas'] })
       onClose()
-    },
-    onError: err => message.error(err.response?.data?.error || 'Error')
-  })
-
-  const toLocalDatetime = (iso) => {
-    if (!iso) return ''
-    const d = new Date(iso)
-    const pad = n => String(n).padStart(2, '0')
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+    } catch (err) {
+      message.error(err.response?.data?.error || 'Error al actualizar visita')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -266,41 +287,36 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
       title="Editar visita"
       open={open}
       onCancel={onClose}
-      onOk={() => form.submit()}
+      onOk={handleSave}
       okText="Guardar"
       cancelText="Cancelar"
-      confirmLoading={editar.isPending}
-      destroyOnClose
+      confirmLoading={loading}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        style={{ marginTop: 16 }}
-        onFinish={(values) => editar.mutate(values)}
-        initialValues={visita ? {
-          fechaHora: toLocalDatetime(visita.fechaHora),
-          tipo: visita.tipo || 'presencial',
-          notas: visita.notas || '',
-          edificioId: visita.edificioId || undefined,
-          vendedorId: visita.vendedor?.id || undefined,
-        } : undefined}
-      >
-        <Form.Item name="fechaHora" label="Fecha y hora" rules={[{ required: true }]}>
-          <Input type="datetime-local" />
-        </Form.Item>
-        <Form.Item name="tipo" label="Tipo">
-          <Select options={[{ value: 'presencial', label: 'Presencial' }, { value: 'virtual', label: 'Virtual' }]} />
-        </Form.Item>
-        <Form.Item name="vendedorId" label="Quién realiza la visita">
-          <Select allowClear placeholder="Seleccionar..." options={vendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))} />
-        </Form.Item>
-        <Form.Item name="edificioId" label="Proyecto / Edificio">
-          <Select allowClear placeholder="Seleccionar proyecto..." options={edificios.map(e => ({ value: e.id, label: e.nombre }))} />
-        </Form.Item>
-        <Form.Item name="notas" label="Notas">
-          <Input.TextArea rows={3} placeholder="Observaciones..." />
-        </Form.Item>
-      </Form>
+      <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13 }}>Fecha y hora</div>
+          <Input type="datetime-local" value={fechaHora} onChange={e => setFechaHora(e.target.value)} />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13 }}>Tipo</div>
+          <Select value={tipo} onChange={setTipo} style={{ width: '100%' }}
+            options={[{ value: 'presencial', label: 'Presencial' }, { value: 'virtual', label: 'Virtual' }]} />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13 }}>Quién realiza la visita</div>
+          <Select allowClear value={vendedorId} onChange={v => setVendedorId(v)} style={{ width: '100%' }}
+            placeholder="Seleccionar..." options={vendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))} />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13 }}>Proyecto / Edificio</div>
+          <Select allowClear value={edificioId} onChange={v => setEdificioId(v)} style={{ width: '100%' }}
+            placeholder="Seleccionar proyecto..." options={edificios.map(e => ({ value: e.id, label: e.nombre }))} />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13 }}>Notas</div>
+          <Input.TextArea rows={3} value={notas} onChange={e => setNotas(e.target.value)} placeholder="Observaciones..." />
+        </div>
+      </div>
     </Modal>
   )
 }
