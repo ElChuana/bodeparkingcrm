@@ -34,9 +34,10 @@ export function AuthProvider({ children }) {
 
   const puedeVer = (...roles) => roles.includes(usuario?.rol)
   const esGerenciaOJV = puedeVer('GERENTE', 'JEFE_VENTAS')
+  const esGerente = usuario?.rol === 'GERENTE'
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, login, logout, puedeVer, esGerenciaOJV }}>
+    <AuthContext.Provider value={{ usuario, cargando, login, logout, puedeVer, esGerenciaOJV, esGerente }}>
       {children}
     </AuthContext.Provider>
   )
