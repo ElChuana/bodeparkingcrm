@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Card, Button, Typography, Space, Tag, Input, Select, InputNumber,
   Divider, Empty, Spin, Row, Col, App, Tooltip, Alert,
-  Modal, Form, Popconfirm
+  Modal, Form, Popconfirm, Radio
 } from 'antd'
 import {
   PlusOutlined, DeleteOutlined, SaveOutlined, SendOutlined,
@@ -570,6 +570,8 @@ export default function CotizacionEditor() {
   const [modalEmail, setModalEmail] = useState(false)
   const [pdfBase64, setPdfBase64] = useState(null)
   const [generandoPdf, setGenerandoPdf] = useState(false)
+  const [modalConvertir, setModalConvertir] = useState(false)
+  const [conPromesa, setConPromesa] = useState(true)
 
   // Cargar cotización existente
   const { data: cotizacion, isLoading: cargando } = useQuery({
@@ -663,7 +665,7 @@ export default function CotizacionEditor() {
   })
 
   const convertir = useMutation({
-    mutationFn: () => api.post(`/cotizaciones/${id}/convertir`),
+    mutationFn: (conPromesaVal) => api.post(`/cotizaciones/${id}/convertir`, { conPromesa: conPromesaVal }),
     onSuccess: (res) => {
       message.success('¡Venta creada exitosamente!')
       qc.invalidateQueries({ queryKey: ['cotizacion', id] })
@@ -708,21 +710,40 @@ export default function CotizacionEditor() {
             </Button>
           )}
           {puedeConvertir && (
-            <Popconfirm
-              title="Convertir cotización a venta"
-              description={`¿Confirmas la conversión? Se creará la venta con precio final ${(cotizacion?.precioFinalUF || 0).toFixed(2)} UF.`}
-              onConfirm={() => convertir.mutate()}
-              okText="Sí, convertir"
-              cancelText="Cancelar"
-            >
+            <>
               <Button
                 type="primary"
                 icon={<ShoppingOutlined />}
                 loading={convertir.isPending}
+                onClick={() => { setConPromesa(true); setModalConvertir(true) }}
               >
                 Convertir a Venta
               </Button>
-            </Popconfirm>
+              <Modal
+                title="Convertir cotización a venta"
+                open={modalConvertir}
+                onCancel={() => setModalConvertir(false)}
+                onOk={() => { setModalConvertir(false); convertir.mutate(conPromesa) }}
+                okText="Confirmar venta"
+                cancelText="Cancelar"
+                confirmLoading={convertir.isPending}
+              >
+                <p style={{ marginBottom: 16 }}>
+                  Precio final: <strong>{(cotizacion?.precioFinalUF || 0).toFixed(2)} UF</strong>
+                </p>
+                <Form layout="vertical">
+                  <Form.Item
+                    label="¿Esta venta tiene etapa de promesa?"
+                    help="Afecta cómo se dividen las comisiones entre promesa y escritura."
+                  >
+                    <Radio.Group value={conPromesa} onChange={e => setConPromesa(e.target.value)}>
+                      <Radio value={true}>Sí, tiene promesa (split 50/50)</Radio>
+                      <Radio value={false}>No, directo a escritura (100% en escritura)</Radio>
+                    </Radio.Group>
+                  </Form.Item>
+                </Form>
+              </Modal>
+            </>
           )}
           {cotizacion?.lead?.ventas?.map(v => (
             <Button
