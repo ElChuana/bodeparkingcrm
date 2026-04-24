@@ -2,11 +2,20 @@ const prisma = require('../lib/prisma')
 
 const listar = async (req, res) => {
   const { estado, vendedorId, edificioId, tipoUnidad, precioMin, precioMax, search, desde, hasta } = req.query
+  const { rol, id: usuarioId } = req.usuario
+  const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(rol)
+
+  // Broker y vendedor solo ven sus propias ventas
+  const filtroRol = !esGerenciaOJV && rol !== 'ABOGADO'
+    ? { OR: [{ vendedorId: usuarioId }, { brokerId: usuarioId }] }
+    : {}
+
   try {
     const ventas = await prisma.venta.findMany({
       where: {
+        ...filtroRol,
         ...(estado && { estado }),
-        ...(vendedorId && { vendedorId: Number(vendedorId) }),
+        ...(esGerenciaOJV && vendedorId && { vendedorId: Number(vendedorId) }),
         ...(desde || hasta ? { creadoEn: { ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}),
         ...(edificioId && { unidades: { some: { edificioId: Number(edificioId) } } }),
         ...(tipoUnidad && { unidades: { some: { tipo: tipoUnidad } } }),

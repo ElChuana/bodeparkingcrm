@@ -4,7 +4,7 @@ const { listar, obtener, actualizarEstado, editar } = require('../controllers/ve
 const { autenticar, autorizar } = require('../middleware/auth')
 
 router.use(autenticar)
-router.use(autorizar('GERENTE', 'JEFE_VENTAS', 'ABOGADO'))
+router.use(autorizar('GERENTE', 'JEFE_VENTAS', 'ABOGADO', 'BROKER_EXTERNO', 'VENDEDOR'))
 
 router.get('/', listar)
 router.get('/:id', obtener)
