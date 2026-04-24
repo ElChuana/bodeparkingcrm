@@ -169,6 +169,7 @@ enum TipoAlerta {
   LEAD_ETAPA_CAMBIO
   LEAD_NUEVO
   RECORDATORIO_LEAD
+  COMISION_ESCRITURA
 }
 
 enum TipoPack {
@@ -416,6 +417,7 @@ model Venta {
   fechaEscritura        DateTime?
   fechaEntrega          DateTime?
   notas                 String?
+  conPromesa            Boolean     @default(true)
   creadoEn              DateTime    @default(now())
   actualizadoEn         DateTime    @updatedAt
 
@@ -529,6 +531,20 @@ model Comision {
   usuario               Usuario    @relation(fields: [usuarioId], references: [id])
 
   @@map("comisiones")
+}
+
+model PlantillaComision {
+  id           Int      @id @default(autoincrement())
+  nombre       String
+  concepto     String
+  porcentaje   Float?
+  montoFijo    Float?
+  pctPromesa   Float    @default(50)
+  pctEscritura Float    @default(50)
+  activa       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  @@map("plantillas_comision")
 }
 
 model Cotizacion {
