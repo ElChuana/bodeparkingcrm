@@ -138,8 +138,11 @@
 - `GET /` — listar (GERENTE, JEFE_VENTAS, ABOGADO)
 - `GET /:id` — detalle con legal, plan de pago, unidades, comisiones
 - `PUT /:id/estado` — cambiar estado (GERENTE, JEFE_VENTAS)
+- `PUT /:id` — editar precios (solo GERENTE, bloqueado si ENTREGADO)
 - Estados: RESERVA, PROMESA, ESCRITURA, ENTREGADO, ANULADO
 - Campos precio: precioListaUF, descuentoPacksUF, descuentoAprobadoUF, precioFinalUF
+- `conPromesa: Boolean` — se fija al crear venta desde cotización (afecta split de comisiones)
+- Al llegar a ESCRITURA: notificación COMISION_ESCRITURA a GERENTE+JV si hay comisiones pendientes
 - Relaciones: Contacto (comprador), Usuario (vendedor/broker/gerente), Unidad[] (many-to-many)
 - Frontend: `pages/ventas/Ventas.jsx`, `pages/ventas/VentaDetalle.jsx`
 
@@ -168,13 +171,25 @@
 - Archivos: `routes/comisiones.js`, `controllers/comisionesController.js`
 - `GET /` — listar (propias si VENDEDOR, todas si GERENTE/JV)
 - `GET /resumen` — KPIs de comisiones (GERENTE, JEFE_VENTAS)
-- `POST /` — crear
-- `PUT /:id` — editar
-- `DELETE /:id` — eliminar
-- `PUT /:id/primera` — marcar primera cuota pagada
-- `PUT /:id/segunda` — marcar segunda cuota pagada
-- Cálculo automático al convertir cotización en venta
+- `POST /` — crear (solo GERENTE)
+- `PUT /:id` — editar (solo GERENTE)
+- `DELETE /:id` — eliminar (solo GERENTE)
+- `PUT /:id/primera` — marcar primera cuota pagada (GERENTE, JEFE_VENTAS)
+- `PUT /:id/segunda` — marcar segunda cuota pagada (GERENTE, JEFE_VENTAS)
+- Cálculo automático al convertir cotización en venta (respeta conPromesa de la venta)
+- Modelo: montoPrimera (promesa) + montoSegunda (escritura); si conPromesa=false → montoPrimera=0, montoSegunda=total
 - Frontend: `pages/comisiones/Comisiones.jsx`
+
+### PLANTILLAS DE COMISIÓN — `/api/plantillas-comision`
+- Archivos: `routes/plantillasComision.js`, `controllers/plantillasComisionController.js`
+- `GET /` — listar (GERENTE, JEFE_VENTAS)
+- `POST /` — crear (solo GERENTE)
+- `PUT /:id` — actualizar (solo GERENTE)
+- `DELETE /:id` — eliminar (solo GERENTE)
+- Campos: nombre, concepto, porcentaje?, montoFijo?, pctPromesa (%), pctEscritura (%), activa
+- pctPromesa + pctEscritura debe sumar 100
+- Uso: en VentaDetalle > Agregar comisión → selector de plantilla auto-rellena campos y calcula split según conPromesa
+- Frontend: sección "Plantillas de comisión" en `pages/comisiones/Comisiones.jsx` (solo GERENTE)
 
 ### PACKS — `/api/packs`
 - Archivos: `routes/packs.js`, `controllers/packsController.js`
@@ -376,5 +391,5 @@
 
 ---
 
-*Última actualización: 23 Abril 2026*
+*Última actualización: 23 Abril 2026 — comisiones con hitos (PlantillaComision, conPromesa, notificación escritura)*
 *Actualizar este archivo después de cada cambio significativo.*
