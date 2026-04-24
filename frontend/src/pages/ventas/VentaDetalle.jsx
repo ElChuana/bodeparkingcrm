@@ -1152,6 +1152,14 @@ export default function VentaDetalle() {
         <Button type="link" style={{ padding: 0 }} onClick={() => navigate('/ventas')}>← Ventas</Button>
         <Text type="secondary">/</Text>
         <Text type="secondary">Venta #{venta.id}</Text>
+        {venta.lead?.id && (
+          <>
+            <Text type="secondary">/</Text>
+            <Button type="link" style={{ padding: 0 }} onClick={() => navigate(`/leads/${venta.lead.id}`)}>
+              Lead #{venta.lead.id}
+            </Button>
+          </>
+        )}
       </Space>
 
       {/* Header */}
