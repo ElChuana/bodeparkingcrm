@@ -1,15 +1,119 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Table, Tag, Button, Typography, Row, Col, Card, Statistic, Select, Space, App } from 'antd'
+import {
+  Table, Tag, Button, Typography, Row, Col, Card, Statistic, Select, Space, App,
+  Modal, Form, Input, InputNumber, Radio, Divider, Switch, Popconfirm
+} from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
 const { Title, Text } = Typography
 
+function ModalPlantilla({ open, onClose, plantillaEditando, onGuardar }) {
+  const [form] = Form.useForm()
+  const [tipoCalculo, setTipoCalculo] = useState('porcentaje')
+
+  const handleAfterOpen = () => {
+    if (plantillaEditando) {
+      const tipo = plantillaEditando.porcentaje != null ? 'porcentaje' : 'fijo'
+      setTipoCalculo(tipo)
+      form.setFieldsValue({
+        nombre: plantillaEditando.nombre,
+        concepto: plantillaEditando.concepto,
+        tipoCalculo: tipo,
+        porcentaje: plantillaEditando.porcentaje,
+        montoFijo: plantillaEditando.montoFijo,
+        pctPromesa: plantillaEditando.pctPromesa,
+        pctEscritura: plantillaEditando.pctEscritura,
+        activa: plantillaEditando.activa,
+      })
+    } else {
+      setTipoCalculo('porcentaje')
+      form.resetFields()
+      form.setFieldsValue({ tipoCalculo: 'porcentaje', pctPromesa: 50, pctEscritura: 50, activa: true })
+    }
+  }
+
+  const handleOk = () => {
+    form.validateFields().then(values => {
+      onGuardar({
+        nombre: values.nombre,
+        concepto: values.concepto,
+        porcentaje: values.tipoCalculo === 'porcentaje' ? values.porcentaje : null,
+        montoFijo: values.tipoCalculo === 'fijo' ? values.montoFijo : null,
+        pctPromesa: values.pctPromesa,
+        pctEscritura: values.pctEscritura,
+        activa: values.activa,
+      })
+    })
+  }
+
+  return (
+    <Modal
+      title={plantillaEditando ? 'Editar plantilla' : 'Nueva plantilla de comisión'}
+      open={open}
+      onCancel={onClose}
+      onOk={handleOk}
+      afterOpenChange={o => o && handleAfterOpen()}
+      okText="Guardar"
+      cancelText="Cancelar"
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 12 }}>
+        <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: 'Ingresa un nombre' }]}>
+          <Input placeholder="Ej: Broker Estándar" />
+        </Form.Item>
+        <Form.Item name="concepto" label="Concepto (etiqueta)" rules={[{ required: true, message: 'Ingresa el concepto' }]}>
+          <Input placeholder="Ej: BROKER, VENDEDOR INTERNO..." />
+        </Form.Item>
+        <Form.Item name="tipoCalculo" label="Tipo">
+          <Radio.Group onChange={e => { setTipoCalculo(e.target.value); form.setFieldsValue({ porcentaje: undefined, montoFijo: undefined }) }}>
+            <Radio value="porcentaje">% sobre precio venta</Radio>
+            <Radio value="fijo">Monto fijo en UF</Radio>
+          </Radio.Group>
+        </Form.Item>
+        {tipoCalculo === 'porcentaje' ? (
+          <Form.Item name="porcentaje" label="Porcentaje" rules={[{ required: true, message: 'Ingresa el %' }]}>
+            <InputNumber min={0} max={100} step={0.1} addonAfter="%" style={{ width: '100%' }} />
+          </Form.Item>
+        ) : (
+          <Form.Item name="montoFijo" label="Monto fijo" rules={[{ required: true, message: 'Ingresa el monto' }]}>
+            <InputNumber min={0} step={0.1} addonAfter="UF" style={{ width: '100%' }} />
+          </Form.Item>
+        )}
+        <Divider style={{ margin: '8px 0' }}>Split de pago</Divider>
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item name="pctPromesa" label="% en promesa" rules={[{ required: true }]}>
+              <InputNumber
+                min={0} max={100} step={5} addonAfter="%" style={{ width: '100%' }}
+                onChange={v => form.setFieldValue('pctEscritura', 100 - (v || 0))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item name="pctEscritura" label="% en escritura" rules={[{ required: true }]}>
+              <InputNumber
+                min={0} max={100} step={5} addonAfter="%" style={{ width: '100%' }}
+                onChange={v => form.setFieldValue('pctPromesa', 100 - (v || 0))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Form.Item name="activa" label="Estado" valuePropName="checked">
+          <Switch checkedChildren="Activa" unCheckedChildren="Inactiva" />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
 export default function Comisiones() {
-  const { usuario, esGerenciaOJV } = useAuth()
+  const { usuario, esGerenciaOJV, esGerente } = useAuth()
   const [vendedorFiltro, setVendedorFiltro] = useState(undefined)
   const [estadoFiltro, setEstadoFiltro] = useState(undefined)
+  const [modalPlantilla, setModalPlantilla] = useState(false)
+  const [plantillaEditando, setPlantillaEditando] = useState(null)
   const qc = useQueryClient()
   const { message } = App.useApp()
 
@@ -32,9 +136,33 @@ export default function Comisiones() {
     enabled: esGerenciaOJV
   })
 
+  const { data: plantillas = [], refetch: refetchPlantillas } = useQuery({
+    queryKey: ['plantillas-comision'],
+    queryFn: () => api.get('/plantillas-comision').then(r => r.data),
+    enabled: esGerente
+  })
+
   const marcar = useMutation({
     mutationFn: ({ id, tramo }) => api.put(`/comisiones/${id}/${tramo}`, {}),
     onSuccess: () => { message.success('Comisión actualizada'); qc.invalidateQueries(['comisiones']) },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const crearPlantilla = useMutation({
+    mutationFn: (data) => api.post('/plantillas-comision', data),
+    onSuccess: () => { message.success('Plantilla creada'); refetchPlantillas(); setModalPlantilla(false) },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const actualizarPlantilla = useMutation({
+    mutationFn: ({ id, ...data }) => api.put(`/plantillas-comision/${id}`, data),
+    onSuccess: () => { message.success('Plantilla actualizada'); refetchPlantillas(); setModalPlantilla(false); setPlantillaEditando(null) },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const eliminarPlantilla = useMutation({
+    mutationFn: (id) => api.delete(`/plantillas-comision/${id}`),
+    onSuccess: () => { message.success('Plantilla eliminada'); refetchPlantillas() },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
@@ -92,6 +220,28 @@ export default function Comisiones() {
     },
   ]
 
+  const plantillaColumns = [
+    { title: 'Nombre', dataIndex: 'nombre' },
+    { title: 'Concepto', dataIndex: 'concepto' },
+    { title: 'Comisión', render: (_, r) => r.porcentaje != null ? `${r.porcentaje}%` : `${r.montoFijo} UF` },
+    { title: 'Split promesa / escritura', render: (_, r) => `${r.pctPromesa}% / ${r.pctEscritura}%` },
+    { title: 'Estado', render: (_, r) => <Tag color={r.activa ? 'green' : 'default'}>{r.activa ? 'Activa' : 'Inactiva'}</Tag> },
+    {
+      title: '', render: (_, r) => (
+        <Space size={4}>
+          <Button size="small" icon={<EditOutlined />} onClick={() => { setPlantillaEditando(r); setModalPlantilla(true) }} />
+          <Popconfirm
+            title="¿Eliminar esta plantilla?"
+            onConfirm={() => eliminarPlantilla.mutate(r.id)}
+            okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
+          >
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      )
+    }
+  ]
+
   return (
     <div>
       <Title level={4} style={{ marginBottom: 20 }}>Comisiones</Title>
@@ -139,6 +289,42 @@ export default function Comisiones() {
         size="small"
         locale={{ emptyText: 'Sin comisiones' }}
       />
+
+      {esGerente && (
+        <Card
+          title="Plantillas de comisión"
+          extra={
+            <Button
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => { setPlantillaEditando(null); setModalPlantilla(true) }}
+            >
+              Nueva plantilla
+            </Button>
+          }
+          style={{ marginTop: 32 }}
+        >
+          <Table
+            dataSource={plantillas}
+            rowKey="id"
+            size="small"
+            columns={plantillaColumns}
+            locale={{ emptyText: 'Sin plantillas. Crea una usando el botón "Nueva plantilla".' }}
+          />
+          <ModalPlantilla
+            open={modalPlantilla}
+            onClose={() => { setModalPlantilla(false); setPlantillaEditando(null) }}
+            plantillaEditando={plantillaEditando}
+            onGuardar={(data) => {
+              if (plantillaEditando) {
+                actualizarPlantilla.mutate({ id: plantillaEditando.id, ...data })
+              } else {
+                crearPlantilla.mutate(data)
+              }
+            }}
+          />
+        </Card>
+      )}
     </div>
   )
 }
