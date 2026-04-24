@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
 import ModalEmail from '../../components/ModalEmail'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -261,24 +261,30 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
+  useEffect(() => {
+    if (open && visita) {
+      form.setFieldsValue({
+        fechaHora: toLocalDatetime(visita.fechaHora),
+        tipo: visita.tipo,
+        notas: visita.notas || '',
+        edificioId: visita.edificioId || undefined,
+        vendedorId: visita.vendedor?.id || undefined,
+      })
+    } else if (!open) {
+      form.resetFields()
+    }
+  }, [open, visita])
+
   return (
     <Modal
       title="Editar visita"
       open={open}
       onCancel={onClose}
-      onOk={() => form.validateFields().then(editar.mutate)}
+      onOk={() => form.validateFields().then(values => editar.mutate(values))}
       okText="Guardar"
       cancelText="Cancelar"
       confirmLoading={editar.isPending}
-      afterOpenChange={(o) => {
-        if (o && visita) form.setFieldsValue({
-          fechaHora: toLocalDatetime(visita.fechaHora),
-          tipo: visita.tipo,
-          notas: visita.notas || '',
-          edificioId: visita.edificioId || undefined,
-          vendedorId: visita.vendedor?.id || undefined,
-        })
-      }}
+      destroyOnClose={false}
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <Form.Item name="fechaHora" label="Fecha y hora" rules={[{ required: true }]}>
