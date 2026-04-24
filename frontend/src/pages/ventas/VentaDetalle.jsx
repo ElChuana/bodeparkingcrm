@@ -525,6 +525,12 @@ function ModalComision({ open, onClose, venta, comisionEditando }) {
     enabled: open
   })
 
+  const { data: plantillas = [] } = useQuery({
+    queryKey: ['plantillas-comision'],
+    queryFn: () => api.get('/plantillas-comision').then(r => r.data.filter(p => p.activa)),
+    enabled: open
+  })
+
   const guardar = useMutation({
     mutationFn: (data) => comisionEditando
       ? api.put(`/comisiones/${comisionEditando.id}`, data)
@@ -564,7 +570,10 @@ function ModalComision({ open, onClose, venta, comisionEditando }) {
   // Recalcular split al cambiar valor
   const recalcularSplit = (valor, tipo) => {
     const total = tipo === 'porcentaje' ? (precioFinal * (valor || 0)) / 100 : (valor || 0)
-    form.setFieldsValue({ montoPrimera: +(total / 2).toFixed(4), montoSegunda: +(total / 2).toFixed(4) })
+    const conPromesaVenta = venta?.conPromesa !== false
+    const primera = conPromesaVenta ? +(total / 2).toFixed(4) : 0
+    const segunda = conPromesaVenta ? +(total / 2).toFixed(4) : +total.toFixed(4)
+    form.setFieldsValue({ montoPrimera: primera, montoSegunda: segunda })
   }
 
   const handleOk = () => {
@@ -596,6 +605,38 @@ function ModalComision({ open, onClose, venta, comisionEditando }) {
     >
       <Form form={form} layout="vertical" style={{ marginTop: 12 }}
         initialValues={{ tipoCalculo: 'porcentaje' }}>
+        {!comisionEditando && plantillas.length > 0 && (
+          <Form.Item label="Aplicar plantilla (opcional)">
+            <Select
+              placeholder="Seleccionar plantilla..."
+              allowClear
+              onChange={(plantillaId) => {
+                if (!plantillaId) return
+                const p = plantillas.find(pl => pl.id === plantillaId)
+                if (!p) return
+                const tipo = p.porcentaje != null ? 'porcentaje' : 'fijo'
+                setTipoCalculo(tipo)
+                const total = p.porcentaje != null ? (precioFinal * p.porcentaje) / 100 : (p.montoFijo || 0)
+                const conPromesaVenta = venta?.conPromesa !== false
+                const primera = conPromesaVenta ? +(total * p.pctPromesa / 100).toFixed(4) : 0
+                const segunda = conPromesaVenta ? +(total * p.pctEscritura / 100).toFixed(4) : +total.toFixed(4)
+                form.setFieldsValue({
+                  concepto: p.concepto,
+                  tipoCalculo: tipo,
+                  porcentaje: p.porcentaje,
+                  montoFijo: p.montoFijo,
+                  montoPrimera: primera,
+                  montoSegunda: segunda,
+                })
+              }}
+              options={plantillas.map(p => ({
+                value: p.id,
+                label: `${p.nombre} — ${p.porcentaje != null ? `${p.porcentaje}%` : `${p.montoFijo} UF fijo`} (${p.pctPromesa}/${p.pctEscritura})`
+              }))}
+            />
+          </Form.Item>
+        )}
+
         {!comisionEditando && (
           <Form.Item name="usuarioId" label="Persona" rules={[{ required: true, message: 'Selecciona una persona' }]}>
             <Select
@@ -641,10 +682,18 @@ function ModalComision({ open, onClose, venta, comisionEditando }) {
         )}
 
         <Divider style={{ margin: '8px 0' }}>Distribución del pago</Divider>
+        {venta?.conPromesa === false && (
+          <Alert
+            type="info"
+            showIcon
+            message="Esta venta no tiene promesa — el 100% se paga en escritura."
+            style={{ marginBottom: 8 }}
+          />
+        )}
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item name="montoPrimera" label="1ª parte (promesa)" rules={[{ required: true }]}>
-              <InputNumber min={0} step={0.01} addonAfter="UF" style={{ width: '100%' }} />
+              <InputNumber min={0} step={0.01} addonAfter="UF" style={{ width: '100%' }} disabled={venta?.conPromesa === false} />
             </Form.Item>
           </Col>
           <Col span={12}>
@@ -1111,6 +1160,11 @@ export default function VentaDetalle() {
           <Space align="center">
             <Title level={4} style={{ margin: 0 }}>Venta #{venta.id}</Title>
             <Tag color={ESTADO_VENTA_COLOR[venta.estado]}>{ESTADO_LABEL[venta.estado]}</Tag>
+            {venta.conPromesa !== undefined && (
+              <Tag color={venta.conPromesa ? 'blue' : 'orange'}>
+                {venta.conPromesa ? 'Con promesa' : 'Directo a escritura'}
+              </Tag>
+            )}
           </Space>
           <div style={{ marginTop: 4 }}>
             <Text type="secondary" style={{ fontSize: 13 }}>
