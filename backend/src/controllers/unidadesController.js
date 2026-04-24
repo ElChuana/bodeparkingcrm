@@ -16,7 +16,8 @@ const listar = async (req, res) => {
       },
       include: {
         edificio: { select: { id: true, nombre: true, region: true, comuna: true } },
-        promociones: { include: { promocion: true } },
+        packs: { include: { pack: { select: { nombre: true, descuentoUF: true } } } },
+        beneficios: { include: { beneficio: { select: { nombre: true, tipo: true } } } },
         _count: { select: { llaves: true } }
       },
       orderBy: [{ edificioId: 'asc' }, { tipo: 'asc' }, { numero: 'asc' }]
