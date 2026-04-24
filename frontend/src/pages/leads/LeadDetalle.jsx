@@ -270,10 +270,15 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
     if (!visita?.id) return
     setLoading(true)
     try {
-      await api.patch(`/leads/${leadId}/visitas/${visita.id}`, { fechaHora, tipo, notas, vendedorId, edificioId })
+      const { data: updatedVisita } = await api.patch(`/leads/${leadId}/visitas/${visita.id}`, { fechaHora, tipo, notas, vendedorId, edificioId })
+      // Actualizar caché directamente para reflejo inmediato
+      qc.setQueryData(['lead', String(leadId)], (old) => {
+        if (!old) return old
+        return { ...old, visitas: (old.visitas || []).map(v => v.id === visita.id ? { ...v, ...updatedVisita } : v) }
+      })
+      qc.invalidateQueries(['lead', String(leadId)])
+      qc.invalidateQueries(['visitas-todas'])
       message.success('Visita actualizada')
-      qc.invalidateQueries({ queryKey: ['lead', String(leadId)] })
-      qc.invalidateQueries({ queryKey: ['visitas-todas'] })
       onClose()
     } catch (err) {
       message.error(err.response?.data?.error || 'Error al actualizar visita')
