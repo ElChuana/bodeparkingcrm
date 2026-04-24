@@ -117,4 +117,36 @@ const actualizarEstado = async (req, res) => {
   }
 }
 
-module.exports = { listar, obtener, actualizarEstado }
+const editar = async (req, res) => {
+  const { id } = req.params
+  const { precioListaUF, descuentoPacksUF, descuentoAprobadoUF, precioFinalUF, fechaReserva, notas } = req.body
+
+  try {
+    const venta = await prisma.venta.findUnique({
+      where: { id: Number(id) },
+      select: { estado: true }
+    })
+    if (!venta) return res.status(404).json({ error: 'Venta no encontrada.' })
+    if (venta.estado === 'ENTREGADO') {
+      return res.status(400).json({ error: 'No se puede editar una venta ya entregada.' })
+    }
+
+    const actualizada = await prisma.venta.update({
+      where: { id: Number(id) },
+      data: {
+        ...(precioListaUF !== undefined && { precioListaUF: Number(precioListaUF) }),
+        ...(descuentoPacksUF !== undefined && { descuentoPacksUF: Number(descuentoPacksUF) }),
+        ...(descuentoAprobadoUF !== undefined && { descuentoAprobadoUF: Number(descuentoAprobadoUF) }),
+        ...(precioFinalUF !== undefined && { precioFinalUF: Number(precioFinalUF) }),
+        ...(fechaReserva !== undefined && { fechaReserva: fechaReserva ? new Date(fechaReserva) : null }),
+        ...(notas !== undefined && { notas }),
+      }
+    })
+    res.json(actualizada)
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Venta no encontrada.' })
+    res.status(500).json({ error: 'Error al editar venta.' })
+  }
+}
+
+module.exports = { listar, obtener, actualizarEstado, editar }
