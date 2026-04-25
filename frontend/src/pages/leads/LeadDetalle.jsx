@@ -158,7 +158,7 @@ function ModalVisita({ open, onClose, leadId }) {
 
   return (
     <Modal title="Agendar Visita" open={open} onCancel={onClose}
-      onOk={() => form.validateFields().then(v => crear.mutate({ leadId, ...v }))}
+      onOk={() => form.validateFields().then(v => crear.mutate({ leadId, ...v, fechaHora: new Date(v.fechaHora).toISOString() }))}
       okText="Agendar" cancelText="Cancelar" confirmLoading={crear.isPending}>
       <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{ tipo: 'presencial' }}>
         <Form.Item name="fechaHora" label="Fecha y hora" rules={[{ required: true }]}>
@@ -270,7 +270,8 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
     if (!visita?.id) return
     setLoading(true)
     try {
-      await api.patch(`/leads/${leadId}/visitas/${visita.id}`, { fechaHora, tipo, notas, vendedorId, edificioId })
+      const fechaHoraUTC = new Date(fechaHora).toISOString()
+      await api.patch(`/leads/${leadId}/visitas/${visita.id}`, { fechaHora: fechaHoraUTC, tipo, notas, vendedorId, edificioId })
       await qc.refetchQueries({ queryKey: ['lead', String(leadId)], type: 'active' })
       qc.invalidateQueries(['visitas-todas'])
       message.success('Visita actualizada')
