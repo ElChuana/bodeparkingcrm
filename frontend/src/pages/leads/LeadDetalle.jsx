@@ -323,6 +323,102 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
 }
 
 
+// ─── Nota rápida inline ───────────────────────────────────────────
+function NotaRapida({ leadId }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [descripcion, setDescripcion] = useState('')
+  const [edificioId, setEdificioId] = useState(undefined)
+  const [unidadesIds, setUnidadesIds] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  const { data: edificios = [] } = useQuery({
+    queryKey: ['edificios-activos'],
+    queryFn: () => api.get('/edificios').then(r => r.data)
+  })
+  const { data: unidades = [] } = useQuery({
+    queryKey: ['unidades-edificio', edificioId],
+    queryFn: () => api.get('/unidades', { params: { edificioId } }).then(r => r.data),
+    enabled: !!edificioId
+  })
+
+  const handleSubmit = async () => {
+    if (!descripcion.trim()) return
+    setLoading(true)
+    try {
+      // Construir descripción con contexto de interés
+      let texto = descripcion.trim()
+      const partes = []
+      if (edificioId) {
+        const edif = edificios.find(e => e.id === edificioId)
+        if (edif) partes.push(`📍 ${edif.nombre}`)
+      }
+      if (unidadesIds.length > 0) {
+        const nums = unidades.filter(u => unidadesIds.includes(u.id)).map(u => u.numero)
+        if (nums.length) partes.push(`Unidades: ${nums.join(', ')}`)
+      }
+      if (partes.length) texto = `${texto}\n${partes.join(' · ')}`
+
+      await api.post(`/leads/${leadId}/interacciones`, { leadId, tipo: 'NOTA', descripcion: texto })
+      message.success('Nota guardada')
+      qc.invalidateQueries(['lead', leadId])
+      setDescripcion('')
+      setEdificioId(undefined)
+      setUnidadesIds([])
+    } catch (err) {
+      message.error('Error al guardar nota')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ padding: '12px 0 16px', borderBottom: '1px solid #f0f0f0', marginBottom: 12 }}>
+      <Input.TextArea
+        rows={2}
+        value={descripcion}
+        onChange={e => setDescripcion(e.target.value)}
+        placeholder="Agregar nota..."
+        style={{ marginBottom: 8, resize: 'none' }}
+        onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit() }}
+      />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Select
+          allowClear
+          placeholder="Edificio de interés"
+          value={edificioId}
+          onChange={v => { setEdificioId(v); setUnidadesIds([]) }}
+          style={{ flex: 1, minWidth: 140 }}
+          options={edificios.map(e => ({ value: e.id, label: e.nombre }))}
+          size="small"
+        />
+        <Select
+          mode="multiple"
+          allowClear
+          placeholder="Unidades"
+          value={unidadesIds}
+          onChange={setUnidadesIds}
+          disabled={!edificioId}
+          style={{ flex: 1, minWidth: 140 }}
+          options={unidades.map(u => ({ value: u.id, label: `${u.tipo === 'BODEGA' ? '🏪' : '🚗'} ${u.numero}` }))}
+          size="small"
+          maxTagCount={2}
+        />
+        <Button
+          type="primary"
+          size="small"
+          loading={loading}
+          disabled={!descripcion.trim()}
+          onClick={handleSubmit}
+        >
+          Guardar nota
+        </Button>
+      </div>
+      <div style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>Cmd+Enter para guardar rápido · Edificio y unidades son opcionales</div>
+    </div>
+  )
+}
+
 // ─── Cotizaciones del lead ─────────────────────────────────────────
 const ESTADO_COT_COLOR = { BORRADOR: 'default', ENVIADA: 'blue', ACEPTADA: 'green', RECHAZADA: 'red' }
 const ESTADO_COT_LABEL = { BORRADOR: 'Borrador', ENVIADA: 'Enviada', ACEPTADA: 'Aceptada', RECHAZADA: 'Rechazada' }
@@ -918,10 +1014,10 @@ export default function LeadDetalle() {
               title={`Actividad (${timeline.length})`}
               extra={<Button type="link" size="small" onClick={() => setModalInteraccion(true)}>+ Agregar</Button>}
             >
+              <NotaRapida leadId={id} />
               {timeline.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '32px 0', color: '#aaa' }}>
-                  <Text type="secondary">Sin actividad registrada.</Text><br />
-                  <Button type="link" onClick={() => setModalInteraccion(true)}>Registrar primera actividad</Button>
+                  <Text type="secondary">Sin actividad registrada.</Text>
                 </div>
               ) : (
                 <Timeline items={timelineItems} style={{ marginTop: 8 }} />
