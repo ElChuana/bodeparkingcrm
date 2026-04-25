@@ -36,7 +36,6 @@ const filtroAcceso = (usuario) => {
 
   const condiciones = [
     { vendedorId: usuario.id },
-    { brokerId: usuario.id }
   ]
 
   if (usuario.campanasFiltro?.length > 0)
@@ -52,7 +51,7 @@ const filtroAcceso = (usuario) => {
 }
 
 const listar = async (req, res) => {
-  const { etapa, vendedorId, brokerId, edificioId, origen, tipoUnidad, search, desde, hasta, sinActividad, campana, sinAsignar } = req.query
+  const { etapa, vendedorId, edificioId, origen, tipoUnidad, search, desde, hasta, sinActividad, campana, sinAsignar } = req.query
   try {
     const contactoIds = search ? await buscarContactoIds(search) : null
 
@@ -61,7 +60,6 @@ const listar = async (req, res) => {
         ...filtroAcceso(req.usuario),
         ...(etapa && { etapa }),
         ...(vendedorId && { vendedorId: Number(vendedorId) }),
-        ...(brokerId && { brokerId: Number(brokerId) }),
         ...(desde || hasta ? {
           creadoEn: {
             ...(desde && { gte: new Date(desde) }),
@@ -81,7 +79,6 @@ const listar = async (req, res) => {
       include: {
         contacto: { select: { id: true, nombre: true, apellido: true, email: true, telefono: true, origen: true } },
         vendedor: { select: { id: true, nombre: true, apellido: true } },
-        broker: { select: { id: true, nombre: true, apellido: true } },
         unidadInteres: {
           select: {
             id: true, numero: true, tipo: true,
@@ -101,7 +98,7 @@ const listar = async (req, res) => {
 
 // Vista Kanban: leads agrupados por etapa
 const kanban = async (req, res) => {
-  const { vendedorId, brokerId, edificioId, origen, tipoUnidad, search, desde, hasta, modificadoDesde, modificadoHasta, campana } = req.query
+  const { vendedorId, edificioId, origen, tipoUnidad, search, desde, hasta, modificadoDesde, modificadoHasta, campana } = req.query
   try {
     const contactoIds = search ? await buscarContactoIds(search) : null
 
@@ -110,7 +107,6 @@ const kanban = async (req, res) => {
         ...filtroAcceso(req.usuario),
         etapa: { notIn: ['PERDIDO'] },
         ...(vendedorId && { vendedorId: Number(vendedorId) }),
-        ...(brokerId && { brokerId: Number(brokerId) }),
         ...(edificioId && { unidadInteres: { edificioId: Number(edificioId) } }),
         ...(tipoUnidad && { unidadInteres: { tipo: tipoUnidad } }),
         ...(origen && { contacto: { origen } }),
@@ -192,7 +188,6 @@ const obtener = async (req, res) => {
       include: {
         contacto: true,
         vendedor: { select: { id: true, nombre: true, apellido: true, email: true } },
-        broker: { select: { id: true, nombre: true, apellido: true } },
         unidadInteres: { include: { edificio: true } },
         visitas: {
           orderBy: { fechaHora: 'desc' },
@@ -214,7 +209,7 @@ const obtener = async (req, res) => {
 }
 
 const crear = async (req, res) => {
-  const { contactoId, unidadInteresId, vendedorId, brokerId, presupuestoAprox, notas, campana } = req.body
+  const { contactoId, unidadInteresId, vendedorId, presupuestoAprox, notas, campana } = req.body
 
   // Si es vendedor o broker, se asigna a sí mismo automáticamente
   let asignadoVendedorId = vendedorId
@@ -230,7 +225,6 @@ const crear = async (req, res) => {
         contactoId: Number(contactoId),
         unidadInteresId: unidadInteresId ? Number(unidadInteresId) : null,
         vendedorId: asignadoVendedorId ? Number(asignadoVendedorId) : null,
-        brokerId: brokerId ? Number(brokerId) : null,
         presupuestoAprox: presupuestoAprox ? Number(presupuestoAprox) : null,
         notas,
         campana: campana || null,
@@ -261,15 +255,14 @@ const crear = async (req, res) => {
 
 const actualizar = async (req, res) => {
   const { id } = req.params
-  const { unidadInteresId, vendedorId, brokerId, presupuestoAprox, notas, campana } = req.body
+  const { unidadInteresId, vendedorId, presupuestoAprox, notas, campana } = req.body
 
   try {
     const lead = await prisma.lead.update({
       where: { id: Number(id) },
       data: {
         unidadInteresId: unidadInteresId ? Number(unidadInteresId) : undefined,
-        vendedorId: vendedorId ? Number(vendedorId) : undefined,
-        brokerId: brokerId !== undefined ? (brokerId ? Number(brokerId) : null) : undefined,
+        vendedorId: vendedorId !== undefined ? (vendedorId ? Number(vendedorId) : null) : undefined,
         presupuestoAprox: presupuestoAprox ? Number(presupuestoAprox) : undefined,
         notas,
         campana: campana !== undefined ? (campana || null) : undefined,
@@ -353,19 +346,17 @@ const asignarMasivo = async (req, res) => {
     return res.status(403).json({ error: 'Acceso denegado.' })
   }
 
-  const { leadIds, vendedorId, brokerId } = req.body
+  const { leadIds, vendedorId } = req.body
 
   if (!Array.isArray(leadIds) || leadIds.length === 0) {
     return res.status(400).json({ error: 'Se requiere al menos un lead.' })
   }
-  if (!vendedorId && brokerId === undefined) {
-    return res.status(400).json({ error: 'Debe asignar vendedor y/o broker.' })
+  if (!vendedorId) {
+    return res.status(400).json({ error: 'Debe asignar un vendedor.' })
   }
 
   try {
-    const data = {}
-    if (vendedorId) data.vendedorId = Number(vendedorId)
-    if (brokerId !== undefined) data.brokerId = brokerId ? Number(brokerId) : null
+    const data = { vendedorId: Number(vendedorId) }
 
     const { count } = await prisma.lead.updateMany({
       where: { id: { in: leadIds.map(Number) } },

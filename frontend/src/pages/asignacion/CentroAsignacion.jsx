@@ -38,7 +38,6 @@ export default function CentroAsignacion() {
 
   // Asignación
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState(null)
-  const [brokerSeleccionado, setBrokerSeleccionado] = useState(null)
 
   // ── Queries ──────────────────────────────────────────────────
   const { data: campanaOpciones = [] } = useQuery({
@@ -50,8 +49,7 @@ export default function CentroAsignacion() {
     queryKey: ['usuarios'],
     queryFn: () => api.get('/usuarios').then(r => r.data),
   })
-  const vendedores = usuarios.filter(u => u.activo && ['VENDEDOR', 'JEFE_VENTAS', 'GERENTE'].includes(u.rol))
-  const brokers = usuarios.filter(u => u.activo && ['BROKER_EXTERNO', 'VENDEDOR', 'JEFE_VENTAS', 'GERENTE'].includes(u.rol))
+  const vendedores = usuarios.filter(u => u.activo && ['BROKER_EXTERNO', 'VENDEDOR', 'JEFE_VENTAS', 'GERENTE'].includes(u.rol))
 
   const params = {
     ...(soloSinAsignar && { sinAsignar: 'true' }),
@@ -72,13 +70,12 @@ export default function CentroAsignacion() {
     : leadsRaw
 
   const asignar = useMutation({
-    mutationFn: ({ leadIds, vendedorId, brokerId }) =>
-      api.post('/leads/asignar-masivo', { leadIds, vendedorId, brokerId }).then(r => r.data),
+    mutationFn: ({ leadIds, vendedorId }) =>
+      api.post('/leads/asignar-masivo', { leadIds, vendedorId }).then(r => r.data),
     onSuccess: (data) => {
       message.success(`${data.actualizados} lead(s) asignado(s)`)
       setSelectedRowKeys([])
       setVendedorSeleccionado(null)
-      setBrokerSeleccionado(null)
       qc.invalidateQueries({ queryKey: ['leads-asignacion'] })
     },
     onError: err => message.error(err.response?.data?.error || 'Error al asignar'),
@@ -112,13 +109,9 @@ export default function CentroAsignacion() {
   }
 
   const handleAsignar = () => {
-    if (!vendedorSeleccionado && !brokerSeleccionado) return message.warning('Selecciona al menos un vendedor o broker')
+    if (!vendedorSeleccionado) return message.warning('Selecciona un vendedor')
     if (!selectedRowKeys.length) return message.warning('Selecciona al menos un lead')
-    asignar.mutate({
-      leadIds: selectedRowKeys,
-      ...(vendedorSeleccionado && { vendedorId: vendedorSeleccionado }),
-      ...(brokerSeleccionado !== undefined && { brokerId: brokerSeleccionado }),
-    })
+    asignar.mutate({ leadIds: selectedRowKeys, vendedorId: vendedorSeleccionado })
   }
 
   const columns = [
@@ -243,18 +236,10 @@ export default function CentroAsignacion() {
             onChange={setVendedorSeleccionado}
             options={vendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))}
           />
-          <Select
-            placeholder="Broker (opcional)..."
-            style={{ minWidth: 180, maxWidth: 240 }}
-            allowClear
-            value={brokerSeleccionado}
-            onChange={setBrokerSeleccionado}
-            options={brokers.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))}
-          />
           <Button
             onClick={handleAsignar}
             loading={asignar.isPending}
-            disabled={!vendedorSeleccionado && !brokerSeleccionado}
+            disabled={!vendedorSeleccionado}
             style={{ fontWeight: 600 }}
           >
             Asignar
