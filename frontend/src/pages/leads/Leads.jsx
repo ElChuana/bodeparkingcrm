@@ -382,7 +382,6 @@ function VistaKanban({ filtros, onPreview }) {
 
   const params = {
     ...(filtros.vendedorId && { vendedorId: filtros.vendedorId }),
-    ...(filtros.brokerId   && { brokerId:   filtros.brokerId }),
     ...(filtros.edificioId && { edificioId: filtros.edificioId }),
     ...(filtros.origen     && { origen:     filtros.origen }),
     ...(filtros.tipoUnidad && { tipoUnidad: filtros.tipoUnidad }),
@@ -523,11 +522,7 @@ function ModalAsignarMasivo({ open, onClose, selectedIds, vendedores, onSuccess 
         message.warning('Debe seleccionar una persona')
         return
       }
-      const persona = vendedores.find(v => v.id === values.asignadoId)
-      const data = persona?.rol === 'BROKER_EXTERNO'
-        ? { brokerId: persona.id }
-        : { vendedorId: values.asignadoId }
-      asignar.mutate(data)
+      asignar.mutate({ vendedorId: values.asignadoId })
     })
   }
 
@@ -544,7 +539,7 @@ function ModalAsignarMasivo({ open, onClose, selectedIds, vendedores, onSuccess 
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
         <Form.Item name="asignadoId" label="Asignar a" rules={[{ required: true, message: 'Selecciona una persona' }]}>
           <Select
-            placeholder="Seleccionar vendedor o broker..."
+            placeholder="Seleccionar vendedor..."
             showSearch
             filterOption={(input, option) => option.search.toLowerCase().includes(input.toLowerCase())}
             options={vendedores.map(v => {

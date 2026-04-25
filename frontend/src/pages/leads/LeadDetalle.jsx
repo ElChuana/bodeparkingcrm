@@ -932,29 +932,23 @@ export default function LeadDetalle() {
               </Card>
             )}
 
-            {/* Equipo */}
-            <Card size="small" title="Equipo asignado">
-              <div style={{ marginBottom: lead.broker ? 8 : 0 }}>
-                <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>👤 Vendedor</div>
-                {esGerenciaOJV ? (
-                  <Select
-                    style={{ width: '100%' }}
-                    size="small"
-                    allowClear
-                    placeholder="Sin vendedor asignado"
-                    value={lead.vendedor?.id || undefined}
-                    onChange={(val) => cambiarVendedor.mutate(val)}
-                    loading={cambiarVendedor.isPending}
-                    options={todosVendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))}
-                  />
-                ) : (
-                  lead.vendedor
-                    ? <Text style={{ fontSize: 13 }}><Text strong>{lead.vendedor.nombre} {lead.vendedor.apellido}</Text></Text>
-                    : <Text type="secondary" style={{ fontSize: 13 }}>Sin vendedor asignado</Text>
-                )}
-              </div>
-              {lead.broker && (
-                <div><Text style={{ fontSize: 13 }}>🤝 <Text strong>{lead.broker.nombre} {lead.broker.apellido}</Text> <Text type="secondary">· Broker</Text></Text></div>
+            {/* Vendedor */}
+            <Card size="small" title="Vendedor asignado">
+              {esGerenciaOJV ? (
+                <Select
+                  style={{ width: '100%' }}
+                  size="small"
+                  allowClear
+                  placeholder="Sin vendedor asignado"
+                  value={lead.vendedor?.id || undefined}
+                  onChange={(val) => cambiarVendedor.mutate(val)}
+                  loading={cambiarVendedor.isPending}
+                  options={todosVendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))}
+                />
+              ) : (
+                lead.vendedor
+                  ? <Text style={{ fontSize: 13 }}><Text strong>{lead.vendedor.nombre} {lead.vendedor.apellido}</Text></Text>
+                  : <Text type="secondary" style={{ fontSize: 13 }}>Sin vendedor asignado</Text>
               )}
             </Card>
 
