@@ -112,7 +112,6 @@ function ModalInteraccion({ open, onClose, leadId }) {
             { value: 'WHATSAPP', label: '💬 WhatsApp' },
             { value: 'EMAIL', label: '✉️ Email' },
             { value: 'REUNION', label: '📅 Reunión' },
-            { value: 'NOTA', label: '📝 Nota' },
           ]} />
         </Form.Item>
         <Form.Item name="fecha" label="Fecha y hora (dejar vacío = ahora)">
@@ -640,7 +639,6 @@ function ModalEditarLead({ open, onClose, lead }) {
       confirmLoading={editar.isPending}
       afterOpenChange={(o) => {
         if (o) form.setFieldsValue({
-          notas: lead?.notas || '',
           campana: lead?.campana || '',
           presupuestoAprox: lead?.presupuestoAprox || '',
         })
@@ -652,9 +650,6 @@ function ModalEditarLead({ open, onClose, lead }) {
         </Form.Item>
         <Form.Item name="presupuestoAprox" label="Presupuesto aprox. (UF)">
           <Input type="number" />
-        </Form.Item>
-        <Form.Item name="notas" label="Notas internas">
-          <Input.TextArea rows={4} placeholder="Notas sobre este lead..." />
         </Form.Item>
       </Form>
     </Modal>
@@ -963,20 +958,12 @@ export default function LeadDetalle() {
               )}
             </Card>
 
-            {/* Notas del lead */}
-            <Card
-              size="small"
-              title="Notas internas"
-              extra={<Button type="text" size="small" icon={<EditOutlined />} onClick={() => setModalEditarLead(true)} />}
-            >
-              {lead.notas ? (
-                <Text style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{lead.notas}</Text>
-              ) : (
-                <Text type="secondary" style={{ fontSize: 13 }}>Sin notas. <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setModalEditarLead(true)}>Agregar</Button></Text>
-              )}
-              {lead.campana && <div style={{ marginTop: 6 }}><Text type="secondary" style={{ fontSize: 12 }}>📣 Campaña: {lead.campana}</Text></div>}
-              {lead.presupuestoAprox && <div><Text type="secondary" style={{ fontSize: 12 }}>💰 Presupuesto: {lead.presupuestoAprox} UF</Text></div>}
-            </Card>
+            {(lead.campana || lead.presupuestoAprox) && (
+              <Card size="small" title="Info del lead" extra={<Button type="text" size="small" icon={<EditOutlined />} onClick={() => setModalEditarLead(true)} />}>
+                {lead.campana && <div><Text type="secondary" style={{ fontSize: 12 }}>📣 Campaña: {lead.campana}</Text></div>}
+                {lead.presupuestoAprox && <div><Text type="secondary" style={{ fontSize: 12 }}>💰 Presupuesto: {lead.presupuestoAprox} UF</Text></div>}
+              </Card>
+            )}
 
             {/* Pipeline */}
             <Card size="small" title="Pipeline">
