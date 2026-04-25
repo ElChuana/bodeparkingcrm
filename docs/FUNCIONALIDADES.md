@@ -123,6 +123,7 @@
 - **Las actividades con fecha futura se muestran en el calendario** de Visitas
 - También: `GET /api/interacciones` — listado global (GERENTE, JEFE_VENTAS)
 - **NO confundir con Recordatorios** — las actividades son la fuente de verdad
+- **Nota rápida inline** en LeadDetalle: cuadro arriba del timeline, sin modal. Crea interacción tipo NOTA con descripción + contexto de edificio/unidades de interés (opcionales). Cmd+Enter para guardar rápido.
 
 ### RECORDATORIOS — `/api/leads/:id/recordatorios` y `/api/recordatorios`
 - Archivos: `routes/recordatorios.js`, `routes/recordatorios-completar.js`, `controllers/recordatoriosController.js`
