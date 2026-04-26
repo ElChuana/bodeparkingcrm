@@ -335,6 +335,7 @@ const obtener = async (req, res) => {
       cuotasPendientes,
       ventasRecientes,
       procesoLegalPendiente,
+      ventasActivas,
       embudo: [
         { paso: 'Leads recibidos', cantidad: leadsIngresados },
         { paso: 'Contactados',     cantidad: contactados },
