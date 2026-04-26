@@ -397,6 +397,140 @@ function TablaVentasActivas({ ventas }) {
   )
 }
 
+const KANBAN_PASOS = [
+  { key: 'FIRMA_CLIENTE_PROMESA',      label: 'Firma Cliente',  color: '#2563eb', fondo: '#eff6ff', borde: '#bfdbfe' },
+  { key: 'FIRMA_INMOBILIARIA_PROMESA', label: 'Firma Inmob.',   color: '#7c3aed', fondo: '#f5f3ff', borde: '#ddd6fe' },
+  { key: 'ESCRITURA_LISTA',            label: 'Escritura',      color: '#d97706', fondo: '#fffbeb', borde: '#fde68a' },
+  { key: 'FIRMADA_NOTARIA',            label: 'Notaría',        color: '#ec4899', fondo: '#fdf2f8', borde: '#fbcfe8' },
+  { key: 'INSCRIPCION_CBR',            label: 'CBR',            color: '#10b981', fondo: '#ecfdf5', borde: '#a7f3d0' },
+  { key: 'ENTREGADO',                  label: 'Entregado',      color: '#22c55e', fondo: '#f0fdf4', borde: '#bbf7d0' },
+]
+
+function urgencia(fecha) {
+  if (!fecha) return 'ok'
+  const d = new Date(fecha)
+  if (isPast(d)) return 'vencido'
+  if (d - new Date() < 7 * 86400000) return 'proximo'
+  return 'ok'
+}
+
+const URG_COLOR = { vencido: '#ef4444', proximo: '#f59e0b', ok: '#3b82f6' }
+const URG_LABEL = { vencido: '⚠ Vence', proximo: '⏰ Vence', ok: '📅 Vence' }
+
+function KanbanLegal({ ventasActivas }) {
+  const navigate = useNavigate()
+  const ventas = (ventasActivas || []).filter(v => v.procesoLegal)
+
+  const porPaso = {}
+  for (const p of KANBAN_PASOS) porPaso[p.key] = []
+
+  for (const v of ventas) {
+    const paso = v.procesoLegal?.estadoActual
+    if (porPaso[paso]) porPaso[paso].push(v)
+  }
+
+  const entregados = porPaso['ENTREGADO'] || []
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, minWidth: 860 }}>
+        {KANBAN_PASOS.map((paso, idx) => {
+          const cards = porPaso[paso.key] || []
+          const esEntregado = paso.key === 'ENTREGADO'
+          return (
+            <div key={paso.key} style={{ display: 'flex', alignItems: 'flex-start', flex: 1, minWidth: 120 }}>
+              <div style={{ flex: 1 }}>
+                {/* Header columna */}
+                <div
+                  style={{
+                    background: paso.color, color: 'white', padding: '7px 10px',
+                    borderRadius: idx === 0 ? '8px 0 0 0' : idx === KANBAN_PASOS.length - 1 ? '0 8px 0 0' : 0,
+                    textAlign: 'center',
+                    cursor: esEntregado ? 'pointer' : 'default',
+                  }}
+                  onClick={esEntregado ? () => navigate('/ventas?estado=ENTREGADO') : undefined}
+                  title={esEntregado ? 'Ver ventas entregadas →' : undefined}
+                >
+                  <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.85 }}>{paso.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{cards.length}</div>
+                </div>
+
+                {/* Cuerpo columna */}
+                <div style={{
+                  background: paso.fondo, border: `1px solid ${paso.borde}`, borderTop: 'none',
+                  borderRadius: idx === 0 ? '0 0 0 8px' : idx === KANBAN_PASOS.length - 1 ? '0 0 8px 0' : 0,
+                  padding: 8, minHeight: 120,
+                  display: 'flex', flexDirection: 'column', gap: 6,
+                  alignItems: esEntregado ? 'center' : undefined,
+                  justifyContent: (esEntregado || cards.length === 0) ? 'center' : undefined,
+                }}>
+                  {esEntregado ? (
+                    <div
+                      style={{ color: '#16a34a', fontSize: 11, fontWeight: 600, textAlign: 'center', cursor: 'pointer' }}
+                      onClick={() => navigate('/ventas?estado=ENTREGADO')}
+                    >
+                      ✓ {cards.length} completados
+                    </div>
+                  ) : cards.length === 0 ? (
+                    <div style={{ color: '#94a3b8', fontSize: 10, textAlign: 'center' }}>Sin ventas</div>
+                  ) : (
+                    cards.map(v => {
+                      const pl = v.procesoLegal
+                      const campo = FECHA_POR_PASO[paso.key]
+                      const fecha = campo && pl[campo]
+                      const urg = urgencia(fecha)
+                      const unidad = v.unidades?.[0]
+                      return (
+                        <div
+                          key={v.id}
+                          onClick={() => navigate(`/ventas/${v.id}`)}
+                          style={{
+                            background: 'white', borderRadius: 6, padding: '7px 8px',
+                            borderLeft: `3px solid ${URG_COLOR[urg]}`,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{ fontSize: 11, fontWeight: 700, color: '#1e293b' }}>
+                            {v.comprador?.nombre} {v.comprador?.apellido}
+                          </div>
+                          <div style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>
+                            {unidad?.edificio?.nombre} · {unidad?.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {unidad?.numero}
+                          </div>
+                          <div style={{ fontSize: 10, color: URG_COLOR[urg], fontWeight: 600, marginTop: 2 }}>
+                            {fecha ? `${URG_LABEL[urg]} ${format(new Date(fecha), 'd MMM', { locale: es })}` : 'Sin fecha'}
+                          </div>
+                          <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 1 }}>
+                            {v.vendedor?.nombre} {v.vendedor?.apellido}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Flecha entre columnas */}
+              {idx < KANBAN_PASOS.length - 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', paddingTop: 22, color: '#94a3b8', fontSize: 18, flexShrink: 0 }}>→</div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Leyenda */}
+      <div style={{ display: 'flex', gap: 16, marginTop: 10, paddingTop: 8, borderTop: '1px solid #e2e8f0' }}>
+        {[['#ef4444','Vencido'],['#f59e0b','Vence <7 días'],['#3b82f6','OK']].map(([c, label]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#64748b' }}>
+            <div style={{ width: 10, height: 10, background: c, borderRadius: 2 }} />
+            {label}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function LegalWidget({ ventasActivas }) {
   const navigate = useNavigate()
   const ventasLegal = (ventasActivas || [])
@@ -834,19 +968,19 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Proceso legal pendiente + Cuotas pendientes */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Proceso legal <span style={{ color: '#dc2626' }}>(pendientes)</span></div>
-            <span onClick={() => navigate('/legal')} style={{ fontSize: 9, color: '#3b82f6', fontWeight: 500, cursor: 'pointer' }}>Ver legal →</span>
-          </div>
-          <LegalWidget ventasActivas={procesoLegalPendiente} />
+      {/* Kanban Legal — card grande */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Proceso legal</div>
+          <span onClick={() => navigate('/legal')} style={{ fontSize: 9, color: '#3b82f6', fontWeight: 500, cursor: 'pointer' }}>Ver legal →</span>
         </div>
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Cuotas pendientes de pago</div>
-          <CuotasPendientes datos={cuotasPendientes} />
-        </div>
+        <KanbanLegal ventasActivas={ventasActivas} />
+      </div>
+
+      {/* Cuotas pendientes */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Cuotas pendientes de pago</div>
+        <CuotasPendientes datos={cuotasPendientes} />
       </div>
 
       {/* Inventario por edificio */}
