@@ -50,8 +50,8 @@ function calcPresetDates(key) {
   return { desde: null, hasta: null }
 }
 
-const ANCHOS_EMBUDO = ['100%', '90%', '78%', '60%', '40%']
-const COLORES_TRAPECIO = ['#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd']
+const ANCHOS_EMBUDO = ['100%', '90%', '78%', '64%', '50%', '36%']
+const COLORES_TRAPECIO = ['#1d4ed8', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe']
 
 function EmbudoVisual({ datos }) {
   if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, padding: '20px 0', textAlign: 'center' }}>Sin datos</div>
@@ -63,8 +63,8 @@ function EmbudoVisual({ datos }) {
           ? Math.round((paso.cantidad / datos[i - 1].cantidad) * 100)
           : null
         const esUltimo = i === datos.length - 1
-        const textColor = i >= 4 ? '#1e3a8a' : '#fff'
-        const subTextColor = i >= 4 ? 'rgba(30,58,138,0.7)' : 'rgba(255,255,255,0.75)'
+        const textColor = i >= 5 ? '#1e3a8a' : '#fff'
+        const subTextColor = i >= 5 ? 'rgba(30,58,138,0.7)' : 'rgba(255,255,255,0.75)'
 
         return (
           <div key={paso.paso} style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

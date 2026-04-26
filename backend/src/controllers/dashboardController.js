@@ -64,9 +64,10 @@ const obtener = async (req, res) => {
       ventasAnio,
       // Leads para embudo
       contactados,
-      visitaAgendada,
+      visitasEmbudo,
       reservas,
-      escriturados,
+      promesas,
+      escrituras,
       // Notificaciones
       notificacionesSinLeer,
       // Unidades vendidas período anterior
@@ -171,24 +172,32 @@ const obtener = async (req, res) => {
         select: { fechaReserva: true }
       }),
 
-      // Embudo: contactados
+      // Embudo: contactados — leads del período que salieron de NUEVO
       prisma.lead.count({
-        where: { ...filtroLead, etapa: { in: ['SEGUIMIENTO','COTIZACION_ENVIADA','VISITA_AGENDADA','VISITA_REALIZADA','SEGUIMIENTO_POST_VISITA','NEGOCIACION','RESERVA','PROMESA','ESCRITURA','ENTREGA','POSTVENTA'] } }
+        where: { ...filtroLead, etapa: { not: 'NUEVO' } }
       }),
 
-      // Embudo: visita agendada+
-      prisma.lead.count({
-        where: { ...filtroLead, etapa: { in: ['VISITA_AGENDADA','VISITA_REALIZADA','SEGUIMIENTO_POST_VISITA','NEGOCIACION','RESERVA','PROMESA','ESCRITURA','ENTREGA','POSTVENTA'] } }
+      // Embudo: visitas — por fechaHora en el período
+      prisma.visita.count({
+        where: hayFecha ? { fechaHora: { gte: new Date(desde), lte: new Date(hasta) } } : {}
       }),
 
-      // Embudo: reservas (leads en etapa RESERVA o superior)
-      prisma.lead.count({
-        where: { ...filtroLead, etapa: { in: ['RESERVA','PROMESA','ESCRITURA','ENTREGA','POSTVENTA'] } }
+      // Embudo: reservas — por fechaReserva en el período
+      prisma.venta.count({
+        where: { ...filtroReserva, estado: { not: 'ANULADO' } }
       }),
 
-      // Embudo: escriturados (leads en etapa ESCRITURA o superior)
-      prisma.lead.count({
-        where: { ...filtroLead, etapa: { in: ['ESCRITURA','ENTREGA','POSTVENTA'] } }
+      // Embudo: promesas — por fechaPromesa en el período
+      prisma.venta.count({
+        where: {
+          ...(hayFecha ? { fechaPromesa: { gte: new Date(desde), lte: new Date(hasta) } } : {}),
+          estado: { not: 'ANULADO' }
+        }
+      }),
+
+      // Embudo: escrituras — por fechaEscritura en el período
+      prisma.venta.count({
+        where: { ...filtroEscritura, estado: { not: 'ANULADO' } }
       }),
 
       // Notificaciones sin leer
@@ -329,9 +338,10 @@ const obtener = async (req, res) => {
       embudo: [
         { paso: 'Leads recibidos', cantidad: leadsIngresados },
         { paso: 'Contactados',     cantidad: contactados },
-        { paso: 'Visita agendada', cantidad: visitaAgendada },
+        { paso: 'Visitas',         cantidad: visitasEmbudo },
         { paso: 'Reservas',        cantidad: reservas },
-        { paso: 'Escriturados',    cantidad: escriturados },
+        { paso: 'Promesas',        cantidad: promesas },
+        { paso: 'Escrituras',      cantidad: escrituras },
       ],
       resumen: { totalLeads: leadsIngresados, notificacionesSinLeer },
     })
