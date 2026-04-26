@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Card, Table, Tag, Select, Input, Button, Typography, Row, Col,
   Statistic, Space, DatePicker, InputNumber, Switch, Collapse
@@ -22,8 +22,9 @@ const ESTADO_LABEL = {
 
 export default function Ventas() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { formatUF, ufAPesos, formatPesos } = useUF()
-  const [estado, setEstado] = useState(undefined)
+  const [estado, setEstado] = useState(searchParams.get('estado') || undefined)
   const [filtros, setFiltros] = useState({})
 
   const params = {
