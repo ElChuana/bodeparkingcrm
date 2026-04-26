@@ -4,6 +4,45 @@ const prisma = require('../lib/prisma')
 const { mismoNombre } = require('../lib/deduplication')
 const { notificarLead } = require('../lib/notifications')
 
+function limpiarContextComuro(context) {
+  if (!context) return ''
+  return context.replace(/\|\s*Fecha Reuni[oó]n:.*$/s, '').trim()
+}
+
+function parsearReunionComuro(context) {
+  const match = context?.match(/Fecha Reuni[oó]n:\s*(\d{2}\/\d{2}\/\d{4})\|Hora Reunion:\s*(\d{2}:\d{2})/)
+  if (!match) return null
+  const [, fecha, hora] = match
+  const [dia, mes, anio] = fecha.split('/')
+  const dt = new Date(`${anio}-${mes}-${dia}T${hora}:00`)
+  return isNaN(dt.getTime()) ? null : { dt, fecha, hora }
+}
+
+const FELIX_ID = 8
+
+async function crearReunionComuro({ leadId, vendedorId, context, reunion, nombreContacto }) {
+  const yaExiste = await prisma.interaccion.findFirst({
+    where: { leadId, tipo: 'REUNION', fecha: reunion.dt }
+  })
+  if (yaExiste) return
+
+  await prisma.interaccion.create({
+    data: {
+      leadId,
+      usuarioId: vendedorId ?? FELIX_ID,
+      tipo: 'REUNION',
+      descripcion: limpiarContextComuro(context) || 'Reunión agendada por Comuro.',
+      fecha: reunion.dt,
+    }
+  })
+
+  await notificarLead({
+    leadId,
+    mensaje: `Comuro agendó reunión con ${nombreContacto} el ${reunion.fecha} a las ${reunion.hora}`,
+    tipo: 'ACTIVIDAD',
+  })
+}
+
 // Middleware: autenticar por API Key (header Authorization, X-API-Key, o query param)
 const autenticarApiKey = async (req, res, next) => {
   const authHeader = req.headers['authorization'] || ''
@@ -93,14 +132,29 @@ router.post('/upsert', autenticarApiKey, async (req, res) => {
 
     if (lead) {
       // UPDATE
-      await prisma.lead.update({
+      const leadActualizado = await prisma.lead.update({
         where: { id: lead.id },
         data: {
           comuroData: comuroDataFinal,
+          actualizadoEn: new Date(),
           ...(internal_uuid && { comuroUuid: internal_uuid }),
           ...(body.thread_id && { comuroThreadId: body.thread_id }),
-        }
+        },
+        select: { id: true, vendedorId: true }
       })
+
+      const reunion = parsearReunionComuro(body.context)
+      if (reunion) {
+        const nombreContacto = name || body.nombre_whatsapp || 'cliente'
+        await crearReunionComuro({
+          leadId: lead.id,
+          vendedorId: leadActualizado.vendedorId,
+          context: body.context,
+          reunion,
+          nombreContacto,
+        })
+      }
+
       return res.status(200).json({ lead_id: String(lead.id), status: 'updated' })
     }
 
@@ -143,6 +197,17 @@ router.post('/upsert', autenticarApiKey, async (req, res) => {
       mensaje: `Nuevo lead de Comuro: ${nombreContacto} ${apellidoContacto}`,
       tipo: 'LEAD_NUEVO'
     })
+
+    const reunionNuevo = parsearReunionComuro(body.context)
+    if (reunionNuevo) {
+      await crearReunionComuro({
+        leadId: leadNuevo.id,
+        vendedorId: null,
+        context: body.context,
+        reunion: reunionNuevo,
+        nombreContacto: `${nombreContacto} ${apellidoContacto}`.trim(),
+      })
+    }
 
     return res.status(201).json({ lead_id: String(leadNuevo.id), status: 'created' })
   } catch (err) {
