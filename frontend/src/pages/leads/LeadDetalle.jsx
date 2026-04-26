@@ -28,6 +28,20 @@ const ETAPAS_PIPELINE = [
   'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA', 'PERDIDO'
 ]
 
+function limpiarContext(text) {
+  if (!text) return ''
+  return text.replace(/\|\s*Fecha Reuni[oó]n:.*$/s, '').trim()
+}
+
+function parsearFechaComuro(context) {
+  const match = context?.match(/Fecha Reuni[oó]n:\s*(\d{2}\/\d{2}\/\d{4})\|Hora Reunion:\s*(\d{2}:\d{2})/)
+  if (!match) return null
+  const [, fecha, hora] = match
+  const [dia, mes, anio] = fecha.split('/')
+  const dt = new Date(`${anio}-${mes}-${dia}T${hora}:00`)
+  return isNaN(dt.getTime()) ? null : { fecha, hora, dt }
+}
+
 const TIPO_ICON = {
   LLAMADA: <PhoneOutlined />, EMAIL: <MailOutlined />,
   WHATSAPP: <MessageOutlined />, REUNION: <CalendarOutlined />, NOTA: <EditOutlined />,
@@ -1008,90 +1022,107 @@ export default function LeadDetalle() {
             <CotizacionesLead leadId={id} />
 
             {/* Comuro — debajo de cotizaciones */}
-            {lead.comuroData && (
-        <Card
-          style={{ marginTop: 16, borderColor: '#ede9fe', borderTop: '3px solid #7c3aed' }}
-          title={
-            <Space>
-              <RobotOutlined style={{ color: '#7c3aed', fontSize: 16 }} />
-              <Text strong style={{ color: '#7c3aed' }}>Datos Comuro</Text>
-              {lead.comuroThreadId && (
-                <Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>· Thread: {lead.comuroThreadId}</Text>
-              )}
-            </Space>
-          }
-          extra={
-            lead.comuroData.conversation_url
-              ? <a href={lead.comuroData.conversation_url} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>Ver conversación →</a>
-              : null
-          }
-        >
-          {/* Contexto destacado arriba */}
-          {lead.comuroData.context && (
-            <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
-              <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 4 }}>CONTEXTO DE CONVERSACIÓN</Text>
-              <Text style={{ fontSize: 13, color: '#374151' }}>{String(lead.comuroData.context)}</Text>
-            </div>
-          )}
+            {lead.comuroData && (() => {
+              const reunion = parsearFechaComuro(lead.comuroData.context)
+              const contextoLimpio = limpiarContext(lead.comuroData.context)
+              return (
+                <Card
+                  style={{ marginTop: 16, borderColor: '#ede9fe', borderTop: '3px solid #7c3aed' }}
+                  title={
+                    <Space>
+                      <RobotOutlined style={{ color: '#7c3aed', fontSize: 16 }} />
+                      <Text strong style={{ color: '#7c3aed' }}>Datos Comuro</Text>
+                      {lead.comuroThreadId && (
+                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>· Thread: {lead.comuroThreadId}</Text>
+                      )}
+                    </Space>
+                  }
+                  extra={
+                    lead.comuroData.conversation_url
+                      ? <a href={lead.comuroData.conversation_url} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>Ver conversación →</a>
+                      : null
+                  }
+                >
+                  {/* Reunión agendada — destacada arriba */}
+                  {reunion && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 20 }}>📅</span>
+                      <div>
+                        <Text strong style={{ fontSize: 13, color: '#15803d' }}>
+                          Reunión agendada — {reunion.fecha} · {reunion.hora}
+                        </Text>
+                        {contextoLimpio && (
+                          <div style={{ fontSize: 12, color: '#166534', marginTop: 2 }}>
+                            {contextoLimpio.split('\n')[0].slice(0, 120)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-          {/* Grid de campos */}
-          <Row gutter={[16, 8]}>
-            {/* Interés */}
-            {(lead.comuroData.interes_tipo_activo || lead.comuroData.interes_ubicacion || lead.comuroData.interes_superficie || lead.comuroData.interes_presupuesto || lead.comuroData.value_deal) && (
-              <Col xs={24} sm={12} md={6}>
-                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6 }}>INTERÉS</Text>
-                {lead.comuroData.interes_tipo_activo && <div style={{ fontSize: 13 }}>📦 {lead.comuroData.interes_tipo_activo}</div>}
-                {lead.comuroData.interes_ubicacion && <div style={{ fontSize: 13 }}>📍 {lead.comuroData.interes_ubicacion}</div>}
-                {lead.comuroData.interes_superficie && <div style={{ fontSize: 13 }}>📐 {lead.comuroData.interes_superficie}</div>}
-                {lead.comuroData.interes_presupuesto && <div style={{ fontSize: 13 }}>💰 {lead.comuroData.interes_presupuesto}</div>}
-                {lead.comuroData.value_deal && <div style={{ fontSize: 13, color: '#059669', fontWeight: 600 }}>{lead.comuroData.value_deal}</div>}
-              </Col>
-            )}
+                  {/* Grid datos estructurados */}
+                  <Row gutter={[16, 8]}>
+                    {(lead.comuroData.interes_tipo_activo || lead.comuroData.interes_ubicacion || lead.comuroData.interes_superficie || lead.comuroData.interes_presupuesto || lead.comuroData.value_deal) && (
+                      <Col xs={24} sm={12} md={6}>
+                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6 }}>INTERÉS</Text>
+                        {lead.comuroData.interes_tipo_activo && <div style={{ fontSize: 13 }}>📦 {lead.comuroData.interes_tipo_activo}</div>}
+                        {lead.comuroData.interes_ubicacion && <div style={{ fontSize: 13 }}>📍 {lead.comuroData.interes_ubicacion}</div>}
+                        {lead.comuroData.interes_superficie && <div style={{ fontSize: 13 }}>📐 {lead.comuroData.interes_superficie}</div>}
+                        {lead.comuroData.interes_presupuesto && lead.comuroData.interes_presupuesto !== 'false' && <div style={{ fontSize: 13 }}>💰 {lead.comuroData.interes_presupuesto}</div>}
+                        {lead.comuroData.value_deal && <div style={{ fontSize: 13, color: '#059669', fontWeight: 600 }}>{lead.comuroData.value_deal}</div>}
+                      </Col>
+                    )}
 
-            {/* Calificación */}
-            {(lead.comuroData.lead_prospect !== undefined || lead.comuroData.cumple_requisitos !== undefined || lead.comuroData.opportunity_prospect !== undefined) && (
-              <Col xs={24} sm={12} md={6}>
-                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6 }}>CALIFICACIÓN</Text>
-                {lead.comuroData.lead_prospect !== undefined && (
-                  <div style={{ fontSize: 13 }}>{lead.comuroData.lead_prospect ? '✅' : '❌'} Prospecto: <Text strong>{lead.comuroData.lead_prospect ? 'Sí' : 'No'}</Text></div>
-                )}
-                {lead.comuroData.cumple_requisitos !== undefined && (
-                  <div style={{ fontSize: 13 }}>{lead.comuroData.cumple_requisitos ? '✅' : '❌'} Cumple req.: <Text strong>{lead.comuroData.cumple_requisitos ? 'Sí' : 'No'}</Text></div>
-                )}
-                {lead.comuroData.opportunity_prospect !== undefined && (
-                  <div style={{ fontSize: 13 }}>{lead.comuroData.opportunity_prospect ? '✅' : '❌'} Oportunidad: <Text strong>{lead.comuroData.opportunity_prospect ? 'Sí' : 'No'}</Text></div>
-                )}
-              </Col>
-            )}
+                    {(lead.comuroData.lead_prospect !== undefined || lead.comuroData.cumple_requisitos !== undefined || lead.comuroData.opportunity_prospect !== undefined) && (
+                      <Col xs={24} sm={12} md={6}>
+                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6 }}>CALIFICACIÓN</Text>
+                        {lead.comuroData.lead_prospect !== undefined && (
+                          <div style={{ fontSize: 13 }}>{lead.comuroData.lead_prospect ? '✅' : '❌'} Prospecto: <Text strong>{lead.comuroData.lead_prospect ? 'Sí' : 'No'}</Text></div>
+                        )}
+                        {lead.comuroData.cumple_requisitos !== undefined && (
+                          <div style={{ fontSize: 13 }}>{lead.comuroData.cumple_requisitos ? '✅' : '❌'} Cumple req.: <Text strong>{lead.comuroData.cumple_requisitos ? 'Sí' : 'No'}</Text></div>
+                        )}
+                        {lead.comuroData.opportunity_prospect !== undefined && (
+                          <div style={{ fontSize: 13 }}>{lead.comuroData.opportunity_prospect ? '✅' : '❌'} Oportunidad: <Text strong>{lead.comuroData.opportunity_prospect ? 'Sí' : 'No'}</Text></div>
+                        )}
+                      </Col>
+                    )}
 
-            {/* Contacto / visita */}
-            {(lead.comuroData.coordinar_reunion !== undefined || lead.comuroData.tipo_contacto || lead.comuroData.fecha_visita) && (
-              <Col xs={24} sm={12} md={6}>
-                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6 }}>CONTACTO</Text>
-                {lead.comuroData.tipo_contacto && <div style={{ fontSize: 13 }}>📱 {lead.comuroData.tipo_contacto}</div>}
-                {lead.comuroData.coordinar_reunion !== undefined && (
-                  <div style={{ fontSize: 13 }}>{lead.comuroData.coordinar_reunion ? '✅' : '❌'} Quiere visita</div>
-                )}
-                {lead.comuroData.fecha_visita && <div style={{ fontSize: 13 }}>📅 {lead.comuroData.fecha_visita} {lead.comuroData.hora_visita || ''}</div>}
-                {lead.comuroData.solicito_imagenes && <div style={{ fontSize: 13 }}>🖼 Solicitó imágenes</div>}
-                {lead.comuroData.pregunta_direccion && <div style={{ fontSize: 13 }}>📍 Preguntó dirección</div>}
-              </Col>
-            )}
+                    {(lead.comuroData.coordinar_reunion !== undefined || lead.comuroData.tipo_contacto || lead.comuroData.fecha_visita || lead.comuroData.solicito_imagenes || lead.comuroData.pregunta_direccion) && (
+                      <Col xs={24} sm={12} md={6}>
+                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6 }}>CONTACTO</Text>
+                        {lead.comuroData.tipo_contacto && <div style={{ fontSize: 13 }}>📱 {lead.comuroData.tipo_contacto}</div>}
+                        {lead.comuroData.coordinar_reunion !== undefined && (
+                          <div style={{ fontSize: 13 }}>{lead.comuroData.coordinar_reunion ? '✅' : '❌'} Quiere visita</div>
+                        )}
+                        {lead.comuroData.fecha_visita && <div style={{ fontSize: 13 }}>📅 {lead.comuroData.fecha_visita} {lead.comuroData.hora_visita || ''}</div>}
+                        {lead.comuroData.solicito_imagenes && <div style={{ fontSize: 13 }}>🖼 Solicitó imágenes</div>}
+                        {lead.comuroData.pregunta_direccion && <div style={{ fontSize: 13 }}>📍 Preguntó dirección</div>}
+                      </Col>
+                    )}
 
-            {/* Marketing */}
-            {(lead.comuroData.utm_source || lead.comuroData.utm_campaign || lead.comuroData.source_type || lead.comuroData.campaign) && (
-              <Col xs={24} sm={12} md={6}>
-                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6 }}>ORIGEN</Text>
-                {lead.comuroData.source_type && <div style={{ fontSize: 13 }}>🔗 {lead.comuroData.source_type}</div>}
-                {lead.comuroData.utm_source && <div style={{ fontSize: 13 }}>Fuente: {lead.comuroData.utm_source}</div>}
-                {lead.comuroData.utm_medium && <div style={{ fontSize: 13 }}>Medio: {lead.comuroData.utm_medium}</div>}
-                {lead.comuroData.utm_campaign && <div style={{ fontSize: 12, color: '#6b7280' }}>{lead.comuroData.utm_campaign}</div>}
-                {lead.comuroData.campaign && <div style={{ fontSize: 12, color: '#6b7280' }}>{lead.comuroData.campaign}</div>}
-              </Col>
-            )}
-          </Row>
-        </Card>
-            )}
+                    {(lead.comuroData.utm_source || lead.comuroData.utm_campaign || lead.comuroData.source_type || lead.comuroData.campaign) && (
+                      <Col xs={24} sm={12} md={6}>
+                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6 }}>ORIGEN</Text>
+                        {lead.comuroData.source_type && <div style={{ fontSize: 13 }}>🔗 {lead.comuroData.source_type}</div>}
+                        {lead.comuroData.utm_source && <div style={{ fontSize: 13 }}>Fuente: {lead.comuroData.utm_source}</div>}
+                        {lead.comuroData.utm_medium && <div style={{ fontSize: 13 }}>Medio: {lead.comuroData.utm_medium}</div>}
+                        {lead.comuroData.utm_campaign && <div style={{ fontSize: 12, color: '#6b7280' }}>{lead.comuroData.utm_campaign}</div>}
+                        {lead.comuroData.campaign && <div style={{ fontSize: 12, color: '#6b7280' }}>{lead.comuroData.campaign}</div>}
+                      </Col>
+                    )}
+                  </Row>
+
+                  {/* Contexto limpio abajo */}
+                  {contextoLimpio && (
+                    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', marginTop: 16 }}>
+                      <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 4 }}>RESUMEN CONVERSACIÓN</Text>
+                      <Text style={{ fontSize: 12, color: '#374151', whiteSpace: 'pre-wrap' }}>{contextoLimpio}</Text>
+                    </div>
+                  )}
+                </Card>
+              )
+            })()}
           </Space>
         </Col>
       </Row>
