@@ -1,5 +1,7 @@
 const prisma = require('../lib/prisma')
 
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+
 // Calcula el período anterior con la misma duración
 function calcPeriodoAnterior(desde, hasta) {
   if (!desde || !hasta) return { desdeAnt: null, hastaAnt: null }
@@ -8,19 +10,19 @@ function calcPeriodoAnterior(desde, hasta) {
   return { desdeAnt: new Date(d - dur), hastaAnt: new Date(d) }
 }
 
-// Agrupa leads por semana dentro del período
+// Agrupa leads por semana con label "Mes #semana" (ej: "Ene 2")
 function agruparLeadsPorSemana(leads, desde, hasta) {
   if (!leads.length && !desde) return []
   const inicio = desde ? new Date(desde) : new Date(leads[0]?.creadoEn || Date.now())
   const fin    = hasta ? new Date(hasta)  : new Date()
   const semanas = []
   let cursor = new Date(inicio)
-  let i = 1
-  while (cursor < fin && semanas.length < 52) {
+  while (cursor < fin && semanas.length < 53) {
     const finSemana = new Date(Math.min(cursor.getTime() + 7 * 86400000, fin.getTime()))
-    semanas.push({ label: `S${i}`, desde: new Date(cursor), hasta: finSemana })
+    const mes = MESES[cursor.getMonth()]
+    const semDeMes = Math.ceil(cursor.getDate() / 7)
+    semanas.push({ label: `${mes} ${semDeMes}`, desde: new Date(cursor), hasta: finSemana })
     cursor = finSemana
-    i++
   }
   return semanas.map(s => ({
     semana: s.label,
@@ -52,8 +54,6 @@ function agruparPorSemana(ventasPeriodo, todasVentas, desde, hasta) {
     return { semana: s.label, vendidoUF: +vendidoUF.toFixed(2), recolectadoUF: +recolectadoUF.toFixed(2) }
   })
 }
-
-const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
 const obtener = async (req, res) => {
   const { desde, hasta } = req.query
