@@ -10,19 +10,24 @@ function calcPeriodoAnterior(desde, hasta) {
   return { desdeAnt: new Date(d - dur), hastaAnt: new Date(d) }
 }
 
-// Agrupa leads por semana con label "Mes #semana" (ej: "Ene 2")
+// Agrupa leads por semana con label "Mes #semana" (ej: "Ene 2"), semanas inician el lunes
 function agruparLeadsPorSemana(leads, desde, hasta) {
   if (!leads.length && !desde) return []
-  const inicio = desde ? new Date(desde) : new Date(leads[0]?.creadoEn || Date.now())
-  const fin    = hasta ? new Date(hasta)  : new Date()
+  const fin = hasta ? new Date(hasta) : new Date()
+
+  // Snap al lunes de la semana que contiene 'desde'
+  let cursor = desde ? new Date(desde) : new Date(leads[0]?.creadoEn || Date.now())
+  cursor.setHours(0, 0, 0, 0)
+  const dow = cursor.getDay() // 0=Dom, 1=Lun, ..., 6=Sáb
+  cursor.setDate(cursor.getDate() + (dow === 0 ? -6 : 1 - dow))
+
   const semanas = []
-  let cursor = new Date(inicio)
   while (cursor < fin && semanas.length < 53) {
     const finSemana = new Date(Math.min(cursor.getTime() + 7 * 86400000, fin.getTime()))
     const mes = MESES[cursor.getMonth()]
     const semDeMes = Math.ceil(cursor.getDate() / 7)
     semanas.push({ label: `${mes} ${semDeMes}`, desde: new Date(cursor), hasta: finSemana })
-    cursor = finSemana
+    cursor = new Date(finSemana)
   }
   return semanas.map(s => ({
     semana: s.label,
@@ -276,6 +281,17 @@ const obtener = async (req, res) => {
       }),
     ])
 
+    // Leads por campaña: total histórico (sin filtro de período)
+    const leadsCampanaTotal = await prisma.lead.groupBy({
+      by: ['campana'],
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } }
+    })
+    const resumenCampanas = leadsCampanaTotal.map(r => ({
+      campana: r.campana || 'Sin campaña',
+      total: r._count.id,
+    }))
+
     // Leads por campaña: actual vs anterior
     const leadsActualRaw = await prisma.lead.groupBy({
       by: ['campana'],
@@ -373,6 +389,7 @@ const obtener = async (req, res) => {
       ventasPorMes,
       leadsPorSemana,
       leadsPorCampana,
+      resumenCampanas,
       inventarioPorEdificio: unidadesPorEdificio,
       visitasDelPeriodo,
       visitasProximas,
