@@ -340,12 +340,11 @@ const obtener = async (req, res) => {
       })
 
     // Proceso legal — solo ventas con pasos incompletos
-    const PASOS_CON_PROMESA  = ['FIRMA_CLIENTE_PROMESA','FIRMA_INMOBILIARIA_PROMESA','ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
+    const PASOS_CON_PROMESA = ['CONFECCION_PROMESA','FIRMA_CLIENTE_PROMESA','FIRMA_INMOBILIARIA_PROMESA','CONFECCION_ESCRITURA','FIRMA_CLIENTE_ESCRITURA','FIRMA_INMOBILIARIA_ESCRITURA','INSCRIPCION_CBR','ENTREGADO']
+    const PASOS_SIN_PROMESA = ['CONFECCION_ESCRITURA','FIRMA_CLIENTE_ESCRITURA','FIRMA_INMOBILIARIA_ESCRITURA','INSCRIPCION_CBR','ENTREGADO']
     const procesoLegalPendiente = ventasActivas.filter(v => {
       if (!v.procesoLegal) return false
-      const pasos = v.procesoLegal.tienePromesa === false
-        ? ['ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
-        : PASOS_CON_PROMESA
+      const pasos = v.procesoLegal.tienePromesa === false ? PASOS_SIN_PROMESA : PASOS_CON_PROMESA
       const idx = pasos.indexOf(v.procesoLegal.estadoActual)
       return idx < pasos.length - 1
     })
