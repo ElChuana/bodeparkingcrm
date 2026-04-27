@@ -281,9 +281,13 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
   const qc = useQueryClient()
   const [form] = Form.useForm()
   const { message } = App.useApp()
-  const pasos = proceso?.tienePromesa === false ? PASOS_SIN_PROMESA : PASOS_CON_PROMESA
 
   const toDateStr = (d) => d ? d.substring(0, 10) : ''
+
+  // Reactivo al valor actual del form (no al valor inicial de BD)
+  const tienePromesaWatch = Form.useWatch('tienePromesa', form)
+  const conPromesa = tienePromesaWatch !== false
+  const pasosActuales = conPromesa ? PASOS_CON_PROMESA : PASOS_SIN_PROMESA
 
   const actualizar = useMutation({
     mutationFn: (d) => api.put(`/legal/${ventaId}`, d),
@@ -298,10 +302,10 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
   return (
     <Modal title="Actualizar Proceso Legal" open={open} onCancel={onClose}
       onOk={() => form.validateFields().then(actualizar.mutate)}
-      okText="Guardar" cancelText="Cancelar" confirmLoading={actualizar.isPending} width={520}>
+      okText="Guardar" cancelText="Cancelar" confirmLoading={actualizar.isPending} width={540}>
       <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{
-        estadoActual: proceso?.estadoActual,
-        tienePromesa: proceso?.tienePromesa !== false,
+        estadoActual:                   proceso?.estadoActual,
+        tienePromesa:                   proceso?.tienePromesa !== false,
         fechaLimiteConfeccionPromesa:   toDateStr(proceso?.fechaLimiteConfeccionPromesa),
         fechaLimiteFirmaCliente:        toDateStr(proceso?.fechaLimiteFirmaCliente),
         fechaLimiteFirmaInmob:          toDateStr(proceso?.fechaLimiteFirmaInmob),
@@ -313,38 +317,46 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
         notas: proceso?.notas,
       }}>
         <Row gutter={12}>
-          <Col span={16}>
-            <Form.Item name="estadoActual" label="Paso actual">
-              <Select options={pasos.map(p => ({ value: p, label: LEGAL_LABEL[p] }))} />
-            </Form.Item>
-          </Col>
           <Col span={8}>
             <Form.Item name="tienePromesa" label="¿Tiene promesa?">
-              <Select options={[{ value: true, label: 'Sí' }, { value: false, label: 'No' }]} />
+              <Select
+                options={[{ value: true, label: 'Sí — con promesa' }, { value: false, label: 'No — directo escritura' }]}
+                onChange={() => form.setFieldValue('estadoActual', undefined)}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={16}>
+            <Form.Item name="estadoActual" label="Paso actual">
+              <Select options={pasosActuales.map(p => ({ value: p, label: LEGAL_LABEL[p] }))} />
             </Form.Item>
           </Col>
         </Row>
-        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c' }}>Promesa</Divider>
-        {proceso?.tienePromesa !== false && (
-          <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item name="fechaLimiteConfeccionPromesa" label="Confección promesa">
-                <Input type="date" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="fechaLimiteFirmaCliente" label="Firma cliente">
-                <Input type="date" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="fechaLimiteFirmaInmob" label="Firma inmobiliaria">
-                <Input type="date" />
-              </Form.Item>
-            </Col>
-          </Row>
+
+        {/* Sección Promesa — solo si tienePromesa=true */}
+        {conPromesa && (
+          <>
+            <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c', margin: '8px 0' }}>Promesa</Divider>
+            <Row gutter={12}>
+              <Col span={8}>
+                <Form.Item name="fechaLimiteConfeccionPromesa" label="Confección promesa">
+                  <Input type="date" />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="fechaLimiteFirmaCliente" label="Firma cliente (promesa)">
+                  <Input type="date" />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item name="fechaLimiteFirmaInmob" label="Firma inmob. (promesa)">
+                  <Input type="date" />
+                </Form.Item>
+              </Col>
+            </Row>
+          </>
         )}
-        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c' }}>Escritura</Divider>
+
+        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c', margin: '8px 0' }}>Escritura</Divider>
         <Row gutter={12}>
           <Col span={8}>
             <Form.Item name="fechaLimiteEscritura" label="Confección escritura">
@@ -352,17 +364,18 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item name="fechaLimiteFirmaNot" label="Firma cliente">
+            <Form.Item name="fechaLimiteFirmaNot" label="Firma cliente (escritura)">
               <Input type="date" />
             </Form.Item>
           </Col>
           <Col span={8}>
-            <Form.Item name="fechaLimiteFirmaInmobEscritura" label="Firma inmobiliaria">
+            <Form.Item name="fechaLimiteFirmaInmobEscritura" label="Firma inmob. (escritura)">
               <Input type="date" />
             </Form.Item>
           </Col>
         </Row>
-        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c' }}>Cierre</Divider>
+
+        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c', margin: '8px 0' }}>Cierre</Divider>
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item name="fechaLimiteCBR" label="Inscripción CBR">

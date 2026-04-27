@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import dayjs from 'dayjs'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -11,14 +11,34 @@ import api from '../../services/api'
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
+const ETAPA_CONFIG = {
+  NUEVO:              { label: 'Nuevo',             color: 'blue' },
+  NO_CONTESTA:        { label: 'No contesta',        color: 'orange' },
+  SEGUIMIENTO:        { label: 'Seguimiento',        color: 'cyan' },
+  COTIZACION_ENVIADA: { label: 'Cotización enviada', color: 'purple' },
+  INTERESADO:         { label: 'Interesado',         color: 'geekblue' },
+  VISITA_AGENDADA:    { label: 'Visita agendada',    color: 'volcano' },
+  PERDIDO:            { label: 'Perdido',            color: 'red' },
+}
+
+// Etapas donde el lead probablemente ya tiene vendedor → deshabilitar soloSinAsignar
+const ETAPAS_YA_ASIGNADAS = new Set(['PERDIDO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO', 'VISITA_AGENDADA'])
+
 const ORIGEN_OPCIONES = [
-  { value: 'INSTAGRAM', label: 'Instagram' },
-  { value: 'GOOGLE', label: 'Google' },
-  { value: 'REFERIDO', label: 'Referido' },
-  { value: 'BROKER', label: 'Broker' },
+  { value: 'INSTAGRAM',      label: 'Instagram' },
+  { value: 'GOOGLE',         label: 'Google' },
+  { value: 'REFERIDO',       label: 'Referido' },
+  { value: 'BROKER',         label: 'Broker' },
   { value: 'VISITA_DIRECTA', label: 'Visita directa' },
-  { value: 'WEB', label: 'Web' },
-  { value: 'OTRO', label: 'Otro' },
+  { value: 'WEB',            label: 'Web' },
+  { value: 'OTRO',           label: 'Otro' },
+]
+
+const QUICK_FILTERS = [
+  { key: 'nuevos',       label: 'Nuevos sin asignar', etapa: 'NUEVO',       soloSinAsignar: true },
+  { key: 'no_contesta',  label: 'No contesta',         etapa: 'NO_CONTESTA', soloSinAsignar: false },
+  { key: 'perdidos',     label: 'Perdidos',            etapa: 'PERDIDO',     soloSinAsignar: false },
+  { key: 'todos',        label: 'Todos',               etapa: null,          soloSinAsignar: false },
 ]
 
 export default function CentroAsignacion() {
@@ -26,17 +46,17 @@ export default function CentroAsignacion() {
   const { message } = App.useApp()
 
   // Filtros
-  const [campanasFiltro, setCampanasFiltro] = useState([])
-  const [origen, setOrigen] = useState(null)
-  const [desde, setDesde] = useState(null)
-  const [hasta, setHasta] = useState(null)
+  const [quickActivo, setQuickActivo]     = useState('nuevos')
+  const [etapaFiltro, setEtapaFiltro]     = useState('NUEVO')
   const [soloSinAsignar, setSoloSinAsignar] = useState(true)
-  const [fechaRapida, setFechaRapida] = useState(null)
+  const [campanasFiltro, setCampanasFiltro] = useState([])
+  const [origen, setOrigen]               = useState(null)
+  const [desde, setDesde]                 = useState(null)
+  const [hasta, setHasta]                 = useState(null)
+  const [fechaRapida, setFechaRapida]     = useState(null)
 
-  // Selección
+  // Selección y asignación
   const [selectedRowKeys, setSelectedRowKeys] = useState([])
-
-  // Asignación
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState(null)
 
   // ── Queries ──────────────────────────────────────────────────
@@ -53,6 +73,7 @@ export default function CentroAsignacion() {
 
   const params = {
     ...(soloSinAsignar && { sinAsignar: 'true' }),
+    ...(etapaFiltro && { etapa: etapaFiltro }),
     ...(campanasFiltro.length === 1 && { campana: campanasFiltro[0] }),
     ...(origen && { origen }),
     ...(desde && { desde }),
@@ -64,11 +85,19 @@ export default function CentroAsignacion() {
     queryFn: () => api.get('/leads', { params }).then(r => r.data),
   })
 
-  // Filtro local para múltiples campañas (backend solo acepta 1 a la vez)
-  const leads = campanasFiltro.length > 1
+  // Filtro local para múltiples campañas
+  const leadsFiltrados = campanasFiltro.length > 1
     ? leadsRaw.filter(l => campanasFiltro.includes(l.campana))
     : leadsRaw
 
+  // Ordenar: NUEVO primero, luego por fecha de ingreso desc
+  const leads = useMemo(() => [...leadsFiltrados].sort((a, b) => {
+    if (a.etapa === 'NUEVO' && b.etapa !== 'NUEVO') return -1
+    if (a.etapa !== 'NUEVO' && b.etapa === 'NUEVO') return 1
+    return new Date(b.creadoEn) - new Date(a.creadoEn)
+  }), [leadsFiltrados])
+
+  // ── Mutación ──────────────────────────────────────────────────
   const asignar = useMutation({
     mutationFn: ({ leadIds, vendedorId }) =>
       api.post('/leads/asignar-masivo', { leadIds, vendedorId }).then(r => r.data),
@@ -81,10 +110,23 @@ export default function CentroAsignacion() {
     onError: err => message.error(err.response?.data?.error || 'Error al asignar'),
   })
 
+  // ── Handlers ─────────────────────────────────────────────────
+  const aplicarQuick = (qf) => {
+    setQuickActivo(qf.key)
+    setEtapaFiltro(qf.etapa)
+    setSoloSinAsignar(qf.soloSinAsignar)
+    setSelectedRowKeys([])
+  }
+
+  const handleEtapaChange = (val) => {
+    setEtapaFiltro(val)
+    setQuickActivo(null)
+    // Si es etapa que normalmente ya tiene vendedor, desactivar filtro sinAsignar
+    if (val && ETAPAS_YA_ASIGNADAS.has(val)) setSoloSinAsignar(false)
+  }
+
   const handleFechaRapida = (tipo) => {
-    if (fechaRapida === tipo) {
-      setFechaRapida(null); setDesde(null); setHasta(null); return
-    }
+    if (fechaRapida === tipo) { setFechaRapida(null); setDesde(null); setHasta(null); return }
     setFechaRapida(tipo)
     if (tipo === 'hoy') {
       setDesde(dayjs().startOf('day').toISOString())
@@ -103,9 +145,7 @@ export default function CentroAsignacion() {
     if (dates) {
       setDesde(dates[0].startOf('day').toISOString())
       setHasta(dates[1].endOf('day').toISOString())
-    } else {
-      setDesde(null); setHasta(null)
-    }
+    } else { setDesde(null); setHasta(null) }
   }
 
   const handleAsignar = () => {
@@ -114,6 +154,7 @@ export default function CentroAsignacion() {
     asignar.mutate({ leadIds: selectedRowKeys, vendedorId: vendedorSeleccionado })
   }
 
+  // ── Columnas ─────────────────────────────────────────────────
   const columns = [
     {
       title: 'Contacto',
@@ -126,6 +167,15 @@ export default function CentroAsignacion() {
           )}
         </div>
       ),
+    },
+    {
+      title: 'Etapa',
+      key: 'etapa',
+      width: 140,
+      render: (_, r) => {
+        const cfg = ETAPA_CONFIG[r.etapa] || { label: r.etapa, color: 'default' }
+        return <Tag color={cfg.color} style={{ fontSize: 11 }}>{cfg.label}</Tag>
+      },
     },
     {
       title: 'Campaña',
@@ -142,6 +192,7 @@ export default function CentroAsignacion() {
       title: 'Fecha ingreso',
       dataIndex: 'creadoEn',
       key: 'creadoEn',
+      sorter: (a, b) => new Date(b.creadoEn) - new Date(a.creadoEn),
       render: v => <Text style={{ fontSize: 12 }}>{dayjs(v).format('DD/MM/YYYY')}</Text>,
     },
     {
@@ -154,7 +205,7 @@ export default function CentroAsignacion() {
   ]
 
   return (
-    <div style={{ maxWidth: 1100 }}>
+    <div style={{ maxWidth: 1200 }}>
       <div style={{ marginBottom: 20 }}>
         <Title level={3} style={{ margin: 0 }}>
           <UserSwitchOutlined style={{ marginRight: 8, color: '#1d4ed8' }} />
@@ -163,10 +214,37 @@ export default function CentroAsignacion() {
         <Text type="secondary">Filtra leads y asígnalos a vendedores en bulk</Text>
       </div>
 
-      {/* Filtros */}
+      {/* Quick filters */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+        {QUICK_FILTERS.map(qf => (
+          <Button
+            key={qf.key}
+            size="small"
+            type={quickActivo === qf.key ? 'primary' : 'default'}
+            onClick={() => aplicarQuick(qf)}
+          >
+            {qf.label}
+          </Button>
+        ))}
+      </div>
+
+      {/* Filtros detallados */}
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={[12, 12]} align="middle">
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={5}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Etapa</div>
+            <Select
+              allowClear
+              placeholder="Todas las etapas"
+              style={{ width: '100%' }}
+              value={etapaFiltro}
+              onChange={handleEtapaChange}
+              options={Object.entries(ETAPA_CONFIG).map(([val, cfg]) => ({
+                value: val, label: cfg.label
+              }))}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={5}>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Campaña</div>
             <Select
               mode="multiple"
@@ -178,7 +256,7 @@ export default function CentroAsignacion() {
               options={campanaOpciones.map(c => ({ value: c, label: c }))}
             />
           </Col>
-          <Col xs={24} sm={12} md={5}>
+          <Col xs={24} sm={12} md={4}>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Origen</div>
             <Select
               allowClear
@@ -189,7 +267,7 @@ export default function CentroAsignacion() {
               options={ORIGEN_OPCIONES}
             />
           </Col>
-          <Col xs={24} md={9}>
+          <Col xs={24} md={7}>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Fecha de ingreso</div>
             <Space wrap size={4}>
               {[['hoy', 'Hoy'], ['ayer', 'Ayer'], ['semana', 'Esta semana']].map(([t, label]) => (
@@ -210,9 +288,12 @@ export default function CentroAsignacion() {
               />
             </Space>
           </Col>
-          <Col xs={24} md={4}>
+          <Col xs={24} md={3}>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Solo sin asignar</div>
-            <Switch checked={soloSinAsignar} onChange={setSoloSinAsignar} />
+            <Switch
+              checked={soloSinAsignar}
+              onChange={v => { setSoloSinAsignar(v); setQuickActivo(null) }}
+            />
           </Col>
         </Row>
       </Card>
@@ -229,8 +310,8 @@ export default function CentroAsignacion() {
             {selectedRowKeys.length} lead(s) seleccionado(s)
           </Text>
           <Select
-            placeholder="Vendedor..."
-            style={{ minWidth: 180, maxWidth: 240 }}
+            placeholder="Asignar a vendedor..."
+            style={{ minWidth: 200, maxWidth: 260 }}
             allowClear
             value={vendedorSeleccionado}
             onChange={setVendedorSeleccionado}
