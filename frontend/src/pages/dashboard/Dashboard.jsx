@@ -266,22 +266,26 @@ function TablaVentas({ ventas }) {
 
 // ─── Ventas activas (en curso) ────────────────────────────────────
 const LEGAL_LABEL = {
-  FIRMA_CLIENTE_PROMESA:      'Firma cliente',
-  FIRMA_INMOBILIARIA_PROMESA: 'Firma inmob.',
-  ESCRITURA_LISTA:            'Escritura lista',
-  FIRMADA_NOTARIA:            'Notaría',
-  INSCRIPCION_CBR:            'CBR',
-  ENTREGADO:                  'Entregado',
+  CONFECCION_PROMESA:           'Confec. promesa',
+  FIRMA_CLIENTE_PROMESA:        'Firma cliente',
+  FIRMA_INMOBILIARIA_PROMESA:   'Firma inmob.',
+  CONFECCION_ESCRITURA:         'Confec. escritura',
+  FIRMA_CLIENTE_ESCRITURA:      'Firma cliente',
+  FIRMA_INMOBILIARIA_ESCRITURA: 'Firma inmob.',
+  INSCRIPCION_CBR:              'CBR',
+  ENTREGADO:                    'Entregado',
 }
-const PASOS_CON_PROMESA  = ['FIRMA_CLIENTE_PROMESA','FIRMA_INMOBILIARIA_PROMESA','ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
-const PASOS_SIN_PROMESA  = ['ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
+const PASOS_CON_PROMESA = ['CONFECCION_PROMESA','FIRMA_CLIENTE_PROMESA','FIRMA_INMOBILIARIA_PROMESA','CONFECCION_ESCRITURA','FIRMA_CLIENTE_ESCRITURA','FIRMA_INMOBILIARIA_ESCRITURA','INSCRIPCION_CBR','ENTREGADO']
+const PASOS_SIN_PROMESA = ['CONFECCION_ESCRITURA','FIRMA_CLIENTE_ESCRITURA','FIRMA_INMOBILIARIA_ESCRITURA','INSCRIPCION_CBR','ENTREGADO']
 const FECHA_POR_PASO = {
-  FIRMA_CLIENTE_PROMESA:      'fechaLimiteFirmaCliente',
-  FIRMA_INMOBILIARIA_PROMESA: 'fechaLimiteFirmaInmob',
-  ESCRITURA_LISTA:            'fechaLimiteEscritura',
-  FIRMADA_NOTARIA:            'fechaLimiteFirmaNot',
-  INSCRIPCION_CBR:            'fechaLimiteCBR',
-  ENTREGADO:                  'fechaLimiteEntrega',
+  CONFECCION_PROMESA:           'fechaLimiteConfeccionPromesa',
+  FIRMA_CLIENTE_PROMESA:        'fechaLimiteFirmaCliente',
+  FIRMA_INMOBILIARIA_PROMESA:   'fechaLimiteFirmaInmob',
+  CONFECCION_ESCRITURA:         'fechaLimiteEscritura',
+  FIRMA_CLIENTE_ESCRITURA:      'fechaLimiteFirmaNot',
+  FIRMA_INMOBILIARIA_ESCRITURA: 'fechaLimiteFirmaInmobEscritura',
+  INSCRIPCION_CBR:              'fechaLimiteCBR',
+  ENTREGADO:                    'fechaLimiteEntrega',
 }
 
 function TimelineLegal({ proceso }) {
@@ -431,12 +435,14 @@ function TablaVentasActivas({ ventas }) {
 }
 
 const KANBAN_PASOS = [
-  { key: 'FIRMA_CLIENTE_PROMESA',      label: 'Firma Cliente',  color: '#2563eb', fondo: '#eff6ff', borde: '#bfdbfe' },
-  { key: 'FIRMA_INMOBILIARIA_PROMESA', label: 'Firma Inmob.',   color: '#7c3aed', fondo: '#f5f3ff', borde: '#ddd6fe' },
-  { key: 'ESCRITURA_LISTA',            label: 'Escritura',      color: '#d97706', fondo: '#fffbeb', borde: '#fde68a' },
-  { key: 'FIRMADA_NOTARIA',            label: 'Notaría',        color: '#ec4899', fondo: '#fdf2f8', borde: '#fbcfe8' },
-  { key: 'INSCRIPCION_CBR',            label: 'CBR',            color: '#10b981', fondo: '#ecfdf5', borde: '#a7f3d0' },
-  { key: 'ENTREGADO',                  label: 'Entregado',      color: '#22c55e', fondo: '#f0fdf4', borde: '#bbf7d0' },
+  { key: 'CONFECCION_PROMESA',          label: 'Confec. promesa',   color: '#3b82f6', fondo: '#eff6ff', borde: '#bfdbfe' },
+  { key: 'FIRMA_CLIENTE_PROMESA',       label: 'Firma cliente',     color: '#2563eb', fondo: '#dbeafe', borde: '#93c5fd' },
+  { key: 'FIRMA_INMOBILIARIA_PROMESA',  label: 'Firma inmob.',      color: '#7c3aed', fondo: '#f5f3ff', borde: '#ddd6fe' },
+  { key: 'CONFECCION_ESCRITURA',        label: 'Confec. escritura', color: '#d97706', fondo: '#fffbeb', borde: '#fde68a' },
+  { key: 'FIRMA_CLIENTE_ESCRITURA',     label: 'Firma cliente',     color: '#ec4899', fondo: '#fdf2f8', borde: '#fbcfe8' },
+  { key: 'FIRMA_INMOBILIARIA_ESCRITURA',label: 'Firma inmob.',      color: '#be185d', fondo: '#fdf2f8', borde: '#f9a8d4' },
+  { key: 'INSCRIPCION_CBR',             label: 'CBR',               color: '#10b981', fondo: '#ecfdf5', borde: '#a7f3d0' },
+  { key: 'ENTREGADO',                   label: 'Entregado',         color: '#22c55e', fondo: '#f0fdf4', borde: '#bbf7d0' },
 ]
 
 function urgencia(fecha) {
