@@ -1,17 +1,20 @@
 const prisma = require('../lib/prisma')
 
 const PASOS_CON_PROMESA = [
+  'CONFECCION_PROMESA',
   'FIRMA_CLIENTE_PROMESA',
   'FIRMA_INMOBILIARIA_PROMESA',
-  'ESCRITURA_LISTA',
-  'FIRMADA_NOTARIA',
+  'CONFECCION_ESCRITURA',
+  'FIRMA_CLIENTE_ESCRITURA',
+  'FIRMA_INMOBILIARIA_ESCRITURA',
   'INSCRIPCION_CBR',
   'ENTREGADO'
 ]
 
 const PASOS_SIN_PROMESA = [
-  'ESCRITURA_LISTA',
-  'FIRMADA_NOTARIA',
+  'CONFECCION_ESCRITURA',
+  'FIRMA_CLIENTE_ESCRITURA',
+  'FIRMA_INMOBILIARIA_ESCRITURA',
   'INSCRIPCION_CBR',
   'ENTREGADO'
 ]
@@ -42,8 +45,10 @@ const actualizar = async (req, res) => {
   const { ventaId } = req.params
   const {
     estadoActual, tienePromesa, notas,
+    fechaLimiteConfeccionPromesa,
     fechaLimiteFirmaCliente, fechaLimiteFirmaInmob,
     fechaLimiteEscritura, fechaLimiteFirmaNot,
+    fechaLimiteFirmaInmobEscritura,
     fechaLimiteCBR, fechaLimiteEntrega
   } = req.body
 
@@ -58,17 +63,34 @@ const actualizar = async (req, res) => {
       data: {
         ...(estadoActual && { estadoActual }),
         ...(tienePromesa !== undefined && { tienePromesa }),
-        ...(notas && { notas }),
-        ...(fechaLimiteFirmaCliente && { fechaLimiteFirmaCliente: new Date(fechaLimiteFirmaCliente) }),
-        ...(fechaLimiteFirmaInmob && { fechaLimiteFirmaInmob: new Date(fechaLimiteFirmaInmob) }),
-        ...(fechaLimiteEscritura && { fechaLimiteEscritura: new Date(fechaLimiteEscritura) }),
-        ...(fechaLimiteFirmaNot && { fechaLimiteFirmaNot: new Date(fechaLimiteFirmaNot) }),
-        ...(fechaLimiteCBR && { fechaLimiteCBR: new Date(fechaLimiteCBR) }),
-        ...(fechaLimiteEntrega && { fechaLimiteEntrega: new Date(fechaLimiteEntrega) })
+        ...(notas !== undefined && { notas }),
+        ...(fechaLimiteConfeccionPromesa !== undefined && {
+          fechaLimiteConfeccionPromesa: fechaLimiteConfeccionPromesa ? new Date(fechaLimiteConfeccionPromesa) : null
+        }),
+        ...(fechaLimiteFirmaCliente !== undefined && {
+          fechaLimiteFirmaCliente: fechaLimiteFirmaCliente ? new Date(fechaLimiteFirmaCliente) : null
+        }),
+        ...(fechaLimiteFirmaInmob !== undefined && {
+          fechaLimiteFirmaInmob: fechaLimiteFirmaInmob ? new Date(fechaLimiteFirmaInmob) : null
+        }),
+        ...(fechaLimiteEscritura !== undefined && {
+          fechaLimiteEscritura: fechaLimiteEscritura ? new Date(fechaLimiteEscritura) : null
+        }),
+        ...(fechaLimiteFirmaNot !== undefined && {
+          fechaLimiteFirmaNot: fechaLimiteFirmaNot ? new Date(fechaLimiteFirmaNot) : null
+        }),
+        ...(fechaLimiteFirmaInmobEscritura !== undefined && {
+          fechaLimiteFirmaInmobEscritura: fechaLimiteFirmaInmobEscritura ? new Date(fechaLimiteFirmaInmobEscritura) : null
+        }),
+        ...(fechaLimiteCBR !== undefined && {
+          fechaLimiteCBR: fechaLimiteCBR ? new Date(fechaLimiteCBR) : null
+        }),
+        ...(fechaLimiteEntrega !== undefined && {
+          fechaLimiteEntrega: fechaLimiteEntrega ? new Date(fechaLimiteEntrega) : null
+        }),
       }
     })
 
-    // Si llegó a ENTREGADO, actualizar estado de venta
     if (estadoActual === 'ENTREGADO') {
       await prisma.unidad.updateMany({ where: { ventaId: Number(ventaId) }, data: { estado: 'VENDIDO' } })
       await prisma.venta.update({ where: { id: Number(ventaId) }, data: { estado: 'ENTREGADO' } })
