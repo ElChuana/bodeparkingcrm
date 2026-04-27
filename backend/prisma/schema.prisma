@@ -86,10 +86,12 @@ enum EstadoVenta {
 }
 
 enum EstadoLegal {
+  CONFECCION_PROMESA
   FIRMA_CLIENTE_PROMESA
   FIRMA_INMOBILIARIA_PROMESA
-  ESCRITURA_LISTA
-  FIRMADA_NOTARIA
+  CONFECCION_ESCRITURA
+  FIRMA_CLIENTE_ESCRITURA
+  FIRMA_INMOBILIARIA_ESCRITURA
   INSCRIPCION_CBR
   ENTREGADO
 }
@@ -441,11 +443,13 @@ model ProcesoLegal {
   id                         Int         @id @default(autoincrement())
   ventaId                    Int         @unique
   tienePromesa               Boolean     @default(true)
-  estadoActual               EstadoLegal @default(FIRMA_CLIENTE_PROMESA)
+  estadoActual               EstadoLegal @default(CONFECCION_PROMESA)
+  fechaLimiteConfeccionPromesa   DateTime?
   fechaLimiteFirmaCliente    DateTime?
   fechaLimiteFirmaInmob      DateTime?
   fechaLimiteEscritura       DateTime?
   fechaLimiteFirmaNot        DateTime?
+  fechaLimiteFirmaInmobEscritura DateTime?
   fechaLimiteCBR             DateTime?
   fechaLimiteEntrega         DateTime?
   notas                      String?
