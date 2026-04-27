@@ -13,24 +13,43 @@ const { Title, Text } = Typography
 const ESTADO_LABEL = { PROMESA: 'Promesa', ESCRITURA: 'Escritura', ENTREGADO: 'Entregado' }
 
 const LEGAL_LABEL = {
-  FIRMA_CLIENTE_PROMESA:      'Firma cliente',
-  FIRMA_INMOBILIARIA_PROMESA: 'Firma inmobiliaria',
-  ESCRITURA_LISTA:            'Escritura lista',
-  FIRMADA_NOTARIA:            'Notaría',
-  INSCRIPCION_CBR:            'CBR',
-  ENTREGADO:                  'Entregado',
+  CONFECCION_PROMESA:           'Confección promesa',
+  FIRMA_CLIENTE_PROMESA:        'Firma cliente',
+  FIRMA_INMOBILIARIA_PROMESA:   'Firma inmobiliaria',
+  CONFECCION_ESCRITURA:         'Confección escritura',
+  FIRMA_CLIENTE_ESCRITURA:      'Firma cliente',
+  FIRMA_INMOBILIARIA_ESCRITURA: 'Firma inmobiliaria',
+  INSCRIPCION_CBR:              'CBR',
+  ENTREGADO:                    'Entregado',
 }
 
-const PASOS_CON_PROMESA = ['FIRMA_CLIENTE_PROMESA','FIRMA_INMOBILIARIA_PROMESA','ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
-const PASOS_SIN_PROMESA = ['ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
+const PASOS_CON_PROMESA = [
+  'CONFECCION_PROMESA',
+  'FIRMA_CLIENTE_PROMESA',
+  'FIRMA_INMOBILIARIA_PROMESA',
+  'CONFECCION_ESCRITURA',
+  'FIRMA_CLIENTE_ESCRITURA',
+  'FIRMA_INMOBILIARIA_ESCRITURA',
+  'INSCRIPCION_CBR',
+  'ENTREGADO'
+]
+const PASOS_SIN_PROMESA = [
+  'CONFECCION_ESCRITURA',
+  'FIRMA_CLIENTE_ESCRITURA',
+  'FIRMA_INMOBILIARIA_ESCRITURA',
+  'INSCRIPCION_CBR',
+  'ENTREGADO'
+]
 
 const FECHA_POR_PASO = {
-  FIRMA_CLIENTE_PROMESA:      'fechaLimiteFirmaCliente',
-  FIRMA_INMOBILIARIA_PROMESA: 'fechaLimiteFirmaInmob',
-  ESCRITURA_LISTA:            'fechaLimiteEscritura',
-  FIRMADA_NOTARIA:            'fechaLimiteFirmaNot',
-  INSCRIPCION_CBR:            'fechaLimiteCBR',
-  ENTREGADO:                  'fechaLimiteEntrega',
+  CONFECCION_PROMESA:           'fechaLimiteConfeccionPromesa',
+  FIRMA_CLIENTE_PROMESA:        'fechaLimiteFirmaCliente',
+  FIRMA_INMOBILIARIA_PROMESA:   'fechaLimiteFirmaInmob',
+  CONFECCION_ESCRITURA:         'fechaLimiteEscritura',
+  FIRMA_CLIENTE_ESCRITURA:      'fechaLimiteFirmaNot',
+  FIRMA_INMOBILIARIA_ESCRITURA: 'fechaLimiteFirmaInmobEscritura',
+  INSCRIPCION_CBR:              'fechaLimiteCBR',
+  ENTREGADO:                    'fechaLimiteEntrega',
 }
 
 function calcFaltantes(proceso) {
