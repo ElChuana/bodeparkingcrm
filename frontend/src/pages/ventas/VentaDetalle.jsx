@@ -20,23 +20,42 @@ const { Title, Text } = Typography
 
 const ESTADO_LABEL = { RESERVA:'Reserva', PROMESA:'Promesa', ESCRITURA:'Escritura', ENTREGADO:'Entregado', ANULADO:'Anulado' }
 const LEGAL_LABEL = {
-  FIRMA_CLIENTE_PROMESA: 'Firma cliente (promesa)',
-  FIRMA_INMOBILIARIA_PROMESA: 'Firma inmobiliaria (promesa)',
-  ESCRITURA_LISTA: 'Escritura lista',
-  FIRMADA_NOTARIA: 'Firmada notaría',
-  INSCRIPCION_CBR: 'Inscripción CBR',
-  ENTREGADO: 'Entregado'
+  CONFECCION_PROMESA:           'Confección promesa',
+  FIRMA_CLIENTE_PROMESA:        'Firma cliente',
+  FIRMA_INMOBILIARIA_PROMESA:   'Firma inmobiliaria',
+  CONFECCION_ESCRITURA:         'Confección escritura',
+  FIRMA_CLIENTE_ESCRITURA:      'Firma cliente',
+  FIRMA_INMOBILIARIA_ESCRITURA: 'Firma inmobiliaria',
+  INSCRIPCION_CBR:              'CBR',
+  ENTREGADO:                    'Entregado',
 }
-const PASOS_CON_PROMESA = ['FIRMA_CLIENTE_PROMESA','FIRMA_INMOBILIARIA_PROMESA','ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
-const PASOS_SIN_PROMESA = ['ESCRITURA_LISTA','FIRMADA_NOTARIA','INSCRIPCION_CBR','ENTREGADO']
+const PASOS_CON_PROMESA = [
+  'CONFECCION_PROMESA',
+  'FIRMA_CLIENTE_PROMESA',
+  'FIRMA_INMOBILIARIA_PROMESA',
+  'CONFECCION_ESCRITURA',
+  'FIRMA_CLIENTE_ESCRITURA',
+  'FIRMA_INMOBILIARIA_ESCRITURA',
+  'INSCRIPCION_CBR',
+  'ENTREGADO'
+]
+const PASOS_SIN_PROMESA = [
+  'CONFECCION_ESCRITURA',
+  'FIRMA_CLIENTE_ESCRITURA',
+  'FIRMA_INMOBILIARIA_ESCRITURA',
+  'INSCRIPCION_CBR',
+  'ENTREGADO'
+]
 
 const FECHA_POR_PASO = {
-  FIRMA_CLIENTE_PROMESA:     'fechaLimiteFirmaCliente',
-  FIRMA_INMOBILIARIA_PROMESA:'fechaLimiteFirmaInmob',
-  ESCRITURA_LISTA:           'fechaLimiteEscritura',
-  FIRMADA_NOTARIA:           'fechaLimiteFirmaNot',
-  INSCRIPCION_CBR:           'fechaLimiteCBR',
-  ENTREGADO:                 'fechaLimiteEntrega',
+  CONFECCION_PROMESA:           'fechaLimiteConfeccionPromesa',
+  FIRMA_CLIENTE_PROMESA:        'fechaLimiteFirmaCliente',
+  FIRMA_INMOBILIARIA_PROMESA:   'fechaLimiteFirmaInmob',
+  CONFECCION_ESCRITURA:         'fechaLimiteEscritura',
+  FIRMA_CLIENTE_ESCRITURA:      'fechaLimiteFirmaNot',
+  FIRMA_INMOBILIARIA_ESCRITURA: 'fechaLimiteFirmaInmobEscritura',
+  INSCRIPCION_CBR:              'fechaLimiteCBR',
+  ENTREGADO:                    'fechaLimiteEntrega',
 }
 
 function calcFaltantes(proceso) {
@@ -283,12 +302,14 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
       <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{
         estadoActual: proceso?.estadoActual,
         tienePromesa: proceso?.tienePromesa !== false,
-        fechaLimiteFirmaCliente:  toDateStr(proceso?.fechaLimiteFirmaCliente),
-        fechaLimiteFirmaInmob:    toDateStr(proceso?.fechaLimiteFirmaInmob),
-        fechaLimiteEscritura:     toDateStr(proceso?.fechaLimiteEscritura),
-        fechaLimiteFirmaNot:      toDateStr(proceso?.fechaLimiteFirmaNot),
-        fechaLimiteCBR:           toDateStr(proceso?.fechaLimiteCBR),
-        fechaLimiteEntrega:       toDateStr(proceso?.fechaLimiteEntrega),
+        fechaLimiteConfeccionPromesa:   toDateStr(proceso?.fechaLimiteConfeccionPromesa),
+        fechaLimiteFirmaCliente:        toDateStr(proceso?.fechaLimiteFirmaCliente),
+        fechaLimiteFirmaInmob:          toDateStr(proceso?.fechaLimiteFirmaInmob),
+        fechaLimiteEscritura:           toDateStr(proceso?.fechaLimiteEscritura),
+        fechaLimiteFirmaNot:            toDateStr(proceso?.fechaLimiteFirmaNot),
+        fechaLimiteFirmaInmobEscritura: toDateStr(proceso?.fechaLimiteFirmaInmobEscritura),
+        fechaLimiteCBR:                 toDateStr(proceso?.fechaLimiteCBR),
+        fechaLimiteEntrega:             toDateStr(proceso?.fechaLimiteEntrega),
         notas: proceso?.notas,
       }}>
         <Row gutter={12}>
@@ -303,30 +324,46 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
             </Form.Item>
           </Col>
         </Row>
-        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c' }}>Fechas límite</Divider>
+        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c' }}>Promesa</Divider>
+        {proceso?.tienePromesa !== false && (
+          <Row gutter={12}>
+            <Col span={8}>
+              <Form.Item name="fechaLimiteConfeccionPromesa" label="Confección promesa">
+                <Input type="date" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="fechaLimiteFirmaCliente" label="Firma cliente">
+                <Input type="date" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="fechaLimiteFirmaInmob" label="Firma inmobiliaria">
+                <Input type="date" />
+              </Form.Item>
+            </Col>
+          </Row>
+        )}
+        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c' }}>Escritura</Divider>
         <Row gutter={12}>
-          {proceso?.tienePromesa !== false && <>
-            <Col span={12}>
-              <Form.Item name="fechaLimiteFirmaCliente" label="Firma cliente (promesa)">
-                <Input type="date" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="fechaLimiteFirmaInmob" label="Firma inmobiliaria (promesa)">
-                <Input type="date" />
-              </Form.Item>
-            </Col>
-          </>}
-          <Col span={12}>
-            <Form.Item name="fechaLimiteEscritura" label="Escritura lista">
+          <Col span={8}>
+            <Form.Item name="fechaLimiteEscritura" label="Confección escritura">
               <Input type="date" />
             </Form.Item>
           </Col>
-          <Col span={12}>
-            <Form.Item name="fechaLimiteFirmaNot" label="Firma notaría">
+          <Col span={8}>
+            <Form.Item name="fechaLimiteFirmaNot" label="Firma cliente">
               <Input type="date" />
             </Form.Item>
           </Col>
+          <Col span={8}>
+            <Form.Item name="fechaLimiteFirmaInmobEscritura" label="Firma inmobiliaria">
+              <Input type="date" />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c' }}>Cierre</Divider>
+        <Row gutter={12}>
           <Col span={12}>
             <Form.Item name="fechaLimiteCBR" label="Inscripción CBR">
               <Input type="date" />
