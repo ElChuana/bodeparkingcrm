@@ -281,17 +281,6 @@ const obtener = async (req, res) => {
       }),
     ])
 
-    // Leads por campaña: total histórico (sin filtro de período)
-    const leadsCampanaTotal = await prisma.lead.groupBy({
-      by: ['campana'],
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } }
-    })
-    const resumenCampanas = leadsCampanaTotal.map(r => ({
-      campana: r.campana || 'Sin campaña',
-      total: r._count.id,
-    }))
-
     // Leads por campaña: actual vs anterior
     const leadsActualRaw = await prisma.lead.groupBy({
       by: ['campana'],
@@ -389,7 +378,6 @@ const obtener = async (req, res) => {
       ventasPorMes,
       leadsPorSemana,
       leadsPorCampana,
-      resumenCampanas,
       inventarioPorEdificio: unidadesPorEdificio,
       visitasDelPeriodo,
       visitasProximas,

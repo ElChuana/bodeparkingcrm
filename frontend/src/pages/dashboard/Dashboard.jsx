@@ -747,30 +747,39 @@ function TablaCampanas({ datos }) {
 
 function ResumenCampanas({ datos }) {
   if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>Sin datos de campañas</div>
-  const max = Math.max(...datos.map(d => d.total))
+  const max = Math.max(...datos.map(d => d.actual))
+  const totalActual = datos.reduce((s, r) => s + r.actual, 0)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {datos.map((row, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 180, fontSize: 11, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>
-            {row.campana}
+      {datos.map((row, i) => {
+        const delta = row.anterior > 0
+          ? Math.round(((row.actual - row.anterior) / row.anterior) * 100)
+          : row.actual > 0 ? null : 0
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 180, fontSize: 11, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 0 }}>
+              {row.campana}
+            </div>
+            <div style={{ flex: 1, background: '#f1f5f9', borderRadius: 4, height: 18, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%', borderRadius: 4,
+                background: row.campana === 'Sin campaña' ? '#cbd5e1' : '#3b82f6',
+                width: max > 0 ? `${Math.round((row.actual / max) * 100)}%` : '0%',
+                minWidth: row.actual > 0 ? 4 : 0,
+                transition: 'width 0.3s',
+              }} />
+            </div>
+            <div style={{ width: 28, textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>
+              {row.actual}
+            </div>
+            <div style={{ width: 48, textAlign: 'right', fontSize: 10, flexShrink: 0, color: delta == null ? '#3b82f6' : delta > 0 ? '#16a34a' : delta < 0 ? '#dc2626' : '#94a3b8' }}>
+              {delta == null ? 'nuevo' : delta === 0 ? '—' : `${delta > 0 ? '↑' : '↓'}${Math.abs(delta)}%`}
+            </div>
           </div>
-          <div style={{ flex: 1, background: '#f1f5f9', borderRadius: 4, height: 18, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 4,
-              background: row.campana === 'Sin campaña' ? '#e2e8f0' : '#3b82f6',
-              width: `${Math.round((row.total / max) * 100)}%`,
-              minWidth: 4,
-              transition: 'width 0.3s',
-            }} />
-          </div>
-          <div style={{ width: 36, textAlign: 'right', fontSize: 12, fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>
-            {row.total}
-          </div>
-        </div>
-      ))}
+        )
+      })}
       <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
-        Total: <strong style={{ color: '#374151' }}>{datos.reduce((s, r) => s + r.total, 0)}</strong> leads · {datos.filter(r => r.campana !== 'Sin campaña').length} campañas
+        Total período: <strong style={{ color: '#374151' }}>{totalActual}</strong> leads · {datos.filter(r => r.campana !== 'Sin campaña').length} campañas
       </div>
     </div>
   )
@@ -925,7 +934,7 @@ export default function Dashboard() {
   const { resumen, embudo, unidadesPorEstado, ventasActivas } = data || {}
   const { kpis, ventasPorMes, leadsPorSemana,
           inventarioPorEdificio, visitasDelPeriodo, visitasProximas,
-          ventasRecientes: ventasPeriodo, resumenCampanas } = data || {}
+          ventasRecientes: ventasPeriodo, leadsPorCampana } = data || {}
 
   // Helper comparación
   const calcPct = (actual, anterior) => {
@@ -1080,9 +1089,9 @@ export default function Dashboard() {
       {/* Resumen de campañas */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
         <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>
-          Leads por campaña — histórico total
+          Leads por campaña — período seleccionado
         </div>
-        <ResumenCampanas datos={resumenCampanas} />
+        <ResumenCampanas datos={leadsPorCampana} />
       </div>
     </div>
   )
