@@ -82,8 +82,8 @@ const obtener = async (req, res) => {
       ventasActivas,
       // Ventas año completo para gráfico por mes
       ventasAnio,
-      // Leads del período con fechas para gráfico semanal
-      leadsPeriodo,
+      // Leads año completo para gráfico semanal (sin filtro de período)
+      leadsAnio,
       // Leads para embudo
       contactados,
       visitasEmbudo,
@@ -194,9 +194,14 @@ const obtener = async (req, res) => {
         select: { fechaReserva: true, unidades: { select: { id: true } } }
       }),
 
-      // Leads del período con fechas
+      // Leads año completo para gráfico semanal (siempre año actual, ignora filtro)
       prisma.lead.findMany({
-        where: filtroLead,
+        where: {
+          creadoEn: {
+            gte: new Date(anioActual, 0, 1),
+            lt: new Date(anioActual + 1, 0, 1)
+          }
+        },
         select: { creadoEn: true }
       }),
 
@@ -309,8 +314,10 @@ const obtener = async (req, res) => {
       }
     })
 
-    // Leads por semana del período
-    const leadsPorSemana = agruparLeadsPorSemana(leadsPeriodo, desde, hasta)
+    // Leads por semana del año completo (independiente del filtro de período)
+    const anioStart = new Date(anioActual, 0, 1).toISOString()
+    const anioEnd   = new Date(anioActual, 11, 31, 23, 59, 59).toISOString()
+    const leadsPorSemana = agruparLeadsPorSemana(leadsAnio, anioStart, anioEnd)
 
     // KPIs
     const montoUF = ventasRecientes.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
