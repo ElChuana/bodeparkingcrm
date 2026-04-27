@@ -418,16 +418,11 @@ const convertir = async (req, res) => {
       await tx.cotizacion.update({ where: { id: cotizacion.id }, data: { estado: 'ACEPTADA' } })
       await tx.lead.update({ where: { id: cotizacion.lead.id }, data: { etapa: 'RESERVA' } })
 
-      const hoy = new Date()
       await tx.procesoLegal.create({
         data: {
           ventaId: nuevaVenta.id,
-          tienePromesa: false,
-          estadoActual: 'ESCRITURA_LISTA',
-          fechaLimiteEscritura: hoy,
-          fechaLimiteFirmaNot: hoy,
-          fechaLimiteCBR: hoy,
-          fechaLimiteEntrega: hoy
+          tienePromesa: Boolean(conPromesa),
+          estadoActual: conPromesa ? 'CONFECCION_PROMESA' : 'CONFECCION_ESCRITURA',
         }
       })
 
