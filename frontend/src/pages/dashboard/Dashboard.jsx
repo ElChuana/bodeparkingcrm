@@ -126,13 +126,17 @@ function TablaVentas({ ventas }) {
         : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
     },
     {
-      title: 'Unidad', key: 'unidad', width: 80,
+      title: 'Unidades', key: 'unidad', width: 100,
       render: (_, v) => (
-        <div>
-          <Text strong style={{ fontSize: 12 }}>{v.unidades?.[0]?.numero}</Text>
-          <div><Text type="secondary" style={{ fontSize: 11 }}>
-            {v.unidades?.[0]?.tipo === 'BODEGA' ? 'Bodega' : 'Est.'}
-          </Text></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {(v.unidades || []).map(u => (
+            <div key={u.numero}>
+              <Text strong style={{ fontSize: 12 }}>{u.numero}</Text>
+              <Text type="secondary" style={{ fontSize: 11, marginLeft: 4 }}>
+                {u.tipo === 'BODEGA' ? 'Bod.' : 'Est.'}
+              </Text>
+            </div>
+          ))}
         </div>
       )
     },
