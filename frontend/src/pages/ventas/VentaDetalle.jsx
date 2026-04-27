@@ -80,47 +80,19 @@ function calcFaltantes(proceso) {
   return items
 }
 
-// ─── Modal cambiar estado venta ───────────────────────────────────
-function ModalEstado({ open, onClose, venta }) {
+// ─── Hook anular venta ────────────────────────────────────────────
+function useAnularVenta(ventaId) {
   const qc = useQueryClient()
-  const [form] = Form.useForm()
   const { message } = App.useApp()
-  const estadoWatch = Form.useWatch('estado', form)
-
-  const cambiar = useMutation({
-    mutationFn: (d) => api.put(`/ventas/${venta.id}/estado`, d),
+  return useMutation({
+    mutationFn: () => api.put(`/ventas/${ventaId}/estado`, { estado: 'ANULADO' }),
     onSuccess: () => {
-      message.success('Estado actualizado')
-      qc.invalidateQueries(['venta', venta.id])
+      message.success('Venta anulada')
+      qc.invalidateQueries(['venta', ventaId])
       qc.invalidateQueries(['ventas'])
-      onClose()
     },
-    onError: err => message.error(err.response?.data?.error || 'Error')
+    onError: err => message.error(err.response?.data?.error || 'Error al anular'),
   })
-
-  return (
-    <Modal title="Cambiar Estado de Venta" open={open} onCancel={onClose}
-      onOk={() => form.validateFields().then(cambiar.mutate)}
-      okText="Guardar" cancelText="Cancelar" confirmLoading={cambiar.isPending}>
-      <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{ estado: venta?.estado }}>
-        <Form.Item name="estado" label="Nuevo estado">
-          <Select options={['RESERVA','PROMESA','ESCRITURA','ENTREGADO','ANULADO'].map(e => ({ value: e, label: ESTADO_LABEL[e] }))} />
-        </Form.Item>
-        {estadoWatch === 'PROMESA' && (
-          <Form.Item name="fechaPromesa" label="Fecha promesa"><Input type="date" /></Form.Item>
-        )}
-        {estadoWatch === 'ESCRITURA' && (
-          <Form.Item name="fechaEscritura" label="Fecha escritura"><Input type="date" /></Form.Item>
-        )}
-        {estadoWatch === 'ENTREGADO' && (
-          <Form.Item name="fechaEntrega" label="Fecha entrega"><Input type="date" /></Form.Item>
-        )}
-        <Form.Item name="notas" label="Notas">
-          <Input.TextArea rows={2} />
-        </Form.Item>
-      </Form>
-    </Modal>
-  )
 }
 
 // ─── Fila de cuota con conversión UF↔CLP ─────────────────────────
@@ -1207,8 +1179,8 @@ export default function VentaDetalle() {
   const navigate = useNavigate()
   const { esGerenciaOJV, usuario } = useAuth()
   const { formatUF, formatPesos, ufAPesos } = useUF()
-  const [modalEstado, setModalEstado] = useState(false)
   const [modalEditar, setModalEditar] = useState(false)
+  const anular = useAnularVenta(Number(id))
 
   const { data: venta, isLoading } = useQuery({
     queryKey: ['venta', id],
@@ -1263,11 +1235,20 @@ export default function VentaDetalle() {
           </div>
         </div>
         <Space wrap>
-          {esGerenciaOJV && !['ENTREGADO','ANULADO'].includes(venta.estado) && (
-            <Button onClick={() => setModalEstado(true)}>Cambiar estado</Button>
-          )}
           {usuario?.rol === 'GERENTE' && venta.estado !== 'ENTREGADO' && (
             <Button icon={<EditOutlined />} onClick={() => setModalEditar(true)}>Editar precios</Button>
+          )}
+          {usuario?.rol === 'GERENTE' && !['ENTREGADO','ANULADO'].includes(venta.estado) && (
+            <Popconfirm
+              title="¿Anular esta venta?"
+              description="Libera las unidades y marca el lead como perdido. No se puede deshacer."
+              onConfirm={() => anular.mutate()}
+              okText="Sí, anular"
+              cancelText="Cancelar"
+              okButtonProps={{ danger: true, loading: anular.isPending }}
+            >
+              <Button danger>Anular venta</Button>
+            </Popconfirm>
           )}
         </Space>
       </div>
@@ -1394,7 +1375,6 @@ export default function VentaDetalle() {
         </Col>
       </Row>
 
-      <ModalEstado open={modalEstado} onClose={() => setModalEstado(false)} venta={venta} />
       <ModalEditarVenta open={modalEditar} onClose={() => setModalEditar(false)} venta={venta} />
     </div>
   )
