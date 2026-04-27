@@ -47,7 +47,14 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
 
   const origenesValidos = ['INSTAGRAM', 'GOOGLE', 'REFERIDO', 'BROKER', 'VISITA_DIRECTA', 'WEB', 'OTRO']
   const origenNorm = origen?.toUpperCase().trim()
-  const origenFinal = origenesValidos.includes(origenNorm) ? origenNorm : 'WEB'
+  const ALIASES_ORIGEN = {
+    META: 'INSTAGRAM', FACEBOOK: 'INSTAGRAM', FB: 'INSTAGRAM',
+    'INSTAGRAM ADS': 'INSTAGRAM', 'META ADS': 'INSTAGRAM', 'FACEBOOK ADS': 'INSTAGRAM',
+    'GOOGLE ADS': 'GOOGLE', 'GOOGLE ADWORDS': 'GOOGLE',
+  }
+  const origenFinal = origenesValidos.includes(origenNorm)
+    ? origenNorm
+    : (ALIASES_ORIGEN[origenNorm] || 'WEB')
 
   try {
     // ── 1. Deduplicar contacto por email o teléfono + similitud de nombre ──
