@@ -164,14 +164,7 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
     }
 
     // ── 5. Crear el lead ──────────────────────────────────────────
-    // Auto-asignar al JEFE_VENTAS activo si no se especificó vendedorId
-    let vendedorIdFinal = vendedorId ? Number(vendedorId) : null
-    if (!vendedorIdFinal) {
-      const jefeVentas = await prisma.usuario.findFirst({
-        where: { rol: 'JEFE_VENTAS', activo: true }
-      })
-      if (jefeVentas) vendedorIdFinal = jefeVentas.id
-    }
+    const vendedorIdFinal = vendedorId ? Number(vendedorId) : null
 
     const lead = await prisma.lead.create({
       data: {
