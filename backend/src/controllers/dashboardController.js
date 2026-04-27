@@ -247,6 +247,7 @@ const obtener = async (req, res) => {
         orderBy: { fechaHora: 'desc' },
         take: 200,
         include: {
+          edificio: { select: { nombre: true } },
           lead: {
             select: {
               contacto: { select: { nombre: true, apellido: true } },
@@ -263,6 +264,7 @@ const obtener = async (req, res) => {
         orderBy: { fechaHora: 'asc' },
         take: 10,
         include: {
+          edificio: { select: { nombre: true } },
           lead: {
             select: {
               contacto: { select: { nombre: true, apellido: true } },

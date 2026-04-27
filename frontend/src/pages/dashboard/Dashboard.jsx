@@ -803,10 +803,13 @@ function SeccionVisitas({ delPeriodo, proximas }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 220, overflowY: 'auto' }}>
           {datos.map(v => {
-            const contacto = v.lead?.contacto
-            const unidad   = v.lead?.unidadInteres
-            const prop = unidad
-              ? `${unidad.edificio?.nombre || '—'} · ${unidad.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${unidad.numero}`
+            const contacto     = v.lead?.contacto
+            const edificioNombre = v.edificio?.nombre || v.lead?.unidadInteres?.edificio?.nombre
+            const unidad       = v.lead?.unidadInteres
+            const prop = edificioNombre
+              ? unidad
+                ? `${edificioNombre} · ${unidad.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${unidad.numero}`
+                : edificioNombre
               : '—'
             return (
               <div key={v.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', background: '#f9fafb', borderRadius: 6 }}>
