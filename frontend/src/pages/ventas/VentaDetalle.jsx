@@ -21,12 +21,12 @@ const { Title, Text } = Typography
 const ESTADO_LABEL = { RESERVA:'Reserva', PROMESA:'Promesa', ESCRITURA:'Escritura', ENTREGADO:'Entregado', ANULADO:'Anulado' }
 const LEGAL_LABEL = {
   CONFECCION_PROMESA:           'Confección promesa',
-  FIRMA_CLIENTE_PROMESA:        'Firma cliente',
-  FIRMA_INMOBILIARIA_PROMESA:   'Firma inmobiliaria',
+  FIRMA_CLIENTE_PROMESA:        'Firma cliente (promesa)',
+  FIRMA_INMOBILIARIA_PROMESA:   'Firma inmob. (promesa)',
   CONFECCION_ESCRITURA:         'Confección escritura',
-  FIRMA_CLIENTE_ESCRITURA:      'Firma cliente',
-  FIRMA_INMOBILIARIA_ESCRITURA: 'Firma inmobiliaria',
-  INSCRIPCION_CBR:              'CBR',
+  FIRMA_CLIENTE_ESCRITURA:      'Firma cliente (escritura)',
+  FIRMA_INMOBILIARIA_ESCRITURA: 'Firma inmob. (escritura)',
+  INSCRIPCION_CBR:              'Inscripción CBR',
   ENTREGADO:                    'Entregado',
 }
 const PASOS_CON_PROMESA = [
@@ -281,13 +281,20 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
   const qc = useQueryClient()
   const [form] = Form.useForm()
   const { message } = App.useApp()
-
   const toDateStr = (d) => d ? d.substring(0, 10) : ''
 
-  // Reactivo al valor actual del form (no al valor inicial de BD)
   const tienePromesaWatch = Form.useWatch('tienePromesa', form)
-  const conPromesa = tienePromesaWatch !== false
+  const estadoActualWatch  = Form.useWatch('estadoActual', form)
+  const conPromesa    = tienePromesaWatch !== false
   const pasosActuales = conPromesa ? PASOS_CON_PROMESA : PASOS_SIN_PROMESA
+  const idxActual     = pasosActuales.indexOf(estadoActualWatch)
+
+  const retroceder = () => {
+    if (idxActual > 0) form.setFieldValue('estadoActual', pasosActuales[idxActual - 1])
+  }
+  const avanzar = () => {
+    if (idxActual < pasosActuales.length - 1) form.setFieldValue('estadoActual', pasosActuales[idxActual + 1])
+  }
 
   const actualizar = useMutation({
     mutationFn: (d) => api.put(`/legal/${ventaId}`, d),
@@ -300,10 +307,14 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
   })
 
   return (
-    <Modal title="Actualizar Proceso Legal" open={open} onCancel={onClose}
+    <Modal
+      title="Proceso Legal — Actualizar"
+      open={open} onCancel={onClose}
       onOk={() => form.validateFields().then(actualizar.mutate)}
-      okText="Guardar" cancelText="Cancelar" confirmLoading={actualizar.isPending} width={540}>
-      <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={{
+      okText="Guardar cambios" cancelText="Cancelar"
+      confirmLoading={actualizar.isPending} width={560}
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 12 }} initialValues={{
         estadoActual:                   proceso?.estadoActual,
         tienePromesa:                   proceso?.tienePromesa !== false,
         fechaLimiteConfeccionPromesa:   toDateStr(proceso?.fechaLimiteConfeccionPromesa),
@@ -316,80 +327,94 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
         fechaLimiteEntrega:             toDateStr(proceso?.fechaLimiteEntrega),
         notas: proceso?.notas,
       }}>
-        <Row gutter={12}>
-          <Col span={8}>
-            <Form.Item name="tienePromesa" label="¿Tiene promesa?">
-              <Select
-                options={[{ value: true, label: 'Sí — con promesa' }, { value: false, label: 'No — directo escritura' }]}
-                onChange={() => form.setFieldValue('estadoActual', undefined)}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={16}>
-            <Form.Item name="estadoActual" label="Paso actual">
-              <Select options={pasosActuales.map(p => ({ value: p, label: LEGAL_LABEL[p] }))} />
-            </Form.Item>
-          </Col>
-        </Row>
 
-        {/* Sección Promesa — solo si tienePromesa=true */}
-        {conPromesa && (
-          <>
-            <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c', margin: '8px 0' }}>Promesa</Divider>
-            <Row gutter={12}>
-              <Col span={8}>
-                <Form.Item name="fechaLimiteConfeccionPromesa" label="Confección promesa">
-                  <Input type="date" />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item name="fechaLimiteFirmaCliente" label="Firma cliente (promesa)">
-                  <Input type="date" />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item name="fechaLimiteFirmaInmob" label="Firma inmob. (promesa)">
-                  <Input type="date" />
-                </Form.Item>
-              </Col>
-            </Row>
-          </>
-        )}
+        {/* Tipo de proceso */}
+        <Form.Item name="tienePromesa" label="Tipo de proceso" style={{ marginBottom: 14 }}>
+          <Select
+            options={[
+              { value: true,  label: 'Con promesa (promesa → escritura → CBR → entrega)' },
+              { value: false, label: 'Sin promesa (directo escritura → CBR → entrega)' },
+            ]}
+            onChange={(val) => {
+              const pasos = val === false ? PASOS_SIN_PROMESA : PASOS_CON_PROMESA
+              form.setFieldValue('estadoActual', pasos[0])
+            }}
+          />
+        </Form.Item>
 
-        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c', margin: '8px 0' }}>Escritura</Divider>
-        <Row gutter={12}>
-          <Col span={8}>
-            <Form.Item name="fechaLimiteEscritura" label="Confección escritura">
-              <Input type="date" />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item name="fechaLimiteFirmaNot" label="Firma cliente (escritura)">
-              <Input type="date" />
-            </Form.Item>
-          </Col>
-          <Col span={8}>
-            <Form.Item name="fechaLimiteFirmaInmobEscritura" label="Firma inmob. (escritura)">
-              <Input type="date" />
-            </Form.Item>
-          </Col>
-        </Row>
+        {/* Campo oculto estadoActual — registrado en el form */}
+        <Form.Item name="estadoActual" hidden><Input /></Form.Item>
 
-        <Divider orientation="left" plain style={{ fontSize: 12, color: '#8c8c8c', margin: '8px 0' }}>Cierre</Divider>
-        <Row gutter={12}>
-          <Col span={12}>
-            <Form.Item name="fechaLimiteCBR" label="Inscripción CBR">
-              <Input type="date" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="fechaLimiteEntrega" label="Entrega">
-              <Input type="date" />
-            </Form.Item>
-          </Col>
-        </Row>
-        <Form.Item name="notas" label="Notas">
-          <Input.TextArea rows={2} />
+        {/* Navegación de paso actual */}
+        <div style={{
+          background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10,
+          padding: '14px 16px', marginBottom: 16,
+        }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+            Paso actual — mover con flechas
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Button size="small" disabled={idxActual <= 0} onClick={retroceder}>
+              ← Anterior
+            </Button>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#1d4ed8' }}>
+                {LEGAL_LABEL[estadoActualWatch] || '—'}
+              </div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                Paso {idxActual + 1} de {pasosActuales.length}
+              </div>
+            </div>
+            <Button
+              size="small"
+              type="primary"
+              disabled={idxActual >= pasosActuales.length - 1}
+              onClick={avanzar}
+            >
+              Siguiente →
+            </Button>
+          </div>
+        </div>
+
+        {/* Fechas límite — una fila por paso */}
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>
+          Fechas límite por paso
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+          {pasosActuales.map((paso, i) => {
+            const campo      = FECHA_POR_PASO[paso]
+            const esActual   = i === idxActual
+            const completado = i < idxActual
+            const rowBg      = esActual ? '#eff6ff' : completado ? '#f0fdf4' : '#f9fafb'
+            const rowBorde   = esActual ? '#bfdbfe' : completado ? '#bbf7d0' : '#f3f4f6'
+            const icono      = completado ? '✓' : esActual ? '▶' : '○'
+            const iconColor  = completado ? '#16a34a' : esActual ? '#1d4ed8' : '#94a3b8'
+            return (
+              <div key={paso} style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '6px 10px', borderRadius: 8,
+                background: rowBg, border: `1px solid ${rowBorde}`,
+              }}>
+                <span style={{ fontSize: 13, color: iconColor, width: 16, textAlign: 'center', flexShrink: 0 }}>
+                  {icono}
+                </span>
+                <span style={{
+                  flex: 1, fontSize: 12,
+                  fontWeight: esActual ? 700 : 400,
+                  color: completado ? '#16a34a' : esActual ? '#1d4ed8' : '#374151',
+                }}>
+                  {LEGAL_LABEL[paso]}
+                </span>
+                <Form.Item name={campo} style={{ margin: 0 }}>
+                  <Input type="date" size="small" style={{ width: 136, fontSize: 12 }} />
+                </Form.Item>
+              </div>
+            )
+          })}
+        </div>
+
+        <Form.Item name="notas" label="Notas" style={{ marginBottom: 0 }}>
+          <Input.TextArea rows={2} placeholder="Observaciones del proceso legal..." />
         </Form.Item>
       </Form>
     </Modal>
