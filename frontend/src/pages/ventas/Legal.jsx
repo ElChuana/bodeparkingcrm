@@ -14,12 +14,12 @@ const ESTADO_LABEL = { PROMESA: 'Promesa', ESCRITURA: 'Escritura', ENTREGADO: 'E
 
 const LEGAL_LABEL = {
   CONFECCION_PROMESA:           'Confección promesa',
-  FIRMA_CLIENTE_PROMESA:        'Firma cliente',
-  FIRMA_INMOBILIARIA_PROMESA:   'Firma inmobiliaria',
+  FIRMA_CLIENTE_PROMESA:        'Firma cliente (promesa)',
+  FIRMA_INMOBILIARIA_PROMESA:   'Firma inmob. (promesa)',
   CONFECCION_ESCRITURA:         'Confección escritura',
-  FIRMA_CLIENTE_ESCRITURA:      'Firma cliente',
-  FIRMA_INMOBILIARIA_ESCRITURA: 'Firma inmobiliaria',
-  INSCRIPCION_CBR:              'CBR',
+  FIRMA_CLIENTE_ESCRITURA:      'Firma cliente (escritura)',
+  FIRMA_INMOBILIARIA_ESCRITURA: 'Firma inmob. (escritura)',
+  INSCRIPCION_CBR:              'Inscripción CBR',
   ENTREGADO:                    'Entregado',
 }
 
