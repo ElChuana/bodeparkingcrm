@@ -1011,7 +1011,7 @@ export default function Dashboard() {
           <GraficoVentasMes datos={ventasPorMes} />
         </div>
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Leads por semana</div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Leads por semana {new Date().getFullYear()}</div>
           <GraficoLeadsSemana datos={leadsPorSemana} />
         </div>
       </div>
