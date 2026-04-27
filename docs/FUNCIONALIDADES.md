@@ -152,7 +152,10 @@
 - `GET /:ventaId` — proceso legal de una venta
 - `PUT /:ventaId` — actualizar estado legal
 - `POST /:ventaId/documentos` — subir documento
-- Estados: FIRMA_CLIENTE_PROMESA → FIRMA_INMOBILIARIA_PROMESA → ESCRITURA_LISTA → FIRMADA_NOTARIA → INSCRIPCION_CBR → ENTREGADO
+- Pasos con promesa (8): CONFECCION_PROMESA → FIRMA_CLIENTE_PROMESA → FIRMA_INMOBILIARIA_PROMESA → CONFECCION_ESCRITURA → FIRMA_CLIENTE_ESCRITURA → FIRMA_INMOBILIARIA_ESCRITURA → INSCRIPCION_CBR → ENTREGADO
+- Pasos sin promesa (5): CONFECCION_ESCRITURA → FIRMA_CLIENTE_ESCRITURA → FIRMA_INMOBILIARIA_ESCRITURA → INSCRIPCION_CBR → ENTREGADO
+- Al crear venta con promesa → estadoActual = CONFECCION_PROMESA; sin promesa → CONFECCION_ESCRITURA
+- ProcesoLegal tiene 8 campos de fecha límite por paso (incluyendo fechaLimiteConfeccionPromesa y fechaLimiteFirmaInmobEscritura)
 - Acceso: GERENTE, JEFE_VENTAS, ABOGADO
 - Frontend: `pages/ventas/Legal.jsx`
 
