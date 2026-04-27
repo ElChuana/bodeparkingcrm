@@ -8,6 +8,26 @@ function calcPeriodoAnterior(desde, hasta) {
   return { desdeAnt: new Date(d - dur), hastaAnt: new Date(d) }
 }
 
+// Agrupa leads por semana dentro del período
+function agruparLeadsPorSemana(leads, desde, hasta) {
+  if (!leads.length && !desde) return []
+  const inicio = desde ? new Date(desde) : new Date(leads[0]?.creadoEn || Date.now())
+  const fin    = hasta ? new Date(hasta)  : new Date()
+  const semanas = []
+  let cursor = new Date(inicio)
+  let i = 1
+  while (cursor < fin && semanas.length < 52) {
+    const finSemana = new Date(Math.min(cursor.getTime() + 7 * 86400000, fin.getTime()))
+    semanas.push({ label: `S${i}`, desde: new Date(cursor), hasta: finSemana })
+    cursor = finSemana
+    i++
+  }
+  return semanas.map(s => ({
+    semana: s.label,
+    leads: leads.filter(l => l.creadoEn && new Date(l.creadoEn) >= s.desde && new Date(l.creadoEn) < s.hasta).length
+  }))
+}
+
 // Agrupa ventas por semana dentro del período
 function agruparPorSemana(ventasPeriodo, todasVentas, desde, hasta) {
   const inicio = desde ? new Date(desde) : new Date(ventasPeriodo[0]?.fechaReserva || Date.now())
@@ -62,6 +82,8 @@ const obtener = async (req, res) => {
       ventasActivas,
       // Ventas año completo para gráfico por mes
       ventasAnio,
+      // Leads del período con fechas para gráfico semanal
+      leadsPeriodo,
       // Leads para embudo
       contactados,
       visitasEmbudo,
@@ -169,7 +191,13 @@ const obtener = async (req, res) => {
             lt: new Date(anioActual + 1, 0, 1)
           }
         },
-        select: { fechaReserva: true }
+        select: { fechaReserva: true, unidades: { select: { id: true } } }
+      }),
+
+      // Leads del período con fechas
+      prisma.lead.findMany({
+        where: filtroLead,
+        select: { creadoEn: true }
       }),
 
       // Embudo: contactados — leads del período que salieron de NUEVO
@@ -271,11 +299,18 @@ const obtener = async (req, res) => {
     const ingresosPorSemana = agruparPorSemana(ventasRecientes, ventasActivas, desde, hasta)
 
     // Ventas por mes (año completo)
-    const ventasPorMes = MESES.map((nombre, i) => ({
-      mes: i + 1,
-      nombre,
-      cantidad: ventasAnio.filter(v => v.fechaReserva && new Date(v.fechaReserva).getMonth() === i).length
-    }))
+    const ventasPorMes = MESES.map((nombre, i) => {
+      const delMes = ventasAnio.filter(v => v.fechaReserva && new Date(v.fechaReserva).getMonth() === i)
+      return {
+        mes: i + 1,
+        nombre,
+        cantidad: delMes.length,
+        cantidadUnidades: delMes.reduce((s, v) => s + (v.unidades?.length || 0), 0)
+      }
+    })
+
+    // Leads por semana del período
+    const leadsPorSemana = agruparLeadsPorSemana(leadsPeriodo, desde, hasta)
 
     // KPIs
     const montoUF = ventasRecientes.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
@@ -328,6 +363,7 @@ const obtener = async (req, res) => {
       },
       ingresosPorSemana,
       ventasPorMes,
+      leadsPorSemana,
       leadsPorCampana,
       inventarioPorEdificio: unidadesPorEdificio,
       visitasDelPeriodo,

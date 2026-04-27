@@ -108,9 +108,17 @@ function TablaVentas({ ventas }) {
   const navigate = useNavigate()
   const { ufAPesos, formatPesos } = useUF()
 
-  const totalUF = ventas.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
+  const totalUF     = ventas.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
+  const totalCosto  = ventas.reduce((s, v) => s + (v.unidades?.reduce((cs, u) => cs + (u.precioCostoUF || 0), 0) || 0), 0)
+  const totalMultiplo = totalCosto > 0 ? totalUF / totalCosto : null
 
   const columns = [
+    {
+      title: 'Vendedor', key: 'vendedor', width: 130,
+      render: (_, v) => v.vendedor
+        ? <Text style={{ fontSize: 12 }}>{v.vendedor.nombre} {v.vendedor.apellido}</Text>
+        : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
+    },
     {
       title: 'Broker', key: 'broker', width: 130,
       render: (_, v) => v.broker
@@ -155,20 +163,23 @@ function TablaVentas({ ventas }) {
     },
     {
       title: 'Costo UF', key: 'costo', width: 95, align: 'right',
-      render: (_, v) => v.unidades?.[0]?.precioCostoUF
-        ? <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{v.unidades[0].precioCostoUF.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF</Text>
-        : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
+      render: (_, v) => {
+        const costo = v.unidades?.reduce((s, u) => s + (u.precioCostoUF || 0), 0) || 0
+        return costo > 0
+          ? <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{costo.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF</Text>
+          : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
+      }
     },
     {
       title: 'Múltiplo', key: 'multiplo', width: 85, align: 'center',
       render: (_, v) => {
         const precio = v.precioFinalUF || 0
-        const costo  = v.unidades?.[0]?.precioCostoUF
+        const costo  = v.unidades?.reduce((s, u) => s + (u.precioCostoUF || 0), 0) || 0
         if (!costo || !precio) return <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
         const m = precio / costo
         const color = m >= 2 ? '#52c41a' : m >= 1.5 ? '#1677ff' : m >= 1 ? '#faad14' : '#ff4d4f'
         return (
-          <Tooltip title={`${precio.toFixed(2)} UF ÷ ${(costo).toFixed(2)} UF`}>
+          <Tooltip title={`${precio.toFixed(2)} UF ÷ ${costo.toFixed(2)} UF`}>
             <Text strong style={{ fontSize: 13, color }}>{m.toFixed(2)}x</Text>
           </Tooltip>
         )
@@ -222,10 +233,32 @@ function TablaVentas({ ventas }) {
         rowKey="id"
         pagination={false}
         size="small"
-        scroll={{ x: 1000 }}
+        scroll={{ x: 1100 }}
         locale={{ emptyText: 'Sin ventas (reservas) en este período' }}
         onRow={(v) => ({ onClick: () => navigate(`/ventas/${v.id}`), style: { cursor: 'pointer' } })}
         rowHoverable
+        summary={() => ventas.length > 0 && (
+          <Table.Summary.Row style={{ background: '#f8fafc', fontWeight: 600 }}>
+            <Table.Summary.Cell index={0} colSpan={4}>
+              <Text strong style={{ fontSize: 12 }}>Totales ({ventas.length} ventas)</Text>
+            </Table.Summary.Cell>
+            <Table.Summary.Cell index={4} align="right">
+              <Text strong style={{ fontSize: 12 }}>{totalUF.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF</Text>
+            </Table.Summary.Cell>
+            <Table.Summary.Cell index={5} align="right">
+              <Text style={{ fontSize: 12 }}>{ufAPesos(totalUF) ? formatPesos(ufAPesos(totalUF)) : '—'}</Text>
+            </Table.Summary.Cell>
+            <Table.Summary.Cell index={6} align="right">
+              <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{totalCosto > 0 ? `${totalCosto.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF` : '—'}</Text>
+            </Table.Summary.Cell>
+            <Table.Summary.Cell index={7} align="center">
+              {totalMultiplo != null
+                ? <Text strong style={{ fontSize: 13, color: totalMultiplo >= 2 ? '#52c41a' : totalMultiplo >= 1.5 ? '#1677ff' : '#faad14' }}>{totalMultiplo.toFixed(2)}x</Text>
+                : '—'}
+            </Table.Summary.Cell>
+            <Table.Summary.Cell index={8} colSpan={3} />
+          </Table.Summary.Row>
+        )}
       />
     </Card>
   )
@@ -638,15 +671,38 @@ function GraficoVentasMes({ datos }) {
         <YAxis hide allowDecimals={false} />
         <RechartsTooltip
           contentStyle={{ fontSize: 11, borderRadius: 6 }}
-          formatter={(v) => [v, 'Ventas']}
+          formatter={(v) => [v, 'Unidades']}
         />
-        <Bar dataKey="cantidad" radius={[3,3,0,0]}>
+        <Bar dataKey="cantidadUnidades" radius={[3,3,0,0]}>
           {datos.map(entry => (
             <Cell key={entry.mes} fill={entry.mes === mesActual ? '#1d4ed8' : '#c7d2fe'} />
           ))}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+  )
+}
+
+function GraficoLeadsSemana({ datos }) {
+  if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>Sin datos</div>
+  const total = datos.reduce((s, d) => s + d.leads, 0)
+  return (
+    <div>
+      <ResponsiveContainer width="100%" height={120}>
+        <BarChart data={datos} barSize={18}>
+          <XAxis dataKey="semana" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+          <YAxis hide allowDecimals={false} />
+          <RechartsTooltip
+            contentStyle={{ fontSize: 11, borderRadius: 6 }}
+            formatter={(v) => [v, 'Leads']}
+          />
+          <Bar dataKey="leads" fill="#7c3aed" radius={[3,3,0,0]} />
+        </BarChart>
+      </ResponsiveContainer>
+      <div style={{ fontSize: 11, marginTop: 4 }}>
+        <span><span style={{ color: '#7c3aed' }}>■</span> Total período: <strong>{total}</strong></span>
+      </div>
+    </div>
   )
 }
 
@@ -827,10 +883,9 @@ export default function Dashboard() {
   if (isLoading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
 
   const { resumen, embudo, unidadesPorEstado, ventasActivas } = data || {}
-  const { kpis, ingresosPorSemana, ventasPorMes, leadsPorCampana,
+  const { kpis, ventasPorMes, leadsPorSemana,
           inventarioPorEdificio, visitasDelPeriodo, visitasProximas,
-          cuotasPendientes, ventasRecientes: ventasPeriodo,
-          procesoLegalPendiente } = data || {}
+          ventasRecientes: ventasPeriodo } = data || {}
 
   // Helper comparación
   const calcPct = (actual, anterior) => {
@@ -938,34 +993,33 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Fila: Ingresos por semana + Ventas por mes */}
+      {/* Tabla de ventas del período */}
+      <div style={{ marginBottom: 16 }}>
+        <TablaVentas ventas={ventasPeriodo || []} />
+      </div>
+
+      {/* Gráficos: ventas unidades + leads por semana */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Ingresos por semana (UF)</div>
-          <GraficoIngresosSemana datos={ingresosPorSemana} />
-        </div>
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Ventas por mes {new Date().getFullYear()}</div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Ventas por mes {new Date().getFullYear()} (unidades)</div>
           <GraficoVentasMes datos={ventasPorMes} />
         </div>
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Leads por semana</div>
+          <GraficoLeadsSemana datos={leadsPorSemana} />
+        </div>
       </div>
 
-      {/* Leads por campaña */}
+      {/* Embudo — cuadro completo */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
-        <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Leads por campaña</div>
-        <TablaCampanas datos={leadsPorCampana} />
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Embudo de ventas</div>
+        <EmbudoVisual datos={embudo} />
       </div>
 
-      {/* Embudo + Visitas */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Embudo de ventas</div>
-          <EmbudoVisual datos={embudo} />
-        </div>
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Visitas</div>
-          <SeccionVisitas delPeriodo={visitasDelPeriodo} proximas={visitasProximas} />
-        </div>
+      {/* Visitas */}
+      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Visitas</div>
+        <SeccionVisitas delPeriodo={visitasDelPeriodo} proximas={visitasProximas} />
       </div>
 
       {/* Kanban Legal — card grande */}
@@ -977,20 +1031,11 @@ export default function Dashboard() {
         <KanbanLegal ventasActivas={ventasActivas} />
       </div>
 
-      {/* Cuotas pendientes */}
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
-        <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Cuotas pendientes de pago</div>
-        <CuotasPendientes datos={cuotasPendientes} />
-      </div>
-
       {/* Inventario por edificio */}
       <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
         <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Inventario por propiedad</div>
         <InventarioEdificios datos={inventarioPorEdificio} />
       </div>
-
-      {/* Tabla de ventas del período */}
-      <TablaVentas ventas={ventasPeriodo || []} />
     </div>
   )
 }
