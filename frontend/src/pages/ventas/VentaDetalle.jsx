@@ -15,6 +15,9 @@ import {
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, WarningOutlined, CheckCircleOutlined, GiftOutlined, AppstoreOutlined, EditOutlined, HomeOutlined, ExpandOutlined } from '@ant-design/icons'
 import { isPast } from 'date-fns'
+import { PDFDownloadLink } from '@react-pdf/renderer'
+import { ReciboPagoDocumento } from './ReciboPagoPDF'
+import logoUrl from '../../assets/logo.png'
 
 const { Title, Text } = Typography
 
@@ -754,11 +757,23 @@ function PlanDePagos({ venta }) {
       render: (_, c) => <Tag color={ESTADO_CUOTA_COLOR[c.estado]} style={{ fontSize: 11 }}>{c.estado.toLowerCase()}</Tag>
     },
     {
-      title: '', key: 'accion', width: 160,
+      title: '', key: 'accion', width: 190,
       render: (_, c) => esGerenciaOJV ? (
         <Space size={0}>
           {(c.estado === 'PENDIENTE' || c.estado === 'ATRASADO') && (
             <Button type="link" size="small" onClick={() => setCuotaPagar(c)}>Pagar</Button>
+          )}
+          {c.estado === 'PAGADO' && (
+            <PDFDownloadLink
+              document={<ReciboPagoDocumento cuota={c} venta={venta} logoUrl={logoUrl} />}
+              fileName={`Recibo-${String(c.id).padStart(5,'0')}-${venta?.comprador?.apellido || 'cliente'}.pdf`}
+            >
+              {({ loading }) => (
+                <Button type="link" size="small" disabled={loading}>
+                  {loading ? '…' : 'Recibo'}
+                </Button>
+              )}
+            </PDFDownloadLink>
           )}
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setCuotaEditar(c)} />
         </Space>
