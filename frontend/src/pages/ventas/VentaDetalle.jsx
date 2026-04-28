@@ -608,12 +608,95 @@ function ModalAgregarCuota({ open, onClose, ventaId }) {
   )
 }
 
+// ─── Modal editar cuota ───────────────────────────────────────────
+function ModalEditarCuota({ open, onClose, cuota, ventaId }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [form, setForm] = useState({})
+
+  useEffect(() => {
+    if (cuota) setForm({
+      tipo:             cuota.tipo,
+      montoUF:          cuota.montoUF,
+      montoCLP:         cuota.montoCLP,
+      fechaVencimiento: cuota.fechaVencimiento ? cuota.fechaVencimiento.slice(0, 10) : '',
+      estado:           cuota.estado,
+    })
+  }, [cuota])
+
+  const { valorUF } = useUFPorFecha(form.fechaVencimiento)
+
+  const set = (key, val) => setForm(p => ({ ...p, [key]: val }))
+
+  const handleUFChange  = (value) => setForm(p => ({ ...p, montoUF: value ?? null, montoCLP: value != null && valorUF ? Math.round(value * valorUF) : p.montoCLP }))
+  const handleCLPChange = (value) => setForm(p => ({ ...p, montoCLP: value ?? null, montoUF: value != null && valorUF ? parseFloat((value / valorUF).toFixed(4)) : p.montoUF }))
+
+  const fmtUF   = v => v != null ? Number(v).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : ''
+  const parseUF  = v => { if (!v) return null; const n = parseFloat(v.replace(/\./g, '').replace(',', '.')); return isNaN(n) ? null : n }
+  const fmtCLP   = v => v != null ? Math.round(v).toLocaleString('es-CL') : ''
+  const parseCLP = v => { if (!v) return null; const n = parseInt(v.replace(/\./g, '').replace(',', ''), 10); return isNaN(n) ? null : n }
+
+  const guardar = useMutation({
+    mutationFn: () => api.put(`/pagos/cuotas/${cuota?.id}`, form),
+    onSuccess: () => { message.success('Cuota actualizada'); qc.invalidateQueries(['venta', ventaId]); onClose() },
+    onError: err => message.error(err.response?.data?.error || 'Error'),
+  })
+
+  const label = (txt) => <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{txt}</div>
+
+  return (
+    <Modal title={`Editar cuota #${cuota?.numeroCuota}`} open={open} onCancel={onClose}
+      onOk={() => guardar.mutate()} okText="Guardar cambios" cancelText="Cancelar"
+      confirmLoading={guardar.isPending} width={460}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
+        <div>
+          {label('Tipo de cuota')}
+          <Select value={form.tipo} onChange={v => set('tipo', v)} style={{ width: '100%' }}
+            options={[
+              { value: 'RESERVA',   label: 'Reserva' },
+              { value: 'PIE',       label: 'Pie' },
+              { value: 'CUOTA',     label: 'Cuota' },
+              { value: 'ESCRITURA', label: 'Escritura' },
+            ]} />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            {label('Monto UF')}
+            <InputNumber size="small" style={{ width: '100%' }} value={form.montoUF}
+              onChange={handleUFChange} formatter={fmtUF} parser={parseUF} min={0} />
+          </div>
+          <div style={{ flex: 1 }}>
+            {label('Monto CLP')}
+            <InputNumber size="small" style={{ width: '100%' }} value={form.montoCLP}
+              onChange={handleCLPChange} formatter={fmtCLP} parser={parseCLP} min={0} />
+          </div>
+        </div>
+        <div>
+          {label('Fecha de vencimiento')}
+          <Input type="date" value={form.fechaVencimiento} onChange={e => set('fechaVencimiento', e.target.value)} />
+        </div>
+        <div>
+          {label('Estado')}
+          <Select value={form.estado} onChange={v => set('estado', v)} style={{ width: '100%' }}
+            options={[
+              { value: 'PENDIENTE',  label: 'Pendiente' },
+              { value: 'PAGADO',     label: 'Pagado' },
+              { value: 'ATRASADO',   label: 'Atrasado' },
+              { value: 'CONDONADO',  label: 'Condonado' },
+            ]} />
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ─── Sección Plan de Pagos ────────────────────────────────────────
 function PlanDePagos({ venta }) {
   const qc = useQueryClient()
   const [modalPlan, setModalPlan]       = useState(false)
   const [modalAgregar, setModalAgregar] = useState(false)
   const [cuotaPagar, setCuotaPagar]     = useState(null)
+  const [cuotaEditar, setCuotaEditar]   = useState(null)
   const { esGerenciaOJV } = useAuth()
   const { formatUF, formatPesos } = useUF()
 
@@ -671,11 +754,14 @@ function PlanDePagos({ venta }) {
       render: (_, c) => <Tag color={ESTADO_CUOTA_COLOR[c.estado]} style={{ fontSize: 11 }}>{c.estado.toLowerCase()}</Tag>
     },
     {
-      title: '', key: 'accion', width: 120,
-      render: (_, c) => esGerenciaOJV && (c.estado === 'PENDIENTE' || c.estado === 'ATRASADO') ? (
-        <Button type="link" size="small" onClick={() => setCuotaPagar(c)}>
-          Marcar pagado
-        </Button>
+      title: '', key: 'accion', width: 160,
+      render: (_, c) => esGerenciaOJV ? (
+        <Space size={0}>
+          {(c.estado === 'PENDIENTE' || c.estado === 'ATRASADO') && (
+            <Button type="link" size="small" onClick={() => setCuotaPagar(c)}>Pagar</Button>
+          )}
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setCuotaEditar(c)} />
+        </Space>
       ) : null
     },
   ]
@@ -741,6 +827,7 @@ function PlanDePagos({ venta }) {
         ventaId={venta?.id} precioUF={venta?.precioFinalUF || 0} />
       <ModalAgregarCuota open={modalAgregar} onClose={() => setModalAgregar(false)} ventaId={venta?.id} />
       <ModalPagarCuota open={!!cuotaPagar} onClose={() => setCuotaPagar(null)} cuota={cuotaPagar} ventaId={venta?.id} />
+      <ModalEditarCuota open={!!cuotaEditar} onClose={() => setCuotaEditar(null)} cuota={cuotaEditar} ventaId={venta?.id} />
     </Card>
   )
 }
