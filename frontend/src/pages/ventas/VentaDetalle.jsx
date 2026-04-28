@@ -487,51 +487,143 @@ function ProcesoLegal({ ventaId, venta }) {
   )
 }
 
+const METODOS_PAGO = [
+  { value: 'TRANSFERENCIA', label: 'Transferencia bancaria' },
+  { value: 'VALE_VISTA',    label: 'Vale vista' },
+  { value: 'TARJETA',       label: 'Tarjeta de crédito (Webpay)' },
+  { value: 'CHEQUE',        label: 'Cheque' },
+  { value: 'EFECTIVO',      label: 'Efectivo' },
+]
+const METODO_LABEL = Object.fromEntries(METODOS_PAGO.map(m => [m.value, m.label]))
+
+// ─── Modal registrar pago ─────────────────────────────────────────
+function ModalPagarCuota({ open, onClose, cuota, ventaId }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [metodoPago, setMetodoPago] = useState('TRANSFERENCIA')
+  const [fechaPago, setFechaPago]   = useState(new Date().toISOString().slice(0, 10))
+  const [notas, setNotas]           = useState('')
+
+  const pagar = useMutation({
+    mutationFn: () => api.put(`/pagos/cuotas/${cuota?.id}/pagar`, { metodoPago, fechaPagoReal: fechaPago, notas: notas || undefined }),
+    onSuccess: () => { message.success('Pago registrado'); qc.invalidateQueries(['venta', ventaId]); onClose() },
+    onError: err => message.error(err.response?.data?.error || 'Error'),
+  })
+
+  return (
+    <Modal title="Registrar pago" open={open} onCancel={onClose}
+      onOk={() => pagar.mutate()} okText="Registrar pago" cancelText="Cancelar"
+      confirmLoading={pagar.isPending} width={420}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
+        <div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Método de pago</div>
+          <Select value={metodoPago} onChange={setMetodoPago} style={{ width: '100%' }} options={METODOS_PAGO} />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Fecha de pago</div>
+          <Input type="date" value={fechaPago} onChange={e => setFechaPago(e.target.value)} />
+        </div>
+        <div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>Notas (opcional)</div>
+          <Input.TextArea value={notas} onChange={e => setNotas(e.target.value)} rows={2} placeholder="Comprobante, referencia, etc." />
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─── Modal agregar cuota a plan existente ─────────────────────────
+function ModalAgregarCuota({ open, onClose, ventaId }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [cuota, setCuota] = useState({ tipo: 'CUOTA', montoUF: null, montoCLP: null, fechaVencimiento: '', _ultimoEditado: null })
+
+  const agregar = useMutation({
+    mutationFn: () => {
+      const { _ultimoEditado, ...data } = cuota
+      return api.post(`/pagos/plan/${ventaId}/cuota`, data)
+    },
+    onSuccess: () => { message.success('Cuota agregada'); qc.invalidateQueries(['venta', ventaId]); onClose(); setCuota({ tipo: 'CUOTA', montoUF: null, montoCLP: null, fechaVencimiento: '', _ultimoEditado: null }) },
+    onError: err => message.error(err.response?.data?.error || 'Error'),
+  })
+
+  return (
+    <Modal title="Agregar cuota" open={open} onCancel={onClose}
+      onOk={() => agregar.mutate()} okText="Agregar" cancelText="Cancelar"
+      confirmLoading={agregar.isPending} width={600}>
+      <div style={{ marginTop: 12 }}>
+        <FilaCuota cuota={cuota} index={0} onChange={(_, c) => setCuota(c)} onDelete={() => {}} showDelete={false} />
+      </div>
+    </Modal>
+  )
+}
+
 // ─── Sección Plan de Pagos ────────────────────────────────────────
 function PlanDePagos({ venta }) {
   const qc = useQueryClient()
-  const [modalPlan, setModalPlan] = useState(false)
+  const [modalPlan, setModalPlan]       = useState(false)
+  const [modalAgregar, setModalAgregar] = useState(false)
+  const [cuotaPagar, setCuotaPagar]     = useState(null)
   const { esGerenciaOJV } = useAuth()
-  const { formatUF, formatPesos, ufAPesos } = useUF()
-  const { message } = App.useApp()
+  const { formatUF, formatPesos } = useUF()
 
   const plan = venta?.planPago
+  const cuotas = plan?.cuotas || []
 
-  const marcarPagado = useMutation({
-    mutationFn: ({ cuotaId }) => api.put(`/pagos/cuotas/${cuotaId}/pagar`, { metodoPago: 'TRANSFERENCIA' }),
-    onSuccess: () => { message.success('Pago registrado'); qc.invalidateQueries(['venta', venta.id]) },
-    onError: err => message.error(err.response?.data?.error || 'Error')
-  })
+  const pagadas   = cuotas.filter(c => c.estado === 'PAGADO').length
+  const pendientes = cuotas.filter(c => c.estado === 'PENDIENTE').length
+  const atrasadas  = cuotas.filter(c => c.estado === 'ATRASADO').length
+  const montoPagado   = cuotas.filter(c => c.estado === 'PAGADO').reduce((s, c) => s + (c.montoUF || 0), 0)
+  const montoPendiente = cuotas.filter(c => c.estado !== 'PAGADO' && c.estado !== 'CONDONADO').reduce((s, c) => s + (c.montoUF || 0), 0)
 
   const ESTADO_CUOTA_COLOR = { PENDIENTE: 'orange', PAGADO: 'green', ATRASADO: 'red', CONDONADO: 'default' }
   const TIPO_CUOTA = { RESERVA: 'Reserva', PIE: 'Pie', CUOTA: 'Cuota', ESCRITURA: 'Escritura' }
 
   const columns = [
     {
-      title: 'Tipo', key: 'tipo',
-      render: (_, c) => <Text style={{ fontSize: 13 }}>{TIPO_CUOTA[c.tipo]} #{c.numeroCuota}</Text>
-    },
-    {
-      title: 'Vencimiento', dataIndex: 'fechaVencimiento', key: 'fecha',
-      render: (d) => <Text style={{ fontSize: 12 }}>{format(new Date(d), 'd MMM yyyy', { locale: es })}</Text>
+      title: 'Cuota', key: 'tipo',
+      render: (_, c) => <Text style={{ fontSize: 12 }}>{TIPO_CUOTA[c.tipo]} #{c.numeroCuota}</Text>
     },
     {
       title: 'Monto', key: 'monto',
       render: (_, c) => (
         <div>
-          {c.montoUF && <div style={{ fontWeight: 600 }}>{formatUF(c.montoUF)}</div>}
-          {c.montoCLP && <div style={{ fontSize: 12, color: '#8c8c8c' }}>{formatPesos(c.montoCLP)}</div>}
+          {c.montoUF  && <div style={{ fontWeight: 600, fontSize: 12 }}>{formatUF(c.montoUF)}</div>}
+          {c.montoCLP && <div style={{ fontSize: 11, color: '#8c8c8c' }}>{formatPesos(c.montoCLP)}</div>}
         </div>
       )
     },
     {
-      title: 'Estado', dataIndex: 'estado', key: 'estado',
-      render: (e) => <Tag color={ESTADO_CUOTA_COLOR[e]}>{e.toLowerCase()}</Tag>
+      title: 'Vence', key: 'vence',
+      render: (_, c) => {
+        const vencido = c.estado !== 'PAGADO' && c.estado !== 'CONDONADO' && isPast(new Date(c.fechaVencimiento))
+        return (
+          <Text style={{ fontSize: 12, color: vencido ? '#dc2626' : undefined }}>
+            {format(new Date(c.fechaVencimiento), 'd MMM yyyy', { locale: es })}
+          </Text>
+        )
+      }
     },
     {
-      title: '', key: 'accion',
-      render: (_, c) => esGerenciaOJV && c.estado === 'PENDIENTE' ? (
-        <Button type="link" size="small" onClick={() => marcarPagado.mutate({ cuotaId: c.id })}>
+      title: 'Fecha pago', key: 'fechaPago',
+      render: (_, c) => c.fechaPagoReal
+        ? <Text style={{ fontSize: 12, color: '#16a34a' }}>{format(new Date(c.fechaPagoReal), 'd MMM yyyy', { locale: es })}</Text>
+        : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
+    },
+    {
+      title: 'Método', key: 'metodo',
+      render: (_, c) => c.metodoPago
+        ? <Text style={{ fontSize: 11 }}>{METODO_LABEL[c.metodoPago] || c.metodoPago}</Text>
+        : <Text type="secondary" style={{ fontSize: 11 }}>—</Text>
+    },
+    {
+      title: 'Estado', key: 'estado',
+      render: (_, c) => <Tag color={ESTADO_CUOTA_COLOR[c.estado]} style={{ fontSize: 11 }}>{c.estado.toLowerCase()}</Tag>
+    },
+    {
+      title: '', key: 'accion', width: 120,
+      render: (_, c) => esGerenciaOJV && (c.estado === 'PENDIENTE' || c.estado === 'ATRASADO') ? (
+        <Button type="link" size="small" onClick={() => setCuotaPagar(c)}>
           Marcar pagado
         </Button>
       ) : null
@@ -541,20 +633,64 @@ function PlanDePagos({ venta }) {
   return (
     <Card
       title="Plan de Pagos"
-      extra={esGerenciaOJV && !plan && <Button size="small" onClick={() => setModalPlan(true)}>Crear plan</Button>}
+      extra={esGerenciaOJV && (
+        <Space size={6}>
+          {plan && <Button size="small" icon={<PlusOutlined />} onClick={() => setModalAgregar(true)}>Agregar cuota</Button>}
+          {!plan && <Button size="small" onClick={() => setModalPlan(true)}>Crear plan</Button>}
+        </Space>
+      )}
     >
       {!plan ? (
         <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '16px 0' }}>
           Sin plan de pagos creado.
         </Text>
       ) : (
-        <Table dataSource={plan.cuotas} columns={columns} rowKey="id" pagination={false} size="small"
-          rowClassName={(c) => c.estado === 'ATRASADO' ? 'ant-table-row-danger' : ''}
-        />
+        <>
+          {/* Resumen */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Pagadas',   val: pagadas,   color: '#16a34a', bg: '#f0fdf4' },
+              { label: 'Pendientes',val: pendientes, color: '#d97706', bg: '#fffbeb' },
+              { label: 'Atrasadas', val: atrasadas,  color: '#dc2626', bg: '#fef2f2' },
+            ].map(({ label, val, color, bg }) => (
+              <div key={label} style={{ background: bg, border: `1px solid ${color}22`, borderRadius: 8, padding: '8px 14px', minWidth: 90, textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1 }}>{val}</div>
+                <div style={{ fontSize: 10, color, marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+            {montoPagado > 0 && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #16a34a22', borderRadius: 8, padding: '8px 14px', textAlign: 'center' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a', lineHeight: 1 }}>{montoPagado.toFixed(2)} UF</div>
+                <div style={{ fontSize: 10, color: '#16a34a', marginTop: 2 }}>Cobrado</div>
+              </div>
+            )}
+            {montoPendiente > 0 && (
+              <div style={{ background: '#fffbeb', border: '1px solid #d9770622', borderRadius: 8, padding: '8px 14px', textAlign: 'center' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#d97706', lineHeight: 1 }}>{montoPendiente.toFixed(2)} UF</div>
+                <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>Por cobrar</div>
+              </div>
+            )}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 14px', textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#475569', lineHeight: 1 }}>{cuotas.length}</div>
+              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>Total cuotas</div>
+            </div>
+          </div>
+
+          <Table
+            dataSource={cuotas}
+            columns={columns}
+            rowKey="id"
+            pagination={false}
+            size="small"
+            rowClassName={(c) => c.estado === 'ATRASADO' ? 'ant-table-row-danger' : ''}
+          />
+        </>
       )}
 
       <ModalPlanPago open={modalPlan} onClose={() => setModalPlan(false)}
         ventaId={venta?.id} precioUF={venta?.precioFinalUF || 0} />
+      <ModalAgregarCuota open={modalAgregar} onClose={() => setModalAgregar(false)} ventaId={venta?.id} />
+      <ModalPagarCuota open={!!cuotaPagar} onClose={() => setCuotaPagar(null)} cuota={cuotaPagar} ventaId={venta?.id} />
     </Card>
   )
 }
