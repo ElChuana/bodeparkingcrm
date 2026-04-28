@@ -602,7 +602,24 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
             </View>
           )}
 
-          {/* ── Condiciones y formas de pago ── */}
+        </View>
+
+        {/* ══ FOOTER CLARO ══ */}
+        <View style={s.footer} fixed>
+          <Text style={s.footerLeft}>
+            <Text style={s.footerBlue}>BodeParking</Text>
+            {'  ·  '}Cotización N° {String(id).padStart(4, '0')}
+          </Text>
+          <Text style={s.footerRight}>bodeparking.cl</Text>
+        </View>
+
+      </Page>
+
+      {/* ══ PÁGINA 2 — CONDICIONES Y FORMAS DE PAGO ══ */}
+      <Page size="A4" style={s.page}>
+        <View style={s.topBar} />
+
+        <View style={[s.body, { paddingTop: 32 }]}>
           <View style={s.condBox}>
             <View style={s.condHeader}>
               <Text style={s.condHeaderText}>CONDICIONES Y FORMAS DE PAGO</Text>
@@ -628,10 +645,8 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
               <Text style={s.condDisclaimer}>* Los metrajes son aproximados.</Text>
             </View>
           </View>
-
         </View>
 
-        {/* ══ FOOTER CLARO ══ */}
         <View style={s.footer} fixed>
           <Text style={s.footerLeft}>
             <Text style={s.footerBlue}>BodeParking</Text>
