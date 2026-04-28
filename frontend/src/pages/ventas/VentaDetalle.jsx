@@ -536,23 +536,73 @@ function ModalPagarCuota({ open, onClose, cuota, ventaId }) {
 function ModalAgregarCuota({ open, onClose, ventaId }) {
   const qc = useQueryClient()
   const { message } = App.useApp()
-  const [cuota, setCuota] = useState({ tipo: 'CUOTA', montoUF: null, montoCLP: null, fechaVencimiento: '', _ultimoEditado: null })
+  const EMPTY = { tipo: 'CUOTA', montoUF: null, montoCLP: null, fechaVencimiento: '', metodoPago: null, _ultimoEditado: null }
+  const [cuota, setCuota] = useState(EMPTY)
+  const { valorUF } = useUFPorFecha(cuota.fechaVencimiento)
+
+  const set = (key, val) => setCuota(p => ({ ...p, [key]: val }))
+
+  const handleUFChange = (value) => {
+    setCuota(p => ({ ...p, montoUF: value ?? null, _ultimoEditado: 'uf', montoCLP: value != null && valorUF ? Math.round(value * valorUF) : p.montoCLP }))
+  }
+  const handleCLPChange = (value) => {
+    setCuota(p => ({ ...p, montoCLP: value ?? null, _ultimoEditado: 'clp', montoUF: value != null && valorUF ? parseFloat((value / valorUF).toFixed(4)) : p.montoUF }))
+  }
+
+  const fmtUF  = v => v != null ? Number(v).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : ''
+  const parseUF = v => { if (!v) return null; const n = parseFloat(v.replace(/\./g, '').replace(',', '.')); return isNaN(n) ? null : n }
+  const fmtCLP  = v => v != null ? Math.round(v).toLocaleString('es-CL') : ''
+  const parseCLP = v => { if (!v) return null; const n = parseInt(v.replace(/\./g, '').replace(',', ''), 10); return isNaN(n) ? null : n }
 
   const agregar = useMutation({
     mutationFn: () => {
       const { _ultimoEditado, ...data } = cuota
       return api.post(`/pagos/plan/${ventaId}/cuota`, data)
     },
-    onSuccess: () => { message.success('Cuota agregada'); qc.invalidateQueries(['venta', ventaId]); onClose(); setCuota({ tipo: 'CUOTA', montoUF: null, montoCLP: null, fechaVencimiento: '', _ultimoEditado: null }) },
+    onSuccess: () => { message.success('Cuota agregada'); qc.invalidateQueries(['venta', ventaId]); onClose(); setCuota(EMPTY) },
     onError: err => message.error(err.response?.data?.error || 'Error'),
   })
 
+  const label = (txt) => <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{txt}</div>
+
   return (
     <Modal title="Agregar cuota" open={open} onCancel={onClose}
-      onOk={() => agregar.mutate()} okText="Agregar" cancelText="Cancelar"
-      confirmLoading={agregar.isPending} width={600}>
-      <div style={{ marginTop: 12 }}>
-        <FilaCuota cuota={cuota} index={0} onChange={(_, c) => setCuota(c)} onDelete={() => {}} showDelete={false} />
+      onOk={() => agregar.mutate()} okText="Agregar cuota" cancelText="Cancelar"
+      confirmLoading={agregar.isPending} width={460}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
+        <div>
+          {label('Tipo de cuota')}
+          <Select value={cuota.tipo} onChange={v => set('tipo', v)} style={{ width: '100%' }}
+            options={[
+              { value: 'RESERVA',   label: 'Reserva' },
+              { value: 'PIE',       label: 'Pie' },
+              { value: 'CUOTA',     label: 'Cuota' },
+              { value: 'ESCRITURA', label: 'Escritura' },
+            ]}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            {label('Monto UF')}
+            <InputNumber size="small" style={{ width: '100%' }} placeholder="Ej: 10.50"
+              value={cuota.montoUF} onChange={handleUFChange} formatter={fmtUF} parser={parseUF} min={0} />
+          </div>
+          <div style={{ flex: 1 }}>
+            {label('Monto CLP')}
+            <InputNumber size="small" style={{ width: '100%' }} placeholder="Ej: 350.000"
+              value={cuota.montoCLP} onChange={handleCLPChange} formatter={fmtCLP} parser={parseCLP} min={0} />
+          </div>
+        </div>
+        <div>
+          {label('Fecha de vencimiento')}
+          <Input type="date" value={cuota.fechaVencimiento} onChange={e => set('fechaVencimiento', e.target.value)} />
+        </div>
+        <div>
+          {label('Método de pago (opcional — si ya está pagado)')}
+          <Select allowClear value={cuota.metodoPago} onChange={v => set('metodoPago', v || null)}
+            style={{ width: '100%' }} placeholder="Sin método — cuota pendiente"
+            options={METODOS_PAGO} />
+        </div>
       </div>
     </Modal>
   )
