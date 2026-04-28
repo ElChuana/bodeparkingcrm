@@ -1153,7 +1153,7 @@ function ModalAgregarPromocion({ open, onClose, ventaId }) {
     mutationFn: (d) => api.post(`/promociones/${d.promocionId}/aplicar-venta`, { ventaId }),
     onSuccess: () => {
       message.success('Promoción agregada')
-      qc.invalidateQueries(['venta', String(ventaId)])
+      qc.invalidateQueries(['venta', ventaId])
       onClose()
       form.resetFields()
     },
@@ -1202,7 +1202,7 @@ function PromocionesVenta({ venta }) {
     mutationFn: (vpId) => api.delete(`/promociones/venta-promo/${vpId}`),
     onSuccess: () => {
       message.success('Promoción quitada')
-      qc.invalidateQueries(['venta', String(venta.id)])
+      qc.invalidateQueries(['venta', venta.id])
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
@@ -1402,7 +1402,7 @@ function ModalEditarVenta({ open, onClose, venta }) {
     mutationFn: (d) => api.put(`/ventas/${venta.id}`, d),
     onSuccess: () => {
       message.success('Venta actualizada')
-      qc.invalidateQueries(['venta', String(venta.id)])
+      qc.invalidateQueries(['venta', venta.id])
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error al editar')
@@ -1456,7 +1456,7 @@ export default function VentaDetalle() {
   const anular = useAnularVenta(Number(id))
 
   const { data: venta, isLoading } = useQuery({
-    queryKey: ['venta', id],
+    queryKey: ['venta', Number(id)],
     queryFn: () => api.get(`/ventas/${id}`).then(r => r.data)
   })
 
