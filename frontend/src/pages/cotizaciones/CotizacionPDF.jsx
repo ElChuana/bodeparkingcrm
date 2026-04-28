@@ -264,6 +264,57 @@ const s = StyleSheet.create({
   },
   notasTexto: { fontSize: 10, color: MUTED, lineHeight: 1.5 },
 
+  // ── Condiciones de pago ──
+  condBox: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  condHeader: {
+    backgroundColor: BLUE_HD,
+    borderBottomWidth: 1,
+    borderBottomColor: BLUE,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+  },
+  condHeaderText: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: BLUE,
+    letterSpacing: 2,
+  },
+  condBody: {
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    gap: 14,
+  },
+  condCol: { flex: 1 },
+  condSubtitle: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: TEXT,
+    marginBottom: 5,
+  },
+  condItem: {
+    fontSize: 9,
+    color: MUTED,
+    marginBottom: 3,
+    lineHeight: 1.4,
+  },
+  condNote: {
+    marginTop: 8,
+    paddingTop: 7,
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
+    paddingHorizontal: 13,
+    paddingBottom: 8,
+  },
+  condNoteText: { fontSize: 8.5, color: MUTED, lineHeight: 1.5 },
+  condDisclaimer: { fontSize: 8, color: MUTED2, marginTop: 3, fontStyle: 'italic' },
+
   // ── Validez ──
   validezBox: { marginTop: 14, flexDirection: 'row', gap: 12 },
   validezItem: {
@@ -550,6 +601,33 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
               <Text style={s.notasTexto}>{notas}</Text>
             </View>
           )}
+
+          {/* ── Condiciones y formas de pago ── */}
+          <View style={s.condBox}>
+            <View style={s.condHeader}>
+              <Text style={s.condHeaderText}>CONDICIONES Y FORMAS DE PAGO</Text>
+            </View>
+            <View style={s.condBody}>
+              <View style={s.condCol}>
+                <Text style={s.condSubtitle}>Facilidades de pago</Text>
+                <Text style={s.condItem}>• Hasta 6 cuotas para montos superiores a 190 UF</Text>
+                <Text style={s.condItem}>• Hasta 3 cuotas para montos inferiores</Text>
+                <Text style={s.condItem}>  (Previa coordinación)</Text>
+              </View>
+              <View style={s.condCol}>
+                <Text style={s.condSubtitle}>Medios de pago disponibles</Text>
+                <Text style={s.condItem}>• Contado, mediante vale vista</Text>
+                <Text style={s.condItem}>• Tarjeta de crédito vía Webpay, según evaluación y condiciones del banco</Text>
+                <Text style={s.condItem}>• Transferencia bancaria</Text>
+              </View>
+            </View>
+            <View style={s.condNote}>
+              <Text style={s.condNoteText}>
+                Adjunto se encuentra la cotización detallada con valores, metrajes y condiciones.
+              </Text>
+              <Text style={s.condDisclaimer}>* Los metrajes son aproximados.</Text>
+            </View>
+          </View>
 
         </View>
 
