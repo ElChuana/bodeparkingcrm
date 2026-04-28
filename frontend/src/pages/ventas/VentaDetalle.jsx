@@ -15,7 +15,7 @@ import {
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, WarningOutlined, CheckCircleOutlined, GiftOutlined, AppstoreOutlined, EditOutlined, HomeOutlined, ExpandOutlined } from '@ant-design/icons'
 import { isPast } from 'date-fns'
-import { PDFDownloadLink } from '@react-pdf/renderer'
+import { pdf } from '@react-pdf/renderer'
 import { ReciboPagoDocumento } from './ReciboPagoPDF'
 import logoUrl from '../../assets/logo.png'
 
@@ -623,7 +623,7 @@ function ModalEditarCuota({ open, onClose, cuota, ventaId }) {
       montoUF:          cuota.montoUF,
       montoCLP:         cuota.montoCLP,
       fechaVencimiento: cuota.fechaVencimiento ? cuota.fechaVencimiento.slice(0, 10) : '',
-      estado:           cuota.estado,
+      metodoPago:       cuota.metodoPago || null,
     })
   }, [cuota])
 
@@ -679,17 +679,42 @@ function ModalEditarCuota({ open, onClose, cuota, ventaId }) {
           <Input type="date" value={form.fechaVencimiento} onChange={e => set('fechaVencimiento', e.target.value)} />
         </div>
         <div>
-          {label('Estado')}
-          <Select value={form.estado} onChange={v => set('estado', v)} style={{ width: '100%' }}
-            options={[
-              { value: 'PENDIENTE',  label: 'Pendiente' },
-              { value: 'PAGADO',     label: 'Pagado' },
-              { value: 'ATRASADO',   label: 'Atrasado' },
-              { value: 'CONDONADO',  label: 'Condonado' },
-            ]} />
+          {label('Método de pago')}
+          <Select allowClear value={form.metodoPago} onChange={v => set('metodoPago', v || null)}
+            style={{ width: '100%' }} placeholder="Sin método — cuota pendiente"
+            options={METODOS_PAGO} />
         </div>
       </div>
     </Modal>
+  )
+}
+
+// ─── Botón descarga recibo (lazy — genera PDF solo al click) ─────
+function BtnRecibo({ cuota, venta }) {
+  const [loading, setLoading] = useState(false)
+  const { message } = App.useApp()
+
+  const descargar = async () => {
+    setLoading(true)
+    try {
+      const blob = await pdf(<ReciboPagoDocumento cuota={cuota} venta={venta} logoUrl={logoUrl} />).toBlob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `Recibo-${String(cuota.id).padStart(5, '0')}-${venta?.comprador?.apellido || 'cliente'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      message.error('Error al generar recibo')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Button type="link" size="small" loading={loading} onClick={descargar}>
+      {loading ? '' : 'Recibo'}
+    </Button>
   )
 }
 
@@ -764,16 +789,7 @@ function PlanDePagos({ venta }) {
             <Button type="link" size="small" onClick={() => setCuotaPagar(c)}>Pagar</Button>
           )}
           {c.estado === 'PAGADO' && (
-            <PDFDownloadLink
-              document={<ReciboPagoDocumento cuota={c} venta={venta} logoUrl={logoUrl} />}
-              fileName={`Recibo-${String(c.id).padStart(5,'0')}-${venta?.comprador?.apellido || 'cliente'}.pdf`}
-            >
-              {({ loading }) => (
-                <Button type="link" size="small" disabled={loading}>
-                  {loading ? '…' : 'Recibo'}
-                </Button>
-              )}
-            </PDFDownloadLink>
+            <BtnRecibo cuota={c} venta={venta} />
           )}
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => setCuotaEditar(c)} />
         </Space>
