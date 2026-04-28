@@ -105,6 +105,27 @@ const agregarCuota = async (req, res) => {
 
 // ─── CUOTAS ────────────────────────────────────────────────────
 
+const editarCuota = async (req, res) => {
+  const { id } = req.params
+  const { tipo, montoUF, montoCLP, fechaVencimiento, estado } = req.body
+  try {
+    const cuota = await prisma.cuota.update({
+      where: { id: Number(id) },
+      data: {
+        ...(tipo             && { tipo }),
+        ...(montoUF   !== undefined && { montoUF:   montoUF   ? Number(montoUF)   : null }),
+        ...(montoCLP  !== undefined && { montoCLP:  montoCLP  ? Number(montoCLP)  : null }),
+        ...(fechaVencimiento && { fechaVencimiento: new Date(fechaVencimiento) }),
+        ...(estado           && { estado }),
+      }
+    })
+    res.json(cuota)
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Cuota no encontrada.' })
+    res.status(500).json({ error: 'Error al editar cuota.' })
+  }
+}
+
 const registrarPago = async (req, res) => {
   const { id } = req.params
   const { metodoPago, numeroComprobante, notas, fechaPagoReal, montoCLP } = req.body
@@ -201,4 +222,4 @@ const cuotasAtrasadas = async (req, res) => {
   }
 }
 
-module.exports = { crearPlan, agregarCuota, obtenerPlan, registrarPago, registrarPagoArriendo, cuotasAtrasadas }
+module.exports = { crearPlan, agregarCuota, editarCuota, obtenerPlan, registrarPago, registrarPagoArriendo, cuotasAtrasadas }
