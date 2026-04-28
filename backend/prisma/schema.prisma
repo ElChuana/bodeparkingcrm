@@ -111,6 +111,7 @@ enum EstadoPago {
 
 enum MetodoPago {
   TRANSFERENCIA
+  VALE_VISTA
   TARJETA
   CHEQUE
   EFECTIVO

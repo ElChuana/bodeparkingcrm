@@ -66,6 +66,43 @@ const obtenerPlan = async (req, res) => {
   }
 }
 
+const agregarCuota = async (req, res) => {
+  const { ventaId } = req.params
+  const { tipo, montoUF, montoCLP, fechaVencimiento } = req.body
+
+  if (!fechaVencimiento) return res.status(400).json({ error: 'fechaVencimiento es requerido.' })
+  if (!montoUF && !montoCLP) return res.status(400).json({ error: 'Debe ingresar montoUF o montoCLP.' })
+
+  try {
+    const plan = await prisma.planPago.findUnique({
+      where: { ventaId: Number(ventaId) },
+      include: { cuotas: { orderBy: { numeroCuota: 'desc' }, take: 1 } }
+    })
+    if (!plan) return res.status(404).json({ error: 'Plan de pago no encontrado.' })
+
+    const ultimoNumero = plan.cuotas[0]?.numeroCuota || 0
+    const cuota = await prisma.cuota.create({
+      data: {
+        planPagoId: plan.id,
+        numeroCuota: ultimoNumero + 1,
+        tipo: tipo || 'CUOTA',
+        montoUF: montoUF ? Number(montoUF) : null,
+        montoCLP: montoCLP ? Number(montoCLP) : null,
+        fechaVencimiento: new Date(fechaVencimiento),
+        estado: 'PENDIENTE'
+      }
+    })
+    await prisma.planPago.update({
+      where: { id: plan.id },
+      data: { totalCuotas: { increment: 1 } }
+    })
+    res.status(201).json(cuota)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al agregar cuota.' })
+  }
+}
+
 // ─── CUOTAS ────────────────────────────────────────────────────
 
 const registrarPago = async (req, res) => {
@@ -164,4 +201,4 @@ const cuotasAtrasadas = async (req, res) => {
   }
 }
 
-module.exports = { crearPlan, obtenerPlan, registrarPago, registrarPagoArriendo, cuotasAtrasadas }
+module.exports = { crearPlan, agregarCuota, obtenerPlan, registrarPago, registrarPagoArriendo, cuotasAtrasadas }
