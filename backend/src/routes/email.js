@@ -212,20 +212,32 @@ router.post('/respuesta', async (req, res) => {
     const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } })
     if (!lead) { console.warn('[Inbound] lead no existe:', leadId); return }
 
-    // Obtener body completo desde la API de Resend
-    const axios = require('axios')
-    console.log('[Inbound] llamando API Resend para email_id:', data.email_id)
-    const { data: email } = await axios.get(
-      `https://api.resend.com/emails/receiving/${data.email_id}`,
-      { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } }
-    )
-    console.log('[Inbound] email obtenido — subject:', email.subject, '| html length:', email.html?.length)
+    // Intentar obtener body desde el webhook directo, o vía API de Resend
+    let asunto    = data.subject || '(sin asunto)'
+    let cuerpo    = data.html || data.text || ''
+    let deEmail   = data.from || ''
+    let msgId     = data.message_id || data.email_id
+    let inReplyTo = null
 
-    const asunto    = email.subject || data.subject || '(sin asunto)'
-    const cuerpo    = email.html || email.text || ''
-    const deEmail   = email.from || data.from || ''
-    const msgId     = email.message_id || data.email_id
-    const inReplyTo = email.headers?.['in-reply-to'] || null
+    if (!cuerpo) {
+      // Webhook no incluye body — llamar API de Resend
+      try {
+        const axios = require('axios')
+        console.log('[Inbound] llamando API Resend para email_id:', data.email_id)
+        const { data: email } = await axios.get(
+          `https://api.resend.com/emails/${data.email_id}`,
+          { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } }
+        )
+        console.log('[Inbound] email obtenido — subject:', email.subject, '| html length:', email.html?.length)
+        asunto    = email.subject || asunto
+        cuerpo    = email.html || email.text || ''
+        deEmail   = email.from || deEmail
+        msgId     = email.message_id || msgId
+        inReplyTo = email.headers?.['in-reply-to'] || null
+      } catch (apiErr) {
+        console.warn('[Inbound] No se pudo obtener body via API:', apiErr.message, '— guardando sin body')
+      }
+    }
 
     await prisma.emailConversacion.create({
       data: { leadId, messageId: msgId, inReplyTo, direction: 'RECIBIDO', asunto, cuerpo, de: deEmail, para: toEmail }
