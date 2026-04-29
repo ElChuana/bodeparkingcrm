@@ -6,7 +6,6 @@
 backend/.env
 backend/node_modules/
 backend/uploads/*
-backups/
 frontend/.env
 frontend/dist/
 frontend/node_modules/
