@@ -32,11 +32,15 @@ function limpiarReply(html) {
     if (inicio < corte) corte = inicio
   }
 
-  // 2) Si hay cita, buscar si la línea "El X escribió:" / "On X wrote:" aparece ANTES del marcador
+  // 2) Si hay cita, buscar la línea de atribución ANTES del marcador
+  // Patrón específico: "El lun/mar/mié/jue/vie/sáb/dom," o "On Mon/Tue/Wed..."
+  // Nunca matchea texto normal que empiece con "El" o "On"
   if (corte < html.length) {
     const antes = html.substring(0, corte)
-    // Busca desde el final del bloque "antes" hacia atrás el patrón de atribución
-    const attrIdx = antes.search(/<[^>]*>\s*(?:El|On)\s+\w/)
+    const DIAS_ES = 'lun|mar|mi[eé]|jue|vie|s[aá]b|dom|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo'
+    const DIAS_EN = 'Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday'
+    const patronAtribucion = new RegExp(`<[^>]*>\\s*(?:El|On)\\s+(?:${DIAS_ES}|${DIAS_EN})[,\\s]`, 'i')
+    const attrIdx = antes.search(patronAtribucion)
     if (attrIdx !== -1) corte = attrIdx
   }
 
