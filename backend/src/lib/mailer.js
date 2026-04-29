@@ -39,7 +39,7 @@ async function enviarEmail({ para, cc, asunto, html, texto, adjuntos = [], smtpE
     from,
     to: [para],
     cc: cc ? [cc] : undefined,
-    reply_to: replyTo || undefined,
+    replyTo: replyTo || undefined,
     subject: asunto,
     html: html || undefined,
     text: texto || undefined,
