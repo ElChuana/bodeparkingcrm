@@ -189,10 +189,16 @@ router.post('/respuesta', async (req, res) => {
 
   try {
     const { type, data } = req.body
-    if (type !== 'email.received' || !data?.email_id) return
+    console.log('[Inbound] payload recibido:', JSON.stringify({ type, data }))
+
+    if (type !== 'email.received' || !data?.email_id) {
+      console.warn('[Inbound] tipo inesperado o sin email_id:', type, data?.email_id)
+      return
+    }
 
     const toList = Array.isArray(data.to) ? data.to : [data.to]
     const toEmail = toList[0] || ''
+    console.log('[Inbound] to:', toEmail)
 
     // Extraer leadId del patrón lead-{id}@...
     const match = toEmail.match(/lead-(\d+)@/)
@@ -201,16 +207,19 @@ router.post('/respuesta', async (req, res) => {
       return
     }
     const leadId = parseInt(match[1])
+    console.log('[Inbound] leadId extraído:', leadId)
 
     const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } })
     if (!lead) { console.warn('[Inbound] lead no existe:', leadId); return }
 
     // Obtener body completo desde la API de Resend
     const axios = require('axios')
+    console.log('[Inbound] llamando API Resend para email_id:', data.email_id)
     const { data: email } = await axios.get(
       `https://api.resend.com/emails/receiving/${data.email_id}`,
       { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } }
     )
+    console.log('[Inbound] email obtenido — subject:', email.subject, '| html length:', email.html?.length)
 
     const asunto    = email.subject || data.subject || '(sin asunto)'
     const cuerpo    = email.html || email.text || ''
@@ -221,13 +230,14 @@ router.post('/respuesta', async (req, res) => {
     await prisma.emailConversacion.create({
       data: { leadId, messageId: msgId, inReplyTo, direction: 'RECIBIDO', asunto, cuerpo, de: deEmail, para: toEmail }
     })
+    console.log('[Inbound] guardado en BD ✓')
 
     await prisma.interaccion.create({
       data: { leadId, tipo: 'EMAIL', descripcion: `Email recibido: "${asunto}" de ${deEmail}` }
     }).catch(() => {})
 
   } catch (err) {
-    console.error('[Inbound] Error procesando webhook:', err.message)
+    console.error('[Inbound] Error procesando webhook:', err.message, err.response?.data)
   }
 })
 
