@@ -179,59 +179,53 @@ router.put('/firma', autenticar, async (req, res) => {
 })
 
 // ─── POST /api/email/respuesta — webhook inbound Resend ───────────────────────
-// Resend llama este endpoint cuando llega un email a lead-{id}@INBOUND_DOMAIN
-// No requiere autenticación, pero valida que el To: tenga el patrón esperado
+// El payload de Resend solo trae metadatos (sin body). Se llama al API para obtener HTML.
+// Evento: { type: "email.received", data: { email_id, from, to, subject, ... } }
 router.post('/respuesta', async (req, res) => {
+  // Responder 200 rápido — Resend reintenta si no recibe 2xx en tiempo
+  res.json({ ok: true })
+
   try {
-    const payload = req.body
+    const { type, data } = req.body
+    if (type !== 'email.received' || !data?.email_id) return
 
-    // Resend inbound envía el email ya parseado
-    const toRaw = Array.isArray(payload.to) ? payload.to[0] : payload.to
-    const toEmail = typeof toRaw === 'object' ? toRaw.email : toRaw
+    const toList = Array.isArray(data.to) ? data.to : [data.to]
+    const toEmail = toList[0] || ''
 
-    // Extraer leadId del pattern lead-{id}@...
-    const match = toEmail?.match(/lead-(\d+)@/)
+    // Extraer leadId del patrón lead-{id}@...
+    const match = toEmail.match(/lead-(\d+)@/)
     if (!match) {
       console.warn('[Inbound] To sin patrón lead-{id}@:', toEmail)
-      return res.status(200).json({ ok: false, razon: 'destinatario sin leadId' })
+      return
     }
     const leadId = parseInt(match[1])
 
     const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } })
-    if (!lead) return res.status(200).json({ ok: false, razon: 'lead no existe' })
+    if (!lead) { console.warn('[Inbound] lead no existe:', leadId); return }
 
-    const fromRaw  = payload.from
-    const deEmail  = typeof fromRaw === 'object' ? `${fromRaw.name || ''} <${fromRaw.email}>`.trim() : (fromRaw || '')
-    const asunto   = payload.subject || '(sin asunto)'
-    const cuerpo   = payload.html || payload.text || ''
-    const msgId    = payload.messageId || null
-    const inReplyTo = payload.headers?.['in-reply-to'] || payload.headers?.['In-Reply-To'] || null
+    // Obtener body completo desde la API de Resend
+    const axios = require('axios')
+    const { data: email } = await axios.get(
+      `https://api.resend.com/emails/receiving/${data.email_id}`,
+      { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } }
+    )
+
+    const asunto    = email.subject || data.subject || '(sin asunto)'
+    const cuerpo    = email.html || email.text || ''
+    const deEmail   = email.from || data.from || ''
+    const msgId     = email.message_id || data.email_id
+    const inReplyTo = email.headers?.['in-reply-to'] || null
 
     await prisma.emailConversacion.create({
-      data: {
-        leadId,
-        messageId: msgId,
-        inReplyTo,
-        direction: 'RECIBIDO',
-        asunto,
-        cuerpo,
-        de: deEmail,
-        para: toEmail,
-      }
+      data: { leadId, messageId: msgId, inReplyTo, direction: 'RECIBIDO', asunto, cuerpo, de: deEmail, para: toEmail }
     })
 
     await prisma.interaccion.create({
-      data: {
-        leadId,
-        tipo: 'EMAIL',
-        descripcion: `Email recibido: "${asunto}" de ${deEmail}`,
-      }
+      data: { leadId, tipo: 'EMAIL', descripcion: `Email recibido: "${asunto}" de ${deEmail}` }
     }).catch(() => {})
 
-    res.json({ ok: true })
   } catch (err) {
-    console.error('[Inbound] Error:', err.message)
-    res.status(200).json({ ok: false, error: err.message }) // 200 para que Resend no reintente
+    console.error('[Inbound] Error procesando webhook:', err.message)
   }
 })
 
