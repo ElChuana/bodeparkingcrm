@@ -221,21 +221,20 @@ router.post('/respuesta', async (req, res) => {
     let inReplyTo = null
 
     if (!cuerpo) {
-      // Webhook no incluye body — obtener via SDK de Resend
+      // Webhook no incluye body — obtener via API /emails/receiving/{id}
       try {
-        const resend = new Resend(process.env.RESEND_API_KEY)
-        const { data: email, error } = await resend.emails.get(data.email_id)
-        if (error) {
-          console.warn('[Inbound] SDK error obteniendo email:', error)
-        } else {
-          console.log('[Inbound] email obtenido — subject:', email?.subject, '| html length:', email?.html?.length)
-          asunto    = email.subject || asunto
-          cuerpo    = email.html || email.text || ''
-          deEmail   = email.from || deEmail
-          msgId     = email.message_id || msgId
-        }
+        const axios = require('axios')
+        const { data: email } = await axios.get(
+          `https://api.resend.com/emails/receiving/${data.email_id}`,
+          { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } }
+        )
+        console.log('[Inbound] email obtenido — subject:', email?.subject, '| html length:', email?.html?.length)
+        asunto    = email.subject || asunto
+        cuerpo    = email.html || email.text || ''
+        deEmail   = email.from || deEmail
+        msgId     = email.message_id || msgId
       } catch (apiErr) {
-        console.warn('[Inbound] No se pudo obtener body:', apiErr.message)
+        console.warn('[Inbound] No se pudo obtener body:', apiErr.message, apiErr.response?.data)
       }
     }
 
