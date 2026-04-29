@@ -6,31 +6,35 @@ const { autenticar } = require('../middleware/auth')
 const prisma = require('../lib/prisma')
 const { Resend } = require('resend')
 
-// Quita texto citado del HTML de un reply — deja solo el mensaje nuevo
+// Quita texto citado del HTML de un reply — corta en el primer marcador de cita
 function limpiarReply(html) {
   if (!html) return ''
-  let clean = html
 
-  // Gmail: <div class="gmail_quote">
-  clean = clean.replace(/<div class="gmail_quote"[\s\S]*?(?=<\/div>$|$)[\s\S]*/i, '')
-  clean = clean.replace(/<div class="gmail_quote"[\s\S]*/i, '')
+  const htmlLower = html.toLowerCase()
 
-  // Outlook: <div id="divRplyFwdMsg"> o <hr id="stopSpelling">
-  clean = clean.replace(/<div id="divRplyFwdMsg"[\s\S]*/i, '')
-  clean = clean.replace(/<hr[^>]+id="stopSpelling"[\s\S]*/i, '')
+  // Marcadores de inicio de cita (Gmail, Outlook, Apple Mail, genérico)
+  const marcadores = [
+    '<div class="gmail_quote"',
+    "<div class='gmail_quote'",
+    '<div id="divrplyfwdmsg"',
+    '<div id="divreplyquote"',
+    '<hr id="stopspelling"',
+    '<blockquote type="cite"',
+    '<div class="yahoo_quoted"',
+  ]
 
-  // Apple Mail / genérico: <blockquote>
-  clean = clean.replace(/<blockquote[\s\S]*<\/blockquote>/gi, '')
+  let corte = html.length
+  for (const m of marcadores) {
+    const idx = htmlLower.indexOf(m)
+    if (idx !== -1 && idx < corte) corte = idx
+  }
 
-  // "El día X, Y escribió:" o "On date, person wrote:" antes de la cita
-  clean = clean.replace(/<div[^>]*>\s*(?:El|On)\s[^<]{0,200}(?:escribi[oó]|wrote)\s*:<\/div>/gi, '')
-  clean = clean.replace(/<p[^>]*>\s*(?:El|On)\s[^<]{0,200}(?:escribi[oó]|wrote)\s*:[\s\S]*?<\/p>/gi, '')
+  let clean = html.substring(0, corte)
 
-  // Limpiar líneas vacías al final
-  clean = clean.replace(/(<br\s*\/?>\s*){3,}/gi, '<br><br>')
-  clean = clean.trim()
+  // Quitar <br> y espacios sobrantes al final
+  clean = clean.replace(/(\s*<br\s*\/?>\s*)+$/gi, '').trim()
 
-  return clean
+  return clean || html  // si quedó vacío devolver el original
 }
 
 // ─── POST /api/email/enviar ───────────────────────────────────────────────────
