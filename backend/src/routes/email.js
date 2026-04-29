@@ -6,6 +6,33 @@ const { autenticar } = require('../middleware/auth')
 const prisma = require('../lib/prisma')
 const { Resend } = require('resend')
 
+// Quita texto citado del HTML de un reply — deja solo el mensaje nuevo
+function limpiarReply(html) {
+  if (!html) return ''
+  let clean = html
+
+  // Gmail: <div class="gmail_quote">
+  clean = clean.replace(/<div class="gmail_quote"[\s\S]*?(?=<\/div>$|$)[\s\S]*/i, '')
+  clean = clean.replace(/<div class="gmail_quote"[\s\S]*/i, '')
+
+  // Outlook: <div id="divRplyFwdMsg"> o <hr id="stopSpelling">
+  clean = clean.replace(/<div id="divRplyFwdMsg"[\s\S]*/i, '')
+  clean = clean.replace(/<hr[^>]+id="stopSpelling"[\s\S]*/i, '')
+
+  // Apple Mail / genérico: <blockquote>
+  clean = clean.replace(/<blockquote[\s\S]*<\/blockquote>/gi, '')
+
+  // "El día X, Y escribió:" o "On date, person wrote:" antes de la cita
+  clean = clean.replace(/<div[^>]*>\s*(?:El|On)\s[^<]{0,200}(?:escribi[oó]|wrote)\s*:<\/div>/gi, '')
+  clean = clean.replace(/<p[^>]*>\s*(?:El|On)\s[^<]{0,200}(?:escribi[oó]|wrote)\s*:[\s\S]*?<\/p>/gi, '')
+
+  // Limpiar líneas vacías al final
+  clean = clean.replace(/(<br\s*\/?>\s*){3,}/gi, '<br><br>')
+  clean = clean.trim()
+
+  return clean
+}
+
 // ─── POST /api/email/enviar ───────────────────────────────────────────────────
 router.post('/enviar',
   autenticar,
@@ -230,7 +257,7 @@ router.post('/respuesta', async (req, res) => {
         )
         console.log('[Inbound] email obtenido — subject:', email?.subject, '| html length:', email?.html?.length)
         asunto    = email.subject || asunto
-        cuerpo    = email.html || email.text || ''
+        cuerpo    = limpiarReply(email.html) || email.text || ''
         deEmail   = email.from || deEmail
         msgId     = email.message_id || msgId
       } catch (apiErr) {
