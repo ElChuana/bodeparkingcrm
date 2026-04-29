@@ -123,6 +123,7 @@ router.post('/enviar',
               de: fromLabel,
               para,
               usuarioId: req.usuario.id,
+              leido: true,
             }
           }),
           prisma.interaccion.create({
@@ -306,6 +307,20 @@ router.get('/conversacion/:leadId', autenticar, async (req, res) => {
     res.json(emails)
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener conversación.' })
+  }
+})
+
+// ─── PATCH /api/email/conversacion/:leadId/leer ───────────────────────────────
+router.patch('/conversacion/:leadId/leer', autenticar, async (req, res) => {
+  const { leadId } = req.params
+  try {
+    await prisma.emailConversacion.updateMany({
+      where: { leadId: parseInt(leadId), direction: 'RECIBIDO', leido: false },
+      data: { leido: true },
+    })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: 'Error al marcar como leídos.' })
   }
 })
 
