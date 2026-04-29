@@ -55,17 +55,40 @@ router.post('/enviar',
       `
 
       const fromLabel = `${usuario.nombre} ${usuario.apellido} <${usuario.smtpEmail}>`
-      await enviarEmail({ para, cc, asunto, html, adjuntos, smtpEmail: fromLabel })
+      const leadId = req.body.leadId ? parseInt(req.body.leadId) : null
 
-      if (req.body.leadId) {
-        await prisma.interaccion.create({
-          data: {
-            leadId: parseInt(req.body.leadId),
-            usuarioId: req.usuario.id,
-            tipo: 'EMAIL',
-            descripcion: `Email enviado: "${asunto}" → ${para}`,
-          }
-        }).catch(() => {})
+      // Reply-To apunta a dirección inbound codificada con leadId
+      const inboundDomain = process.env.INBOUND_DOMAIN
+      const replyTo = (leadId && inboundDomain)
+        ? `lead-${leadId}@${inboundDomain}`
+        : undefined
+
+      const result = await enviarEmail({ para, cc, asunto, html, adjuntos, smtpEmail: fromLabel, replyTo })
+
+      if (leadId) {
+        const mensajeId = result?.id || null
+        await Promise.all([
+          prisma.emailConversacion.create({
+            data: {
+              leadId,
+              messageId: mensajeId,
+              direction: 'ENVIADO',
+              asunto,
+              cuerpo: html,
+              de: fromLabel,
+              para,
+              usuarioId: req.usuario.id,
+            }
+          }),
+          prisma.interaccion.create({
+            data: {
+              leadId,
+              usuarioId: req.usuario.id,
+              tipo: 'EMAIL',
+              descripcion: `Email enviado: "${asunto}" → ${para}`,
+            }
+          }),
+        ]).catch(e => console.error('[Email] Error guardando conversación:', e))
       }
 
       res.json({ ok: true, mensaje: `Email enviado a ${para}` })
@@ -153,6 +176,78 @@ router.put('/firma', autenticar, async (req, res) => {
     data: { firma: firma || null },
   })
   res.json({ ok: true })
+})
+
+// ─── POST /api/email/respuesta — webhook inbound Resend ───────────────────────
+// Resend llama este endpoint cuando llega un email a lead-{id}@INBOUND_DOMAIN
+// No requiere autenticación, pero valida que el To: tenga el patrón esperado
+router.post('/respuesta', async (req, res) => {
+  try {
+    const payload = req.body
+
+    // Resend inbound envía el email ya parseado
+    const toRaw = Array.isArray(payload.to) ? payload.to[0] : payload.to
+    const toEmail = typeof toRaw === 'object' ? toRaw.email : toRaw
+
+    // Extraer leadId del pattern lead-{id}@...
+    const match = toEmail?.match(/lead-(\d+)@/)
+    if (!match) {
+      console.warn('[Inbound] To sin patrón lead-{id}@:', toEmail)
+      return res.status(200).json({ ok: false, razon: 'destinatario sin leadId' })
+    }
+    const leadId = parseInt(match[1])
+
+    const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } })
+    if (!lead) return res.status(200).json({ ok: false, razon: 'lead no existe' })
+
+    const fromRaw  = payload.from
+    const deEmail  = typeof fromRaw === 'object' ? `${fromRaw.name || ''} <${fromRaw.email}>`.trim() : (fromRaw || '')
+    const asunto   = payload.subject || '(sin asunto)'
+    const cuerpo   = payload.html || payload.text || ''
+    const msgId    = payload.messageId || null
+    const inReplyTo = payload.headers?.['in-reply-to'] || payload.headers?.['In-Reply-To'] || null
+
+    await prisma.emailConversacion.create({
+      data: {
+        leadId,
+        messageId: msgId,
+        inReplyTo,
+        direction: 'RECIBIDO',
+        asunto,
+        cuerpo,
+        de: deEmail,
+        para: toEmail,
+      }
+    })
+
+    await prisma.interaccion.create({
+      data: {
+        leadId,
+        tipo: 'EMAIL',
+        descripcion: `Email recibido: "${asunto}" de ${deEmail}`,
+      }
+    }).catch(() => {})
+
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[Inbound] Error:', err.message)
+    res.status(200).json({ ok: false, error: err.message }) // 200 para que Resend no reintente
+  }
+})
+
+// ─── GET /api/email/conversacion/:leadId ──────────────────────────────────────
+router.get('/conversacion/:leadId', autenticar, async (req, res) => {
+  const { leadId } = req.params
+  try {
+    const emails = await prisma.emailConversacion.findMany({
+      where: { leadId: parseInt(leadId) },
+      include: { usuario: { select: { nombre: true, apellido: true } } },
+      orderBy: { creadoEn: 'asc' },
+    })
+    res.json(emails)
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener conversación.' })
+  }
 })
 
 module.exports = router

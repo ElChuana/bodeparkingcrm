@@ -236,6 +236,7 @@ model Usuario {
   solicitudesHechas         SolicitudDescuento[] @relation("SolicitudesHechas")
   solicitudesRevisadas      SolicitudDescuento[] @relation("SolicitudesRevisadas")
   recordatoriosCreadosPor   Recordatorio[]       @relation("RecordatoriosCreadosPor")
+  emailConversaciones       EmailConversacion[]
 
   @@map("usuarios")
 }
@@ -364,6 +365,7 @@ model Lead {
   ventas                Venta[]
   cotizaciones          Cotizacion[]
   recordatorios         Recordatorio[]
+  emailConversaciones   EmailConversacion[]
 
   @@map("leads")
 }
@@ -868,4 +870,23 @@ model ReglaPipeline {
   actualizadoEn DateTime @updatedAt
 
   @@map("reglas_pipeline")
+}
+
+model EmailConversacion {
+  id          Int      @id @default(autoincrement())
+  leadId      Int
+  messageId   String?  @unique
+  inReplyTo   String?
+  direction   String   // ENVIADO | RECIBIDO
+  asunto      String
+  cuerpo      String   @db.Text
+  de          String
+  para        String
+  usuarioId   Int?
+  creadoEn    DateTime @default(now())
+
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@map("email_conversaciones")
 }

@@ -16,7 +16,7 @@ function getResend() {
  * @param {array}  [opts.adjuntos]  [{ filename, content (Buffer|base64), contentType }]
  * @param {string} [opts.smtpEmail]  dirección "from" del usuario
  */
-async function enviarEmail({ para, cc, asunto, html, texto, adjuntos = [], smtpEmail }) {
+async function enviarEmail({ para, cc, asunto, html, texto, adjuntos = [], smtpEmail, replyTo }) {
   const from = smtpEmail || process.env.SMTP_FROM || 'BodeParking CRM <noreply@bodeparking.cl>'
 
   // Convertir adjuntos al formato de Resend: { filename, content (Buffer) }
@@ -39,6 +39,7 @@ async function enviarEmail({ para, cc, asunto, html, texto, adjuntos = [], smtpE
     from,
     to: [para],
     cc: cc ? [cc] : undefined,
+    reply_to: replyTo || undefined,
     subject: asunto,
     html: html || undefined,
     text: texto || undefined,
