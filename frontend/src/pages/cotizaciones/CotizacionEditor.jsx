@@ -7,7 +7,7 @@ import {
   Modal, Form, Popconfirm, Radio
 } from 'antd'
 import {
-  PlusOutlined, DeleteOutlined, SaveOutlined, SendOutlined,
+  PlusOutlined, DeleteOutlined, SaveOutlined,
   CheckCircleOutlined, ArrowLeftOutlined,
   FilePdfOutlined, ShoppingOutlined
 } from '@ant-design/icons'
@@ -17,7 +17,6 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { useUF } from '../../hooks/useUF'
 import logoUrl from '../../assets/logo.png'
-import ModalEmail from '../../components/ModalEmail'
 
 const { Title, Text } = Typography
 
@@ -584,9 +583,6 @@ export default function CotizacionEditor() {
   const [notas, setNotas] = useState('')
   const [validezDias, setValidezDias] = useState(30)
   const [leadId, setLeadId] = useState(leadIdParam ? Number(leadIdParam) : null)
-  const [modalEmail, setModalEmail] = useState(false)
-  const [pdfBase64, setPdfBase64] = useState(null)
-  const [generandoPdf, setGenerandoPdf] = useState(false)
   const [modalConvertir, setModalConvertir] = useState(false)
   const [conPromesa, setConPromesa] = useState(true)
 
@@ -783,35 +779,6 @@ export default function CotizacionEditor() {
                   </Button>
                 )}
               </PDFDownloadLink>
-              {cotizacion.lead?.contacto?.email && (
-                <Button
-                  icon={<SendOutlined />}
-                  loading={generandoPdf}
-                  onClick={async () => {
-                    setGenerandoPdf(true)
-                    try {
-                      const blob = await pdf(
-                        <CotizacionDocumento cotizacion={cotizacionParaPDF(cotizacion)} logoUrl={logoUrl} valorUF={valorUF} />
-                      ).toBlob()
-                      const base64 = await new Promise((resolve, reject) => {
-                        const reader = new FileReader()
-                        reader.onload = () => resolve(reader.result.split(',')[1])
-                        reader.onerror = reject
-                        reader.readAsDataURL(blob)
-                      })
-                      setPdfBase64(base64)
-                      setGenerandoPdf(false)
-                      setModalEmail(true)
-                    } catch (err) {
-                      setGenerandoPdf(false)
-                      message.error('No se pudo generar el PDF. Intenta de nuevo.')
-                      console.error('[PDF] Error generando PDF para email:', err)
-                    }
-                  }}
-                >
-                  {generandoPdf ? 'Preparando...' : 'Enviar por email'}
-                </Button>
-              )}
             </>
           )}
         </Space>
@@ -938,18 +905,6 @@ export default function CotizacionEditor() {
         </Col>
       </Row>
 
-      {cotizacion?.lead?.contacto?.email && (
-        <ModalEmail
-          open={modalEmail}
-          onClose={() => { setModalEmail(false); setPdfBase64(null) }}
-          para={cotizacion.lead.contacto.email}
-          nombre={`${cotizacion.lead.contacto.nombre} ${cotizacion.lead.contacto.apellido || ''}`.trim()}
-          leadId={cotizacion.lead.id}
-          cotizacionId={parseInt(id)}
-          pdfBase64={pdfBase64}
-          pdfNombre={`Cotizacion_BodeParking_${id}.pdf`}
-        />
-      )}
     </div>
   )
 }
