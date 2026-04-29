@@ -9,32 +9,39 @@ const { Resend } = require('resend')
 // Quita texto citado del HTML de un reply — corta en el primer marcador de cita
 function limpiarReply(html) {
   if (!html) return ''
+  const lower = html.toLowerCase()
 
-  const htmlLower = html.toLowerCase()
-
-  // Marcadores de inicio de cita (Gmail, Outlook, Apple Mail, genérico)
+  // 1) Marcadores de contenedor de cita
   const marcadores = [
-    '<div class="gmail_quote"',
-    "<div class='gmail_quote'",
-    '<div id="divrplyfwdmsg"',
-    '<div id="divreplyquote"',
-    '<hr id="stopspelling"',
+    'class="gmail_quote"',
+    "class='gmail_quote'",
+    'id="divrplyfwdmsg"',
+    'id="stopspelling"',
+    'class="yahoo_quoted"',
     '<blockquote type="cite"',
-    '<div class="yahoo_quoted"',
+    '<blockquote',
   ]
 
   let corte = html.length
   for (const m of marcadores) {
-    const idx = htmlLower.indexOf(m)
-    if (idx !== -1 && idx < corte) corte = idx
+    const idx = lower.indexOf(m)
+    if (idx === -1) continue
+    // Retroceder hasta el < que abre el tag
+    let inicio = idx
+    while (inicio > 0 && html[inicio] !== '<') inicio--
+    if (inicio < corte) corte = inicio
   }
 
-  let clean = html.substring(0, corte)
+  // 2) Si hay cita, buscar si la línea "El X escribió:" / "On X wrote:" aparece ANTES del marcador
+  if (corte < html.length) {
+    const antes = html.substring(0, corte)
+    // Busca desde el final del bloque "antes" hacia atrás el patrón de atribución
+    const attrIdx = antes.search(/<[^>]*>\s*(?:El|On)\s+\w/)
+    if (attrIdx !== -1) corte = attrIdx
+  }
 
-  // Quitar <br> y espacios sobrantes al final
-  clean = clean.replace(/(\s*<br\s*\/?>\s*)+$/gi, '').trim()
-
-  return clean || html  // si quedó vacío devolver el original
+  let clean = html.substring(0, corte).replace(/(\s*<br\s*\/?>\s*)+$/gi, '').trim()
+  return clean || html
 }
 
 // ─── POST /api/email/enviar ───────────────────────────────────────────────────
