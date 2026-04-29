@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import dayjs from 'dayjs'
-import ModalEmail from '../../components/ModalEmail'
+import EmailCard from '../../components/EmailCard'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -670,64 +670,6 @@ function ModalEditarLead({ open, onClose, lead }) {
   )
 }
 
-// ─── Conversación por email ───────────────────────────────────────
-function ConversacionEmail({ leadId }) {
-  const { data: emails = [], isLoading } = useQuery({
-    queryKey: ['email-conversacion', leadId],
-    queryFn: () => api.get(`/email/conversacion/${leadId}`).then(r => r.data),
-    enabled: !!leadId,
-    refetchInterval: 30000,
-  })
-
-  const bottomRef = useRef(null)
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [emails.length])
-
-  if (isLoading) return <Spin size="small" style={{ display: 'block', margin: '12px auto' }} />
-  if (!emails.length) return (
-    <div style={{ textAlign: 'center', padding: '24px 0', color: '#9ca3af', fontSize: 13 }}>
-      Sin emails aún — usa "Enviar email" para iniciar la conversación.
-    </div>
-  )
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 480, overflowY: 'auto', padding: '4px 2px' }}>
-      {emails.map(e => {
-        const enviado = e.direction === 'ENVIADO'
-        return (
-          <div key={e.id} style={{ display: 'flex', justifyContent: enviado ? 'flex-end' : 'flex-start' }}>
-            <div style={{
-              maxWidth: '78%',
-              background: enviado ? '#1B5EA8' : '#f3f4f6',
-              color: enviado ? '#fff' : '#1a2533',
-              borderRadius: enviado ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-              padding: '10px 14px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-            }}>
-              <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4, fontWeight: 600 }}>
-                {enviado
-                  ? `Tú${e.usuario ? ` (${e.usuario.nombre})` : ''}`
-                  : e.de.replace(/<.*>/, '').trim() || e.de}
-              </div>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, opacity: 0.85 }}>
-                {e.asunto}
-              </div>
-              <div
-                style={{ fontSize: 12.5, lineHeight: 1.5 }}
-                dangerouslySetInnerHTML={{ __html: e.cuerpo }}
-              />
-              <div style={{ fontSize: 10, opacity: 0.55, marginTop: 6, textAlign: 'right' }}>
-                {format(new Date(e.creadoEn), "d MMM HH:mm", { locale: es })}
-              </div>
-            </div>
-          </div>
-        )
-      })}
-      <div ref={bottomRef} />
-    </div>
-  )
-}
 
 // ─── Página principal ──────────────────────────────────────────────
 export default function LeadDetalle() {
@@ -743,7 +685,6 @@ export default function LeadDetalle() {
   const [modalEditarLead, setModalEditarLead] = useState(false)
   const [visitaEditando, setVisitaEditando] = useState(null)
   const [visitaResultando, setVisitaResultando] = useState(null)
-  const [modalEmail, setModalEmail] = useState(false)
   const [modalComuro, setModalComuro] = useState(false)
 
   const qc = useQueryClient()
@@ -909,9 +850,6 @@ export default function LeadDetalle() {
         <Space wrap>
           <Button size="small" onClick={() => setModalInteraccion(true)}>+ Actividad</Button>
           <Button size="small" icon={<CalendarOutlined />} onClick={() => setModalVisita(true)}>Agendar visita</Button>
-          {lead.contacto.email && (
-            <Button size="small" icon={<MailOutlined />} onClick={() => setModalEmail(true)}>Enviar email</Button>
-          )}
           <Button size="small" icon={<FileTextOutlined />} onClick={() => navigate(`/cotizaciones/nueva?leadId=${id}`)}>
             Nueva cotización
           </Button>
@@ -979,7 +917,6 @@ export default function LeadDetalle() {
                   <Space>
                     <MailOutlined />
                     <Text style={{ fontSize: 13 }}>{lead.contacto.email}</Text>
-                    <Button type="link" size="small" style={{ padding: 0, fontSize: 12 }} onClick={() => setModalEmail(true)}>Enviar</Button>
                   </Space>
                 )}
                 {lead.contacto.rut && <Text type="secondary" style={{ fontSize: 13 }}>RUT: {lead.contacto.rut}</Text>}
@@ -1187,27 +1124,12 @@ export default function LeadDetalle() {
       </Row>
 
       {lead.contacto.email && (
-        <Card
-          title={<span style={{ fontSize: 14, fontWeight: 700 }}>Conversación por email</span>}
-          extra={
-            <Button size="small" icon={<MailOutlined />} onClick={() => setModalEmail(true)}>
-              Nuevo email
-            </Button>
-          }
-          style={{ marginTop: 16 }}
-          bodyStyle={{ padding: '16px 20px' }}
-        >
-          <ConversacionEmail leadId={parseInt(id)} />
-        </Card>
+        <EmailCard
+          leadId={parseInt(id)}
+          emailPara={lead.contacto.email}
+          nombreLead={`${lead.contacto.nombre} ${lead.contacto.apellido}`.trim()}
+        />
       )}
-
-      <ModalEmail
-        open={modalEmail}
-        onClose={() => { setModalEmail(false); qc.invalidateQueries(['email-conversacion', parseInt(id)]) }}
-        para={lead.contacto.email || ''}
-        nombre={`${lead.contacto.nombre} ${lead.contacto.apellido}`.trim()}
-        leadId={parseInt(id)}
-      />
       <ModalCambiarEtapa   open={modalEtapa}          onClose={() => setModalEtapa(false)}          lead={lead} onPerdido={() => setModalPerdido(true)} />
       <ModalPerdido
         open={modalPerdido}
