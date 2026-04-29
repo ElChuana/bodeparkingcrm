@@ -63,6 +63,8 @@ router.post('/enviar',
         ? `lead-${leadId}@${inboundDomain}`
         : undefined
 
+      console.log('[Email] leadId:', leadId, '| INBOUND_DOMAIN:', inboundDomain, '| replyTo:', replyTo)
+
       const result = await enviarEmail({ para, cc, asunto, html, adjuntos, smtpEmail: fromLabel, replyTo })
 
       if (leadId) {
