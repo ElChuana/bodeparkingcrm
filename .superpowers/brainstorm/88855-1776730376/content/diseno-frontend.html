@@ -1,0 +1,76 @@
+<h2>Diseño — Sección 3: Frontend</h2>
+<p class="subtitle">Qué cambia en la interfaz. ¿Todo claro?</p>
+
+<div class="section">
+  <h3>CotizacionEditor — cambios</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+
+    <div>
+      <div style="color:#ff6b6b; font-size:12px; font-weight:600; margin-bottom:8px;">❌ Se elimina</div>
+      <div style="background:#ff000015; border:1px solid #ff4444; border-radius:8px; padding:14px; font-size:12px; color:#ccc; line-height:1.7;">
+        <div>• Modal "Convertir a Venta" con formulario (precioUF, descuentoUF, selector de unidad)</div>
+        <div style="margin-top:6px;">• Cualquier campo de precio editable por el vendedor al convertir</div>
+        <div style="margin-top:6px;">• Selector de promociones con ahorroUF ingresado manualmente</div>
+      </div>
+    </div>
+
+    <div>
+      <div style="color:#3fb950; font-size:12px; font-weight:600; margin-bottom:8px;">✅ Se agrega</div>
+      <div style="background:#3fb95015; border:1px solid #3fb950; border-radius:8px; padding:14px; font-size:12px; color:#ccc; line-height:1.7;">
+        <div>• Sección <strong style="color:#e6edf3;">Packs disponibles</strong> para agregar/quitar (calculados server-side)</div>
+        <div style="margin-top:6px;">• Sección <strong style="color:#e6edf3;">Beneficios disponibles</strong> para agregar/quitar</div>
+        <div style="margin-top:6px;">• Desglose de precio en tiempo real:<br>
+          <code style="color:#79c0ff;">Lista: 150 UF<br>− Packs: −15 UF<br>− Desc. aprobado: −5 UF<br>= Final: 130 UF</code>
+        </div>
+        <div style="margin-top:6px;">• Botón simple <strong style="color:#e6edf3;">"Convertir a Venta"</strong> — sin formulario, solo confirmar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Nueva página: Administración de Packs y Beneficios</h3>
+  <div style="background:#21262d; border:1px solid #30363d; border-radius:8px; padding:14px; font-size:12px; color:#ccc; line-height:1.8;">
+    <div style="color:#e6edf3; font-weight:600; margin-bottom:8px;">Accesible solo para GERENTE / JEFE_VENTAS</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div>
+        <div style="color:#3fb950; font-weight:600; margin-bottom:6px;">Packs</div>
+        <div>• Crear pack: nombre, tipo, descuentoUF</div>
+        <div>• Si COMBO_ESPECIFICO: seleccionar unidades exactas</div>
+        <div>• Si POR_CANTIDAD: ingresar minUnidades</div>
+        <div>• Activar / desactivar / editar</div>
+      </div>
+      <div>
+        <div style="color:#79c0ff; font-weight:600; margin-bottom:6px;">Beneficios</div>
+        <div>• Crear beneficio: nombre, tipo</div>
+        <div>• Si ARRIENDO_ASEGURADO: meses + monto UF/mes</div>
+        <div>• Asignar a unidades específicas</div>
+        <div>• Activar / desactivar / editar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>VentaDetalle — cambios</h3>
+  <div style="background:#21262d; border:1px solid #30363d; border-radius:8px; padding:14px; font-size:12px; color:#ccc; line-height:1.8;">
+    <div>• Mostrar desglose de precio: precio lista / descuento packs / descuento aprobado / <strong style="color:#3fb950;">precio final</strong></div>
+    <div>• Mostrar beneficios asociados con su estado de seguimiento</div>
+    <div>• Link a la cotización de origen</div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>LeadDetalle — sin cambios significativos</h3>
+  <div style="background:#21262d; border:1px solid #30363d; border-radius:8px; padding:14px; font-size:12px; color:#ccc; line-height:1.8;">
+    <div>• Ya muestra <code>lead.ventas[]</code> (implementado en sesión anterior)</div>
+    <div>• Cada venta con botón "Ver Venta #N"</div>
+  </div>
+</div>
+
+<div style="background:#1f6feb22; border:1px solid #1f6feb; border-radius:8px; padding:14px; font-size:13px; color:#e6edf3; line-height:1.6; margin-top:8px;">
+  <strong style="color:#79c0ff;">Resumen del alcance:</strong><br>
+  Backend: schema nuevo + migraciones + 3 controllers (packs, beneficios, cotizaciones con /convertir) + simplificar ventasController.<br>
+  Frontend: CotizacionEditor simplificado + página Packs/Beneficios nueva + VentaDetalle actualizado.<br>
+  <strong>No se toca:</strong> Dashboard, Leads, ProcesoLegal, PlanPago, Comisiones — siguen igual.
+</div>

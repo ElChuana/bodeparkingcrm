@@ -1,0 +1,197 @@
+<h2>Card de Email — diseño final</h2>
+<p class="subtitle">Así quedaría al final del LeadDetalle. Haz clic en las tabs para ver ambas vistas.</p>
+
+<div class="mockup" style="max-width:680px;margin:0 auto">
+  <div class="mockup-header">LeadDetalle — parte de abajo (el resto del lead queda igual arriba)</div>
+  <div class="mockup-body" style="padding:0;background:#f8fafc">
+
+    <!-- Contexto: parte del lead -->
+    <div style="padding:10px 16px;font-size:11px;color:#94a3b8;border-bottom:1px solid #e2e8f0;background:#f8fafc">
+      ↑ Datos del lead, actividad, cotizaciones… (sin cambios)
+    </div>
+
+    <!-- Card email con tabs interactivas -->
+    <div id="email-card" style="font-family:-apple-system,sans-serif;font-size:13px;background:#fff;border-top:2px solid #1B5EA8">
+
+      <!-- Header con tabs -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #e2e8f0;background:#fafafa">
+        <span style="font-weight:700;font-size:14px;color:#1a2533">✉️ Email</span>
+        <div style="display:flex;gap:0;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden;cursor:pointer">
+          <div id="tab-nuevo" onclick="switchTab('nuevo')"
+            style="padding:6px 16px;font-size:12px;font-weight:600;background:#1B5EA8;color:#fff;transition:all 0.15s">
+            Nuevo email
+          </div>
+          <div id="tab-conv" onclick="switchTab('conv')"
+            style="padding:6px 16px;font-size:12px;color:#64748b;background:#fff;transition:all 0.15s">
+            Conversación <span id="badge" style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 5px;font-size:10px;font-weight:700">1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: NUEVO EMAIL ═══ -->
+      <div id="pane-nuevo" style="padding:16px">
+
+        <!-- Para / Asunto -->
+        <div style="display:flex;gap:10px;margin-bottom:12px">
+          <div style="flex:1">
+            <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:4px">PARA</div>
+            <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;padding:7px 10px;font-size:12px;color:#334155">
+              jvaldivieso@dominuscapital.cl
+            </div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:4px">ASUNTO</div>
+            <div id="asunto-field" style="background:#fff;border:1px solid #e2e8f0;border-radius:5px;padding:7px 10px;font-size:12px;color:#94a3b8">
+              BodeParking — Información para Juan
+            </div>
+          </div>
+        </div>
+
+        <!-- Plantillas rápidas -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:6px">PLANTILLA RÁPIDA</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <div onclick="usarPlantilla('seguimiento')" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;font-weight:500">📋 Seguimiento</div>
+            <div onclick="usarPlantilla('presentacion')" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;font-weight:500">🏠 Presentación bodega</div>
+            <div onclick="usarPlantilla('cotizacion')" style="background:#fefce8;border:1px solid #fde68a;color:#92400e;font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;font-weight:500">📄 Enviar cotización</div>
+            <div onclick="usarPlantilla('reunion')" style="background:#faf5ff;border:1px solid #e9d5ff;color:#6b21a8;font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;font-weight:500">✅ Confirmar reunión</div>
+          </div>
+        </div>
+
+        <!-- Cuerpo -->
+        <div style="margin-bottom:12px">
+          <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:4px">MENSAJE</div>
+          <div id="cuerpo-field" style="background:#fff;border:1px solid #e2e8f0;border-radius:5px;padding:10px;font-size:12px;color:#475569;min-height:90px;line-height:1.7">
+            Estimado Juan,<br><br>Me comunico desde BodeParking para...
+          </div>
+        </div>
+
+        <!-- Adjuntos -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.5px;margin-bottom:6px">ADJUNTOS</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <div id="adjunto-cot" style="display:none;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:5px 10px;font-size:11px;display:none;align-items:center;gap:4px">
+              📄 Cotizacion_BP_#42.pdf <span onclick="quitarAdjunto()" style="color:#94a3b8;cursor:pointer;margin-left:2px">×</span>
+            </div>
+            <div onclick="adjuntarCot()" style="border:1px dashed #cbd5e1;border-radius:4px;padding:5px 12px;font-size:11px;color:#64748b;cursor:pointer;background:#fafafa">
+              📎 Adjuntar cotización
+            </div>
+            <div style="border:1px dashed #cbd5e1;border-radius:4px;padding:5px 12px;font-size:11px;color:#64748b;cursor:pointer;background:#fafafa">
+              📁 Archivo
+            </div>
+          </div>
+        </div>
+
+        <!-- Acciones -->
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <div style="border:1px solid #e2e8f0;border-radius:5px;padding:7px 16px;font-size:12px;color:#64748b;cursor:pointer">Limpiar</div>
+          <div style="background:#1B5EA8;color:#fff;border-radius:5px;padding:7px 18px;font-size:12px;font-weight:600;cursor:pointer">Enviar ✉️</div>
+        </div>
+      </div>
+
+      <!-- ═══ TAB: CONVERSACIÓN ═══ -->
+      <div id="pane-conv" style="display:none">
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto">
+
+          <!-- Enviado -->
+          <div style="display:flex;justify-content:flex-end">
+            <div style="background:#1B5EA8;color:#fff;border-radius:14px 14px 2px 14px;padding:10px 14px;max-width:72%">
+              <div style="font-size:10px;opacity:0.65;margin-bottom:3px">Tú (Felix) · BodeParking — Info para Juan</div>
+              <div style="font-size:12px;line-height:1.55">Estimado Juan, me comunico para informarle sobre nuestras bodegas disponibles en el sector...</div>
+              <div style="font-size:10px;opacity:0.45;text-align:right;margin-top:5px">29 abr 16:45</div>
+            </div>
+          </div>
+
+          <!-- Recibido -->
+          <div style="display:flex;justify-content:flex-start">
+            <div style="background:#f3f4f6;color:#1a2533;border-radius:14px 14px 14px 2px;padding:10px 14px;max-width:72%">
+              <div style="font-size:10px;color:#94a3b8;margin-bottom:3px">jvaldivieso@dominuscapital.cl · Re: BodeParking — Info para Juan</div>
+              <div style="font-size:12px;line-height:1.55">Hola Felix, muchas gracias por contactarme. Me interesa la bodega de 50m²...</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <div style="font-size:10px;color:#94a3b8">29 abr 17:06</div>
+                <div onclick="responder('Re: BodeParking — Info para Juan')" style="background:#e0edff;color:#1B5EA8;border-radius:10px;padding:3px 10px;font-size:10px;font-weight:600;cursor:pointer">↩ Responder</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Enviado con adjunto -->
+          <div style="display:flex;justify-content:flex-end">
+            <div style="background:#1B5EA8;color:#fff;border-radius:14px 14px 2px 14px;padding:10px 14px;max-width:72%">
+              <div style="font-size:10px;opacity:0.65;margin-bottom:3px">Tú (Felix) · Re: BodeParking — Info para Juan</div>
+              <div style="font-size:12px;line-height:1.55">Juan, con gusto le envío la cotización adjunta. Quedo a su disposición.</div>
+              <div style="font-size:11px;background:rgba(255,255,255,0.15);border-radius:4px;padding:4px 8px;margin-top:6px;display:inline-block">📄 Cotizacion_BP_42.pdf</div>
+              <div style="font-size:10px;opacity:0.45;text-align:right;margin-top:5px">29 abr 17:28</div>
+            </div>
+          </div>
+
+          <!-- Recibido no leído -->
+          <div style="display:flex;justify-content:flex-start">
+            <div style="background:#fff;color:#1a2533;border-radius:14px 14px 14px 2px;padding:10px 14px;max-width:72%;border:1.5px solid #fbbf24;box-shadow:0 0 0 3px #fef3c7">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+                <div style="font-size:10px;color:#94a3b8">jvaldivieso@dominuscapital.cl · Re: Cotización</div>
+                <div style="background:#f59e0b;color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;font-weight:700">NUEVO</div>
+              </div>
+              <div style="font-size:12px;line-height:1.55">¿Cuándo podríamos reunirnos para ver la bodega personalmente?</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <div style="font-size:10px;color:#94a3b8">29 abr 18:12</div>
+                <div onclick="responder('Re: Cotización')" style="background:#1B5EA8;color:#fff;border-radius:10px;padding:3px 10px;font-size:10px;font-weight:600;cursor:pointer">↩ Responder</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">
+  Prueba las tabs y el botón ↩ Responder — al hacer clic cambia a "Nuevo email" con el asunto listo.
+</p>
+
+<script>
+const plantillas = {
+  seguimiento: { asunto: 'Seguimiento — BodeParking', cuerpo: 'Estimado Juan,<br><br>Me comunico para hacer seguimiento sobre su consulta de bodega. ¿Tuvo oportunidad de revisar la información que le enviamos?<br><br>Quedo atento a sus comentarios.' },
+  presentacion: { asunto: 'Presentación de Bodega — BodeParking', cuerpo: 'Estimado Juan,<br><br>Junto a este mensaje le adjunto información detallada sobre la bodega que le presentamos. Se trata de una unidad de [X] m² ubicada en [sector].<br><br>Quedamos disponibles para coordinar una visita cuando lo estime conveniente.' },
+  cotizacion: { asunto: 'Cotización BodeParking', cuerpo: 'Estimado Juan,<br><br>Adjunto encontrará la cotización solicitada para la bodega [X]. En ella encontrará el detalle de precio, condiciones y disponibilidad.<br><br>Quedo a su disposición para cualquier consulta.' },
+  reunion: { asunto: 'Confirmación de reunión — BodeParking', cuerpo: 'Estimado Juan,<br><br>Confirmo nuestra reunión para el [FECHA] a las [HORA] en [LUGAR].<br><br>Si necesita reagendar, no dude en escribirme. ¡Hasta pronto!' },
+}
+
+function switchTab(tab) {
+  const isNuevo = tab === 'nuevo'
+  document.getElementById('pane-nuevo').style.display = isNuevo ? 'block' : 'none'
+  document.getElementById('pane-conv').style.display = isNuevo ? 'none' : 'block'
+  document.getElementById('tab-nuevo').style.background = isNuevo ? '#1B5EA8' : '#fff'
+  document.getElementById('tab-nuevo').style.color = isNuevo ? '#fff' : '#64748b'
+  document.getElementById('tab-nuevo').style.fontWeight = isNuevo ? '600' : '400'
+  document.getElementById('tab-conv').style.background = isNuevo ? '#fff' : '#1B5EA8'
+  document.getElementById('tab-conv').style.color = isNuevo ? '#64748b' : '#fff'
+  document.getElementById('tab-conv').style.fontWeight = isNuevo ? '400' : '600'
+  if (!isNuevo) document.getElementById('badge').style.background = 'rgba(255,255,255,0.3)'
+}
+
+function usarPlantilla(tipo) {
+  const p = plantillas[tipo]
+  document.getElementById('asunto-field').textContent = p.asunto
+  document.getElementById('asunto-field').style.color = '#334155'
+  document.getElementById('cuerpo-field').innerHTML = p.cuerpo
+  document.getElementById('cuerpo-field').style.color = '#334155'
+}
+
+function responder(asunto) {
+  document.getElementById('asunto-field').textContent = asunto
+  document.getElementById('asunto-field').style.color = '#1B5EA8'
+  document.getElementById('cuerpo-field').innerHTML = 'Estimado Juan,<br><br>'
+  document.getElementById('cuerpo-field').style.color = '#334155'
+  switchTab('nuevo')
+}
+
+function adjuntarCot() {
+  const el = document.getElementById('adjunto-cot')
+  el.style.display = 'inline-flex'
+}
+function quitarAdjunto() {
+  document.getElementById('adjunto-cot').style.display = 'none'
+}
+</script>

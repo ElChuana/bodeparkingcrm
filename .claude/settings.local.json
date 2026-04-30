@@ -19,7 +19,14 @@
       "Bash(git commit:*)",
       "Bash(railway up:*)",
       "Bash(railway --help)",
-      "Bash(railway ssh:*)"
+      "Bash(railway ssh:*)",
+      "Bash(node -e ':*)",
+      "Bash(node:*)",
+      "Bash(psql:*)",
+      "WebFetch(domain:docs.railway.com)",
+      "WebFetch(domain:station.railway.com)",
+      "Bash(npm run:*)",
+      "Bash(DATABASE_URL=\"postgresql://bodeparking:bodeparking2026!@monorail.proxy.rlwy.net:35865/bodeparkingcrm\" npx prisma migrate status)"
     ]
   }
 }

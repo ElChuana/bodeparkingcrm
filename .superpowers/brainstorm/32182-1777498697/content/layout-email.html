@@ -1,0 +1,112 @@
+<h2>¿Cómo integrar el módulo de email en el detalle del lead?</h2>
+<p class="subtitle">Actualmente LeadDetalle tiene un layout de dos columnas sin tabs. Hay 3 formas de incorporar el email.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:sans-serif;font-size:12px;padding:10px;background:#fff;border-radius:6px">
+        <div style="background:#1B5EA8;color:#fff;padding:6px 12px;border-radius:4px 4px 0 0;font-weight:700;font-size:11px">Lead #6871 — Juan Valdivieso</div>
+        <div style="border:1px solid #e2e8f0;border-top:none;display:flex;gap:0">
+          <div style="padding:5px 12px;font-size:11px;color:#1B5EA8;border-bottom:2px solid #1B5EA8;font-weight:600">Detalle</div>
+          <div style="padding:5px 12px;font-size:11px;color:#64748b">Actividad</div>
+          <div style="padding:5px 12px;font-size:11px;color:#64748b">✉️ Emails <span style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 5px;font-size:9px">2</span></div>
+          <div style="padding:5px 12px;font-size:11px;color:#64748b">Cotizaciones</div>
+        </div>
+        <div style="padding:10px;border:1px solid #e2e8f0;border-top:none">
+          <div style="background:#f8fafc;border-radius:4px;padding:8px;margin-bottom:6px">
+            <div style="font-size:10px;color:#94a3b8">jvaldivieso@dominuscapital.cl</div>
+            <div style="font-size:11px;font-weight:600">Re: BodeParking — Info para Juan</div>
+            <div style="font-size:10px;color:#475569;margin-top:2px">Hola, me interesa la bodega...</div>
+          </div>
+          <div style="background:#1B5EA8;border-radius:4px;padding:8px;margin-left:20px">
+            <div style="font-size:10px;color:rgba(255,255,255,0.7)">Tú (Felix)</div>
+            <div style="font-size:10px;color:#fff;margin-top:2px">Buenos días Juan, con gusto...</div>
+          </div>
+          <div style="border:1px solid #e2e8f0;border-radius:4px;padding:6px;margin-top:8px;background:#f8fafc">
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Responder...</div>
+            <div style="display:flex;gap:4px;margin-top:4px">
+              <div style="background:#1B5EA8;color:#fff;font-size:9px;padding:2px 6px;border-radius:3px">Enviar</div>
+              <div style="background:#f1f5f9;font-size:9px;padding:2px 6px;border-radius:3px">📎 Adjuntar</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Tabs en el lead</h3>
+      <p>Se agrega una barra de tabs: Detalle / Actividad / <strong>Emails</strong> / Cotizaciones. El email vive en su propia pestaña con badge de no-leídos. Clic en cualquier email desde otro lugar navega a esta tab.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:sans-serif;font-size:12px;padding:10px;background:#fff;border-radius:6px">
+        <div style="background:#1B5EA8;color:#fff;padding:6px 12px;border-radius:4px 4px 0 0;font-weight:700;font-size:11px">Lead #6871 — Juan Valdivieso</div>
+        <div style="display:flex;gap:8px;padding:8px;border:1px solid #e2e8f0;border-top:none">
+          <div style="flex:1;border:1px solid #e2e8f0;border-radius:4px;padding:6px">
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-bottom:4px">CONTACTO</div>
+            <div style="font-size:10px">jvaldivieso@dom...</div>
+            <div style="font-size:10px">+56 9 1234 5678</div>
+          </div>
+          <div style="flex:2;border:1px solid #e2e8f0;border-radius:4px;padding:6px">
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-bottom:4px">ACTIVIDAD</div>
+            <div style="font-size:9px;color:#64748b">📞 Llamada — ayer</div>
+            <div style="font-size:9px;color:#64748b">✉️ Email recibido — hoy</div>
+          </div>
+        </div>
+        <div style="border:1px solid #1B5EA8;border-radius:4px;margin:8px;padding:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:10px;font-weight:700;color:#1B5EA8">✉️ CONVERSACIÓN EMAIL</div>
+            <div style="background:#1B5EA8;color:#fff;font-size:9px;padding:2px 6px;border-radius:3px">+ Nuevo</div>
+          </div>
+          <div style="background:#f8fafc;border-radius:3px;padding:5px;margin-bottom:4px;font-size:9px">Re: BodeParking... · hoy 17:06</div>
+          <div style="border:1px dashed #cbd5e1;border-radius:3px;padding:4px;font-size:9px;color:#94a3b8">Escribe tu respuesta...</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Sección expandida (sin tabs)</h3>
+      <p>El email queda como sección destacada al final del lead, siempre visible. No hay tabs — se hace scroll. Más simple, pero el lead ya es largo y el email queda lejos.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:sans-serif;font-size:12px;padding:10px;background:#fff;border-radius:6px">
+        <div style="background:#1B5EA8;color:#fff;padding:6px 12px;border-radius:4px 4px 0 0;font-weight:700;font-size:11px">Lead #6871 — Juan Valdivieso · <span style="opacity:0.8">PROMESA</span></div>
+        <div style="display:flex;gap:8px;padding:8px;border:1px solid #e2e8f0;border-top:none">
+          <!-- izquierda: columna fija -->
+          <div style="width:35%;border:1px solid #e2e8f0;border-radius:4px;padding:6px">
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-bottom:4px">CONTACTO</div>
+            <div style="font-size:10px">jvaldivieso@dom...</div>
+            <div style="font-size:10px">+56 9 1234 5678</div>
+            <div style="height:1px;background:#e2e8f0;margin:4px 0"></div>
+            <div style="font-size:9px;font-weight:700;color:#64748b;margin-bottom:2px">TABS</div>
+            <div style="font-size:10px;background:#eff6ff;color:#1B5EA8;padding:3px 6px;border-radius:3px;margin-bottom:2px">✉️ Emails (2)</div>
+            <div style="font-size:10px;color:#64748b;padding:3px 6px">📋 Actividad</div>
+            <div style="font-size:10px;color:#64748b;padding:3px 6px">📄 Cotizaciones</div>
+          </div>
+          <!-- derecha: contenido de la tab -->
+          <div style="flex:1;border:1px solid #e2e8f0;border-radius:4px;padding:6px">
+            <div style="background:#f8fafc;border-radius:3px;padding:5px;margin-bottom:4px;font-size:9px">
+              <div style="color:#94a3b8">jvaldivieso@dom...</div>
+              <div style="font-weight:600">Re: BodeParking...</div>
+              <div style="color:#475569">Me interesa la bodega...</div>
+            </div>
+            <div style="background:#1B5EA8;border-radius:3px;padding:5px;margin-left:15px;margin-bottom:4px;font-size:9px;color:#fff">
+              <div style="opacity:0.7">Tú</div>
+              Buenos días Juan...
+            </div>
+            <div style="border:1px dashed #cbd5e1;border-radius:3px;padding:4px;font-size:9px;color:#94a3b8">Responder...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Sidebar fija + tabs lateral</h3>
+      <p>Columna izquierda siempre visible (contacto, etapa). Columna derecha con navegación vertical entre Emails / Actividad / Cotizaciones. Más espacio para el chat.</p>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,46 @@
+<h2>¿Cómo se ve el marcador "automático" en un lead perdido?</h2>
+<p class="subtitle">Dos opciones de presentación — en el kanban y en el detalle del lead</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Badge discreto en la tarjeta</h3>
+      <p>Un tag pequeño junto al motivo de pérdida. No interrumpe, pero está claro.</p>
+      <div style="margin-top:12px; background:#f8fafc; border-radius:8px; padding:12px; border: 1px solid #e2e8f0;">
+        <div style="font-size:10px; font-weight:600; color:#94a3b8; text-transform:uppercase; letter-spacing:.8px; margin-bottom:8px;">Lead — Juan Pérez</div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;">PERDIDO</span>
+          <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;font-size:11px;">No contesta</span>
+          <span style="background:#f0f9ff;color:#0369a1;border:1px solid #bae6fd;padding:2px 8px;border-radius:99px;font-size:11px;display:flex;align-items:center;gap:4px;">
+            <span>🤖</span> Automático
+          </span>
+        </div>
+        <div style="margin-top:6px; font-size:11px; color:#94a3b8;">Desde etapa: NUEVO · hace 3 días</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Banner en el detalle del lead</h3>
+      <p>En la vista de detalle aparece un banner explicativo arriba. Más visible, más contexto.</p>
+      <div style="margin-top:12px; background:#f0f9ff; border-radius:8px; padding:12px; border: 1px solid #bae6fd;">
+        <div style="display:flex; align-items:flex-start; gap:10px;">
+          <span style="font-size:18px;">🤖</span>
+          <div>
+            <div style="font-size:12px; font-weight:700; color:#0c4a6e;">Perdido automáticamente</div>
+            <div style="font-size:11px; color:#0369a1; margin-top:2px;">Este lead fue marcado como PERDIDO por una regla de automatización el 23 Apr 2026 a las 08:00. Estaba en etapa <strong>NUEVO</strong> sin actividad por más de 7 días.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px; background:#f8fafc; border-radius:8px; padding:14px; font-size:12px; color:#475569; border:1px solid #e2e8f0;">
+  <strong>Nota:</strong> Ambas opciones son compatibles — podés tener el badge en la lista/kanban (A) <em>y</em> el banner en el detalle (B). ¿O solo uno de los dos?
+</div>

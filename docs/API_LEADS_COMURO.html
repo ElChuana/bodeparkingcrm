@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Integración API Leads — BodeParking CRM</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    color: #1a1a2e;
+    background: #fff;
+    padding: 40px;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+    color: white;
+    padding: 32px 36px;
+    border-radius: 12px;
+    margin-bottom: 32px;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .logo-area h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-area .sub { font-size: 13px; color: #93c5fd; margin-top: 4px; }
+  .badge {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: #e0f2fe;
+  }
+  .header-meta {
+    display: flex;
+    gap: 24px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    font-size: 12px;
+    color: #bfdbfe;
+  }
+  .header-meta span strong { color: white; display: block; font-size: 13px; }
+
+  /* ─── Section title ─── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  /* ─── Cards ─── */
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+  }
+  .card-blue { border-left: 4px solid #1d4ed8; }
+  .card-green { border-left: 4px solid #059669; }
+  .card-amber { border-left: 4px solid #d97706; }
+  .card-purple { border-left: 4px solid #7c3aed; }
+
+  /* ─── Endpoint box ─── */
+  .endpoint-box {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+  }
+  .method { color: #34d399; font-weight: 700; margin-right: 10px; }
+  .url { color: #93c5fd; }
+
+  /* ─── Code block ─── */
+  .code-block {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .code-key { color: #f9a8d4; }
+  .code-str { color: #86efac; }
+  .code-bool { color: #fde68a; }
+  .code-num { color: #93c5fd; }
+  .code-comment { color: #64748b; font-style: italic; }
+
+  /* ─── Headers table ─── */
+  .headers-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 10px;
+  }
+  .headers-table th {
+    background: #1e3a8a;
+    color: white;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+  }
+  .headers-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .headers-table tr:nth-child(even) td { background: #f1f5f9; }
+  .headers-table code {
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 11px;
+  }
+
+  /* ─── Fields grid ─── */
+  .fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    font-size: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .field-group-title {
+    grid-column: 1 / -1;
+    background: #1e3a8a;
+    color: white;
+    padding: 7px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .field-row {
+    display: flex;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .field-name {
+    background: #f8fafc;
+    padding: 6px 12px;
+    font-family: monospace;
+    color: #be185d;
+    font-size: 11px;
+    min-width: 180px;
+    border-right: 1px solid #e5e7eb;
+  }
+  .field-desc {
+    padding: 6px 12px;
+    color: #374151;
+  }
+  .tag {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .tag-req { background: #fee2e2; color: #b91c1c; }
+  .tag-rec { background: #dcfce7; color: #166534; }
+  .tag-opt { background: #f3f4f6; color: #6b7280; }
+
+  /* ─── Logic steps ─── */
+  .steps {
+    counter-reset: step;
+    margin-top: 10px;
+  }
+  .step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 12px;
+    align-items: flex-start;
+  }
+  .step-num {
+    counter-increment: step;
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    background: #1d4ed8;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .step-content { padding-top: 3px; }
+  .step-content strong { display: block; margin-bottom: 2px; }
+  .step-content span { color: #6b7280; font-size: 12px; }
+
+  /* ─── Response boxes ─── */
+  .response-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 10px;
+  }
+  .response-box { border-radius: 8px; padding: 14px 16px; }
+  .response-201 { background: #f0fdf4; border: 1px solid #86efac; }
+  .response-200 { background: #eff6ff; border: 1px solid #93c5fd; }
+  .response-label { font-weight: 700; font-size: 12px; margin-bottom: 8px; }
+  .response-201 .response-label { color: #166534; }
+  .response-200 .response-label { color: #1e40af; }
+
+  /* ─── Key box ─── */
+  .key-box {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-top: 12px;
+  }
+  .key-box .key-label { font-size: 11px; color: #92400e; font-weight: 700; margin-bottom: 6px; }
+  .key-box code {
+    font-family: monospace;
+    font-size: 12px;
+    color: #78350f;
+    word-break: break-all;
+    display: block;
+  }
+
+  /* ─── Notes list ─── */
+  .notes li {
+    padding: 4px 0;
+    color: #374151;
+  }
+  .notes li::before { content: '→ '; color: #1d4ed8; font-weight: 700; }
+
+  /* ─── Footer ─── */
+  .footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #9ca3af;
+  }
+
+  @media print {
+    body { padding: 20px; }
+    .card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-top">
+    <div class="logo-area">
+      <h1>BodeParking CRM</h1>
+      <div class="sub">Especificación de Integración API — Endpoint Upsert de Leads</div>
+    </div>
+    <div class="badge">Versión 1.0 · Abril 2026</div>
+  </div>
+  <div class="header-meta">
+    <span><strong>Base URL</strong>https://backend-production-1c52.up.railway.app</span>
+    <span><strong>Protocolo</strong>HTTPS obligatorio</span>
+    <span><strong>Autenticación</strong>API Key</span>
+    <span><strong>Formato</strong>application/json</span>
+  </div>
+</div>
+
+<!-- 1. ENDPOINT -->
+<div class="section-title">1 · Endpoint</div>
+<div class="card card-blue">
+  <div class="endpoint-box">
+    <span class="method">POST</span>
+    <span class="url">https://backend-production-1c52.up.railway.app/api/leads/upsert</span>
+  </div>
+  <table class="headers-table">
+    <thead>
+      <tr><th>Header</th><th>Valor</th><th>Descripción</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>Authorization</code></td><td><code>{API_KEY}</code> (sin Bearer)</td><td>API Key proporcionada por BodeParking</td></tr>
+      <tr><td><code>X-API-Key</code></td><td><code>{API_KEY}</code></td><td>Alternativa — cualquiera de las dos formas</td></tr>
+      <tr><td><code>Content-Type</code></td><td><code>application/json</code></td><td>Obligatorio</td></tr>
+    </tbody>
+  </table>
+  <div class="key-box" style="margin-top:16px;">
+    <div class="key-label">🔑 API KEY — Comuro</div>
+    <code>bp_16b21a567c47b4c1f672ce70972bf9422f17a23c1a85b146</code>
+  </div>
+</div>
+
+<!-- 2. UPSERT LOGIC -->
+<div class="section-title">2 · Lógica Upsert (identificación del lead)</div>
+<div class="card card-green">
+  <p style="font-size:13px; color:#374151; margin-bottom:14px;">
+    El sistema detecta automáticamente si el lead ya existe. Si existe → actualiza. Si no → crea contacto + lead.
+    Los campos enviados se <strong>fusionan</strong> con los existentes (no se sobreescriben con null).
+  </p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>internal_uuid <span class="tag tag-rec">recomendado</span></strong>
+        <span>Identificador único de Comuro. Si está presente, tiene prioridad absoluta.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>phone + project <span class="tag tag-opt">fallback</span></strong>
+        <span>Busca contacto por teléfono y lead por campaña/proyecto. Útil si no se tiene uuid.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>external_id <span class="tag tag-opt">fallback</span></strong>
+        <span>Se busca como thread_id almacenado previamente.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. PAYLOAD -->
+<div class="section-title">3 · Estructura del Payload</div>
+<div class="card card-purple">
+  <div class="fields-grid">
+    <div class="field-group-title">Datos principales</div>
+    <div class="field-row"><span class="field-name">phone</span><span class="field-desc">Teléfono sin + ni espacios (ej: 56912345678) <span class="tag tag-req">requerido*</span></span></div>
+    <div class="field-row"><span class="field-name">name</span><span class="field-desc">Nombre completo del lead</span></div>
+    <div class="field-row"><span class="field-name">nombre_whatsapp</span><span class="field-desc">Nombre tal como aparece en WhatsApp</span></div>
+    <div class="field-row"><span class="field-name">email</span><span class="field-desc">Correo electrónico</span></div>
+    <div class="field-row"><span class="field-name">internal_uuid</span><span class="field-desc">UUID interno de Comuro <span class="tag tag-rec">recomendado</span></span></div>
+
+    <div class="field-group-title">Interés</div>
+    <div class="field-row"><span class="field-name">interes_tipo_activo</span><span class="field-desc">bodega / estacionamiento</span></div>
+    <div class="field-row"><span class="field-name">interes_ubicacion</span><span class="field-desc">Sector o comuna de interés</span></div>
+    <div class="field-row"><span class="field-name">interes_superficie</span><span class="field-desc">Superficie aproximada (ej: "6m2")</span></div>
+    <div class="field-row"><span class="field-name">interes_presupuesto</span><span class="field-desc">Presupuesto estimado del cliente</span></div>
+    <div class="field-row"><span class="field-name">value_deal</span><span class="field-desc">Valor del negocio estimado</span></div>
+    <div class="field-row"><span class="field-name">product_deal</span><span class="field-desc">Producto específico que le interesa</span></div>
+    <div class="field-row"><span class="field-name">interes_tipo_estacionamiento</span><span class="field-desc">normal / tandem</span></div>
+
+    <div class="field-group-title">Calificación</div>
+    <div class="field-row"><span class="field-name">lead_prospect</span><span class="field-desc">true / false — ¿Es un prospecto real?</span></div>
+    <div class="field-row"><span class="field-name">cumple_requisitos</span><span class="field-desc">true / false — ¿Cumple los requisitos?</span></div>
+    <div class="field-row"><span class="field-name">opportunity_prospect</span><span class="field-desc">true / false — ¿Hay oportunidad real?</span></div>
+
+    <div class="field-group-title">Contacto y visita</div>
+    <div class="field-row"><span class="field-name">coordinar_reunion</span><span class="field-desc">true / false — Quiere agendar visita</span></div>
+    <div class="field-row"><span class="field-name">tipo_contacto</span><span class="field-desc">whatsapp / llamada / formulario</span></div>
+    <div class="field-row"><span class="field-name">fecha_visita</span><span class="field-desc">Fecha preferida (YYYY-MM-DD)</span></div>
+    <div class="field-row"><span class="field-name">hora_visita</span><span class="field-desc">Hora preferida (HH:MM)</span></div>
+
+    <div class="field-group-title">Datos personales opcionales</div>
+    <div class="field-row"><span class="field-name">rut</span><span class="field-desc">RUT del cliente</span></div>
+    <div class="field-row"><span class="field-name">correo</span><span class="field-desc">Email alternativo</span></div>
+    <div class="field-row"><span class="field-name">ingresos_totales</span><span class="field-desc">Ingresos declarados</span></div>
+    <div class="field-row"><span class="field-name">otras_inversiones</span><span class="field-desc">Tiene otras inversiones</span></div>
+
+    <div class="field-group-title">Interacción</div>
+    <div class="field-row"><span class="field-name">solicito_imagenes</span><span class="field-desc">true / false</span></div>
+    <div class="field-row"><span class="field-name">pregunta_direccion</span><span class="field-desc">true / false</span></div>
+    <div class="field-row"><span class="field-name">no_quiere_dar_info</span><span class="field-desc">true / false</span></div>
+    <div class="field-row"><span class="field-name">contacto_ejecutivo</span><span class="field-desc">true / false — Pidió hablar con ejecutivo</span></div>
+
+    <div class="field-group-title">Contexto de conversación</div>
+    <div class="field-row"><span class="field-name">context</span><span class="field-desc">Resumen de la conversación (texto libre) <span class="tag tag-rec">importante</span></span></div>
+    <div class="field-row"><span class="field-name">thread_id</span><span class="field-desc">ID del hilo de conversación (trazabilidad)</span></div>
+    <div class="field-row"><span class="field-name">conversation_url</span><span class="field-desc">URL directa a la conversación en Comuro</span></div>
+
+    <div class="field-group-title">Marketing / UTM</div>
+    <div class="field-row"><span class="field-name">utm_campaign</span><span class="field-desc">Nombre de la campaña</span></div>
+    <div class="field-row"><span class="field-name">utm_medium</span><span class="field-desc">Medio (whatsapp, email, etc.)</span></div>
+    <div class="field-row"><span class="field-name">utm_source</span><span class="field-desc">Fuente (instagram, google, etc.)</span></div>
+    <div class="field-row"><span class="field-name">utm_term</span><span class="field-desc">Término de búsqueda</span></div>
+    <div class="field-row"><span class="field-name">utm_id</span><span class="field-desc">ID de campaña</span></div>
+
+    <div class="field-group-title">Origen y metadata</div>
+    <div class="field-row"><span class="field-name">source_type</span><span class="field-desc">Tipo de fuente (instagram_ad, etc.)</span></div>
+    <div class="field-row"><span class="field-name">source_url</span><span class="field-desc">URL de origen del lead</span></div>
+    <div class="field-row"><span class="field-name">media_type</span><span class="field-desc">Tipo de medio</span></div>
+    <div class="field-row"><span class="field-name">project</span><span class="field-desc">Proyecto/edificio de interés (ej: "BodeParking Las Condes")</span></div>
+    <div class="field-row"><span class="field-name">campaign</span><span class="field-desc">Nombre de campaña publicitaria</span></div>
+    <div class="field-row"><span class="field-name">assistant_type</span><span class="field-desc">Tipo de asistente Comuro</span></div>
+    <div class="field-row"><span class="field-name">client</span><span class="field-desc">Nombre del cliente (BodeParking)</span></div>
+  </div>
+  <p style="font-size:11px; color:#6b7280; margin-top:10px;">* <strong>phone</strong> es requerido si no se envía <code>internal_uuid</code></p>
+</div>
+
+<!-- 4. EJEMPLO -->
+<div class="section-title">4 · Ejemplo de Request</div>
+<div class="card card-amber">
+  <div class="code-block">
+<span class="code-comment">// POST /api/leads/upsert</span>
+<span class="code-comment">// Authorization: bp_16b21a567c47b4c1f672ce70972bf9422f17a23c1a85b146</span>
+<span class="code-comment">// (o X-API-Key: bp_16b21a567c47b4c1f672ce70972bf9422f17a23c1a85b146)</span>
+
+{
+  <span class="code-key">"phone"</span>: <span class="code-str">"56912345678"</span>,
+  <span class="code-key">"name"</span>: <span class="code-str">"Juan Pérez"</span>,
+  <span class="code-key">"internal_uuid"</span>: <span class="code-str">"comuro-uuid-001"</span>,    <span class="code-comment">// ID único Comuro</span>
+  <span class="code-key">"thread_id"</span>: <span class="code-str">"thread_abc123"</span>,
+  <span class="code-key">"project"</span>: <span class="code-str">"BodeParking Las Condes"</span>,
+  <span class="code-key">"interes_tipo_activo"</span>: <span class="code-str">"bodega"</span>,
+  <span class="code-key">"interes_ubicacion"</span>: <span class="code-str">"Las Condes"</span>,
+  <span class="code-key">"interes_presupuesto"</span>: <span class="code-str">"500 UF"</span>,
+  <span class="code-key">"value_deal"</span>: <span class="code-str">"Por cotizar"</span>,
+  <span class="code-key">"lead_prospect"</span>: <span class="code-bool">true</span>,
+  <span class="code-key">"cumple_requisitos"</span>: <span class="code-bool">true</span>,
+  <span class="code-key">"coordinar_reunion"</span>: <span class="code-bool">true</span>,
+  <span class="code-key">"context"</span>: <span class="code-str">"Cliente interesado en bodega, quiere agendar visita"</span>,
+  <span class="code-key">"conversation_url"</span>: <span class="code-str">"https://app.comuro.io/conversations/thread_abc123"</span>,
+  <span class="code-key">"utm_source"</span>: <span class="code-str">"instagram"</span>,
+  <span class="code-key">"utm_campaign"</span>: <span class="code-str">"bodegas-2026"</span>
+}
+  </div>
+</div>
+
+<!-- 5. RESPUESTAS -->
+<div class="section-title">5 · Respuestas</div>
+<div class="card">
+  <div class="response-grid">
+    <div class="response-box response-201">
+      <div class="response-label">✅ 201 Created — Lead nuevo</div>
+      <div class="code-block" style="margin:0; font-size:12px;">
+{
+  <span class="code-key">"lead_id"</span>: <span class="code-str">"1234"</span>,
+  <span class="code-key">"status"</span>: <span class="code-str">"created"</span>
+}
+      </div>
+    </div>
+    <div class="response-box response-200">
+      <div class="response-label">🔄 200 OK — Lead actualizado</div>
+      <div class="code-block" style="margin:0; font-size:12px;">
+{
+  <span class="code-key">"lead_id"</span>: <span class="code-str">"1234"</span>,
+  <span class="code-key">"status"</span>: <span class="code-str">"updated"</span>
+}
+      </div>
+    </div>
+  </div>
+  <table class="headers-table" style="margin-top:14px;">
+    <thead><tr><th>Código</th><th>Situación</th></tr></thead>
+    <tbody>
+      <tr><td><code>201</code></td><td>Lead creado exitosamente</td></tr>
+      <tr><td><code>200</code></td><td>Lead encontrado y actualizado</td></tr>
+      <tr><td><code>401</code></td><td>API Key inválida o faltante</td></tr>
+      <tr><td><code>500</code></td><td>Error interno del servidor</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 6. NOTAS -->
+<div class="section-title">6 · Consideraciones técnicas</div>
+<div class="card card-blue">
+  <ul class="notes" style="list-style:none; padding:0;">
+    <li>Los campos se fusionan con los existentes — nunca se sobreescribe con <code>null</code></li>
+    <li>Se pueden enviar actualizaciones parciales del mismo lead en múltiples llamadas</li>
+    <li>El campo <code>context</code> es clave para que el equipo de ventas entienda el interés</li>
+    <li><code>thread_id</code> permite trazabilidad completa entre Comuro y el CRM</li>
+    <li><code>internal_uuid</code> es el identificador más confiable — siempre incluirlo</li>
+    <li>El lead creado queda en etapa <strong>NUEVO</strong> en el pipeline del CRM</li>
+    <li>El origen del contacto se registra automáticamente como <strong>WEB</strong></li>
+    <li>La API Key se configura en el CRM bajo Configuración → API Keys</li>
+  </ul>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <span>BodeParking CRM — Integración API Comuro v1.0</span>
+  <span>Abril 2026 · backend-production-1c52.up.railway.app</span>
+</div>
+
+</body>
+</html>

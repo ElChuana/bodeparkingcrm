@@ -1,0 +1,122 @@
+<h2>Arquitectura actual — Cotización → Venta</h2>
+<p class="subtitle">Así funciona el sistema hoy. Revisemos qué está fallando.</p>
+
+<div class="section">
+  <h3>Flujo actual</h3>
+  <div style="font-family: monospace; font-size: 13px; line-height: 2; background: #0d1117; color: #e6edf3; padding: 20px; border-radius: 8px; overflow-x: auto;">
+    <div style="display: flex; align-items: flex-start; gap: 0;">
+      <!-- Step 1 -->
+      <div style="display: flex; flex-direction: column; align-items: center; min-width: 140px;">
+        <div style="background: #1f6feb; color: white; padding: 10px 16px; border-radius: 6px; text-align: center; font-size: 12px; width: 120px;">
+          <div style="font-size: 10px; opacity: 0.7; margin-bottom: 4px;">COTIZACIÓN</div>
+          <div>Items (unidades)</div>
+          <div style="font-size: 10px; margin-top: 4px; opacity: 0.7;">descuentoUF por item</div>
+          <div style="font-size: 10px; opacity: 0.7;">promociones</div>
+          <div style="font-size: 10px; opacity: 0.7;">descuentoAprobadoUF</div>
+        </div>
+      </div>
+      <!-- Arrow -->
+      <div style="display: flex; align-items: center; padding: 0 8px; margin-top: 20px;">
+        <div style="color: #f0883e;">──────►</div>
+      </div>
+      <!-- Step 2 -->
+      <div style="display: flex; flex-direction: column; align-items: center; min-width: 200px;">
+        <div style="background: #388bfd22; border: 1px solid #388bfd; color: #e6edf3; padding: 10px 16px; border-radius: 6px; text-align: center; font-size: 12px; width: 180px;">
+          <div style="font-size: 10px; color: #f0883e; margin-bottom: 4px;">⚠ CONVERSIÓN</div>
+          <div>Frontend llama a</div>
+          <div style="color: #79c0ff;">POST /api/ventas</div>
+          <div style="font-size: 10px; margin-top: 4px; opacity: 0.7;">con cotizacionOrigenId</div>
+          <div style="font-size: 10px; color: #f0883e;">descuentoUF se re-ingresa</div>
+          <div style="font-size: 10px; color: #f0883e;">promociones NO se pasan</div>
+        </div>
+      </div>
+      <!-- Arrow -->
+      <div style="display: flex; align-items: center; padding: 0 8px; margin-top: 20px;">
+        <div style="color: #f0883e;">──────►</div>
+      </div>
+      <!-- Step 3 -->
+      <div style="display: flex; flex-direction: column; align-items: center; min-width: 140px;">
+        <div style="background: #3fb950; color: #0d1117; padding: 10px 16px; border-radius: 6px; text-align: center; font-size: 12px; width: 120px;">
+          <div style="font-size: 10px; opacity: 0.7; margin-bottom: 4px;">VENTA</div>
+          <div>precioUF</div>
+          <div>descuentoUF</div>
+          <div style="font-size: 10px; margin-top: 4px; opacity: 0.7;">unidades[]</div>
+          <div style="font-size: 10px; opacity: 0.7;">VentaPromocion[]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Problemas identificados en el código</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+
+    <div style="background: #ff000015; border: 1px solid #ff4444; border-radius: 8px; padding: 14px;">
+      <div style="color: #ff6b6b; font-weight: 600; margin-bottom: 8px; font-size: 13px;">🔴 Descuentos desconectados</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.5;">
+        La cotización tiene <code>descuentoAprobadoUF</code> (aprobado por gerente) y <code>CotizacionItem.descuentoUF</code> (por unidad). Al crear la venta, el frontend re-ingresa <code>descuentoUF</code> manualmente — no es automático.
+      </div>
+    </div>
+
+    <div style="background: #ff000015; border: 1px solid #ff4444; border-radius: 8px; padding: 14px;">
+      <div style="color: #ff6b6b; font-weight: 600; margin-bottom: 8px; font-size: 13px;">🔴 Promociones no se transfieren</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.5;">
+        Las promociones de la cotización (packs, beneficios, arriendo asegurado) no se llevan automáticamente a la venta al convertir. Hay que aplicarlas manualmente después.
+      </div>
+    </div>
+
+    <div style="background: #ff8c0015; border: 1px solid #ff8c00; border-radius: 8px; padding: 14px;">
+      <div style="color: #ffa500; font-weight: 600; margin-bottom: 8px; font-size: 13px;">🟡 Cálculo de ahorro en cliente</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.5;">
+        La función <code>calcularAhorro()</code> existe en el servidor pero no se llama al crear/actualizar cotización. El frontend envía el <code>ahorroUF</code> calculado — fácil de manipular o desincronizar.
+      </div>
+    </div>
+
+    <div style="background: #ff8c0015; border: 1px solid #ff8c00; border-radius: 8px; padding: 14px;">
+      <div style="color: #ffa500; font-weight: 600; margin-bottom: 8px; font-size: 13px;">🟡 Validación precio mínimo</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.5;">
+        El precio mínimo se valida en <code>ventasController</code> con <code>precioMinimoUF</code> de la unidad, pero el descuento aprobado en la cotización no se considera — puede haber descuentos duplicados o contradictorios.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h3>Modelos involucrados</h3>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <div style="background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 10px; font-size: 11px; min-width: 130px;">
+      <div style="color: #79c0ff; font-weight: 600; margin-bottom: 6px;">Cotizacion</div>
+      <div style="color: #8b949e;">leadId</div>
+      <div style="color: #8b949e;">estado</div>
+      <div style="color: #8b949e;">descuentoAprobadoUF</div>
+      <div style="color: #e6edf3;">→ items[]</div>
+      <div style="color: #e6edf3;">→ promociones[]</div>
+      <div style="color: #e6edf3;">→ solicitudesDesc[]</div>
+    </div>
+    <div style="background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 10px; font-size: 11px; min-width: 130px;">
+      <div style="color: #79c0ff; font-weight: 600; margin-bottom: 6px;">CotizacionItem</div>
+      <div style="color: #8b949e;">unidadId</div>
+      <div style="color: #8b949e;">precioListaUF</div>
+      <div style="color: #e6edf3;">descuentoUF</div>
+    </div>
+    <div style="background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 10px; font-size: 11px; min-width: 130px;">
+      <div style="color: #79c0ff; font-weight: 600; margin-bottom: 6px;">Venta</div>
+      <div style="color: #8b949e;">leadId</div>
+      <div style="color: #8b949e;">cotizacionOrigenId</div>
+      <div style="color: #e6edf3;">precioUF</div>
+      <div style="color: #e6edf3;">descuentoUF</div>
+      <div style="color: #e6edf3;">→ unidades[]</div>
+      <div style="color: #e6edf3;">→ VentaPromocion[]</div>
+    </div>
+    <div style="background: #21262d; border: 1px solid #30363d; border-radius: 6px; padding: 10px; font-size: 11px; min-width: 130px;">
+      <div style="color: #79c0ff; font-weight: 600; margin-bottom: 6px;">Promocion</div>
+      <div style="color: #8b949e;">tipo (PAQUETE, BENEFICIO,</div>
+      <div style="color: #8b949e;">DESCUENTO_UF, etc.)</div>
+      <div style="color: #8b949e;">categoria (PACK/PROMOCION)</div>
+      <div style="color: #e6edf3;">valorUF / valorPorcentaje</div>
+      <div style="color: #e6edf3;">minUnidades</div>
+    </div>
+  </div>
+</div>

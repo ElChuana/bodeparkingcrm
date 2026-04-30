@@ -1,0 +1,62 @@
+<h2>¿Cómo capturar el motivo de pérdida?</h2>
+<p class="subtitle">Tres enfoques — el objetivo es poder filtrar y analizar después</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Categorías globales + nota libre</h3>
+      <p>Un dropdown con 6-8 razones fijas para todos (No contesta, Precio, Competencia, etc.) más un campo de nota opcional. Simple, rápido de llenar.</p>
+      <div style="margin-top:10px; background:#f8fafc; border-radius:6px; padding:10px; font-size:11px;">
+        <div style="font-weight:600; margin-bottom:6px; color:#475569;">Categorías ejemplo:</div>
+        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+          <span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:99px;">No contesta</span>
+          <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;">Precio alto</span>
+          <span style="background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:99px;">Eligió competencia</span>
+          <span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:99px;">No califica financ.</span>
+          <span style="background:#f0fdf4;color:#166534;padding:2px 8px;border-radius:99px;">No le gustó ubicación</span>
+          <span style="background:#fdf4ff;color:#701a75;padding:2px 8px;border-radius:99px;">Perdió el interés</span>
+          <span style="background:#f0f9ff;color:#0c4a6e;padding:2px 8px;border-radius:99px;">Otro</span>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#64748b;">✅ Fácil de analizar · ✅ Rápido de usar · ⚠️ Puede no encajar siempre</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Categorías inteligentes por etapa</h3>
+      <p>Las razones cambian según desde qué etapa se pierde el lead. Si se pierde desde NUEVO muestra razones distintas que si se pierde desde NEGOCIACION.</p>
+      <div style="margin-top:10px; background:#f8fafc; border-radius:6px; padding:10px; font-size:11px; display:flex; gap:12px;">
+        <div style="flex:1;">
+          <div style="font-weight:600; color:#475569; margin-bottom:4px;">Desde NUEVO / NO_CONTESTA:</div>
+          <div style="color:#64748b; line-height:1.8;">• Nunca contestó<br>• Número equivocado<br>• No era el decisor</div>
+        </div>
+        <div style="flex:1;">
+          <div style="font-weight:600; color:#475569; margin-bottom:4px;">Desde NEGOCIACION:</div>
+          <div style="color:#64748b; line-height:1.8;">• Precio muy alto<br>• Eligió competencia<br>• No consiguió financ.</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#64748b;">✅ Más preciso · ✅ Mejor analytics · ⚠️ Más complejo de mantener</div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Texto libre solamente</h3>
+      <p>El vendedor escribe lo que quiera. Máxima flexibilidad, cero estructura.</p>
+      <div style="margin-top:10px; background:#f8fafc; border-radius:6px; padding:10px; font-size:11px; color:#64748b;">
+        "no le gustó el precio del estacionamiento, dijo que buscaba algo con más m²"
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#64748b;">✅ Flexible · ⚠️ No se puede analizar · ⚠️ Vendedores a veces dejan vacío</div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top: 20px; background: #eff6ff; border-radius: 8px; padding: 14px; font-size: 12px; color: #1e40af; border: 1px solid #bfdbfe;">
+  <strong>Mi recomendación:</strong> Opción A — categorías globales con nota opcional. Simple para el vendedor (2 clics), suficiente para analizar patrones. La etapa de pérdida se guarda automáticamente sin que el vendedor tenga que hacer nada extra.
+</div>

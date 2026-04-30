@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f5f7fa; font-family: Inter, sans-serif; font-size: 12px; color: #1e293b; padding: 16px; }
+  .page-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+  .filtro { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filtro-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid #d1d5db; background: white; font-size: 11px; color: #374151; cursor: pointer; }
+  .filtro-btn.active { background: #1d4ed8; color: white; border-color: #1d4ed8; }
+  .card { background: white; border-radius: 8px; padding: 14px; border: 1px solid #e5e7eb; }
+  .card-title { font-size: 10px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 10px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .kpi-val { font-size: 24px; font-weight: 700; color: #111827; }
+  .kpi-sub { font-size: 10px; margin-top: 2px; }
+  .up { color: #16a34a; } .down { color: #dc2626; }
+  .kpi-border-blue { border-top: 3px solid #1d4ed8; }
+  .kpi-border-purple { border-top: 3px solid #7c3aed; }
+  .kpi-border-green { border-top: 3px solid #16a34a; }
+  .kpi-border-amber { border-top: 3px solid #d97706; }
+  .row-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; background: #f9fafb; border-radius: 6px; margin-bottom: 4px; }
+  .tag { font-size: 9px; padding: 2px 7px; border-radius: 10px; font-weight: 500; }
+  .tag-green { background: #dcfce7; color: #16a34a; }
+  .tag-red { background: #fee2e2; color: #dc2626; }
+  .tag-amber { background: #fef3c7; color: #d97706; }
+  .tag-blue { background: #dbeafe; color: #1d4ed8; }
+  .tag-purple { background: #ede9fe; color: #7c3aed; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { color: #6b7280; font-weight: 500; padding: 4px 0; border-bottom: 1px solid #e5e7eb; text-align: left; }
+  td { padding: 5px 0; border-bottom: 1px solid #f3f4f6; color: #374151; }
+  td:last-child, th:last-child { text-align: right; }
+  .bar-bg { background: #f3f4f6; border-radius: 4px; height: 8px; margin-top: 2px; }
+  .bar-fill { height: 8px; border-radius: 4px; }
+  .embudo-step { padding: 5px 12px; border-radius: 4px; font-size: 11px; color: white; display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .legal-item { padding: 8px 10px; border-radius: 6px; border-left: 3px solid; background: #f9fafb; margin-bottom: 5px; }
+  .cuota-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; background: #f9fafb; border-radius: 6px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Dashboard</div>
+<div class="filtro" style="margin-top:8px">
+  <button class="filtro-btn">Hoy</button>
+  <button class="filtro-btn">Esta semana</button>
+  <button class="filtro-btn active">Este mes</button>
+  <button class="filtro-btn">Mes pasado</button>
+  <button class="filtro-btn">Este año</button>
+  <button class="filtro-btn">Personalizado</button>
+</div>
+
+<!-- FILA 1: KPIs -->
+<div class="grid-4">
+  <div class="card kpi-border-blue">
+    <div class="card-title">Leads ingresados</div>
+    <div class="kpi-val">148</div>
+    <div class="kpi-sub up">↑ 12% vs mes anterior</div>
+  </div>
+  <div class="card kpi-border-purple">
+    <div class="card-title">Ventas</div>
+    <div class="kpi-val">7</div>
+    <div class="kpi-sub up">↑ 3 vs mes anterior</div>
+  </div>
+  <div class="card kpi-border-green">
+    <div class="card-title">Monto vendido (UF)</div>
+    <div class="kpi-val">623 UF</div>
+    <div class="kpi-sub down">↓ 8% vs mes anterior</div>
+  </div>
+  <div class="card kpi-border-amber">
+    <div class="card-title">Monto vendido ($)</div>
+    <div class="kpi-val">$22.8M</div>
+    <div class="kpi-sub down">↓ 8% vs mes anterior</div>
+  </div>
+</div>
+
+<!-- FILA 2: Ingresos semana + Ventas por mes -->
+<div class="grid-2">
+  <!-- Ingresos por semana -->
+  <div class="card">
+    <div class="card-title">Ingresos por semana (UF)</div>
+    <div style="display:flex;align-items:flex-end;gap:8px;height:70px;margin-bottom:6px">
+      <div style="flex:1;display:flex;flex-direction:column;gap:1px">
+        <div style="background:#1d4ed8;border-radius:3px 3px 0 0;height:44px"></div>
+        <div style="background:#86efac;border-radius:3px 3px 0 0;height:24px"></div>
+        <div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:2px">S1</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:1px">
+        <div style="background:#1d4ed8;border-radius:3px 3px 0 0;height:58px"></div>
+        <div style="background:#86efac;border-radius:3px 3px 0 0;height:36px"></div>
+        <div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:2px">S2</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:1px">
+        <div style="background:#1d4ed8;border-radius:3px 3px 0 0;height:32px"></div>
+        <div style="background:#86efac;border-radius:3px 3px 0 0;height:16px"></div>
+        <div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:2px">S3</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:1px">
+        <div style="background:#1d4ed8;border-radius:3px 3px 0 0;height:70px"></div>
+        <div style="background:#86efac;border-radius:3px 3px 0 0;height:44px"></div>
+        <div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:2px">S4</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:14px;font-size:10px;padding-top:6px;border-top:1px solid #f3f4f6">
+      <span><span style="color:#1d4ed8">■</span> Vendido: <b>623 UF</b></span>
+      <span><span style="color:#16a34a">■</span> Recolectado: <b>341 UF</b></span>
+    </div>
+  </div>
+
+  <!-- Ventas por mes -->
+  <div class="card">
+    <div class="card-title">Ventas por mes (cantidad)</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:70px;margin-bottom:6px">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
+        <div style="font-size:8px;color:#6b7280">3</div>
+        <div style="background:#c7d2fe;width:100%;border-radius:3px 3px 0 0;height:24px"></div>
+        <div style="font-size:9px;color:#9ca3af">Ene</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
+        <div style="font-size:8px;color:#6b7280">5</div>
+        <div style="background:#c7d2fe;width:100%;border-radius:3px 3px 0 0;height:40px"></div>
+        <div style="font-size:9px;color:#9ca3af">Feb</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
+        <div style="font-size:8px;color:#6b7280">2</div>
+        <div style="background:#c7d2fe;width:100%;border-radius:3px 3px 0 0;height:16px"></div>
+        <div style="font-size:9px;color:#9ca3af">Mar</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
+        <div style="font-size:8px;color:#6b7280">7</div>
+        <div style="background:#1d4ed8;width:100%;border-radius:3px 3px 0 0;height:56px"></div>
+        <div style="font-size:9px;color:#1d4ed8;font-weight:600">Abr</div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:#6b7280;border-top:1px solid #f3f4f6;padding-top:6px">Mes actual destacado · año completo</div>
+  </div>
+</div>
+
+<!-- FILA 3: Leads por campaña + Inventario por propiedad -->
+<div class="grid-2">
+  <!-- Leads por campaña -->
+  <div class="card">
+    <div class="card-title">Leads por campaña</div>
+    <table>
+      <tr><th>Campaña</th><th>Actual</th><th>Anterior</th><th>Δ</th></tr>
+      <tr><td>Inversion_Bodegas</td><td>42</td><td style="color:#9ca3af">31</td><td class="up">↑35%</td></tr>
+      <tr><td>Form_Clientes potenc.</td><td>28</td><td style="color:#9ca3af">35</td><td class="down">↓20%</td></tr>
+      <tr><td>Carrusel_Sin bancos</td><td>19</td><td style="color:#9ca3af">18</td><td class="up">↑6%</td></tr>
+      <tr><td>Tandem_Carrusel</td><td>15</td><td style="color:#9ca3af">22</td><td class="down">↓32%</td></tr>
+    </table>
+  </div>
+
+  <!-- Inventario por propiedad -->
+  <div class="card">
+    <div class="card-title">Inventario por propiedad</div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+        <span style="font-weight:500">Edificio Central</span>
+        <span style="color:#6b7280">28 / 40 disponibles</span>
+      </div>
+      <div style="display:flex;gap:2px;height:8px">
+        <div style="flex:28;background:#16a34a;border-radius:3px 0 0 3px"></div>
+        <div style="flex:8;background:#d97706"></div>
+        <div style="flex:4;background:#dc2626;border-radius:0 3px 3px 0"></div>
+      </div>
+      <div style="display:flex;gap:8px;font-size:9px;color:#6b7280;margin-top:2px">
+        <span><span style="color:#16a34a">■</span> 28 Disp.</span>
+        <span><span style="color:#d97706">■</span> 8 Reserv.</span>
+        <span><span style="color:#dc2626">■</span> 4 Vendido</span>
+      </div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+        <span style="font-weight:500">Edificio Norte</span>
+        <span style="color:#6b7280">12 / 30 disponibles</span>
+      </div>
+      <div style="display:flex;gap:2px;height:8px">
+        <div style="flex:12;background:#16a34a;border-radius:3px 0 0 3px"></div>
+        <div style="flex:10;background:#d97706"></div>
+        <div style="flex:8;background:#dc2626;border-radius:0 3px 3px 0"></div>
+      </div>
+      <div style="display:flex;gap:8px;font-size:9px;color:#6b7280;margin-top:2px">
+        <span><span style="color:#16a34a">■</span> 12 Disp.</span>
+        <span><span style="color:#d97706">■</span> 10 Reserv.</span>
+        <span><span style="color:#dc2626">■</span> 8 Vendido</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FILA 4: Embudo + Visitas -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Embudo de ventas</div>
+    <div class="embudo-step" style="background:#1d4ed8">Leads recibidos <span>148</span></div>
+    <div class="embudo-step" style="background:#2563eb;margin:0 6px">Contactados <span>89 (60%)</span></div>
+    <div class="embudo-step" style="background:#3b82f6;margin:0 14px">Visita agendada <span>41 (46%)</span></div>
+    <div class="embudo-step" style="background:#60a5fa;margin:0 22px">Reservas <span>12 (29%)</span></div>
+    <div class="embudo-step" style="background:#93c5fd;margin:0 30px;color:#1e293b">Escriturados <span>7 (58%)</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Visitas</div>
+    <div style="display:flex;gap:0;margin-bottom:8px;border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;font-size:10px">
+      <div style="flex:1;text-align:center;padding:5px;background:#1d4ed8;color:white;font-weight:500">Del período (8)</div>
+      <div style="flex:1;text-align:center;padding:5px;color:#6b7280">Próximas (3)</div>
+    </div>
+    <div class="row-item">
+      <div>
+        <div style="font-weight:500;font-size:11px">María González</div>
+        <div style="color:#6b7280;font-size:10px">Edificio Central · Bodega 12 · Félix</div>
+      </div>
+      <span class="tag tag-green">Realizada</span>
+    </div>
+    <div class="row-item">
+      <div>
+        <div style="font-weight:500;font-size:11px">Carlos Rojas</div>
+        <div style="color:#6b7280;font-size:10px">Edificio Norte · Estac. 5 · Ana</div>
+      </div>
+      <span class="tag tag-red">No asistió</span>
+    </div>
+    <div class="row-item">
+      <div>
+        <div style="font-weight:500;font-size:11px">Juan Pérez</div>
+        <div style="color:#6b7280;font-size:10px">Edificio Central · Bodega 8 · Félix</div>
+      </div>
+      <span class="tag tag-amber">Pendiente</span>
+    </div>
+  </div>
+</div>
+
+<!-- FILA 5: Proceso legal + Cuotas pendientes -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">Proceso legal <span style="color:#dc2626;font-size:9px">(pendientes)</span></div>
+    <div class="legal-item" style="border-color:#dc2626">
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-weight:500">Claudia Suárez · B34</span>
+        <span style="color:#dc2626;font-size:10px">⚠ Vencido</span>
+      </div>
+      <div style="color:#6b7280;font-size:10px;margin-top:2px">Pendiente: Firma escritura</div>
+    </div>
+    <div class="legal-item" style="border-color:#d97706">
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-weight:500">Germán · B22</span>
+        <span style="color:#d97706;font-size:10px">3 días</span>
+      </div>
+      <div style="color:#6b7280;font-size:10px;margin-top:2px">Pendiente: Informe tasación</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Cuotas pendientes de pago</div>
+    <div class="cuota-item">
+      <div>
+        <div style="font-weight:500;font-size:11px">Antonio Otonel</div>
+        <div style="color:#6b7280;font-size:10px">Cuota 2/4 · vence 30 abr</div>
+      </div>
+      <span style="color:#16a34a;font-weight:600">48 UF</span>
+    </div>
+    <div class="cuota-item">
+      <div>
+        <div style="font-weight:500;font-size:11px">Germán</div>
+        <div style="color:#6b7280;font-size:10px">Cuota 1/3 · vence 05 may</div>
+      </div>
+      <span style="color:#16a34a;font-weight:600">32 UF</span>
+    </div>
+    <div class="cuota-item">
+      <div>
+        <div style="font-weight:500;font-size:11px">Sara Linares</div>
+        <div style="color:#6b7280;font-size:10px;color:#dc2626">Cuota 3/4 · ⚠ vencida</div>
+      </div>
+      <span style="color:#dc2626;font-weight:600">55 UF</span>
+    </div>
+  </div>
+</div>
+
+<!-- FILA 6: Tabla ventas del período -->
+<div class="card">
+  <div class="card-title">Ventas del período</div>
+  <table>
+    <tr><th>Comprador</th><th>Propiedad</th><th>Vendedor</th><th>Precio UF</th><th>Estado</th></tr>
+    <tr>
+      <td>Claudia Suárez</td>
+      <td style="color:#6b7280">Edif. Central · Bodega 34</td>
+      <td style="color:#6b7280">Félix</td>
+      <td>94 UF</td>
+      <td><span class="tag tag-blue">ESCRITURA</span></td>
+    </tr>
+    <tr>
+      <td>Germán</td>
+      <td style="color:#6b7280">Edif. Norte · Estac. 8</td>
+      <td style="color:#6b7280">Ana</td>
+      <td>87 UF</td>
+      <td><span class="tag tag-purple">PROMESA</span></td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

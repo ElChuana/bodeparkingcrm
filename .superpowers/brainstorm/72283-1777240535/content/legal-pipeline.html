@@ -1,0 +1,156 @@
+<h2>Vista Legal — ¿Cómo quieres ver el pipeline?</h2>
+<p class="subtitle">Dos diseños para mostrar las ventas por etapa legal con flechas y conteos</p>
+
+<div class="cards">
+
+  <!-- Opción A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #f8fafc; border-radius: 8px 8px 0 0;">
+      <!-- Pipeline horizontal compacto + tabla de ventas abajo -->
+      <div style="display: flex; align-items: center; gap: 0; margin-bottom: 14px; overflow-x: auto;">
+
+        <!-- Paso 1 -->
+        <div style="background: #dbeafe; border: 2px solid #3b82f6; border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 90px; flex-shrink: 0;">
+          <div style="font-size: 9px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.5px;">Firma Cliente</div>
+          <div style="font-size: 22px; font-weight: 800; color: #1d4ed8; line-height: 1.1; margin-top: 2px;">3</div>
+        </div>
+        <div style="font-size: 18px; color: #94a3b8; margin: 0 4px; flex-shrink: 0;">→</div>
+
+        <!-- Paso 2 -->
+        <div style="background: #ede9fe; border: 2px solid #7c3aed; border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 90px; flex-shrink: 0;">
+          <div style="font-size: 9px; font-weight: 700; color: #5b21b6; text-transform: uppercase; letter-spacing: 0.5px;">Firma Inmob.</div>
+          <div style="font-size: 22px; font-weight: 800; color: #5b21b6; line-height: 1.1; margin-top: 2px;">2</div>
+        </div>
+        <div style="font-size: 18px; color: #94a3b8; margin: 0 4px; flex-shrink: 0;">→</div>
+
+        <!-- Paso 3 -->
+        <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 90px; flex-shrink: 0;">
+          <div style="font-size: 9px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px;">Escritura Lista</div>
+          <div style="font-size: 22px; font-weight: 800; color: #b45309; line-height: 1.1; margin-top: 2px;">4</div>
+        </div>
+        <div style="font-size: 18px; color: #94a3b8; margin: 0 4px; flex-shrink: 0;">→</div>
+
+        <!-- Paso 4 -->
+        <div style="background: #fce7f3; border: 2px solid #ec4899; border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 90px; flex-shrink: 0;">
+          <div style="font-size: 9px; font-weight: 700; color: #be185d; text-transform: uppercase; letter-spacing: 0.5px;">Notaría</div>
+          <div style="font-size: 22px; font-weight: 800; color: #be185d; line-height: 1.1; margin-top: 2px;">1</div>
+        </div>
+        <div style="font-size: 18px; color: #94a3b8; margin: 0 4px; flex-shrink: 0;">→</div>
+
+        <!-- Paso 5 -->
+        <div style="background: #d1fae5; border: 2px solid #10b981; border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 90px; flex-shrink: 0;">
+          <div style="font-size: 9px; font-weight: 700; color: #065f46; text-transform: uppercase; letter-spacing: 0.5px;">CBR</div>
+          <div style="font-size: 22px; font-weight: 800; color: #065f46; line-height: 1.1; margin-top: 2px;">2</div>
+        </div>
+        <div style="font-size: 18px; color: #94a3b8; margin: 0 4px; flex-shrink: 0;">→</div>
+
+        <!-- Paso 6 -->
+        <div style="background: #f0fdf4; border: 2px solid #22c55e; border-radius: 8px; padding: 8px 12px; text-align: center; min-width: 90px; flex-shrink: 0;">
+          <div style="font-size: 9px; font-weight: 700; color: #15803d; text-transform: uppercase; letter-spacing: 0.5px;">Entregado</div>
+          <div style="font-size: 22px; font-weight: 800; color: #15803d; line-height: 1.1; margin-top: 2px;">5</div>
+        </div>
+      </div>
+
+      <!-- Tabla de ventas debajo -->
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+        <thead>
+          <tr style="background: #f1f5f9;">
+            <th style="padding: 5px 8px; text-align: left; color: #64748b; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;">Comprador</th>
+            <th style="padding: 5px 8px; text-align: left; color: #64748b; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;">Unidad</th>
+            <th style="padding: 5px 8px; text-align: left; color: #64748b; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;">Etapa actual</th>
+            <th style="padding: 5px 8px; text-align: left; color: #64748b; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;">Vence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 6px 8px; font-weight: 600; color: #1e293b;">Rodrigo Pérez</td>
+            <td style="padding: 6px 8px; color: #64748b;">Est. 204 · Brasil</td>
+            <td style="padding: 6px 8px;"><span style="background: #dbeafe; color: #1d4ed8; padding: 2px 8px; border-radius: 99px; font-size: 9px; font-weight: 700;">Firma Cliente</span></td>
+            <td style="padding: 6px 8px; color: #ef4444; font-weight: 600;">⚠ 28 abr</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 6px 8px; font-weight: 600; color: #1e293b;">Marcela Fuentes</td>
+            <td style="padding: 6px 8px; color: #64748b;">Bodega 12 · Aldunate</td>
+            <td style="padding: 6px 8px;"><span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 99px; font-size: 9px; font-weight: 700;">Escritura Lista</span></td>
+            <td style="padding: 6px 8px; color: #6b7280;">5 may</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 8px; font-weight: 600; color: #1e293b;">Carlos Vidal</td>
+            <td style="padding: 6px 8px; color: #64748b;">Est. 301 · Brasil</td>
+            <td style="padding: 6px 8px;"><span style="background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 99px; font-size: 9px; font-weight: 700;">CBR</span></td>
+            <td style="padding: 6px 8px; color: #6b7280;">12 may</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-body">
+      <h3>A — Pipeline + tabla</h3>
+      <p>Flechas arriba con conteo por etapa, tabla con todas las ventas abajo. Vista compacta, ideal para dashboard.</p>
+    </div>
+  </div>
+
+  <!-- Opción B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #f8fafc; border-radius: 8px 8px 0 0; overflow-x: auto;">
+      <!-- Kanban horizontal — columnas por etapa con cards de ventas -->
+      <div style="display: flex; gap: 0; align-items: flex-start; min-width: 500px;">
+
+        <!-- Columna Firma Cliente -->
+        <div style="flex: 1; min-width: 100px;">
+          <div style="background: #3b82f6; color: white; padding: 5px 8px; border-radius: 6px 0 0 0; text-align: center;">
+            <div style="font-size: 8px; font-weight: 700; text-transform: uppercase;">Firma Cliente</div>
+            <div style="font-size: 16px; font-weight: 800;">3</div>
+          </div>
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0 0 0 6px; padding: 6px; min-height: 80px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="background: white; border-radius: 4px; padding: 5px; font-size: 9px; border-left: 2px solid #3b82f6;"><strong>Rodrigo P.</strong><br><span style="color: #ef4444;">⚠ 28 abr</span></div>
+            <div style="background: white; border-radius: 4px; padding: 5px; font-size: 9px; border-left: 2px solid #3b82f6;"><strong>Ana M.</strong><br><span style="color: #6b7280;">30 abr</span></div>
+            <div style="background: white; border-radius: 4px; padding: 5px; font-size: 9px; border-left: 2px solid #3b82f6;"><strong>Luis G.</strong><br><span style="color: #6b7280;">2 may</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;padding-top:18px;color:#94a3b8;font-size:14px;">→</div>
+
+        <!-- Columna Escritura Lista -->
+        <div style="flex: 1; min-width: 100px;">
+          <div style="background: #f59e0b; color: white; padding: 5px 8px; text-align: center;">
+            <div style="font-size: 8px; font-weight: 700; text-transform: uppercase;">Escritura</div>
+            <div style="font-size: 16px; font-weight: 800;">4</div>
+          </div>
+          <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 6px; min-height: 80px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="background: white; border-radius: 4px; padding: 5px; font-size: 9px; border-left: 2px solid #f59e0b;"><strong>Marcela F.</strong><br><span style="color: #6b7280;">5 may</span></div>
+            <div style="background: white; border-radius: 4px; padding: 5px; font-size: 9px; border-left: 2px solid #f59e0b;"><strong>Pedro A.</strong><br><span style="color: #6b7280;">8 may</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;padding-top:18px;color:#94a3b8;font-size:14px;">→</div>
+
+        <!-- Columna CBR -->
+        <div style="flex: 1; min-width: 100px;">
+          <div style="background: #10b981; color: white; padding: 5px 8px; text-align: center;">
+            <div style="font-size: 8px; font-weight: 700; text-transform: uppercase;">CBR</div>
+            <div style="font-size: 16px; font-weight: 800;">2</div>
+          </div>
+          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 6px; min-height: 80px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="background: white; border-radius: 4px; padding: 5px; font-size: 9px; border-left: 2px solid #10b981;"><strong>Carlos V.</strong><br><span style="color: #6b7280;">12 may</span></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;padding-top:18px;color:#94a3b8;font-size:14px;">→</div>
+
+        <!-- Columna Entregado -->
+        <div style="flex: 1; min-width: 100px;">
+          <div style="background: #22c55e; color: white; padding: 5px 8px; border-radius: 0 6px 0 0; text-align: center;">
+            <div style="font-size: 8px; font-weight: 700; text-transform: uppercase;">Entregado</div>
+            <div style="font-size: 16px; font-weight: 800;">5</div>
+          </div>
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 0 0 6px 0; padding: 6px; min-height: 80px;">
+            <div style="color: #6b7280; font-size: 9px; text-align: center; padding-top: 16px;">✓ Completados</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Kanban por columnas</h3>
+      <p>Cada etapa es una columna con cards de ventas. Más visual pero ocupa más espacio horizontal. Mejor para pantallas anchas.</p>
+    </div>
+  </div>
+
+</div>

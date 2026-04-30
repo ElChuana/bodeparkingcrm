@@ -1,0 +1,68 @@
+<h2>Leads por campaña + comparación período anterior</h2>
+<p class="subtitle">¿Cómo prefieres ver la comparación con el período anterior?</p>
+
+<div class="options" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+
+  <div class="option" data-choice="tabla-flechas" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Tabla con flechas</h3>
+      <p>Cada campaña muestra el número actual, el anterior y una flecha ↑↓ con % de cambio</p>
+      <div style="margin-top:10px;background:#0f172a;border-radius:6px;padding:10px;font-size:11px">
+        <div style="display:flex;justify-content:space-between;color:#94a3b8;margin-bottom:6px;font-size:10px">
+          <span>Campaña</span><span>Actual</span><span>Anterior</span><span>Δ</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#e2e8f0;margin-bottom:4px">
+          <span>Inversion_Bodegas</span><span>42</span><span>31</span><span style="color:#10b981">↑ 35%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#e2e8f0;margin-bottom:4px">
+          <span>Form_Clientes</span><span>28</span><span>35</span><span style="color:#ef4444">↓ 20%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#e2e8f0">
+          <span>Carrusel_Sin bancos</span><span>19</span><span>18</span><span style="color:#10b981">↑ 6%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="barras-dobles" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Barras dobles</h3>
+      <p>Barra sólida = período actual, barra transparente = período anterior, lado a lado por campaña</p>
+      <div style="margin-top:10px;background:#0f172a;border-radius:6px;padding:10px">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div>
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:3px">Inversion_Bodegas</div>
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="height:10px;width:84px;background:#3b82f6;border-radius:2px"></div>
+              <div style="height:10px;width:62px;background:#3b82f620;border:1px solid #3b82f6;border-radius:2px"></div>
+              <span style="font-size:9px;color:#10b981;margin-left:4px">↑35%</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:3px">Form_Clientes</div>
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="height:10px;width:56px;background:#3b82f6;border-radius:2px"></div>
+              <div style="height:10px;width:70px;background:#3b82f620;border:1px solid #3b82f6;border-radius:2px"></div>
+              <span style="font-size:9px;color:#ef4444;margin-left:4px">↓20%</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:#94a3b8;margin-bottom:3px">Carrusel_Sin bancos</div>
+            <div style="display:flex;gap:2px;align-items:center">
+              <div style="height:10px;width:38px;background:#3b82f6;border-radius:2px"></div>
+              <div style="height:10px;width:36px;background:#3b82f620;border:1px solid #3b82f6;border-radius:2px"></div>
+              <span style="font-size:9px;color:#10b981;margin-left:4px">↑6%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:14px;padding:10px 14px;background:#1e293b;border-radius:8px;border:1px solid #334155;font-size:11px;color:#94a3b8">
+  💡 El período anterior se calcula automáticamente: si seleccionas "Este mes", compara con el mes pasado. Si eliges un rango personalizado de 7 días, compara los 7 días anteriores.
+</div>
