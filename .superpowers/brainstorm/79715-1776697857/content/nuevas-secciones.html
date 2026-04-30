@@ -1,0 +1,113 @@
+<h2>Secciones nuevas — ¿cómo las ves?</h2>
+<p class="subtitle">Así quedarían las dos secciones nuevas en el dashboard</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+
+  <!-- INGRESOS POR SEMANA -->
+  <div style="background:#1e293b;border-radius:10px;padding:16px;border:1px solid #334155">
+    <div style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ingresos en UF</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:12px">por semana · filtro de fechas</div>
+
+    <!-- Mini gráfico de barras simulado -->
+    <div style="display:flex;align-items:flex-end;gap:6px;height:80px;margin-bottom:8px">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="width:100%;background:#3b82f6;border-radius:3px 3px 0 0;height:55px"></div>
+        <div style="width:100%;background:#10b981;border-radius:3px 3px 0 0;height:30px"></div>
+        <div style="font-size:9px;color:#64748b">S1</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="width:100%;background:#3b82f6;border-radius:3px 3px 0 0;height:70px"></div>
+        <div style="width:100%;background:#10b981;border-radius:3px 3px 0 0;height:45px"></div>
+        <div style="font-size:9px;color:#64748b">S2</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="width:100%;background:#3b82f6;border-radius:3px 3px 0 0;height:40px"></div>
+        <div style="width:100%;background:#10b981;border-radius:3px 3px 0 0;height:20px"></div>
+        <div style="font-size:9px;color:#64748b">S3</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="width:100%;background:#3b82f6;border-radius:3px 3px 0 0;height:80px"></div>
+        <div style="width:100%;background:#10b981;border-radius:3px 3px 0 0;height:55px"></div>
+        <div style="font-size:9px;color:#64748b">S4</div>
+      </div>
+    </div>
+
+    <!-- Leyenda -->
+    <div style="display:flex;gap:12px;font-size:10px">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#3b82f6;border-radius:2px;display:inline-block"></span><span style="color:#94a3b8">Vendido</span></span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#10b981;border-radius:2px;display:inline-block"></span><span style="color:#94a3b8">Recolectado</span></span>
+    </div>
+
+    <!-- Totales -->
+    <div style="display:flex;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid #334155">
+      <div>
+        <div style="font-size:10px;color:#64748b">Total vendido</div>
+        <div style="font-size:16px;font-weight:700;color:#3b82f6">1.240 UF</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:#64748b">Total recolectado</div>
+        <div style="font-size:16px;font-weight:700;color:#10b981">680 UF</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISITAS -->
+  <div style="background:#1e293b;border-radius:10px;padding:16px;border:1px solid #334155">
+    <div style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Visitas</div>
+
+    <!-- Tab simulado -->
+    <div style="display:flex;gap:0;margin-bottom:12px;border-radius:6px;overflow:hidden;border:1px solid #334155">
+      <div style="flex:1;text-align:center;padding:6px;background:#3b82f6;font-size:11px;color:white;font-weight:600">Del período</div>
+      <div style="flex:1;text-align:center;padding:6px;background:#1e293b;font-size:11px;color:#64748b">Próximas</div>
+    </div>
+
+    <!-- Lista visitas del período -->
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#0f172a;border-radius:6px">
+        <div>
+          <div style="font-size:11px;color:#e2e8f0;font-weight:500">María González</div>
+          <div style="font-size:10px;color:#64748b">Bodega 12 · Félix</div>
+        </div>
+        <span style="background:#10b981;color:white;font-size:9px;padding:2px 6px;border-radius:10px">Realizada</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#0f172a;border-radius:6px">
+        <div>
+          <div style="font-size:11px;color:#e2e8f0;font-weight:500">Carlos Rojas</div>
+          <div style="font-size:10px;color:#64748b">Estac. 5 · Ana</div>
+        </div>
+        <span style="background:#f59e0b;color:white;font-size:9px;padding:2px 6px;border-radius:10px">Pendiente</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#0f172a;border-radius:6px">
+        <div>
+          <div style="font-size:11px;color:#e2e8f0;font-weight:500">Juan Pérez</div>
+          <div style="font-size:10px;color:#64748b">Bodega 8 · Félix</div>
+        </div>
+        <span style="background:#ef4444;color:white;font-size:9px;padding:2px 6px;border-radius:10px">No asistió</span>
+      </div>
+    </div>
+
+    <div style="font-size:10px;color:#475569;margin-top:8px;text-align:right">3 visitas en el período</div>
+  </div>
+
+</div>
+
+<div style="margin-top:16px;padding:12px;background:#0f172a;border-radius:8px;border:1px solid #1e3a5f">
+  <div style="font-size:11px;color:#60a5fa;margin-bottom:6px">📅 Próximas visitas (después de hoy)</div>
+  <div style="display:flex;gap:8px;overflow-x:auto">
+    <div style="min-width:140px;background:#1e293b;border-radius:8px;padding:10px;border-left:3px solid #3b82f6">
+      <div style="font-size:10px;color:#64748b">Mañana 10:00</div>
+      <div style="font-size:11px;color:#e2e8f0;font-weight:600">Pedro Silva</div>
+      <div style="font-size:10px;color:#94a3b8">Bodega 22 · Ana</div>
+    </div>
+    <div style="min-width:140px;background:#1e293b;border-radius:8px;padding:10px;border-left:3px solid #8b5cf6">
+      <div style="font-size:10px;color:#64748b">Jue 15:30</div>
+      <div style="font-size:11px;color:#e2e8f0;font-weight:600">Rosa Martínez</div>
+      <div style="font-size:10px;color:#94a3b8">Estac. 3 · Félix</div>
+    </div>
+    <div style="min-width:140px;background:#1e293b;border-radius:8px;padding:10px;border-left:3px solid #f59e0b">
+      <div style="font-size:10px;color:#64748b">Vie 11:00</div>
+      <div style="font-size:11px;color:#e2e8f0;font-weight:600">Luis Herrera</div>
+      <div style="font-size:10px;color:#94a3b8">Bodega 7 · Ana</div>
+    </div>
+  </div>
+</div>

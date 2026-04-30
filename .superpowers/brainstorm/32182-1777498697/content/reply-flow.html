@@ -1,0 +1,115 @@
+<h2>¿Cómo sabe a qué email responder?</h2>
+<p class="subtitle">Dos opciones para conectar la conversación con el formulario.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:-apple-system,sans-serif;font-size:12px;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e2e8f0">
+
+        <!-- Header tabs -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#fafafa">
+          <span style="font-weight:700;font-size:13px">✉️ Email</span>
+          <div style="display:flex;gap:0;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+            <div style="padding:4px 12px;font-size:11px;color:#64748b;background:#fff">Nuevo email</div>
+            <div style="padding:4px 12px;font-size:11px;font-weight:600;background:#1B5EA8;color:#fff">Conversación <span style="background:rgba(255,255,255,0.3);border-radius:10px;padding:1px 4px;font-size:9px">3</span></div>
+          </div>
+        </div>
+
+        <!-- Conversación -->
+        <div style="padding:12px;display:flex;flex-direction:column;gap:8px">
+
+          <!-- Recibido con botón Responder -->
+          <div style="display:flex;justify-content:flex-start">
+            <div style="background:#f3f4f6;color:#1a2533;border-radius:12px 12px 12px 2px;padding:9px 12px;max-width:70%">
+              <div style="font-size:9px;color:#94a3b8;margin-bottom:2px">jvaldivieso@dominuscapital.cl · Re: BodeParking — Info para Juan</div>
+              <div style="font-size:11px;line-height:1.5">Hola Felix, me interesa la bodega de 50m²...</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <div style="font-size:9px;color:#94a3b8">29 abr 17:06</div>
+                <div style="background:#1B5EA8;color:#fff;font-size:9px;padding:2px 8px;border-radius:10px;cursor:pointer">↩ Responder</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Enviado -->
+          <div style="display:flex;justify-content:flex-end">
+            <div style="background:#1B5EA8;color:#fff;border-radius:12px 12px 2px 12px;padding:9px 12px;max-width:70%">
+              <div style="font-size:9px;opacity:0.7;margin-bottom:2px">Tú (Felix) · Re: BodeParking — Info para Juan</div>
+              <div style="font-size:11px;line-height:1.5">Juan, con gusto le envío la cotización...</div>
+              <div style="font-size:9px;opacity:0.5;text-align:right;margin-top:4px">29 abr 17:28</div>
+            </div>
+          </div>
+
+          <!-- Recibido 2 con botón Responder -->
+          <div style="display:flex;justify-content:flex-start">
+            <div style="background:#fff3cd;color:#1a2533;border-radius:12px 12px 12px 2px;padding:9px 12px;max-width:70%;border:1px solid #fde68a">
+              <div style="font-size:9px;color:#94a3b8;margin-bottom:2px">jvaldivieso@dominuscapital.cl · Re: BodeParking — Info</div>
+              <div style="font-size:11px;line-height:1.5">¿Cuándo podríamos reunirnos para ver la bodega?</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                <div style="font-size:9px;color:#94a3b8">29 abr 18:12 · <span style="color:#d97706;font-weight:600">no leído</span></div>
+                <div style="background:#1B5EA8;color:#fff;font-size:9px;padding:2px 8px;border-radius:10px;cursor:pointer">↩ Responder</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Flecha indicando que hace clic en Responder -->
+        <div style="padding:6px 14px 10px;text-align:center;font-size:10px;color:#94a3b8">
+          ↑ Click en "Responder" → cambia a tab "Nuevo email" con asunto pre-llenado
+        </div>
+
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Botón "Responder" en cada email recibido</h3>
+      <p>Cada burbuja recibida tiene un botón <strong>↩ Responder</strong>. Al hacer clic, cambia automáticamente a la tab "Nuevo email" con el campo <em>Para</em> y <em>Asunto</em> ya rellenos (Re: asunto original). Sabes exactamente a qué email responderás.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="font-family:-apple-system,sans-serif;font-size:12px;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #e2e8f0">
+
+        <!-- Header tabs -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#fafafa">
+          <span style="font-weight:700;font-size:13px">✉️ Email</span>
+          <div style="display:flex;gap:0;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+            <div style="padding:4px 12px;font-size:11px;font-weight:600;background:#1B5EA8;color:#fff">Nuevo email</div>
+            <div style="padding:4px 12px;font-size:11px;color:#64748b;background:#fff">Conversación <span style="background:#ef4444;color:#fff;border-radius:10px;padding:1px 4px;font-size:9px">1</span></div>
+          </div>
+        </div>
+
+        <!-- Tab Nuevo email — siempre pre-llenado con el último recibido -->
+        <div style="padding:12px">
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <div style="flex:1">
+              <div style="font-size:9px;font-weight:600;color:#64748b;margin-bottom:2px">PARA</div>
+              <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:6px 8px;font-size:11px;color:#334155">jvaldivieso@dominuscapital.cl</div>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:9px;font-weight:600;color:#64748b;margin-bottom:2px">ASUNTO</div>
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:4px;padding:6px 8px;font-size:11px;color:#1d4ed8">Re: BodeParking — Info para Juan</div>
+            </div>
+          </div>
+          <div style="font-size:9px;color:#94a3b8;margin-bottom:6px;font-style:italic">Pre-llenado desde el último email recibido. Puedes editar.</div>
+          <div style="background:#fff;border:1px solid #e2e8f0;border-radius:4px;padding:8px;font-size:11px;color:#475569;min-height:50px">
+            Estimado Juan,<br><br>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px;gap:6px">
+            <div style="border:1px solid #e2e8f0;border-radius:4px;padding:4px 10px;font-size:11px;color:#64748b">Cancelar</div>
+            <div style="background:#1B5EA8;color:#fff;border-radius:4px;padding:4px 12px;font-size:11px;font-weight:600">Enviar ✉️</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Tab "Nuevo email" siempre pre-rellena desde el último recibido</h3>
+      <p>Al abrir el card o cambiar a "Nuevo email", el asunto se rellena automáticamente con <em>Re: [último email recibido]</em>. No hay que hacer clic en ningún botón. Más simple, pero no permite elegir a qué email específico respondes.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px">¿Cuál prefieres? En conversaciones con un hilo único, B funciona bien. Si hay múltiples asuntos mezclados, A da más control.</p>

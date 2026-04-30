@@ -1,0 +1,122 @@
+<h2>Diseño — Sección 2: Flujo y API</h2>
+<p class="subtitle">Cómo funciona el sistema end-to-end. ¿Tiene sentido este flujo?</p>
+
+<div class="section">
+  <h3>Flujo completo: Cotización → Venta</h3>
+  <div style="font-family: monospace; font-size: 12px; background: #0d1117; color: #e6edf3; padding: 20px; border-radius: 8px; overflow-x: auto;">
+
+    <div style="display: flex; align-items: flex-start; gap: 0; overflow-x: auto;">
+
+      <!-- Step 1 -->
+      <div style="display: flex; flex-direction: column; align-items: center; min-width: 150px;">
+        <div style="background: #1f6feb; color: white; padding: 10px 12px; border-radius: 6px; text-align: center; font-size: 11px; width: 130px;">
+          <div style="font-size: 9px; opacity:0.7; margin-bottom:4px;">1. COTIZACIÓN</div>
+          <div style="font-weight:600;">Vendedor crea</div>
+          <div style="margin-top:4px; opacity:0.8;">Items (unidades)</div>
+          <div style="opacity:0.8;">+ Packs aplicados</div>
+          <div style="opacity:0.8;">+ Beneficios</div>
+          <div style="margin-top:6px; background:#ffffff20; border-radius:4px; padding:3px 6px; font-size:10px;">precioFinalUF calculado<br>server-side</div>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; padding:0 6px; margin-top:30px; flex-direction:column; gap:2px;">
+        <div style="color:#8b949e; font-size:10px; white-space:nowrap;">si necesita desc.</div>
+        <div style="color:#f0883e;">──────►</div>
+      </div>
+
+      <!-- Step 2 -->
+      <div style="display: flex; flex-direction: column; align-items: center; min-width: 150px;">
+        <div style="background: #9e6a0333; border: 1px solid #d29922; color: #e6edf3; padding: 10px 12px; border-radius: 6px; text-align: center; font-size: 11px; width: 130px;">
+          <div style="font-size: 9px; color:#d29922; margin-bottom:4px;">2. SOLICITUD DESCUENTO</div>
+          <div>Vendedor pide</div>
+          <div style="opacity:0.8;">descuento en UF</div>
+          <div style="opacity:0.8;">+ motivo</div>
+          <div style="margin-top:6px; background:#d2992220; border-radius:4px; padding:3px 6px; font-size:10px;">Gerente aprueba<br>o rechaza</div>
+        </div>
+        <div style="margin-top:6px; font-size:10px; color:#8b949e; text-align:center;">Solo 1 pendiente<br>a la vez</div>
+      </div>
+
+      <div style="display:flex; align-items:center; padding:0 6px; margin-top:30px; flex-direction:column; gap:2px;">
+        <div style="color:#8b949e; font-size:10px; white-space:nowrap;">aprobado →</div>
+        <div style="color:#3fb950;">──────►</div>
+      </div>
+
+      <!-- Step 3 -->
+      <div style="display: flex; flex-direction: column; align-items: center; min-width: 150px;">
+        <div style="background: #23863633; border: 1px solid #3fb950; color: #e6edf3; padding: 10px 12px; border-radius: 6px; text-align: center; font-size: 11px; width: 130px;">
+          <div style="font-size: 9px; color:#3fb950; margin-bottom:4px;">3. ENVIADA AL CLIENTE</div>
+          <div>Estado: ENVIADA</div>
+          <div style="opacity:0.8; margin-top:4px;">precioFinalUF</div>
+          <div style="opacity:0.8;">= lista − packs</div>
+          <div style="opacity:0.8;">− desc. aprobado</div>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; padding:0 6px; margin-top:30px; flex-direction:column; gap:2px;">
+        <div style="color:#8b949e; font-size:10px; white-space:nowrap;">cliente acepta</div>
+        <div style="color:#3fb950;">──────►</div>
+      </div>
+
+      <!-- Step 4 -->
+      <div style="display: flex; flex-direction: column; align-items: center; min-width: 160px;">
+        <div style="background: #3fb950; color: #0d1117; padding: 10px 12px; border-radius: 6px; text-align: center; font-size: 11px; width: 140px;">
+          <div style="font-size: 9px; opacity:0.7; margin-bottom:4px;">4. CONVERSIÓN AUTOMÁTICA</div>
+          <div style="font-weight:700;">POST /cotizaciones/:id/convertir</div>
+          <div style="margin-top:6px; font-size:10px; text-align:left; line-height:1.8;">
+            ✓ Crea Venta con desglose<br>
+            ✓ Marca unidades RESERVADO<br>
+            ✓ Copia beneficios<br>
+            ✓ Cotización → ACEPTADA<br>
+            ✓ Lead → RESERVA<br>
+            ✓ Crea ProcesoLegal<br>
+            ✓ Calcula comisiones
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Endpoints nuevos / modificados</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+
+    <div style="background:#21262d; border:1px solid #30363d; border-radius:8px; padding:14px;">
+      <div style="color:#3fb950; font-size:11px; font-weight:600; margin-bottom:8px;">NUEVOS</div>
+      <div style="font-size:12px; line-height:2; font-family: monospace;">
+        <div><span style="color:#79c0ff;">POST</span> <span style="color:#e6edf3;">/cotizaciones/:id/convertir</span></div>
+        <div style="color:#8b949e; font-size:11px; margin-left:12px; margin-top:-4px; margin-bottom:6px;">Conversión atómica → Venta</div>
+        <div><span style="color:#79c0ff;">GET</span> <span style="color:#e6edf3;">/packs</span></div>
+        <div><span style="color:#79c0ff;">POST</span> <span style="color:#e6edf3;">/packs</span></div>
+        <div><span style="color:#79c0ff;">PUT</span> <span style="color:#e6edf3;">/packs/:id</span></div>
+        <div><span style="color:#79c0ff;">GET</span> <span style="color:#e6edf3;">/beneficios</span></div>
+        <div><span style="color:#79c0ff;">POST</span> <span style="color:#e6edf3;">/beneficios</span></div>
+        <div><span style="color:#79c0ff;">PUT</span> <span style="color:#e6edf3;">/beneficios/:id</span></div>
+      </div>
+    </div>
+
+    <div style="background:#21262d; border:1px solid #30363d; border-radius:8px; padding:14px;">
+      <div style="color:#f0883e; font-size:11px; font-weight:600; margin-bottom:8px;">SE ELIMINA / SIMPLIFICA</div>
+      <div style="font-size:12px; line-height:2; font-family: monospace;">
+        <div style="color:#ff6b6b; text-decoration:line-through;">POST /ventas (standalone)</div>
+        <div style="color:#8b949e; font-size:11px; margin-left:12px; margin-top:-4px; margin-bottom:6px;">Reemplazado por /convertir</div>
+        <div style="color:#ff6b6b; text-decoration:line-through;">GET/POST/PUT /promociones</div>
+        <div style="color:#8b949e; font-size:11px; margin-left:12px; margin-top:-4px; margin-bottom:6px;">Reemplazado por /packs y /beneficios</div>
+        <div style="color:#e6edf3;">PUT /ventas/:id/estado</div>
+        <div style="color:#8b949e; font-size:11px; margin-left:12px; margin-top:-4px;">Se mantiene igual</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Cálculo de precio — siempre en el servidor</h3>
+  <div style="background:#0d1117; border-radius:8px; padding:16px; font-family:monospace; font-size:13px; line-height:1.8;">
+    <div style="color:#8b949e;">// Al agregar/quitar packs o items en cotización:</div>
+    <div><span style="color:#e6edf3;">precioListaUF</span> = <span style="color:#79c0ff;">SUM</span>(items.precioListaUF)</div>
+    <div><span style="color:#e6edf3;">descuentoPacksUF</span> = <span style="color:#79c0ff;">SUM</span>(packsAplicados.descuentoAplicadoUF)</div>
+    <div><span style="color:#e6edf3;">precioFinalUF</span> = precioListaUF − descuentoPacksUF − descuentoAprobadoUF</div>
+    <div style="margin-top:8px; color:#8b949e;">// El frontend solo muestra — nunca calcula ni envía precios</div>
+  </div>
+</div>

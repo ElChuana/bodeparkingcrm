@@ -1,0 +1,105 @@
+<h2>Diseño — Sección 1: Modelo de Datos</h2>
+<p class="subtitle">Lo que cambia en el schema. ¿Esto tiene sentido para el negocio?</p>
+
+<div class="section">
+  <h3>🗑 Se eliminan</h3>
+  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+    <span style="background:#ff000020; border:1px solid #ff4444; color:#ff6b6b; padding:4px 10px; border-radius:4px; font-size:12px;">Promocion</span>
+    <span style="background:#ff000020; border:1px solid #ff4444; color:#ff6b6b; padding:4px 10px; border-radius:4px; font-size:12px;">UnidadPromocion</span>
+    <span style="background:#ff000020; border:1px solid #ff4444; color:#ff6b6b; padding:4px 10px; border-radius:4px; font-size:12px;">VentaPromocion</span>
+    <span style="background:#ff000020; border:1px solid #ff4444; color:#ff6b6b; padding:4px 10px; border-radius:4px; font-size:12px;">CotizacionPromocion</span>
+    <span style="background:#ff000020; border:1px solid #ff4444; color:#ff6b6b; padding:4px 10px; border-radius:4px; font-size:12px;">PagoArriendoAsegurado</span>
+    <span style="background:#ff000020; border:1px solid #ff4444; color:#ff6b6b; padding:4px 10px; border-radius:4px; font-size:12px;">CotizacionItem.descuentoUF</span>
+    <span style="background:#ff000020; border:1px solid #ff4444; color:#ff6b6b; padding:4px 10px; border-radius:4px; font-size:12px;">Venta.descuentoUF (ambiguo)</span>
+  </div>
+</div>
+
+<div class="section">
+  <h3>✨ Se crean / modifican</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+
+    <div style="background:#21262d; border:1px solid #3fb950; border-radius:8px; padding:14px;">
+      <div style="color:#3fb950; font-weight:700; margin-bottom:8px;">Pack <span style="font-size:11px; color:#8b949e;">(NUEVO)</span></div>
+      <div style="font-size:12px; color:#8b949e; line-height:1.8;">
+        id<br>nombre<br>descripcion<br>
+        <span style="color:#e6edf3;">tipo: COMBO_ESPECIFICO | POR_CANTIDAD</span><br>
+        <span style="color:#e6edf3;">descuentoUF</span> <span style="color:#8b949e;">— cuánto descuenta</span><br>
+        minUnidades <span style="color:#8b949e;">— para POR_CANTIDAD</span><br>
+        <span style="color:#e6edf3;">unidades[]</span> <span style="color:#8b949e;">— para COMBO_ESPECIFICO</span><br>
+        fechaInicio, fechaFin, activa
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:#79c0ff;">
+        Ejemplo: "Compra bodega + estac. = 15 UF off"<br>
+        Ejemplo: "Compra 2+ unidades = 10 UF off"
+      </div>
+    </div>
+
+    <div style="background:#21262d; border:1px solid #3fb950; border-radius:8px; padding:14px;">
+      <div style="color:#3fb950; font-weight:700; margin-bottom:8px;">Beneficio <span style="font-size:11px; color:#8b949e;">(NUEVO)</span></div>
+      <div style="font-size:12px; color:#8b949e; line-height:1.8;">
+        id<br>nombre<br>descripcion<br>
+        <span style="color:#e6edf3;">tipo: ARRIENDO_ASEGURADO | GASTOS_NOTARIALES | CUOTAS_SIN_INTERES | OTRO</span><br>
+        meses <span style="color:#8b949e;">— para ARRIENDO_ASEGURADO</span><br>
+        montoMensualUF <span style="color:#8b949e;">— para ARRIENDO_ASEGURADO</span><br>
+        <span style="color:#e6edf3;">unidades[]</span><br>
+        fechaInicio, fechaFin, activa
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:#79c0ff;">
+        No afecta precio.<br>
+        Se registra y se hace seguimiento aparte.
+      </div>
+    </div>
+
+    <div style="background:#21262d; border:1px solid #f0883e; border-radius:8px; padding:14px;">
+      <div style="color:#f0883e; font-weight:700; margin-bottom:8px;">Venta <span style="font-size:11px; color:#8b949e;">(MODIFICADO)</span></div>
+      <div style="font-size:12px; color:#8b949e; line-height:1.8;">
+        cotizacionOrigenId <span style="color:#ff6b6b; font-size:10px;">REQUERIDO</span><br>
+        <span style="color:#e6edf3;">precioListaUF</span> <span style="color:#8b949e;">— suma items</span><br>
+        <span style="color:#e6edf3;">descuentoPacksUF</span> <span style="color:#8b949e;">— suma packs</span><br>
+        <span style="color:#e6edf3;">descuentoAprobadoUF</span> <span style="color:#8b949e;">— gerente</span><br>
+        <span style="color:#3fb950; font-weight:600;">precioFinalUF</span> <span style="color:#8b949e;">— lo que paga</span><br>
+        unidades[]<br>
+        beneficios[] → VentaBeneficio[]
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:#79c0ff;">
+        precioFinalUF = precioListaUF<br>
+        − descuentoPacksUF<br>
+        − descuentoAprobadoUF
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <h3>Tablas de unión nuevas</h3>
+  <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+    <div style="background:#21262d; border:1px solid #30363d; border-radius:6px; padding:10px; font-size:12px;">
+      <div style="color:#79c0ff; font-weight:600; margin-bottom:4px;">CotizacionPack</div>
+      <div style="color:#8b949e;">cotizacionId + packId</div>
+      <div style="color:#e6edf3;">descuentoAplicadoUF <span style="color:#8b949e; font-size:10px;">(calculado servidor)</span></div>
+    </div>
+    <div style="background:#21262d; border:1px solid #30363d; border-radius:6px; padding:10px; font-size:12px;">
+      <div style="color:#79c0ff; font-weight:600; margin-bottom:4px;">CotizacionBeneficio</div>
+      <div style="color:#8b949e;">cotizacionId + beneficioId</div>
+    </div>
+    <div style="background:#21262d; border:1px solid #30363d; border-radius:6px; padding:10px; font-size:12px;">
+      <div style="color:#79c0ff; font-weight:600; margin-bottom:4px;">VentaBeneficio</div>
+      <div style="color:#8b949e;">ventaId + beneficioId</div>
+      <div style="color:#e6edf3;">estado <span style="color:#8b949e; font-size:10px;">(para seguimiento)</span></div>
+    </div>
+    <div style="background:#21262d; border:1px solid #30363d; border-radius:6px; padding:10px; font-size:12px;">
+      <div style="color:#79c0ff; font-weight:600; margin-bottom:4px;">UnidadPack</div>
+      <div style="color:#8b949e;">unidadId + packId</div>
+      <div style="color:#8b949e; font-size:10px;">(para COMBO_ESPECIFICO)</div>
+    </div>
+    <div style="background:#21262d; border:1px solid #30363d; border-radius:6px; padding:10px; font-size:12px;">
+      <div style="color:#79c0ff; font-weight:600; margin-bottom:4px;">UnidadBeneficio</div>
+      <div style="color:#8b949e;">unidadId + beneficioId</div>
+    </div>
+  </div>
+</div>
+
+<div style="background:#1f6feb22; border:1px solid #1f6feb; border-radius:8px; padding:14px; font-size:13px; color:#e6edf3; line-height:1.6;">
+  <strong style="color:#79c0ff;">CotizacionItem</strong> se simplifica: solo tiene <code>unidadId</code> y <code>precioListaUF</code>. Sin descuento por item — el descuento siempre va a nivel de venta completa.
+</div>

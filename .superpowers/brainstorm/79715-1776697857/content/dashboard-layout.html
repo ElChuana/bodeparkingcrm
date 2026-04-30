@@ -1,0 +1,211 @@
+<h2>Nuevo layout del dashboard</h2>
+<p class="subtitle">Vista completa de cómo quedaría todo organizado</p>
+
+<div style="background:#0f172a;border-radius:10px;padding:16px;font-family:sans-serif">
+
+  <!-- FILTRO FECHA -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="font-size:13px;color:#94a3b8">📅 Este mes &nbsp;|&nbsp; Hoy &nbsp;|&nbsp; Esta semana &nbsp;|&nbsp; Mes pasado &nbsp;|&nbsp; Este año &nbsp;|&nbsp; Rango personalizado</div>
+  </div>
+
+  <!-- FILA 1: KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+    <div style="background:#1e293b;border-radius:8px;padding:12px;border-top:3px solid #3b82f6">
+      <div style="font-size:10px;color:#64748b;text-transform:uppercase">Leads ingresados</div>
+      <div style="font-size:22px;font-weight:700;color:#e2e8f0">148</div>
+      <div style="font-size:10px;color:#10b981">↑ 12% vs período ant.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:12px;border-top:3px solid #8b5cf6">
+      <div style="font-size:10px;color:#64748b;text-transform:uppercase">Ventas</div>
+      <div style="font-size:22px;font-weight:700;color:#e2e8f0">7</div>
+      <div style="font-size:10px;color:#10b981">↑ 3 vs período ant.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:12px;border-top:3px solid #10b981">
+      <div style="font-size:10px;color:#64748b;text-transform:uppercase">Monto vendido UF</div>
+      <div style="font-size:22px;font-weight:700;color:#e2e8f0">623 UF</div>
+      <div style="font-size:10px;color:#ef4444">↓ 8% vs período ant.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:12px;border-top:3px solid #f59e0b">
+      <div style="font-size:10px;color:#64748b;text-transform:uppercase">Monto vendido $</div>
+      <div style="font-size:22px;font-weight:700;color:#e2e8f0">$22.8M</div>
+      <div style="font-size:10px;color:#ef4444">↓ 8% vs período ant.</div>
+    </div>
+  </div>
+
+  <!-- FILA 2: Ingresos UF semana + Leads por campaña -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+    <!-- Ingresos UF -->
+    <div style="background:#1e293b;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600">INGRESOS POR SEMANA (UF)</div>
+      <div style="display:flex;align-items:flex-end;gap:6px;height:60px;margin-bottom:6px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:1px;align-items:stretch">
+          <div style="background:#3b82f6;border-radius:2px 2px 0 0;height:38px"></div>
+          <div style="background:#10b981;border-radius:2px 2px 0 0;height:22px"></div>
+          <div style="font-size:9px;color:#64748b;text-align:center">S1</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:1px;align-items:stretch">
+          <div style="background:#3b82f6;border-radius:2px 2px 0 0;height:50px"></div>
+          <div style="background:#10b981;border-radius:2px 2px 0 0;height:32px"></div>
+          <div style="font-size:9px;color:#64748b;text-align:center">S2</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:1px;align-items:stretch">
+          <div style="background:#3b82f6;border-radius:2px 2px 0 0;height:28px"></div>
+          <div style="background:#10b981;border-radius:2px 2px 0 0;height:14px"></div>
+          <div style="font-size:9px;color:#64748b;text-align:center">S3</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:1px;align-items:stretch">
+          <div style="background:#3b82f6;border-radius:2px 2px 0 0;height:60px"></div>
+          <div style="background:#10b981;border-radius:2px 2px 0 0;height:40px"></div>
+          <div style="font-size:9px;color:#64748b;text-align:center">S4</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;font-size:10px;padding-top:6px;border-top:1px solid #334155">
+        <span><span style="color:#3b82f6">■</span> <span style="color:#94a3b8">Vendido: <b style="color:#e2e8f0">623 UF</b></span></span>
+        <span><span style="color:#10b981">■</span> <span style="color:#94a3b8">Recolectado: <b style="color:#e2e8f0">341 UF</b></span></span>
+      </div>
+    </div>
+
+    <!-- Leads por campaña -->
+    <div style="background:#1e293b;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600">LEADS POR CAMPAÑA</div>
+      <table style="width:100%;font-size:10px;border-collapse:collapse">
+        <tr style="color:#64748b">
+          <td style="padding:3px 0">Campaña</td>
+          <td style="text-align:right;padding:3px 4px">Actual</td>
+          <td style="text-align:right;padding:3px 4px">Anterior</td>
+          <td style="text-align:right;padding:3px 0">Δ</td>
+        </tr>
+        <tr style="color:#e2e8f0;border-top:1px solid #334155">
+          <td style="padding:4px 0">Inversion_Bodegas</td>
+          <td style="text-align:right;padding:4px">42</td>
+          <td style="text-align:right;padding:4px;color:#64748b">31</td>
+          <td style="text-align:right;padding:4px;color:#10b981">↑35%</td>
+        </tr>
+        <tr style="color:#e2e8f0">
+          <td style="padding:4px 0">Form_Clientes</td>
+          <td style="text-align:right;padding:4px">28</td>
+          <td style="text-align:right;padding:4px;color:#64748b">35</td>
+          <td style="text-align:right;padding:4px;color:#ef4444">↓20%</td>
+        </tr>
+        <tr style="color:#e2e8f0">
+          <td style="padding:4px 0">Carrusel_Sin bancos</td>
+          <td style="text-align:right;padding:4px">19</td>
+          <td style="text-align:right;padding:4px;color:#64748b">18</td>
+          <td style="text-align:right;padding:4px;color:#10b981">↑6%</td>
+        </tr>
+        <tr style="color:#e2e8f0">
+          <td style="padding:4px 0">Tandem_Carrusel</td>
+          <td style="text-align:right;padding:4px">15</td>
+          <td style="text-align:right;padding:4px;color:#64748b">22</td>
+          <td style="text-align:right;padding:4px;color:#ef4444">↓32%</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- FILA 3: Embudo + Visitas -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+    <!-- Embudo -->
+    <div style="background:#1e293b;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600">EMBUDO DE VENTAS</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div style="background:#1d4ed8;border-radius:4px;padding:5px 10px;font-size:10px;color:white;display:flex;justify-content:space-between"><span>Leads recibidos</span><span>148</span></div>
+        <div style="background:#2563eb;border-radius:4px;padding:5px 10px;font-size:10px;color:white;display:flex;justify-content:space-between;margin:0 4px"><span>Contactados</span><span>89 (60%)</span></div>
+        <div style="background:#3b82f6;border-radius:4px;padding:5px 10px;font-size:10px;color:white;display:flex;justify-content:space-between;margin:0 8px"><span>Visita agendada</span><span>41 (46%)</span></div>
+        <div style="background:#60a5fa;border-radius:4px;padding:5px 10px;font-size:10px;color:white;display:flex;justify-content:space-between;margin:0 14px"><span>Reservas</span><span>12 (29%)</span></div>
+        <div style="background:#93c5fd;border-radius:4px;padding:5px 10px;font-size:10px;color:#1e293b;display:flex;justify-content:space-between;margin:0 20px"><span>Escriturados</span><span>7 (58%)</span></div>
+      </div>
+    </div>
+
+    <!-- Visitas -->
+    <div style="background:#1e293b;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600">VISITAS</div>
+      <div style="display:flex;gap:0;margin-bottom:8px;border-radius:5px;overflow:hidden;border:1px solid #334155;font-size:10px">
+        <div style="flex:1;text-align:center;padding:5px;background:#3b82f6;color:white">Del período (8)</div>
+        <div style="flex:1;text-align:center;padding:5px;color:#64748b">Próximas (3)</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;justify-content:space-between;background:#0f172a;border-radius:5px;padding:5px 8px;font-size:10px">
+          <div><div style="color:#e2e8f0">María González</div><div style="color:#64748b">Bodega 12 · Félix</div></div>
+          <span style="background:#10b981;color:white;border-radius:10px;padding:2px 6px;font-size:9px;align-self:center">Realizada</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;background:#0f172a;border-radius:5px;padding:5px 8px;font-size:10px">
+          <div><div style="color:#e2e8f0">Carlos Rojas</div><div style="color:#64748b">Estac. 5 · Ana</div></div>
+          <span style="background:#ef4444;color:white;border-radius:10px;padding:2px 6px;font-size:9px;align-self:center">No asistió</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILA 4: Proceso legal + Cuotas pendientes -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+    <!-- Proceso legal (solo incompletos) -->
+    <div style="background:#1e293b;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600">PROCESO LEGAL <span style="color:#ef4444;font-size:9px">(pendientes)</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="background:#0f172a;border-radius:6px;padding:8px;border-left:3px solid #ef4444">
+          <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span style="color:#e2e8f0">Claudia Suárez · B34</span>
+            <span style="color:#ef4444">⚠ Vencido</span>
+          </div>
+          <div style="color:#64748b;font-size:9px;margin-top:2px">Pendiente: Firma escritura</div>
+        </div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px;border-left:3px solid #f59e0b">
+          <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span style="color:#e2e8f0">Germán · B22</span>
+            <span style="color:#f59e0b">3 días</span>
+          </div>
+          <div style="color:#64748b;font-size:9px;margin-top:2px">Pendiente: Informe tasación</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cuotas pendientes -->
+    <div style="background:#1e293b;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600">CUOTAS PENDIENTES DE PAGO</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;justify-content:space-between;background:#0f172a;border-radius:5px;padding:5px 8px;font-size:10px">
+          <div><div style="color:#e2e8f0">Antonio Otonel</div><div style="color:#64748b">Cuota 2/4 · vence 30 abr</div></div>
+          <span style="color:#10b981;font-weight:600">48 UF</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;background:#0f172a;border-radius:5px;padding:5px 8px;font-size:10px">
+          <div><div style="color:#e2e8f0">Germán</div><div style="color:#64748b">Cuota 1/3 · vence 05 may</div></div>
+          <span style="color:#10b981;font-weight:600">32 UF</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;background:#0f172a;border-radius:5px;padding:5px 8px;font-size:10px">
+          <div><div style="color:#e2e8f0">Sara Linares</div><div style="color:#ef4444">Cuota 3/4 · vencida</div></div>
+          <span style="color:#ef4444;font-weight:600">55 UF</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILA 5: Tabla ventas del período -->
+  <div style="background:#1e293b;border-radius:8px;padding:12px">
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:8px;font-weight:600">VENTAS DEL PERÍODO</div>
+    <table style="width:100%;font-size:10px;border-collapse:collapse">
+      <tr style="color:#64748b;border-bottom:1px solid #334155">
+        <td style="padding:4px 0">Comprador</td>
+        <td style="padding:4px">Unidad</td>
+        <td style="padding:4px">Vendedor</td>
+        <td style="padding:4px;text-align:right">Precio UF</td>
+        <td style="padding:4px;text-align:right">Estado</td>
+      </tr>
+      <tr style="color:#e2e8f0;border-bottom:1px solid #1e293b">
+        <td style="padding:4px 0">Claudia Suárez</td>
+        <td style="padding:4px;color:#94a3b8">Bodega 34</td>
+        <td style="padding:4px;color:#94a3b8">Félix</td>
+        <td style="padding:4px;text-align:right">94 UF</td>
+        <td style="padding:4px;text-align:right"><span style="background:#3b82f620;color:#3b82f6;border-radius:4px;padding:1px 6px">ESCRITURA</span></td>
+      </tr>
+      <tr style="color:#e2e8f0">
+        <td style="padding:4px 0">Germán</td>
+        <td style="padding:4px;color:#94a3b8">Estac. 8</td>
+        <td style="padding:4px;color:#94a3b8">Ana</td>
+        <td style="padding:4px;text-align:right">87 UF</td>
+        <td style="padding:4px;text-align:right"><span style="background:#8b5cf620;color:#8b5cf6;border-radius:4px;padding:1px 6px">PROMESA</span></td>
+      </tr>
+    </table>
+  </div>
+
+</div>

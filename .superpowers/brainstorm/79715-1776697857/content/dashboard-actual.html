@@ -1,0 +1,60 @@
+<h2>Dashboard actual — ¿qué quieres modificar?</h2>
+<p class="subtitle">Selecciona las secciones que quieres cambiar o mejorar (puedes elegir varias)</p>
+
+<div class="options" data-multiselect style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+  <div class="option" data-choice="kpis" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Tarjetas KPI</h3>
+      <p>Ventas del período · Leads activos · Ocupación · En proceso legal</p>
+      <p style="font-size:11px;color:#888;margin-top:4px">Agregar, quitar o cambiar métricas</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="embudo" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Embudo de ventas</h3>
+      <p>5 pasos: Leads → Contactados → Visita → Reserva → Escritura</p>
+      <p style="font-size:11px;color:#888;margin-top:4px">Diseño, pasos, conversiones</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="inventario" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Inventario</h3>
+      <p>Disponible · Reservado · Vendido · % ocupación</p>
+      <p style="font-size:11px;color:#888;margin-top:4px">Desglose por edificio, tipo de unidad</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="legal" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Proceso legal</h3>
+      <p>Top ventas en curso con pasos y vencimientos</p>
+      <p style="font-size:11px;color:#888;margin-top:4px">Alertas, prioridades, timeline</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="ventas-tabla" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>Tabla de ventas</h3>
+      <p>Ventas del período y ventas activas en curso</p>
+      <p style="font-size:11px;color:#888;margin-top:4px">Columnas, filtros, orden</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="nuevas" onclick="toggleSelect(this)">
+    <div class="letter">F</div>
+    <div class="content">
+      <h3>Secciones nuevas</h3>
+      <p>Algo que no existe todavía</p>
+      <p style="font-size:11px;color:#888;margin-top:4px">Comisiones, metas, ranking vendedores, ingresos UF...</p>
+    </div>
+  </div>
+
+</div>

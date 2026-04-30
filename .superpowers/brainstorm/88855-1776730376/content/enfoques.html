@@ -1,0 +1,54 @@
+<h2>3 enfoques para el rediseño</h2>
+<p class="subtitle">Basado en: cotización siempre antes de venta · descuentos solo con aprobación gerente · packs afectan precio · beneficios no afectan precio · conversión automática</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Separación limpia — Pack y Beneficio como modelos separados ⭐ Recomendado</h3>
+      <p>Se elimina el modelo <strong>Promocion</strong> (demasiado genérico). Se crean dos modelos distintos:</p>
+      <ul style="font-size:13px; margin-top:8px; line-height:1.8;">
+        <li><strong>Pack</strong>: afecta precio — combo específico de unidades O por cantidad mínima</li>
+        <li><strong>Beneficio</strong>: no afecta precio — arriendo asegurado, gastos notariales, etc.</li>
+      </ul>
+      <p style="margin-top:8px;">La cotización calcula el precio <strong>server-side</strong>. La conversión a venta es un endpoint dedicado <code>POST /cotizaciones/:id/convertir</code> que crea la venta automáticamente con precio, unidades y beneficios.</p>
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Modelo claro, sin ambigüedad</li><li>Precio calculado en servidor siempre</li><li>Conversión atómica y automática</li><li>Fácil de entender y mantener</li></ul></div>
+        <div class="cons"><h4>Contras</h4><ul><li>Cambio de schema completo</li><li>Hay que migrar datos existentes</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Reparar el modelo Promocion existente</h3>
+      <p>Conservar el modelo <strong>Promocion</strong> pero corregir la lógica: mover el cálculo al servidor, separar por categoría más estrictamente, arreglar el endpoint de conversión.</p>
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Menos cambios al schema</li><li>Menos riesgo de regresión</li></ul></div>
+        <div class="cons"><h4>Contras</h4><ul><li>Modelo sigue siendo confuso (un solo modelo para 7 tipos)</li><li>La raíz del problema de lógica persiste</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Cambio mínimo — solo arreglar la conversión</h3>
+      <p>Sin cambios de schema. Solo arreglar el endpoint de conversión para que calcule precio automáticamente y transfiera beneficios.</p>
+      <div class="pros-cons" style="margin-top:10px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Mínimo riesgo, implementación rápida</li></ul></div>
+        <div class="cons"><h4>Contras</h4><ul><li>Los problemas de lógica del modelo siguen ahí</li><li>No resuelve el problema de raíz</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top: 20px; background: #1f6feb22; border: 1px solid #1f6feb; border-radius: 8px; padding: 16px;">
+  <div style="color: #79c0ff; font-weight: 600; margin-bottom: 8px;">¿Por qué recomiendo el Enfoque A?</div>
+  <div style="font-size: 13px; color: #e6edf3; line-height: 1.6;">
+    Ya que vas a eliminar todas las ventas de todos modos, tenemos la oportunidad perfecta para hacer el cambio limpio. El modelo <strong>Pack</strong> y <strong>Beneficio</strong> separados refleja exactamente cómo piensas en el negocio. Con la conversión automática, el vendedor nunca puede olvidar pasar un descuento o beneficio.
+  </div>
+</div>
