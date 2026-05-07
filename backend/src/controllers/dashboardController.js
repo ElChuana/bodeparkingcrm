@@ -210,32 +210,40 @@ const obtener = async (req, res) => {
         select: { creadoEn: true }
       }),
 
-      // Embudo: contactados — leads del período que salieron de NUEVO
+      // Embudo: contactados — leads del período (por creadoEn) que salieron de NUEVO
       prisma.lead.count({
         where: { ...filtroLead, etapa: { not: 'NUEVO' } }
       }),
 
-      // Embudo: visitas — por fechaHora en el período
+      // Embudo: visitas — leads que ingresaron en el período (por creadoEn del lead)
       prisma.visita.count({
-        where: hayFecha ? { fechaHora: { gte: new Date(desde), lte: new Date(hasta) } } : {}
+        where: hayFecha ? { lead: { creadoEn: { gte: new Date(desde), lte: new Date(hasta) } } } : {}
       }),
 
-      // Embudo: reservas — por fechaReserva en el período
-      prisma.venta.count({
-        where: { ...filtroReserva, estado: { not: 'ANULADO' } }
-      }),
-
-      // Embudo: promesas — por fechaPromesa en el período
+      // Embudo: reservas — ventas de leads que ingresaron en el período
       prisma.venta.count({
         where: {
-          ...(hayFecha ? { fechaPromesa: { gte: new Date(desde), lte: new Date(hasta) } } : {}),
+          ...(hayFecha ? { lead: { creadoEn: { gte: new Date(desde), lte: new Date(hasta) } } } : {}),
           estado: { not: 'ANULADO' }
         }
       }),
 
-      // Embudo: escrituras — por fechaEscritura en el período
+      // Embudo: promesas — ventas con promesa de leads que ingresaron en el período
       prisma.venta.count({
-        where: { ...filtroEscritura, estado: { not: 'ANULADO' } }
+        where: {
+          ...(hayFecha ? { lead: { creadoEn: { gte: new Date(desde), lte: new Date(hasta) } } } : {}),
+          fechaPromesa: { not: null },
+          estado: { not: 'ANULADO' }
+        }
+      }),
+
+      // Embudo: escrituras — ventas con escritura de leads que ingresaron en el período
+      prisma.venta.count({
+        where: {
+          ...(hayFecha ? { lead: { creadoEn: { gte: new Date(desde), lte: new Date(hasta) } } } : {}),
+          fechaEscritura: { not: null },
+          estado: { not: 'ANULADO' }
+        }
       }),
 
       // Notificaciones sin leer
