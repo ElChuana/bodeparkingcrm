@@ -27,6 +27,7 @@ import ApiKeys from './pages/configuracion/ApiKeys'
 import MiPerfil from './pages/perfil/MiPerfil'
 import CentroAsignacion from './pages/asignacion/CentroAsignacion'
 import PreviewPDF from './pages/cotizaciones/PreviewPDF'
+import Notificaciones from './pages/notificaciones/Notificaciones'
 
 const qc = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } }
@@ -107,6 +108,7 @@ export default function App() {
                   <Route path="descuentos"  element={<RutaProtegida modulo="descuentos"><Descuentos /></RutaProtegida>} />
                   <Route path="configuracion/api-keys" element={<RutaProtegida roles={['GERENTE']} modulo="api-keys"><ApiKeys /></RutaProtegida>} />
                   <Route path="perfil"      element={<RutaProtegida><MiPerfil /></RutaProtegida>} />
+                  <Route path="notificaciones" element={<RutaProtegida><Notificaciones /></RutaProtegida>} />
                   <Route path="cotizaciones/preview-pdf" element={<RutaProtegida><PreviewPDF /></RutaProtegida>} />
                 </Route>
                 <Route path="*" element={<Navigate to="/leads" replace />} />

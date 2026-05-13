@@ -7,7 +7,8 @@ import {
   ShoppingOutlined, AuditOutlined, CreditCardOutlined,
   DollarOutlined, TagOutlined, CarOutlined, KeyOutlined,
   BarChartOutlined, UserSwitchOutlined, ThunderboltOutlined,
-  MenuOutlined, LogoutOutlined, CalendarOutlined, PercentageOutlined, ApiOutlined, SettingOutlined
+  MenuOutlined, LogoutOutlined, CalendarOutlined, PercentageOutlined, ApiOutlined, SettingOutlined,
+  BellOutlined
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
@@ -38,7 +39,8 @@ function SidebarContent({ selectedKey, onNavigate }) {
       items: [
         { key: '/dashboard',  label: 'Dashboard',   icon: <DashboardOutlined />, roles: null,                              modulo: 'dashboard' },
         { key: '/inventario', label: 'Inventario',  icon: <AppstoreOutlined />,  roles: ['GERENTE','JEFE_VENTAS'],          modulo: 'inventario' },
-        { key: '/leads',      label: 'Leads',       icon: <TeamOutlined />,      roles: null,                              modulo: 'leads' },
+        { key: '/leads',          label: 'Leads',          icon: <TeamOutlined />,   roles: null,                     modulo: 'leads' },
+        { key: '/notificaciones', label: 'Notificaciones', icon: <BellOutlined />,   roles: null,                     modulo: null },
         { key: '/asignacion', label: 'Asignación',  icon: <UserSwitchOutlined />, roles: ['GERENTE','JEFE_VENTAS'],         modulo: 'asignacion' },
         { key: '/visitas',    label: 'Visitas',     icon: <CalendarOutlined />,  roles: ['GERENTE','JEFE_VENTAS'],          modulo: 'visitas' },
       ]
