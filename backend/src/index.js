@@ -126,6 +126,50 @@ cron.schedule('*/15 * * * *', async () => {
     if (pendientes.length > 0) {
       console.log(`[Recordatorios] ${pendientes.length} procesados`)
     }
+
+    // ── Visitas próximas (24h) ─────────────────────────────────────
+    const ventanaMin = new Date(Date.now() + 23 * 60 * 60 * 1000)
+    const ventanaMax = new Date(Date.now() + 25 * 60 * 60 * 1000)
+
+    const visitasProximas = await prisma.visita.findMany({
+      where: { fechaHora: { gte: ventanaMin, lte: ventanaMax }, resultado: null },
+      include: {
+        lead: {
+          select: {
+            id: true,
+            vendedorId: true,
+            contacto: { select: { nombre: true, apellido: true } }
+          }
+        }
+      }
+    })
+
+    for (const visita of visitasProximas) {
+      if (!visita.lead.vendedorId) continue
+      const yaNotificado = await prisma.notificacion.findFirst({
+        where: {
+          tipo: 'VISITA_PROXIMA',
+          referenciaId: visita.id,
+          referenciaTipo: 'visita',
+          usuarioId: visita.lead.vendedorId,
+          creadoEn: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }
+        }
+      })
+      if (!yaNotificado) {
+        await prisma.notificacion.create({
+          data: {
+            usuarioId: visita.lead.vendedorId,
+            tipo: 'VISITA_PROXIMA',
+            mensaje: `Visita mañana con ${visita.lead.contacto.nombre} ${visita.lead.contacto.apellido}`,
+            referenciaId: visita.id,
+            referenciaTipo: 'visita'
+          }
+        })
+      }
+    }
+    if (visitasProximas.length > 0) {
+      console.log(`[Visitas] ${visitasProximas.length} visitas próximas procesadas`)
+    }
   } catch (err) {
     console.error('[Recordatorios] Error en cron:', err.message)
   }
