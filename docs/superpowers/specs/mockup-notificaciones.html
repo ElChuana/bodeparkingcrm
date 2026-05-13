@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Página de Notificaciones</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #222; }
+
+  .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 24px; display: flex; align-items: center; height: 56px; gap: 16px; }
+  .topbar h1 { font-size: 18px; font-weight: 600; color: #1a1a2e; }
+  .vendor-select { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .vendor-select label { font-size: 13px; color: #666; }
+  .vendor-select select { border: 1px solid #d9d9d9; border-radius: 6px; padding: 4px 10px; font-size: 13px; cursor: pointer; }
+
+  .page { padding: 24px; max-width: 1000px; margin: 0 auto; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 20px; }
+  .tab { padding: 10px 20px; font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; color: #666; display: flex; align-items: center; gap: 6px; transition: all .15s; }
+  .tab:hover { color: #1677ff; }
+  .tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 500; }
+  .badge { background: #ff4d4f; color: #fff; border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 600; }
+  .badge.blue { background: #1677ff; }
+  .badge.orange { background: #fa8c16; }
+  .badge.gray { background: #aaa; }
+
+  /* Cards */
+  .section-title { font-size: 12px; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; margin-top: 20px; }
+  .section-title:first-child { margin-top: 0; }
+
+  .card { background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 8px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; transition: box-shadow .15s; cursor: pointer; }
+  .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .card.unread { border-left: 3px solid #1677ff; background: #f0f5ff; }
+  .card.unread-orange { border-left: 3px solid #fa8c16; background: #fff7e6; }
+  .card.unread-red { border-left: 3px solid #ff4d4f; background: #fff1f0; }
+
+  .icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .icon.blue { background: #e6f0ff; }
+  .icon.orange { background: #fff3e0; }
+  .icon.red { background: #fff0f0; }
+  .icon.green { background: #f0fff4; }
+  .icon.purple { background: #f5f0ff; }
+
+  .card-body { flex: 1; }
+  .card-body .name { font-size: 14px; font-weight: 500; color: #1a1a2e; }
+  .card-body .meta { font-size: 12px; color: #888; margin-top: 2px; }
+  .card-body .subject { font-size: 13px; color: #444; margin-top: 3px; }
+
+  .card-right { text-align: right; flex-shrink: 0; }
+  .card-right .time { font-size: 12px; color: #aaa; }
+  .card-right .tag { font-size: 11px; border-radius: 4px; padding: 2px 8px; margin-top: 4px; display: inline-block; }
+  .tag.seg { background: #e6f4ff; color: #1677ff; }
+  .tag.cot { background: #fff7e0; color: #d46b08; }
+  .tag.nc { background: #f5f5f5; color: #888; }
+  .tag.spv { background: #f9f0ff; color: #722ed1; }
+
+  .action-btn { border: 1px solid #d9d9d9; background: #fff; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: #555; margin-top: 6px; }
+  .action-btn:hover { border-color: #1677ff; color: #1677ff; }
+
+  .empty { text-align: center; padding: 48px; color: #aaa; }
+  .empty .emoji { font-size: 32px; margin-bottom: 8px; }
+
+  .mark-all { margin-left: auto; display: flex; align-items: center; }
+  .mark-all button { border: 1px solid #d9d9d9; background: #fff; border-radius: 6px; padding: 5px 14px; font-size: 13px; cursor: pointer; color: #555; }
+  .mark-all button:hover { border-color: #1677ff; color: #1677ff; }
+
+  .tab-header { display: flex; align-items: center; margin-bottom: 16px; }
+
+  .dias-badge { background: #ff4d4f; color: #fff; border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; }
+  .dias-badge.warn { background: #fa8c16; }
+
+  /* Tab panels hidden by default */
+  .panel { display: none; }
+  .panel.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🔔 Notificaciones</h1>
+  <div class="vendor-select">
+    <label>Ver vendedor:</label>
+    <select>
+      <option>Todo el equipo</option>
+      <option>Juan Valdivieso</option>
+      <option>Felix Betancourtt</option>
+      <option>María González</option>
+    </select>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('emails', this)">
+      ✉️ Emails sin responder <span class="badge">3</span>
+    </div>
+    <div class="tab" onclick="showTab('leads', this)">
+      ⏰ Leads sin atención <span class="badge orange">5</span>
+    </div>
+    <div class="tab" onclick="showTab('alertas', this)">
+      🔔 Alertas <span class="badge">2</span>
+    </div>
+    <div class="tab" onclick="showTab('actividad', this)">
+      📋 Actividad reciente <span class="badge gray">4</span>
+    </div>
+  </div>
+
+  <!-- PANEL 1: EMAILS -->
+  <div id="panel-emails" class="panel active">
+    <div class="tab-header">
+      <div class="section-title" style="margin:0">3 emails esperando respuesta</div>
+      <div class="mark-all"><button>Marcar todos como vistos</button></div>
+    </div>
+
+    <div class="card unread">
+      <div class="icon blue">✉️</div>
+      <div class="card-body">
+        <div class="name">Carlos Mendoza</div>
+        <div class="subject">Re: Cotización Bodega B-12 — Torre Norte</div>
+        <div class="meta">Vendedor: Felix Betancourtt · Lead #1043</div>
+      </div>
+      <div class="card-right">
+        <div class="time">Hoy 09:14</div>
+        <div><button class="action-btn">Ir al lead →</button></div>
+      </div>
+    </div>
+
+    <div class="card unread">
+      <div class="icon blue">✉️</div>
+      <div class="card-body">
+        <div class="name">Ana Torres</div>
+        <div class="subject">Re: Información estacionamiento — ¿tienen disponibilidad?</div>
+        <div class="meta">Vendedor: María González · Lead #987</div>
+      </div>
+      <div class="card-right">
+        <div class="time">Ayer 16:45</div>
+        <div><button class="action-btn">Ir al lead →</button></div>
+      </div>
+    </div>
+
+    <div class="card unread">
+      <div class="icon blue">✉️</div>
+      <div class="card-body">
+        <div class="name">Roberto Pizarro</div>
+        <div class="subject">Consulta sobre precio en UF y forma de pago</div>
+        <div class="meta">Vendedor: Juan Valdivieso · Lead #901</div>
+      </div>
+      <div class="card-right">
+        <div class="time">Hace 3 días</div>
+        <div><button class="action-btn">Ir al lead →</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 2: LEADS SIN ATENCIÓN -->
+  <div id="panel-leads" class="panel">
+    <div class="tab-header">
+      <div class="section-title" style="margin:0">5 leads requieren acción</div>
+    </div>
+
+    <div class="section-title">Cotización enviada</div>
+
+    <div class="card unread-orange">
+      <div class="icon orange">📄</div>
+      <div class="card-body">
+        <div class="name">Pedro Alvarado</div>
+        <div class="subject">Cotización enviada hace 6 días sin respuesta</div>
+        <div class="meta">Vendedor: Felix Betancourtt · Lead #1102</div>
+      </div>
+      <div class="card-right">
+        <div><span class="dias-badge">6 días</span></div>
+        <div style="margin-top:4px"><span class="tag cot">COTIZACION_ENVIADA</span></div>
+        <div><button class="action-btn">Ver lead →</button></div>
+      </div>
+    </div>
+
+    <div class="card unread-orange">
+      <div class="icon orange">📄</div>
+      <div class="card-body">
+        <div class="name">Sofía Reyes</div>
+        <div class="subject">Cotización enviada hace 3 días sin respuesta</div>
+        <div class="meta">Vendedor: Juan Valdivieso · Lead #1089</div>
+      </div>
+      <div class="card-right">
+        <div><span class="dias-badge warn">3 días</span></div>
+        <div style="margin-top:4px"><span class="tag cot">COTIZACION_ENVIADA</span></div>
+        <div><button class="action-btn">Ver lead →</button></div>
+      </div>
+    </div>
+
+    <div class="section-title">En seguimiento</div>
+
+    <div class="card unread-red">
+      <div class="icon red">⏰</div>
+      <div class="card-body">
+        <div class="name">Luis Herrera</div>
+        <div class="subject">Sin actividad registrada en 8 días</div>
+        <div class="meta">Vendedor: María González · Lead #1045</div>
+      </div>
+      <div class="card-right">
+        <div><span class="dias-badge">8 días</span></div>
+        <div style="margin-top:4px"><span class="tag seg">SEGUIMIENTO</span></div>
+        <div><button class="action-btn">Ver lead →</button></div>
+      </div>
+    </div>
+
+    <div class="card unread-orange">
+      <div class="icon orange">⏰</div>
+      <div class="card-body">
+        <div class="name">Valentina Cruz</div>
+        <div class="subject">Sin actividad registrada en 4 días</div>
+        <div class="meta">Vendedor: Felix Betancourtt · Lead #1033</div>
+      </div>
+      <div class="card-right">
+        <div><span class="dias-badge warn">4 días</span></div>
+        <div style="margin-top:4px"><span class="tag seg">SEGUIMIENTO</span></div>
+        <div><button class="action-btn">Ver lead →</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="icon orange">⏰</div>
+      <div class="card-body">
+        <div class="name">Tomás Vidal</div>
+        <div class="subject">Sin actividad registrada en 2 días</div>
+        <div class="meta">Vendedor: Juan Valdivieso · Lead #1019</div>
+      </div>
+      <div class="card-right">
+        <div><span class="dias-badge warn">2 días</span></div>
+        <div style="margin-top:4px"><span class="tag nc">NO_CONTESTA</span></div>
+        <div><button class="action-btn">Ver lead →</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 3: ALERTAS -->
+  <div id="panel-alertas" class="panel">
+    <div class="tab-header">
+      <div class="section-title" style="margin:0">2 alertas sin resolver</div>
+      <div class="mark-all"><button>Marcar todas como leídas</button></div>
+    </div>
+
+    <div class="section-title">Descuentos</div>
+    <div class="card unread">
+      <div class="icon purple">💰</div>
+      <div class="card-body">
+        <div class="name">Descuento pendiente de aprobación</div>
+        <div class="subject">Cotización #334 — 3.5 UF de descuento solicitado por Felix</div>
+        <div class="meta">Hace 1 día</div>
+      </div>
+      <div class="card-right">
+        <div><button class="action-btn">Ver solicitud →</button></div>
+      </div>
+    </div>
+
+    <div class="section-title">Llaves</div>
+    <div class="card unread">
+      <div class="icon red">🔑</div>
+      <div class="card-body">
+        <div class="name">Llave #5 sin devolver</div>
+        <div class="subject">Prestada a Carlos Ruiz hace más de 3 días</div>
+        <div class="meta">Hace 3 días</div>
+      </div>
+      <div class="card-right">
+        <div><button class="action-btn">Ver llave →</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL 4: ACTIVIDAD RECIENTE -->
+  <div id="panel-actividad" class="panel">
+    <div class="tab-header">
+      <div class="section-title" style="margin:0">Actividad de hoy</div>
+      <div class="mark-all"><button>Marcar todo como leído</button></div>
+    </div>
+
+    <div class="card unread">
+      <div class="icon green">📝</div>
+      <div class="card-body">
+        <div class="name">Nueva nota en lead de Carlos Mendoza</div>
+        <div class="subject">Juan Valdivieso agregó una nota: "Cliente interesado pero espera respuesta de banco..."</div>
+        <div class="meta">Lead #1043</div>
+      </div>
+      <div class="card-right">
+        <div class="time">Hoy 11:30</div>
+        <div><button class="action-btn">Ver lead →</button></div>
+      </div>
+    </div>
+
+    <div class="card unread">
+      <div class="icon blue">📅</div>
+      <div class="card-body">
+        <div class="name">Visita programada mañana</div>
+        <div class="subject">Ana Torres — Torre Norte, 10:00 AM</div>
+        <div class="meta">Lead #987 · Vendedor: María González</div>
+      </div>
+      <div class="card-right">
+        <div class="time">Mañana 10:00</div>
+        <div><button class="action-btn">Ver lead →</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="icon green">✅</div>
+      <div class="card-body">
+        <div class="name">Descuento aprobado</div>
+        <div class="subject">Tu solicitud de 3.5 UF para cotización #298 fue aprobada</div>
+        <div class="meta">Lead #1001 · Felix Betancourtt</div>
+      </div>
+      <div class="card-right">
+        <div class="time">Ayer 17:02</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="icon orange">📞</div>
+      <div class="card-body">
+        <div class="name">Llamada registrada en lead de Tomás Vidal</div>
+        <div class="subject">Felix Betancourtt registró una llamada: "No contesta, dejar mensaje"</div>
+        <div class="meta">Lead #1019</div>
+      </div>
+      <div class="card-right">
+        <div class="time">Ayer 14:20</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
+  el.classList.add('active')
+  document.getElementById('panel-' + name).classList.add('active')
+}
+</script>
+</body>
+</html>
