@@ -324,4 +324,42 @@ router.patch('/conversacion/:leadId/leer', autenticar, async (req, res) => {
   }
 })
 
+// ─── GET /api/email/sin-responder ─────────────────────────────────────────────
+router.get('/sin-responder', autenticar, async (req, res) => {
+  const esGerente = req.usuario.rol === 'GERENTE'
+  const vendedorId = req.query.vendedorId ? Number(req.query.vendedorId) : null
+
+  let whereLead
+  if (esGerente && vendedorId) {
+    whereLead = { vendedorId }
+  } else if (esGerente && !vendedorId) {
+    whereLead = undefined
+  } else {
+    whereLead = { vendedorId: req.usuario.id }
+  }
+
+  try {
+    const emails = await prisma.emailConversacion.findMany({
+      where: {
+        direction: 'RECIBIDO',
+        leido: false,
+        ...(whereLead !== undefined && { lead: whereLead })
+      },
+      include: {
+        lead: {
+          select: {
+            id: true,
+            vendedor: { select: { id: true, nombre: true, apellido: true } },
+            contacto: { select: { nombre: true, apellido: true } }
+          }
+        }
+      },
+      orderBy: { creadoEn: 'desc' }
+    })
+    res.json(emails)
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener emails sin responder.' })
+  }
+})
+
 module.exports = router
