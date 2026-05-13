@@ -286,6 +286,20 @@ router.post('/respuesta', async (req, res) => {
     })
     console.log('[Inbound] guardado en BD ✓')
 
+    // Notificar al vendedor del lead
+    const leadParaNotif = await prisma.lead.findUnique({ where: { id: leadId }, select: { vendedorId: true } })
+    if (leadParaNotif?.vendedorId) {
+      await prisma.notificacion.create({
+        data: {
+          usuarioId: leadParaNotif.vendedorId,
+          tipo: 'EMAIL_RECIBIDO',
+          mensaje: `Email recibido de ${deEmail.split('<')[0].trim()}: "${asunto}"`,
+          referenciaId: leadId,
+          referenciaTipo: 'lead'
+        }
+      }).catch(() => {})
+    }
+
     await prisma.interaccion.create({
       data: { leadId, tipo: 'EMAIL', descripcion: `Email recibido: "${asunto}" de ${deEmail}` }
     }).catch(() => {})

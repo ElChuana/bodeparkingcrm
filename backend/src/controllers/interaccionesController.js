@@ -37,6 +37,21 @@ const crear = async (req, res) => {
       },
       include: { usuario: { select: { nombre: true, apellido: true } } }
     })
+
+    // Notificar al vendedor si fue otro usuario quien registró la actividad
+    const lead = await prisma.lead.findUnique({ where: { id: Number(leadId) }, select: { vendedorId: true } })
+    if (lead?.vendedorId && lead.vendedorId !== req.usuario.id) {
+      await prisma.notificacion.create({
+        data: {
+          usuarioId: lead.vendedorId,
+          tipo: 'ACTIVIDAD_EN_LEAD',
+          mensaje: `${req.usuario.nombre} registró una actividad en tu lead: ${tipo.toLowerCase()} — "${descripcion.substring(0, 80)}"`,
+          referenciaId: Number(leadId),
+          referenciaTipo: 'lead'
+        }
+      }).catch(() => {})
+    }
+
     res.status(201).json(interaccion)
   } catch (err) {
     res.status(500).json({ error: 'Error al crear interacción.' })

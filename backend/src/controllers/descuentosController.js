@@ -142,6 +142,19 @@ const revisar = async (req, res) => {
     })
 
     res.json({ solicitud: actualizada, descuentoAplicadoUF })
+
+    // Notificar al vendedor que solicitó el descuento
+    await prisma.notificacion.create({
+      data: {
+        usuarioId: solicitud.solicitadoPorId,
+        tipo: 'DESCUENTO_RESUELTO',
+        mensaje: decision === 'APROBADA'
+          ? `Descuento aprobado${descuentoAplicadoUF ? ` (${descuentoAplicadoUF} UF)` : ''} — cotización #${solicitud.cotizacionId}`
+          : `Descuento rechazado — cotización #${solicitud.cotizacionId}${comentario ? `: ${comentario}` : ''}`,
+        referenciaId: solicitud.cotizacionId,
+        referenciaTipo: 'cotizacion'
+      }
+    }).catch(() => {})
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al revisar solicitud.' })
