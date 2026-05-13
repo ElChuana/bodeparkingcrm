@@ -2,20 +2,8 @@ const prisma = require('../lib/prisma')
 
 const misNotificaciones = async (req, res) => {
   try {
-    const esGerente = req.usuario.rol === 'GERENTE'
-    const vendedorId = req.query.vendedorId ? Number(req.query.vendedorId) : null
-
-    let whereUsuario
-    if (esGerente && vendedorId) {
-      whereUsuario = { usuarioId: vendedorId }
-    } else if (esGerente && !vendedorId) {
-      whereUsuario = {}
-    } else {
-      whereUsuario = { usuarioId: req.usuario.id }
-    }
-
     const notificaciones = await prisma.notificacion.findMany({
-      where: whereUsuario,
+      where: { usuarioId: req.usuario.id },
       orderBy: { creadoEn: 'desc' },
       take: 100
     })
@@ -40,12 +28,8 @@ const marcarLeida = async (req, res) => {
 
 const marcarTodasLeidas = async (req, res) => {
   try {
-    const esGerente = req.usuario.rol === 'GERENTE'
-    const vendedorId = req.query.vendedorId ? Number(req.query.vendedorId) : null
-    const targetId = (esGerente && vendedorId) ? vendedorId : req.usuario.id
-
     await prisma.notificacion.updateMany({
-      where: { usuarioId: targetId, leida: false },
+      where: { usuarioId: req.usuario.id, leida: false },
       data: { leida: true }
     })
     res.json({ ok: true })

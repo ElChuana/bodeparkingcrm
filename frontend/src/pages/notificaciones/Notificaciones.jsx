@@ -92,8 +92,8 @@ export default function Notificaciones() {
   })
 
   const { data: todasNotifs = [] } = useQuery({
-    queryKey: ['notificaciones-pagina', vendedorId],
-    queryFn: () => api.get('/alertas', { params }).then(r => r.data),
+    queryKey: ['notificaciones-pagina'],
+    queryFn: () => api.get('/alertas').then(r => r.data),
     refetchInterval: 30000,
   })
 
@@ -102,7 +102,7 @@ export default function Notificaciones() {
   const actividadSinLeer = actividad.filter(n => !n.leida).length
 
   const marcarTodasLeidas = useMutation({
-    mutationFn: () => api.put('/alertas/leer-todas', null, { params }),
+    mutationFn: () => api.put('/alertas/leer-todas'),
     onSuccess: () => {
       qc.invalidateQueries(['notificaciones-pagina'])
       qc.invalidateQueries(['notificaciones'])
