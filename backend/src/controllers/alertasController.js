@@ -332,9 +332,51 @@ const eliminarReglaPipeline = async (req, res) => {
   }
 }
 
+const leadsSinAtencion = async (req, res) => {
+  const { vendedorId, dias = 2 } = req.query
+  const esGerente = req.usuario.rol === 'GERENTE'
+  const umbral = Number(dias)
+  const etapasMonitoreadas = ['SEGUIMIENTO', 'COTIZACION_ENVIADA', 'NO_CONTESTA', 'SEGUIMIENTO_POST_VISITA']
+
+  try {
+    const leads = await prisma.lead.findMany({
+      where: {
+        etapa: { in: etapasMonitoreadas },
+        ...(esGerente && vendedorId ? { vendedorId: Number(vendedorId) } : !esGerente ? { vendedorId: req.usuario.id } : {})
+      },
+      include: {
+        contacto: { select: { nombre: true, apellido: true } },
+        vendedor: { select: { id: true, nombre: true, apellido: true } },
+        interacciones: {
+          orderBy: { creadoEn: 'desc' },
+          take: 1,
+          select: { creadoEn: true }
+        }
+      }
+    })
+
+    const ahora = new Date()
+    const resultado = leads
+      .map(lead => {
+        const ultimaActividad = lead.interacciones[0]?.creadoEn || lead.actualizadoEn
+        const diasSinActividad = Math.floor((ahora - new Date(ultimaActividad)) / (1000 * 60 * 60 * 24))
+        const { interacciones, ...leadData } = lead
+        return { ...leadData, diasSinActividad, ultimaActividad }
+      })
+      .filter(lead => lead.diasSinActividad >= umbral)
+      .sort((a, b) => b.diasSinActividad - a.diasSinActividad)
+
+    res.json(resultado)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al obtener leads sin atención.' })
+  }
+}
+
 module.exports = {
   misNotificaciones, marcarLeida, marcarTodasLeidas,
   obtenerConfig, actualizarConfig, ejecutarChequeo,
   obtenerPreferencias, actualizarPreferencias,
-  listarReglasPipeline, crearReglaPipeline, actualizarReglaPipeline, eliminarReglaPipeline
+  listarReglasPipeline, crearReglaPipeline, actualizarReglaPipeline, eliminarReglaPipeline,
+  leadsSinAtencion
 }
