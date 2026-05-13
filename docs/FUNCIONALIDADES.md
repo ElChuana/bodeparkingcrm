@@ -253,13 +253,17 @@
 
 ### ALERTAS/NOTIFICACIONES — `/api/alertas`
 - Archivos: `routes/alertas.js`, `controllers/alertasController.js`
-- `GET /` — notificaciones no leídas del usuario
+- `GET /` — notificaciones del usuario. GERENTE acepta `?vendedorId=X` para ver de otro usuario (sin vendedorId = todas).
 - `PUT /:id/leer` — marcar leída
-- `PUT /leer-todas` — marcar todas leídas
+- `PUT /leer-todas` — marcar todas leídas. GERENTE acepta `?vendedorId=X`.
 - `GET /config`, `PUT /config/:tipo` — config de alertas (GERENTE)
 - `GET /preferencias`, `PUT /preferencias` — preferencias del usuario
-- Tipos de alerta: LLAVE_NO_DEVUELTA, CUOTA_VENCIDA, LEAD_SIN_ACTIVIDAD, LEAD_ESTANCADO, FECHA_LEGAL_PROXIMA, ARRIENDO_POR_VENCER, DESCUENTO_PENDIENTE, LEAD_ETAPA_CAMBIO, LEAD_NUEVO, RECORDATORIO_LEAD
-- Componente: `components/NotificacionesBadge.jsx`
+- `GET /leads-sin-atencion` — leads en SEGUIMIENTO/COTIZACION_ENVIADA/NO_CONTESTA/SEGUIMIENTO_POST_VISITA con >2 días sin interacción. Acepta `?vendedorId=X&dias=N`.
+- Tipos de alerta: LLAVE_NO_DEVUELTA, CUOTA_VENCIDA, LEAD_SIN_ACTIVIDAD, LEAD_ESTANCADO, FECHA_LEGAL_PROXIMA, ARRIENDO_POR_VENCER, DESCUENTO_PENDIENTE, LEAD_ETAPA_CAMBIO, LEAD_NUEVO, RECORDATORIO_LEAD, COMISION_ESCRITURA, EMAIL_RECIBIDO, ACTIVIDAD_EN_LEAD, VISITA_PROXIMA, DESCUENTO_RESUELTO
+- Notificaciones en tiempo real: EMAIL_RECIBIDO (webhook inbound email), ACTIVIDAD_EN_LEAD (crear interacción por otro usuario), DESCUENTO_RESUELTO (aprobar/rechazar solicitud)
+- VISITA_PROXIMA: cron cada 15 min, ventana 23h–25h antes de la visita, anti-duplicado por 2h
+- `GET /api/email/sin-responder` — EmailConversacion RECIBIDO + leido=false por vendedor. GERENTE acepta `?vendedorId=X`.
+- Componentes: `components/NotificacionesBadge.jsx` (badge header), `pages/notificaciones/Notificaciones.jsx` (página /notificaciones con 4 tabs)
 
 ### DASHBOARD — `/api/dashboard`
 - Archivos: `routes/dashboard.js`, `controllers/dashboardController.js`
