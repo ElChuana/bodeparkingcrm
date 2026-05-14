@@ -1,4 +1,5 @@
 !backend/uploads/.gitkeep
+docs/enviar/
 *.log
 .DS_Store
 .env
@@ -10,3 +11,5 @@ frontend/.env
 frontend/dist/
 frontend/node_modules/
 node_modules/
+tools/emailmasivo/.env
+tools/emailmasivo/node_modules/
