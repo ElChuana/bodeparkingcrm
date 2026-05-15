@@ -60,7 +60,7 @@ router.post('/enviar',
     const errores = validationResult(req)
     if (!errores.isEmpty()) return res.status(400).json({ errores: errores.array() })
 
-    const { para, cc, asunto, cuerpo, cotizacionId, pdfBase64, pdfNombre } = req.body
+    const { para, cc, asunto, cuerpo, pdfBase64, pdfNombre, adjuntos: adjuntosBody } = req.body
 
     // Obtener el email del usuario para usarlo como "from"
     const usuario = await prisma.usuario.findUnique({
@@ -77,11 +77,18 @@ router.post('/enviar',
     try {
       const adjuntos = []
 
+      // Formato nuevo: array de adjuntos { base64, nombre }
+      if (Array.isArray(adjuntosBody) && adjuntosBody.length > 0) {
+        for (const adj of adjuntosBody) {
+          if (adj.base64 && adj.nombre) {
+            adjuntos.push({ filename: adj.nombre, content: adj.base64 })
+          }
+        }
+      }
+
+      // Formato legacy: pdfBase64 + pdfNombre (compatibilidad)
       if (pdfBase64 && pdfNombre) {
-        adjuntos.push({
-          filename: pdfNombre,
-          content: pdfBase64,
-        })
+        adjuntos.push({ filename: pdfNombre, content: pdfBase64 })
       }
 
       const htmlCuerpo = cuerpo.includes('<') ? cuerpo : cuerpo.replace(/\n/g, '<br>')
