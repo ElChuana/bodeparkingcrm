@@ -210,40 +210,29 @@ const obtener = async (req, res) => {
         select: { creadoEn: true }
       }),
 
-      // Embudo: contactados — leads del período (por creadoEn) que salieron de NUEVO
+      // Embudo: contactados — leads del período que salieron de NUEVO
       prisma.lead.count({
         where: { ...filtroLead, etapa: { not: 'NUEVO' } }
       }),
 
-      // Embudo: visitas — leads que ingresaron en el período (por creadoEn del lead)
-      prisma.visita.count({
-        where: hayFecha ? { lead: { creadoEn: { gte: new Date(desde), lte: new Date(hasta) } } } : {}
+      // Embudo: visitas — leads del período con al menos una visita
+      prisma.lead.count({
+        where: { ...filtroLead, visitas: { some: {} } }
       }),
 
-      // Embudo: reservas — ventas de leads que ingresaron en el período
-      prisma.venta.count({
-        where: {
-          ...(hayFecha ? { lead: { creadoEn: { gte: new Date(desde), lte: new Date(hasta) } } } : {}),
-          estado: { not: 'ANULADO' }
-        }
+      // Embudo: reservas — leads del período con al menos una venta activa
+      prisma.lead.count({
+        where: { ...filtroLead, ventas: { some: { estado: { not: 'ANULADO' } } } }
       }),
 
-      // Embudo: promesas — ventas con promesa de leads que ingresaron en el período
-      prisma.venta.count({
-        where: {
-          ...(hayFecha ? { lead: { creadoEn: { gte: new Date(desde), lte: new Date(hasta) } } } : {}),
-          fechaPromesa: { not: null },
-          estado: { not: 'ANULADO' }
-        }
+      // Embudo: promesas — leads del período con venta que llegó a promesa
+      prisma.lead.count({
+        where: { ...filtroLead, ventas: { some: { fechaPromesa: { not: null }, estado: { not: 'ANULADO' } } } }
       }),
 
-      // Embudo: escrituras — ventas con escritura de leads que ingresaron en el período
-      prisma.venta.count({
-        where: {
-          ...(hayFecha ? { lead: { creadoEn: { gte: new Date(desde), lte: new Date(hasta) } } } : {}),
-          fechaEscritura: { not: null },
-          estado: { not: 'ANULADO' }
-        }
+      // Embudo: escrituras — leads del período con venta que llegó a escritura
+      prisma.lead.count({
+        where: { ...filtroLead, ventas: { some: { fechaEscritura: { not: null }, estado: { not: 'ANULADO' } } } }
       }),
 
       // Notificaciones sin leer
