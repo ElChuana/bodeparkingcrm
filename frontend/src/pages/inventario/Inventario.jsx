@@ -5,8 +5,9 @@ import {
   Typography, Space, App, InputNumber, Table, Segmented, Tooltip
 } from 'antd'
 import {
-  PlusOutlined, HomeOutlined, AppstoreOutlined, BarsOutlined, SearchOutlined
+  PlusOutlined, HomeOutlined, AppstoreOutlined, BarsOutlined, SearchOutlined, FileExcelOutlined
 } from '@ant-design/icons'
+import * as XLSX from 'xlsx'
 import api from '../../services/api'
 import { useUF } from '../../hooks/useUF'
 import { useAuth } from '../../context/AuthContext'
@@ -336,6 +337,27 @@ function VistaLista({ edificios, onNuevaUnidad }) {
       )
     : unidades
 
+  const exportarExcel = () => {
+    const filas = datos.map(u => ({
+      Edificio: u.edificio?.nombre || '',
+      Región: u.edificio?.region || '',
+      Comuna: u.edificio?.comuna || '',
+      Tipo: u.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento',
+      Subtipo: u.subtipo === 'TANDEM' ? 'Tándem' : '',
+      Número: u.numero,
+      Piso: u.piso || '',
+      'm²': u.m2 ? Number(u.m2) : '',
+      Estado: ESTADO_LABEL[u.estado] || u.estado,
+      'Precio UF': u.precioUF ? Number(u.precioUF) : '',
+      'Precio mín UF': u.precioMinimoUF ? Number(u.precioMinimoUF) : '',
+      Notas: u.notas || '',
+    }))
+    const ws = XLSX.utils.json_to_sheet(filas)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventario')
+    XLSX.writeFile(wb, `inventario_bodeparking_${new Date().toISOString().slice(0,10)}.xlsx`)
+  }
+
   const columns = [
     {
       title: 'Edificio',
@@ -477,6 +499,14 @@ function VistaLista({ edificios, onNuevaUnidad }) {
             setFiltroPrecioMin(undefined); setFiltroPrecioMax(undefined); setBusqueda('')
           }}>Limpiar</Button>
         )}
+        <Button
+          size="small"
+          icon={<FileExcelOutlined />}
+          onClick={exportarExcel}
+          disabled={datos.length === 0}
+        >
+          Exportar Excel
+        </Button>
       </Space>
 
       <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13 }}>
