@@ -220,20 +220,44 @@ const obtener = async (req, res) => {
         where: { ...filtroLead, visitas: { some: {} } }
       }),
 
-      // Embudo: reservas — leads del período con al menos una venta activa
-      prisma.lead.count({
-        where: { ...filtroLead, ventas: { some: { estado: { not: 'ANULADO' } } } }
-      }),
+      // Embudo: reservas — leads del período con venta cuya fechaReserva >= lead.creadoEn
+      // (evita contar ventas migradas que preceden al lead)
+      hayFecha
+        ? prisma.$queryRaw`
+            SELECT COUNT(DISTINCT l.id)::int AS cnt
+            FROM leads l
+            JOIN ventas v ON v."leadId" = l.id
+            WHERE l."creadoEn" >= ${new Date(desde)} AND l."creadoEn" <= ${new Date(hasta)}
+              AND v.estado != 'ANULADO'
+              AND v."fechaReserva" >= l."creadoEn"
+          `.then(r => Number(r[0]?.cnt ?? 0))
+        : prisma.lead.count({ where: { ventas: { some: { estado: { not: 'ANULADO' } } } } }),
 
-      // Embudo: promesas — leads del período con venta que llegó a promesa
-      prisma.lead.count({
-        where: { ...filtroLead, ventas: { some: { fechaPromesa: { not: null }, estado: { not: 'ANULADO' } } } }
-      }),
+      // Embudo: promesas — leads del período con venta que llegó a promesa posterior al lead
+      hayFecha
+        ? prisma.$queryRaw`
+            SELECT COUNT(DISTINCT l.id)::int AS cnt
+            FROM leads l
+            JOIN ventas v ON v."leadId" = l.id
+            WHERE l."creadoEn" >= ${new Date(desde)} AND l."creadoEn" <= ${new Date(hasta)}
+              AND v.estado != 'ANULADO'
+              AND v."fechaPromesa" IS NOT NULL
+              AND v."fechaReserva" >= l."creadoEn"
+          `.then(r => Number(r[0]?.cnt ?? 0))
+        : prisma.lead.count({ where: { ventas: { some: { fechaPromesa: { not: null }, estado: { not: 'ANULADO' } } } } }),
 
-      // Embudo: escrituras — leads del período con venta que llegó a escritura
-      prisma.lead.count({
-        where: { ...filtroLead, ventas: { some: { fechaEscritura: { not: null }, estado: { not: 'ANULADO' } } } }
-      }),
+      // Embudo: escrituras — leads del período con venta que llegó a escritura posterior al lead
+      hayFecha
+        ? prisma.$queryRaw`
+            SELECT COUNT(DISTINCT l.id)::int AS cnt
+            FROM leads l
+            JOIN ventas v ON v."leadId" = l.id
+            WHERE l."creadoEn" >= ${new Date(desde)} AND l."creadoEn" <= ${new Date(hasta)}
+              AND v.estado != 'ANULADO'
+              AND v."fechaEscritura" IS NOT NULL
+              AND v."fechaReserva" >= l."creadoEn"
+          `.then(r => Number(r[0]?.cnt ?? 0))
+        : prisma.lead.count({ where: { ventas: { some: { fechaEscritura: { not: null }, estado: { not: 'ANULADO' } } } } }),
 
       // Notificaciones sin leer
       prisma.notificacion.count({ where: { usuarioId: req.usuario.id, leida: false } }),
