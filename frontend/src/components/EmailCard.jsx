@@ -91,6 +91,7 @@ function MensajeEmail({ e, onResponder }) {
 
   const hora = format(new Date(e.creadoEn), "d MMM · HH:mm", { locale: es })
   const avatarLabel = iniciales(remitente)
+  const horaAbierto = e.abiertoEn ? format(new Date(e.abiertoEn), "HH:mm", { locale: es }) : null
 
   return (
     <div style={{
@@ -102,7 +103,7 @@ function MensajeEmail({ e, onResponder }) {
       <BubbleAvatar label={avatarLabel} sent={enviado} />
 
       <div style={{ maxWidth: '72%', minWidth: 0 }}>
-        {/* Nombre + hora */}
+        {/* Nombre + hora + badge leído */}
         <div style={{
           display: 'flex',
           justifyContent: enviado ? 'flex-end' : 'flex-start',
@@ -118,6 +119,26 @@ function MensajeEmail({ e, onResponder }) {
             }}>NUEVO</span>
           )}
           <span style={{ fontSize: 11, color: '#9ca3af' }}>{hora}</span>
+          {enviado && e.abierto && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+              background: '#f0fdf4', border: '1px solid #bbf7d0',
+              borderRadius: 99, padding: '1px 7px',
+              fontSize: 9, fontWeight: 600, color: '#16a34a',
+            }}>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Leído{horaAbierto ? ` · ${horaAbierto}` : ''}
+            </span>
+          )}
+          {enviado && !e.abierto && (
+            <span style={{ fontSize: 9, color: '#d1d5db' }}>
+              <svg width="10" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </span>
+          )}
         </div>
 
         {/* Burbuja */}

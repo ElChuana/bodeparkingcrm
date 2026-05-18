@@ -887,8 +887,10 @@ model EmailConversacion {
   de          String
   para        String
   usuarioId   Int?
-  leido       Boolean  @default(false)
-  creadoEn    DateTime @default(now())
+  leido       Boolean   @default(false)
+  abierto     Boolean   @default(false)
+  abiertoEn   DateTime?
+  creadoEn    DateTime  @default(now())
 
   lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   usuario     Usuario? @relation(fields: [usuarioId], references: [id])

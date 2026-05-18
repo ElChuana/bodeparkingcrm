@@ -242,6 +242,16 @@ router.post('/respuesta', async (req, res) => {
     const { type, data } = req.body
     console.log('[Inbound] payload recibido:', JSON.stringify({ type, data }))
 
+    // ── Tracking de apertura ──────────────────────────────────────
+    if (type === 'email.opened' && data?.email_id) {
+      const updated = await prisma.emailConversacion.updateMany({
+        where: { messageId: data.email_id, direction: 'ENVIADO', abierto: false },
+        data: { abierto: true, abiertoEn: new Date() },
+      })
+      console.log('[Tracking] email.opened — id:', data.email_id, '| actualizado:', updated.count)
+      return
+    }
+
     if (type !== 'email.received' || !data?.email_id) {
       console.warn('[Inbound] tipo inesperado o sin email_id:', type, data?.email_id)
       return
