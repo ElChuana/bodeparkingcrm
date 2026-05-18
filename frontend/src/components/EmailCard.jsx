@@ -35,6 +35,12 @@ const PLANTILLAS = [
     asunto: 'Confirmación de reunión — BodeParking',
     cuerpo: 'Estimado/a {nombre},\n\nConfirmo nuestra reunión para el [FECHA] a las [HORA] en [LUGAR].\n\nSi necesita reagendar, no dude en escribirme.\n\nSaludos cordiales,',
   },
+  {
+    key: 'sin_contacto',
+    label: 'Sin contacto',
+    asunto: 'Contacto pendiente — BodeParking',
+    cuerpo: 'Estimado/a {nombre},\n\nJunto con saludar, esperamos que se encuentre muy bien.\n\nLe comentamos que hemos intentado comunicarnos telefónicamente con usted durante el día, pero no nos ha sido posible tomar contacto.\n\nAgradeceríamos, por favor, si nos pudiera indicar un horario que le acomode o bien contactarnos directamente cuando tenga disponibilidad, para así poder conversar, resolver sus dudas y orientarlo/a de la mejor manera en su proceso de inversión.\n\nQuedamos atentos a sus comentarios.\n\nSaludos cordiales,',
+  },
 ]
 
 function cotizacionParaPDF(cot) {
