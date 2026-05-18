@@ -11,7 +11,7 @@ import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components
 import ModalPerdido from '../../components/ModalPerdido'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
-  Space, Spin, Row, Col, Timeline, Descriptions, App, DatePicker, Alert
+  Space, Spin, Row, Col, Timeline, Descriptions, App, DatePicker, Alert, Tabs
 } from 'antd'
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
@@ -998,13 +998,22 @@ export default function LeadDetalle() {
           </Space>
         </Col>
 
-        {/* Columna derecha: timeline + cotizaciones */}
+        {/* Columna derecha: tabs Actividades / Emails */}
         <Col xs={24} md={16}>
-          <Space direction="vertical" style={{ width: '100%' }} size={12}>
-            <Card
-              title={`Actividad (${timeline.length})`}
-              extra={<Button type="link" size="small" onClick={() => setModalInteraccion(true)}>+ Agregar</Button>}
-            >
+          <Tabs
+            defaultActiveKey="actividades"
+            type="card"
+            size="small"
+            items={[
+              {
+                key: 'actividades',
+                label: `Actividades (${timeline.length})`,
+                children: (
+                  <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                    <Card
+                      title={`Actividad (${timeline.length})`}
+                      extra={<Button type="link" size="small" onClick={() => setModalInteraccion(true)}>+ Agregar</Button>}
+                    >
               <NotaRapida leadId={id} />
               {timeline.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '32px 0', color: '#aaa' }}>
@@ -1119,17 +1128,24 @@ export default function LeadDetalle() {
                 </Card>
               )
             })()}
-          </Space>
+                  </Space>
+                ),
+              },
+              {
+                key: 'emails',
+                label: 'Emails',
+                children: (
+                  <EmailCard
+                    leadId={parseInt(id)}
+                    emailPara={lead.contacto.email}
+                    nombreLead={`${lead.contacto.nombre} ${lead.contacto.apellido}`.trim()}
+                  />
+                ),
+              },
+            ]}
+          />
         </Col>
       </Row>
-
-      {lead.contacto.email && (
-        <EmailCard
-          leadId={parseInt(id)}
-          emailPara={lead.contacto.email}
-          nombreLead={`${lead.contacto.nombre} ${lead.contacto.apellido}`.trim()}
-        />
-      )}
       <ModalCambiarEtapa   open={modalEtapa}          onClose={() => setModalEtapa(false)}          lead={lead} onPerdido={() => setModalPerdido(true)} />
       <ModalPerdido
         open={modalPerdido}
