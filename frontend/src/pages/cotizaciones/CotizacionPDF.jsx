@@ -246,6 +246,75 @@ const s = StyleSheet.create({
     textAlign: 'right',
   },
 
+  // ── Calculadora rentabilidad ──
+  rentBox: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  rentHeader: {
+    backgroundColor: BLUE_HD,
+    borderBottomWidth: 1,
+    borderBottomColor: BLUE,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rentHeaderTitle: {
+    fontSize: 7.5,
+    fontFamily: 'Helvetica-Bold',
+    color: BLUE,
+    letterSpacing: 2,
+  },
+  rentHeaderSub: { fontSize: 7.5, color: MUTED, fontStyle: 'italic' },
+  rentColHeader: {
+    flexDirection: 'row',
+    backgroundColor: SMOKE,
+    paddingHorizontal: 13,
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+  },
+  rentColHeaderText: {
+    fontSize: 7,
+    color: MUTED,
+    letterSpacing: 1,
+    fontFamily: 'Helvetica-Bold',
+  },
+  rentRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+  },
+  rentRowHighlight: { backgroundColor: BLUE_LT },
+  rentCol1: { flex: 2, flexDirection: 'row', alignItems: 'center' },
+  rentCol2: { flex: 2.5, alignItems: 'flex-end' },
+  rentCol3: { flex: 2.5, alignItems: 'flex-end' },
+  rentRate:  { fontSize: 11, fontFamily: 'Helvetica-Bold', color: TEXT },
+  rentRateHl:{ color: BLUE },
+  rentBadge: {
+    fontSize: 6.5,
+    fontFamily: 'Helvetica-Bold',
+    color: BLUE,
+    backgroundColor: WHITE,
+    borderWidth: 1,
+    borderColor: BLUE,
+    paddingHorizontal: 4,
+    paddingVertical: 1.5,
+    borderRadius: 2,
+    marginLeft: 6,
+  },
+  rentVal:    { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
+  rentValHl:  { color: BLUE },
+  rentValSub: { fontSize: 8, color: MUTED, marginTop: 1 },
+
   // ── Notas ──
   notasBox: {
     marginTop: 16,
@@ -569,6 +638,46 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
               </View>
             </View>
           </View>
+
+          {/* ── Calculadora rentabilidad ── */}
+          {totalFinal > 0 && (
+            <View style={s.rentBox}>
+              <View style={s.rentHeader}>
+                <Text style={s.rentHeaderTitle}>RENTABILIDAD POR ARRIENDO</Text>
+                <Text style={s.rentHeaderSub}>Estimado sobre precio final de compra</Text>
+              </View>
+              <View style={s.rentColHeader}>
+                <Text style={[s.rentColHeaderText, { flex: 2 }]}>RENTABILIDAD</Text>
+                <Text style={[s.rentColHeaderText, { flex: 2.5, textAlign: 'right' }]}>INGRESO ANUAL</Text>
+                <Text style={[s.rentColHeaderText, { flex: 2.5, textAlign: 'right' }]}>INGRESO MENSUAL</Text>
+              </View>
+              {[
+                { tasa: 0.06, label: '6%' },
+                { tasa: 0.08, label: '8%', destacado: true },
+                { tasa: 0.10, label: '10%' },
+                { tasa: 0.12, label: '12%' },
+              ].map(({ tasa, label, destacado }) => {
+                const anual   = totalFinal * tasa
+                const mensual = anual / 12
+                return (
+                  <View key={label} style={[s.rentRow, destacado && s.rentRowHighlight]}>
+                    <View style={s.rentCol1}>
+                      <Text style={[s.rentRate, destacado && s.rentRateHl]}>{label}</Text>
+                      {destacado && <Text style={s.rentBadge}>Nuestra oferta</Text>}
+                    </View>
+                    <View style={s.rentCol2}>
+                      <Text style={[s.rentVal, destacado && s.rentValHl]}>{fmtUF(anual)}</Text>
+                      {valorUF && <Text style={s.rentValSub}>{fmtPesos(anual, valorUF)}/año</Text>}
+                    </View>
+                    <View style={s.rentCol3}>
+                      <Text style={[s.rentVal, destacado && s.rentValHl]}>{fmtUF(mensual)}</Text>
+                      {valorUF && <Text style={s.rentValSub}>{fmtPesos(mensual, valorUF)}/mes</Text>}
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          )}
 
           {/* ── Validez ── */}
           <View style={s.validezBox}>
