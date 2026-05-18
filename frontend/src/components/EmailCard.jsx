@@ -13,28 +13,24 @@ import { useUF } from '../hooks/useUF'
 const PLANTILLAS = [
   {
     key: 'seguimiento',
-    emoji: '📋',
     label: 'Seguimiento',
     asunto: 'Seguimiento — BodeParking',
     cuerpo: 'Estimado/a {nombre},\n\nMe comunico desde BodeParking para hacer seguimiento sobre su consulta. ¿Tuvo oportunidad de revisar la información que le enviamos?\n\nQuedo atento a sus comentarios.\n\nSaludos cordiales,',
   },
   {
     key: 'presentacion',
-    emoji: '🏠',
     label: 'Presentación',
     asunto: 'Presentación de Bodega — BodeParking',
     cuerpo: 'Estimado/a {nombre},\n\nJunto a este mensaje le comparto información detallada sobre la bodega disponible. Quedamos disponibles para coordinar una visita cuando lo estime conveniente.\n\nSaludos cordiales,',
   },
   {
     key: 'cotizacion',
-    emoji: '📄',
     label: 'Cotización',
     asunto: 'Cotización BodeParking',
     cuerpo: 'Estimado/a {nombre},\n\nAdjunto encontrará la cotización solicitada para nuestras bodegas. Quedo a su disposición para cualquier consulta.\n\nSaludos cordiales,',
   },
   {
     key: 'reunion',
-    emoji: '✅',
     label: 'Reunión',
     asunto: 'Confirmación de reunión — BodeParking',
     cuerpo: 'Estimado/a {nombre},\n\nConfirmo nuestra reunión para el [FECHA] a las [HORA] en [LUGAR].\n\nSi necesita reagendar, no dude en escribirme.\n\nSaludos cordiales,',
@@ -57,16 +53,24 @@ function cotizacionParaPDF(cot) {
   return { ...cot, promociones }
 }
 
-function Avatar({ nombre, enviado }) {
-  const inicial = (nombre || '?')[0].toUpperCase()
+function iniciales(nombre) {
+  if (!nombre) return '?'
+  const partes = nombre.trim().split(' ')
+  return partes.length >= 2
+    ? (partes[0][0] + partes[1][0]).toUpperCase()
+    : partes[0][0].toUpperCase()
+}
+
+function BubbleAvatar({ label, sent }) {
   return (
     <div style={{
       width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-      background: enviado ? '#005f8a' : '#e8f4fb',
-      color: enviado ? '#a8d8f0' : '#0091c3',
+      background: sent ? '#0091c3' : '#e8f4fb',
+      color: sent ? '#fff' : '#0091c3',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 11, fontWeight: 700, letterSpacing: '-0.3px',
-    }}>{inicial}</div>
+      fontSize: 10, fontWeight: 700, marginTop: 2,
+      userSelect: 'none',
+    }}>{label}</div>
   )
 }
 
@@ -74,103 +78,98 @@ function MensajeEmail({ e, onResponder }) {
   const [expandido, setExpandido] = useState(true)
   const enviado = e.direction === 'ENVIADO'
   const esNoLeido = !enviado && !e.leido
+
   const remitente = enviado
     ? (e.usuario?.nombre || 'Tú')
     : (e.de?.replace(/<.*>/, '').trim() || e.de || 'Cliente')
+
   const hora = format(new Date(e.creadoEn), "d MMM · HH:mm", { locale: es })
+  const avatarLabel = iniciales(remitente)
 
   return (
     <div style={{
       display: 'flex',
       flexDirection: enviado ? 'row-reverse' : 'row',
-      gap: 8,
       alignItems: 'flex-start',
+      gap: 8,
     }}>
-      <Avatar nombre={remitente} enviado={enviado} />
+      <BubbleAvatar label={avatarLabel} sent={enviado} />
 
-      <div style={{ flex: 1, minWidth: 0, maxWidth: 'calc(100% - 36px)' }}>
-        {/* Cabecera del mensaje */}
+      <div style={{ maxWidth: '72%', minWidth: 0 }}>
+        {/* Nombre + hora */}
         <div style={{
           display: 'flex',
           justifyContent: enviado ? 'flex-end' : 'flex-start',
           alignItems: 'center',
-          gap: 8,
-          marginBottom: 4,
+          gap: 6,
+          marginBottom: 3,
         }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: enviado ? '#0091c3' : '#3d3d3d' }}>
-            {remitente}
-          </span>
           {esNoLeido && (
             <span style={{
               background: '#0091c3', color: '#fff',
-              borderRadius: 6, padding: '1px 6px', fontSize: 9, fontWeight: 700,
-              letterSpacing: '0.5px',
+              borderRadius: 99, padding: '1px 6px',
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.5px',
             }}>NUEVO</span>
           )}
-          <span style={{ fontSize: 10, color: '#b0bec5' }}>{hora}</span>
+          <span style={{ fontSize: 11, color: '#9ca3af' }}>{hora}</span>
         </div>
 
-        {/* Tarjeta del mensaje */}
-        <div style={{
-          background: enviado ? '#0091c3' : '#fff',
-          border: enviado ? 'none' : esNoLeido ? '1.5px solid #0091c3' : '1px solid #e8edf2',
-          borderRadius: enviado ? '2px 14px 14px 14px' : '14px 14px 14px 2px',
-          overflow: 'hidden',
-          boxShadow: enviado
-            ? '0 2px 8px rgba(0,145,195,0.25)'
-            : '0 1px 4px rgba(0,0,0,0.06)',
-        }}>
-          {/* Asunto */}
-          <div
-            onClick={() => setExpandido(v => !v)}
-            style={{
-              padding: '8px 14px',
-              borderBottom: expandido
-                ? (enviado ? '1px solid rgba(255,255,255,0.15)' : '1px solid #f0f4f8')
-                : 'none',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
+        {/* Burbuja */}
+        <div
+          onClick={() => setExpandido(v => !v)}
+          style={{
+            background: enviado ? '#0091c3' : '#fff',
+            border: enviado ? 'none' : esNoLeido ? '1.5px solid #0091c3' : '1px solid #e5e7eb',
+            borderRadius: enviado ? '12px 12px 3px 12px' : '12px 12px 12px 3px',
+            overflow: 'hidden',
+            boxShadow: enviado
+              ? '0 2px 8px rgba(0,145,195,0.2)'
+              : '0 1px 3px rgba(0,0,0,0.06)',
+            cursor: 'pointer',
+          }}
+        >
+          {/* Asunto colapsable */}
+          <div style={{
+            padding: '7px 13px',
+            borderBottom: expandido
+              ? (enviado ? '1px solid rgba(255,255,255,0.15)' : '1px solid #f3f4f6')
+              : 'none',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            gap: 8,
+          }}>
             <span style={{
-              fontSize: 11, fontWeight: 700,
-              color: enviado ? 'rgba(255,255,255,0.75)' : '#64748b',
-              letterSpacing: '0.2px',
+              fontSize: 11, fontWeight: 600,
+              color: enviado ? 'rgba(255,255,255,0.8)' : '#6b7280',
+              userSelect: 'none',
             }}>
               {e.asunto}
             </span>
-            <span style={{ fontSize: 10, color: enviado ? 'rgba(255,255,255,0.4)' : '#b0bec5', marginLeft: 8 }}>
+            <span style={{ fontSize: 9, color: enviado ? 'rgba(255,255,255,0.4)' : '#d1d5db', flexShrink: 0 }}>
               {expandido ? '▲' : '▼'}
             </span>
           </div>
 
           {/* Cuerpo */}
           {expandido && (
-            <div style={{ padding: '10px 14px' }}>
+            <div style={{ padding: '10px 13px' }}>
               <div
-                style={{
-                  fontSize: 13, lineHeight: 1.65,
-                  color: enviado ? '#fff' : '#2d3748',
-                }}
+                style={{ fontSize: 13, lineHeight: 1.65, color: enviado ? '#fff' : '#1f2937' }}
                 dangerouslySetInnerHTML={{ __html: e.cuerpo }}
               />
               {!enviado && (
                 <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
                   <button
-                    onClick={() => onResponder(e.asunto)}
+                    onClick={ev => { ev.stopPropagation(); onResponder(e.asunto) }}
                     style={{
                       background: 'none',
                       border: '1px solid #0091c3',
-                      borderRadius: 8,
-                      padding: '4px 12px',
+                      borderRadius: 7,
+                      padding: '4px 11px',
                       fontSize: 11, fontWeight: 600,
                       color: '#0091c3', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      transition: 'all 0.15s',
                     }}
-                    onMouseEnter={e => { e.target.style.background = '#0091c3'; e.target.style.color = '#fff' }}
-                    onMouseLeave={e => { e.target.style.background = 'none'; e.target.style.color = '#0091c3' }}
+                    onMouseEnter={ev => { ev.currentTarget.style.background = '#0091c3'; ev.currentTarget.style.color = '#fff' }}
+                    onMouseLeave={ev => { ev.currentTarget.style.background = 'none'; ev.currentTarget.style.color = '#0091c3' }}
                   >
                     ↩ Responder
                   </button>
@@ -314,54 +313,56 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
   }
 
   const totalAdjuntos = cotSeleccionadas.length + archivos.length
+  const leadIniciales = iniciales(nombreLead || emailPara || '?')
 
   return (
     <div style={{
       background: '#fff',
-      border: '1px solid #e2e8f0',
+      border: '1px solid #e5e7eb',
       borderRadius: 12,
       marginTop: 16,
       overflow: 'hidden',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
 
-      {/* ── Header ── */}
+      {/* ── Header blanco ── */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', gap: 10,
         padding: '12px 16px',
-        background: 'linear-gradient(135deg, #0091c3 0%, #006e97 100%)',
+        background: '#fff',
+        borderBottom: '1px solid #e5e7eb',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: 'rgba(255,255,255,0.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 15,
-          }}>✉</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff', letterSpacing: '-0.2px' }}>
-              Conversación email
-            </div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', marginTop: 1 }}>
-              {emailPara || 'Sin email configurado'}
-            </div>
+        {/* Avatar del lead */}
+        <div style={{
+          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+          background: '#e8f4fb',
+          color: '#0091c3',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 700,
+        }}>{leadIniciales}</div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', lineHeight: 1.3 }}>
+            {nombreLead || 'Sin nombre'}
+          </div>
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>
+            {emailPara || 'Sin email'}
           </div>
         </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {noLeidos > 0 && (
             <div style={{
               background: '#ca3a36', color: '#fff',
-              borderRadius: 20, padding: '2px 9px',
-              fontSize: 10, fontWeight: 700, letterSpacing: '0.3px',
+              borderRadius: 99, padding: '2px 8px',
+              fontSize: 10, fontWeight: 700,
             }}>
               {noLeidos} sin leer
             </div>
           )}
-          <div style={{
-            fontSize: 10, color: 'rgba(255,255,255,0.5)',
-            background: 'rgba(255,255,255,0.1)',
-            borderRadius: 6, padding: '3px 8px',
-          }}>
+          <div style={{ fontSize: 10, color: '#9ca3af' }}>
             {emails.length} mensaje{emails.length !== 1 ? 's' : ''}
           </div>
         </div>
@@ -369,16 +370,14 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
 
       {/* ── Hilo de mensajes ── */}
       <div style={{
-        padding: '16px 14px',
+        padding: '14px 14px',
         minHeight: 80,
         maxHeight: 380,
         overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
         gap: 14,
-        background: '#f7f9fc',
-        backgroundImage: 'radial-gradient(circle at 1px 1px, #e8edf2 1px, transparent 0)',
-        backgroundSize: '20px 20px',
+        background: '#f9fafb',
       }}>
         {cargandoEmails && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
@@ -388,12 +387,21 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
 
         {!cargandoEmails && emails.length === 0 && (
           <div style={{ textAlign: 'center', padding: '32px 20px' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: '50%',
+              background: '#e8f4fb', margin: '0 auto 10px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0091c3" strokeWidth="1.8">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
               Sin mensajes aún
             </div>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>
-              Usá una plantilla o redactá abajo para iniciar la conversación
+            <div style={{ fontSize: 11, color: '#9ca3af' }}>
+              Usa una plantilla o redacta abajo para iniciar la conversación
             </div>
           </div>
         )}
@@ -405,81 +413,82 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Plantillas rápidas (cuando composer cerrado) ── */}
+      {/* ── Plantillas rápidas ── */}
       {!mostrarComposer && (
         <div style={{
-          padding: '12px 16px',
-          borderTop: '1px solid #e8edf2',
+          padding: '10px 14px',
+          borderTop: '1px solid #e5e7eb',
           background: '#fff',
+          display: 'flex',
+          gap: 6,
+          flexWrap: 'wrap',
+          alignItems: 'center',
         }}>
-          <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 8 }}>
-            Enviar email
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            {PLANTILLAS.map(p => (
-              <button
-                key={p.key}
-                onClick={() => aplicarPlantilla(p.key)}
-                style={{
-                  background: '#f1f5f9',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 8,
-                  padding: '6px 12px',
-                  fontSize: 11,
-                  color: '#475569',
-                  cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  fontWeight: 500,
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#e8f4fb'; e.currentTarget.style.borderColor = '#0091c3'; e.currentTarget.style.color = '#0091c3' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#475569' }}
-              >
-                <span>{p.emoji}</span> {p.label}
-              </button>
-            ))}
+          {PLANTILLAS.map(p => (
             <button
-              onClick={() => { setMostrarComposer(true); setTimeout(() => asuntoRef.current?.focus(), 80) }}
+              key={p.key}
+              onClick={() => aplicarPlantilla(p.key)}
               style={{
-                background: '#0091c3',
-                border: 'none',
-                borderRadius: 8,
-                padding: '6px 14px',
-                fontSize: 11, fontWeight: 700,
-                color: '#fff', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 5,
+                background: '#f9fafb',
+                border: '1px solid #e5e7eb',
+                borderRadius: 7,
+                padding: '5px 11px',
+                fontSize: 11, fontWeight: 500,
+                color: '#4b5563', cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#eff6ff'
+                e.currentTarget.style.borderColor = '#0091c3'
+                e.currentTarget.style.color = '#0091c3'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#f9fafb'
+                e.currentTarget.style.borderColor = '#e5e7eb'
+                e.currentTarget.style.color = '#4b5563'
               }}
             >
-              ✏ Redactar
+              {p.label}
             </button>
-          </div>
+          ))}
+          <button
+            onClick={() => { setMostrarComposer(true); setTimeout(() => asuntoRef.current?.focus(), 80) }}
+            style={{
+              background: '#0091c3', border: 'none',
+              borderRadius: 7, padding: '5px 12px',
+              fontSize: 11, fontWeight: 600, color: '#fff', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Redactar
+          </button>
         </div>
       )}
 
       {/* ── Composer ── */}
       {mostrarComposer && (
-        <div style={{ borderTop: '2px solid #0091c3', background: '#fff' }}>
+        <div style={{ borderTop: '1px solid #e5e7eb', background: '#fff' }}>
 
-          {/* Para */}
+          {/* Fila Para */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 16px',
-            borderBottom: '1px solid #f0f4f8',
+            padding: '9px 16px',
+            borderBottom: '1px solid #f3f4f6',
           }}>
-            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', minWidth: 42 }}>Para</span>
-            <span style={{
-              fontSize: 12.5, color: '#2d3748', fontWeight: 500,
-              background: '#f1f5f9', borderRadius: 6, padding: '3px 10px',
-            }}>{emailPara}</span>
+            <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, minWidth: 40 }}>Para</span>
+            <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{emailPara}</span>
           </div>
 
-          {/* Asunto */}
+          {/* Fila Asunto */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 16px',
-            borderBottom: '1px solid #f0f4f8',
+            padding: '9px 16px',
+            borderBottom: '1px solid #f3f4f6',
           }}>
-            <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', minWidth: 42 }}>Asunto</span>
+            <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, minWidth: 40 }}>Asunto</span>
             <input
               ref={asuntoRef}
               value={asunto}
@@ -487,15 +496,15 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
               placeholder="Asunto del email..."
               onKeyDown={e => e.key === 'Tab' && (e.preventDefault(), textareaRef.current?.focus())}
               style={{
-                flex: 1, border: 'none', fontSize: 13,
-                fontWeight: 500, color: '#1a2533',
-                outline: 'none', background: 'transparent',
+                flex: 1, border: 'none', outline: 'none',
+                fontSize: 13, color: '#1f2937', fontWeight: 500,
+                background: 'transparent',
               }}
             />
           </div>
 
-          {/* Cuerpo */}
-          <div style={{ padding: '12px 16px' }}>
+          {/* Textarea */}
+          <div style={{ padding: '10px 16px' }}>
             <textarea
               ref={textareaRef}
               value={cuerpo}
@@ -504,7 +513,7 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
               placeholder="Escribe tu mensaje aquí..."
               style={{
                 width: '100%', border: 'none', padding: 0,
-                fontSize: 13, color: '#2d3748', lineHeight: 1.7,
+                fontSize: 13, color: '#374151', lineHeight: 1.7,
                 resize: 'none', fontFamily: 'inherit',
                 outline: 'none', background: 'transparent',
                 boxSizing: 'border-box',
@@ -515,23 +524,22 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
           {/* Chips de adjuntos */}
           {(cotSeleccionadas.length > 0 || archivos.length > 0) && (
             <div style={{
-              padding: '0 16px 12px',
+              padding: '0 16px 10px',
               display: 'flex', gap: 6, flexWrap: 'wrap',
             }}>
               {cotSeleccionadas.map(id => {
                 const cot = cotizaciones.find(c => c.id === id)
                 return (
                   <div key={id} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    background: '#e8f4fb',
-                    border: '1px solid #b8dff0',
-                    borderRadius: 8, padding: '4px 10px',
-                    fontSize: 11, color: '#006e97', fontWeight: 500,
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    background: '#eff6ff', border: '1px solid #bfdbfe',
+                    borderRadius: 99, padding: '3px 9px',
+                    fontSize: 11, color: '#1d4ed8', fontWeight: 500,
                   }}>
-                    <PaperClipOutlined style={{ fontSize: 10, color: '#0091c3' }} />
-                    <span>Cot. #{id}{cot ? ` · ${cot.estado}` : ''}</span>
+                    <PaperClipOutlined style={{ fontSize: 10 }} />
+                    Cot. #{id}{cot ? ` · ${cot.estado}` : ''}
                     <CloseOutlined
-                      style={{ fontSize: 9, cursor: 'pointer', color: '#0091c3', opacity: 0.7 }}
+                      style={{ fontSize: 9, cursor: 'pointer', opacity: 0.7 }}
                       onClick={() => setCotSeleccionadas(p => p.filter(c => c !== id))}
                     />
                   </div>
@@ -539,16 +547,15 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
               })}
               {archivos.map(a => (
                 <div key={a.nombre} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  background: '#f1f5f9',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 8, padding: '4px 10px',
-                  fontSize: 11, color: '#475569', fontWeight: 500,
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: '#f3f4f6', border: '1px solid #e5e7eb',
+                  borderRadius: 99, padding: '3px 9px',
+                  fontSize: 11, color: '#4b5563', fontWeight: 500,
                 }}>
-                  <FileOutlined style={{ fontSize: 10, color: '#64748b' }} />
-                  <span>{a.nombre}</span>
+                  <FileOutlined style={{ fontSize: 10 }} />
+                  {a.nombre}
                   <CloseOutlined
-                    style={{ fontSize: 9, cursor: 'pointer', color: '#64748b', opacity: 0.7 }}
+                    style={{ fontSize: 9, cursor: 'pointer', opacity: 0.7 }}
                     onClick={() => setArchivos(p => p.filter(x => x.nombre !== a.nombre))}
                   />
                 </div>
@@ -556,11 +563,11 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
             </div>
           )}
 
-          {/* Toolbar */}
+          {/* Toolbar ── */}
           <div style={{
-            padding: '10px 16px',
-            borderTop: '1px solid #f0f4f8',
-            background: '#fafbfc',
+            padding: '9px 16px',
+            borderTop: '1px solid #f3f4f6',
+            background: '#fafafa',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             flexWrap: 'wrap', gap: 8,
           }}>
@@ -568,14 +575,14 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
               <Select
                 mode="multiple"
-                placeholder="📎 Adjuntar cotizaciones"
+                placeholder="Cotizaciones"
                 size="small"
-                style={{ minWidth: 185 }}
+                style={{ minWidth: 170 }}
                 value={cotSeleccionadas}
                 onChange={setCotSeleccionadas}
                 allowClear
                 maxTagCount={0}
-                maxTagPlaceholder={n => `${n} cot. adjunta${n > 1 ? 's' : ''}`}
+                maxTagPlaceholder={n => `${n} cot.`}
                 options={cotizaciones.map(c => ({
                   value: c.id,
                   label: `Cot. #${c.id} — ${c.estado}`,
@@ -589,43 +596,39 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
               >
                 <button style={{
                   display: 'flex', alignItems: 'center', gap: 5,
-                  background: '#fff', border: '1px solid #e2e8f0',
+                  background: '#fff', border: '1px solid #e5e7eb',
                   borderRadius: 6, padding: '4px 10px',
-                  fontSize: 11, color: '#475569', cursor: 'pointer',
-                  fontWeight: 500,
+                  fontSize: 11, color: '#4b5563', cursor: 'pointer',
                 }}>
                   <FileOutlined style={{ fontSize: 11 }} />
                   Archivos{archivos.length > 0 ? ` (${archivos.length})` : ''}
                 </button>
               </Upload>
-              {totalAdjuntos > 0 && (
-                <span style={{ fontSize: 10, color: '#0091c3', fontWeight: 600 }}>
-                  {totalAdjuntos} adjunto{totalAdjuntos > 1 ? 's' : ''}
-                </span>
-              )}
             </div>
 
-            {/* Acciones */}
+            {/* Enviar / Cancelar */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 onClick={limpiar}
                 style={{
                   background: 'none', border: 'none',
-                  fontSize: 11, color: '#94a3b8', cursor: 'pointer', padding: '5px 8px',
-                  borderRadius: 6,
+                  fontSize: 11, color: '#9ca3af', cursor: 'pointer',
+                  padding: '5px 8px', borderRadius: 6,
                 }}
-              >Cancelar</button>
+              >
+                Cancelar
+              </button>
               <button
                 onClick={enviar}
                 disabled={enviando}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 7,
+                  display: 'flex', alignItems: 'center', gap: 6,
                   background: enviando ? '#64a8c5' : '#0091c3',
                   border: 'none', borderRadius: 8,
-                  padding: '7px 18px',
+                  padding: '7px 16px',
                   fontSize: 12, fontWeight: 700, color: '#fff',
                   cursor: enviando ? 'not-allowed' : 'pointer',
-                  boxShadow: enviando ? 'none' : '0 2px 6px rgba(0,145,195,0.35)',
+                  boxShadow: enviando ? 'none' : '0 2px 6px rgba(0,145,195,0.3)',
                   transition: 'all 0.15s',
                 }}
               >
