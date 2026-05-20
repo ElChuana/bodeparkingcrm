@@ -94,6 +94,17 @@ async function actualizarUF() {
 // Ejecutar cada día a las 09:00 AM (hora del servidor)
 cron.schedule('0 9 * * *', actualizarUF)
 
+// ─── Cron: chequeo de alertas (leads sin actividad/estancados) ───
+const { _ejecutarChequeo } = require('./controllers/alertasController')
+cron.schedule('0 12 * * *', async () => {
+  try {
+    const resultado = await _ejecutarChequeo()
+    console.log(`[Alertas] Chequeo diario: ${resultado.alertasGeneradas?.length || 0} alertas, ${resultado.acciones?.length || 0} acciones`)
+  } catch (err) {
+    console.error('[Alertas] Error en cron:', err.message)
+  }
+})
+
 // ─── Cron: recordatorios vencidos → notificación ──────────────────
 cron.schedule('*/15 * * * *', async () => {
   try {

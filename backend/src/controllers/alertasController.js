@@ -375,7 +375,7 @@ const leadsSinAtencion = async (req, res) => {
 
 module.exports = {
   misNotificaciones, marcarLeida, marcarTodasLeidas,
-  obtenerConfig, actualizarConfig, ejecutarChequeo,
+  obtenerConfig, actualizarConfig, ejecutarChequeo, _ejecutarChequeo,
   obtenerPreferencias, actualizarPreferencias,
   listarReglasPipeline, crearReglaPipeline, actualizarReglaPipeline, eliminarReglaPipeline,
   leadsSinAtencion
