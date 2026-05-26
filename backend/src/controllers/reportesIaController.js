@@ -21,7 +21,10 @@ async function calcularActualizaciones(reporte) {
   const { todos, perdidos } = extraerLeadIds(reporte.contenido)
   if (!todos.length) return {}
 
-  const desde = new Date(reporte.creadoEn)
+  // Tomamos como referencia el INICIO del día del reporte (00:00), no la hora exacta
+  // de creación. Así una gestión hecha el mismo día (antes o después de generarse) cuenta.
+  const desde = new Date(reporte.fecha)
+  desde.setHours(0, 0, 0, 0)
   const actualizaciones = {}
 
   // Interacciones reales (no NOTA) posteriores al reporte
