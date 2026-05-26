@@ -103,26 +103,34 @@ async function agregarDatosSemana(lunesISO, domingoISO) {
     const ints = interacciones.filter(i => i.usuarioId === v.id)
     const reales = ints.filter(i => ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'].includes(i.tipo))
     const cambios = ints.filter(i => i.tipo === 'NOTA' && i.descripcion?.startsWith('Etapa cambiada:'))
+    // Mover lead también cuenta como gestión
+    const totalGestiones = reales.length + cambios.length
     const cotizaciones = cambios.filter(i => i.descripcion?.includes('→ COTIZACION_ENVIADA'))
     const perdidos = cambios.filter(i => i.descripcion?.includes('→ PERDIDO'))
     const ventasV = ventas.filter(vt => vt.vendedorId === v.id)
     const ufVendido = ventasV.reduce((s, vt) => s + (vt.precioFinalUF || 0), 0)
 
-    const actividadPorDia = dias.map(d => ({
-      fecha: d,
-      total: reales.filter(i => fechaChileDe(i.fecha) === d).length,
-      llamadas: reales.filter(i => fechaChileDe(i.fecha) === d && i.tipo === 'LLAMADA').length,
-      emails: reales.filter(i => fechaChileDe(i.fecha) === d && i.tipo === 'EMAIL').length,
-      whatsapp: reales.filter(i => fechaChileDe(i.fecha) === d && i.tipo === 'WHATSAPP').length,
-      reuniones: reales.filter(i => fechaChileDe(i.fecha) === d && i.tipo === 'REUNION').length
-    }))
+    // Actividad por día = reales + cambios de etapa (todo cuenta)
+    const actividadPorDia = dias.map(d => {
+      const realesDia = reales.filter(i => fechaChileDe(i.fecha) === d)
+      const cambiosDia = cambios.filter(i => fechaChileDe(i.fecha) === d)
+      return {
+        fecha: d,
+        total: realesDia.length + cambiosDia.length,
+        llamadas: realesDia.filter(i => i.tipo === 'LLAMADA').length,
+        emails: realesDia.filter(i => i.tipo === 'EMAIL').length,
+        whatsapp: realesDia.filter(i => i.tipo === 'WHATSAPP').length,
+        reuniones: realesDia.filter(i => i.tipo === 'REUNION').length,
+        cambiosEtapa: cambiosDia.length
+      }
+    })
 
     return {
       id: v.id,
       nombre: `${v.nombre} ${v.apellido}`,
       rol: v.rol,
       stats: {
-        gestionesReales: reales.length,
+        gestionesReales: totalGestiones, // incluye mover etapa
         llamadas: reales.filter(i => i.tipo === 'LLAMADA').length,
         emails: reales.filter(i => i.tipo === 'EMAIL').length,
         whatsapp: reales.filter(i => i.tipo === 'WHATSAPP').length,

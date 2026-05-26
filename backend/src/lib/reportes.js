@@ -50,8 +50,11 @@ async function agregarActividadAyer(vendedorId) {
   const reales = interaccionesAyer.filter(i => ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'].includes(i.tipo))
   const cambios = interaccionesAyer.filter(i => i.tipo === 'NOTA' && i.descripcion?.startsWith('Etapa cambiada:'))
 
+  // "Trabajar" un lead = interacción real O cambio de etapa
+  const trabajos = [...reales, ...cambios]
+
   const porLead = {}
-  for (const i of reales) {
+  for (const i of trabajos) {
     if (!porLead[i.leadId]) {
       porLead[i.leadId] = {
         leadId: i.leadId,
@@ -61,14 +64,14 @@ async function agregarActividadAyer(vendedorId) {
         cambioEtapa: null
       }
     }
-    porLead[i.leadId].interacciones.push({
-      tipo: i.tipo,
-      descripcion: i.descripcion?.slice(0, 200) || ''
-    })
-  }
-  for (const c of cambios) {
-    if (porLead[c.leadId]) {
-      porLead[c.leadId].cambioEtapa = c.descripcion?.replace('Etapa cambiada: ', '') || null
+    // No duplicar el cambio de etapa en interacciones (queda como propiedad cambioEtapa)
+    if (i.tipo !== 'NOTA') {
+      porLead[i.leadId].interacciones.push({
+        tipo: i.tipo,
+        descripcion: i.descripcion?.slice(0, 200) || ''
+      })
+    } else if (i.descripcion?.startsWith('Etapa cambiada:')) {
+      porLead[i.leadId].cambioEtapa = i.descripcion.replace('Etapa cambiada: ', '')
     }
   }
 

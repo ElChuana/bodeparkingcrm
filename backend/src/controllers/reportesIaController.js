@@ -27,21 +27,32 @@ async function calcularActualizaciones(reporte) {
   desde.setHours(0, 0, 0, 0)
   const actualizaciones = {}
 
-  // Interacciones reales (no NOTA) posteriores al reporte
+  // Gestiones que tachan el item:
+  //  - Interacciones reales (LLAMADA, EMAIL, WHATSAPP, REUNION)
+  //  - Cambios de etapa (NOTA con "Etapa cambiada: ..." → mover el lead también es gestión)
   const interacciones = await prisma.interaccion.findMany({
     where: {
       leadId: { in: todos },
       fecha: { gt: desde },
-      tipo: { in: ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'] }
+      OR: [
+        { tipo: { in: ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'] } },
+        { tipo: 'NOTA', descripcion: { startsWith: 'Etapa cambiada:' } }
+      ]
     },
-    select: { leadId: true, tipo: true, fecha: true },
+    select: { leadId: true, tipo: true, fecha: true, descripcion: true },
     orderBy: { fecha: 'desc' }
   })
   for (const i of interacciones) {
     if (!actualizaciones[i.leadId]) actualizaciones[i.leadId] = {}
     actualizaciones[i.leadId].gestionado = true
     if (!actualizaciones[i.leadId].tipoGestion) {
-      actualizaciones[i.leadId].tipoGestion = i.tipo
+      // Si fue cambio de etapa, marcar como tal con la etapa nueva
+      if (i.tipo === 'NOTA' && i.descripcion?.startsWith('Etapa cambiada:')) {
+        const m = i.descripcion.match(/→\s*([A-Z_]+)/)
+        actualizaciones[i.leadId].tipoGestion = m ? `Etapa → ${m[1]}` : 'Cambio etapa'
+      } else {
+        actualizaciones[i.leadId].tipoGestion = i.tipo
+      }
       actualizaciones[i.leadId].fechaGestion = i.fecha
     }
   }
