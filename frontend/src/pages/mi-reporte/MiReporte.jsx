@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Button, Empty, Alert, Space, Select, message } from 'antd'
-import { ThunderboltOutlined, ReloadOutlined, WarningOutlined, BulbOutlined, CheckCircleOutlined, FileTextOutlined } from '@ant-design/icons'
+import { ThunderboltOutlined, ReloadOutlined, WarningOutlined, BulbOutlined, CheckCircleOutlined, FileTextOutlined, ClockCircleOutlined, PhoneOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
@@ -10,9 +11,46 @@ const { Title, Text, Paragraph } = Typography
 
 const BRAND = { azul: '#0091c3', gris: '#3d3d3d', rojo: '#ca3a36' }
 
+// Estilos por sección — cada cuadro tiene su identidad visual
+const SECCION_STYLES = {
+  cotizaciones: {
+    color: '#ca3a36',
+    bg: '#fff5f5',
+    bgHeader: '#fee2e2',
+    icon: <FileTextOutlined />
+  },
+  promesas: {
+    color: '#d97706',
+    bg: '#fffbeb',
+    bgHeader: '#fef3c7',
+    icon: <ClockCircleOutlined />
+  },
+  seguimientos: {
+    color: '#0891b2',
+    bg: '#f0f9ff',
+    bgHeader: '#e0f2fe',
+    icon: <PhoneOutlined />
+  },
+  todos: {
+    color: '#6b7280',
+    bg: '#f9fafb',
+    bgHeader: '#f3f4f6',
+    icon: <UnorderedListOutlined />
+  }
+}
+
 function ChipDias({ dias }) {
   const critico = dias >= 10
-  return <Tag color={critico ? 'red' : 'orange'} style={{ margin: 0 }}>{dias}d</Tag>
+  return <Tag color={critico ? 'red' : 'orange'} style={{ margin: 0, fontWeight: 600 }}>{dias}d</Tag>
+}
+
+function ContactoLink({ leadId, contacto, telefono }) {
+  return (
+    <Link to={`/leads/${leadId}`} style={{ display: 'block' }}>
+      <div style={{ fontWeight: 600, color: BRAND.azul }}>{contacto}</div>
+      {telefono && <div style={{ fontSize: 12, color: '#666' }}>{telefono}</div>}
+    </Link>
+  )
 }
 
 function InsightCard({ insight }) {
@@ -42,6 +80,37 @@ function InsightCard({ insight }) {
   )
 }
 
+function SeccionCard({ tipo, titulo, badge, children, count }) {
+  const style = SECCION_STYLES[tipo]
+  return (
+    <Card
+      style={{
+        marginBottom: 20,
+        background: style.bg,
+        borderLeft: `5px solid ${style.color}`,
+        borderTop: 'none',
+        borderRight: 'none',
+        borderBottom: 'none',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+      }}
+      styles={{
+        header: { background: style.bgHeader, borderBottom: `2px solid ${style.color}33` },
+        body: { padding: 0 }
+      }}
+      title={
+        <Space>
+          <span style={{ color: style.color, fontSize: 18 }}>{style.icon}</span>
+          <span style={{ color: style.color, fontWeight: 700, fontSize: 16 }}>{titulo}</span>
+          {count !== undefined && <Tag color={tipo === 'cotizaciones' ? 'red' : tipo === 'promesas' ? 'orange' : tipo === 'seguimientos' ? 'cyan' : 'default'}>{count}</Tag>}
+          {badge && <Tag color="red" style={{ marginLeft: 4 }}>{badge}</Tag>}
+        </Space>
+      }
+    >
+      {children}
+    </Card>
+  )
+}
+
 export default function MiReporte() {
   const qc = useQueryClient()
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
@@ -49,7 +118,6 @@ export default function MiReporte() {
 
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState(null)
 
-  // Lista de vendedores (solo si es gerente)
   const { data: vendedoresData } = useQuery({
     queryKey: ['vendedores'],
     queryFn: () => api.get('/usuarios?activos=true').then(r => r.data),
@@ -58,12 +126,11 @@ export default function MiReporte() {
 
   const vendedores = (vendedoresData || []).filter(u => ['VENDEDOR', 'JEFE_VENTAS'].includes(u.rol))
 
-  // Reporte: propio o del vendedor seleccionado
   const reporteUrl = vendedorSeleccionado
     ? `/reportes-ia/vendedor/${vendedorSeleccionado}`
     : '/reportes-ia/mi-reporte'
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['reporte-ia', vendedorSeleccionado || 'mio'],
     queryFn: () => api.get(reporteUrl).then(r => r.data)
   })
@@ -82,12 +149,11 @@ export default function MiReporte() {
   const reporte = data?.reporte
   const c = reporte?.contenido
 
-  // Header con selector de vendedor (gerente)
   const headerSelector = esGerente && (
     <Space>
-      <Text>Ver reporte de:</Text>
+      <Text style={{ color: 'white' }}>Ver reporte de:</Text>
       <Select
-        style={{ width: 220 }}
+        style={{ width: 200 }}
         placeholder="Mi reporte"
         allowClear
         value={vendedorSeleccionado}
@@ -100,11 +166,8 @@ export default function MiReporte() {
   if (!reporte) {
     return (
       <div style={{ padding: 24 }}>
-        <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-          <Title level={3} style={{ margin: 0 }}>🎯 Mi reporte diario</Title>
-          {headerSelector}
-        </Space>
-        <Empty description="Aún no se ha generado un reporte. Se generan automáticamente cada mañana a las 7-8 AM." >
+        <Title level={3}>🎯 Mi reporte diario</Title>
+        <Empty description="Aún no se ha generado un reporte. Se generan automáticamente cada mañana.">
           {esGerente && (
             <Button type="primary" icon={<ThunderboltOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>
               Generar ahora
@@ -117,58 +180,54 @@ export default function MiReporte() {
 
   const fechaReporte = format(new Date(reporte.fecha), "EEEE d 'de' MMMM 'de' yyyy", { locale: es })
 
+  // Columns con contacto clickeable
+  const colSugerencia = (urgente = false) => ({
+    title: 'Sugerencia IA',
+    dataIndex: 'sugerencia',
+    render: (v, r) => (
+      <Tag color={(r.urgente ?? urgente) ? 'red' : 'blue'} style={{ whiteSpace: 'normal', maxWidth: 320, padding: '4px 8px' }}>
+        {v}
+      </Tag>
+    )
+  })
+
   const colsCotiz = [
-    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => (
-      <div>
-        <div style={{ fontWeight: 600 }}>{v}</div>
-        <div style={{ fontSize: 12, color: '#666' }}>{r.telefono}</div>
-      </div>
-    )},
+    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} /> },
     { title: 'Días', dataIndex: 'dias', width: 80, render: d => <ChipDias dias={d} /> },
     { title: 'Última gestión', dataIndex: 'ultimaNota', render: v => v ? <Text italic type="secondary">"{v}"</Text> : <Text type="danger">(sin nota)</Text> },
-    { title: 'Sugerencia IA', dataIndex: 'sugerencia', render: (v, r) => (
-      <Tag color={r.urgente ? 'red' : 'blue'} style={{ whiteSpace: 'normal', maxWidth: 280 }}>{v}</Tag>
-    )},
+    colSugerencia(true)
   ]
 
   const colsPromesas = [
-    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => (
-      <div>
-        <div style={{ fontWeight: 600 }}>{v}</div>
-        <div style={{ fontSize: 12, color: '#666' }}>{r.telefono}</div>
-      </div>
-    )},
+    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} /> },
     { title: 'Días', dataIndex: 'dias', width: 80, render: d => <ChipDias dias={d} /> },
     { title: 'Lo que prometiste', dataIndex: 'prometio', render: v => v && <Text italic type="secondary">"{v}"</Text> },
-    { title: 'Sugerencia IA', dataIndex: 'sugerencia', render: (v, r) => (
-      <Tag color={r.urgente ? 'red' : 'blue'} style={{ whiteSpace: 'normal', maxWidth: 280 }}>{v}</Tag>
-    )},
+    colSugerencia(true)
   ]
 
   const colsOtros = [
-    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => (
-      <div>
-        <div style={{ fontWeight: 600 }}>{v}</div>
-        <div style={{ fontSize: 12, color: '#666' }}>{r.telefono}</div>
-      </div>
-    )},
+    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} /> },
     { title: 'Días', dataIndex: 'dias', width: 80, render: d => <ChipDias dias={d} /> },
     { title: 'Última nota', dataIndex: 'ultimaNota', render: v => v ? <Text italic type="secondary">"{v}"</Text> : <Text type="danger">(sin nota)</Text> },
-    { title: 'Sugerencia IA', dataIndex: 'sugerencia', render: v => <Tag color="default" style={{ whiteSpace: 'normal', maxWidth: 280 }}>{v}</Tag> },
+    colSugerencia(false)
+  ]
+
+  // Columnas para "todos los leads" (data raw del backend, sin sugerencia IA)
+  const colsTodos = [
+    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.id} contacto={v} telefono={r.telefono} /> },
+    { title: 'Etapa', dataIndex: 'etapa', width: 180, render: e => <Tag>{e.replace(/_/g, ' ')}</Tag> },
+    { title: 'Días sin tocar', dataIndex: 'diasParado', width: 130, render: d => <ChipDias dias={d} /> },
+    { title: 'Última gestión real', dataIndex: 'ultimaNotaReal', render: (v, r) => v ? <Text italic type="secondary">[{r.tipoUltimaInteraccion}] "{v.slice(0, 100)}{v.length > 100 ? '…' : ''}"</Text> : <Text type="danger">— sin nota real —</Text> }
   ]
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
-      {/* Header */}
+    <div style={{ padding: 24, maxWidth: 1280, margin: '0 auto' }}>
+      {/* HEADER */}
       <Card
-        style={{
-          background: `linear-gradient(135deg, ${BRAND.azul} 0%, #006a8f 100%)`,
-          marginBottom: 20,
-          border: 'none'
-        }}
+        style={{ background: `linear-gradient(135deg, ${BRAND.azul} 0%, #006a8f 100%)`, marginBottom: 20, border: 'none' }}
         styles={{ body: { padding: 24 } }}
       >
-        <Row justify="space-between" align="middle">
+        <Row justify="space-between" align="middle" gutter={[12, 12]}>
           <Col>
             <Title level={2} style={{ color: 'white', margin: 0 }}>🎯 Mi reporte diario</Title>
             <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
@@ -176,8 +235,8 @@ export default function MiReporte() {
             </Text>
           </Col>
           <Col>
-            <Space>
-              <Tag color="white" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none' }}>
+            <Space wrap>
+              <Tag style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none' }}>
                 ⚡ Generado con IA
               </Tag>
               {headerSelector}
@@ -192,54 +251,51 @@ export default function MiReporte() {
         {c.saludo && <Paragraph style={{ color: 'white', marginTop: 12, marginBottom: 0, fontSize: 15 }}>{c.saludo}</Paragraph>}
       </Card>
 
-      {/* Stats */}
+      {/* STATS */}
       <Row gutter={12} style={{ marginBottom: 20 }}>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Card><Statistic title="Leads parados" value={c.stats?.leadsParados || 0} valueStyle={{ color: BRAND.rojo }} /></Card>
         </Col>
-        <Col span={6}>
-          <Card><Statistic title="Promesas vencidas" value={c.stats?.promesasVencidas || 0} valueStyle={{ color: '#f59e0b' }} /></Card>
+        <Col xs={12} md={6}>
+          <Card><Statistic title="Promesas vencidas" value={c.stats?.promesasVencidas || 0} valueStyle={{ color: '#d97706' }} /></Card>
         </Col>
-        <Col span={6}>
-          <Card><Statistic title="Cotizaciones x cerrar" value={c.stats?.cotizacionesPorCerrar || 0} /></Card>
+        <Col xs={12} md={6}>
+          <Card><Statistic title="Cotizaciones por cerrar" value={c.stats?.cotizacionesPorCerrar || 0} valueStyle={{ color: '#0891b2' }} /></Card>
         </Col>
-        <Col span={6}>
+        <Col xs={12} md={6}>
           <Card><Statistic title="Notas escritas (7d)" value={c.stats?.notasUltimos7Dias || 0} valueStyle={{ color: '#10b981' }} /></Card>
         </Col>
       </Row>
 
-      {/* Insights */}
+      {/* INSIGHTS DE IA */}
       {c.insights?.length > 0 && (
         <Card title={<Space><BulbOutlined /> Lo que la IA detectó hoy</Space>} style={{ marginBottom: 20 }}>
           {c.insights.map((ins, i) => <InsightCard key={i} insight={ins} />)}
         </Card>
       )}
 
-      {/* Cotizaciones urgentes */}
+      {/* COTIZACIONES (ROJO) */}
       {c.cotizacionesUrgentes?.length > 0 && (
-        <Card
-          title={<Space><FileTextOutlined /> Cotizaciones por cerrar <Tag color="red">URGENTE</Tag></Space>}
-          style={{ marginBottom: 20 }}
-        >
+        <SeccionCard tipo="cotizaciones" titulo="Cotizaciones por cerrar" badge="URGENTE" count={c.cotizacionesUrgentes.length}>
           <Table dataSource={c.cotizacionesUrgentes} columns={colsCotiz} rowKey="leadId" pagination={false} size="middle" />
-        </Card>
+        </SeccionCard>
       )}
 
-      {/* Promesas vencidas */}
+      {/* PROMESAS VENCIDAS (NARANJO) */}
       {c.promesasVencidas?.length > 0 && (
-        <Card title="⏰ Prometiste llamar y no llamaste" style={{ marginBottom: 20 }}>
+        <SeccionCard tipo="promesas" titulo="⏰ Prometiste llamar y no llamaste" count={c.promesasVencidas.length}>
           <Table dataSource={c.promesasVencidas} columns={colsPromesas} rowKey="leadId" pagination={false} size="middle" />
-        </Card>
+        </SeccionCard>
       )}
 
-      {/* Otros seguimientos */}
+      {/* OTROS SEGUIMIENTOS (CYAN) */}
       {c.otrosSeguimientos?.length > 0 && (
-        <Card title="📞 Otros seguimientos pendientes" style={{ marginBottom: 20 }}>
+        <SeccionCard tipo="seguimientos" titulo="📞 Otros seguimientos pendientes" count={c.otrosSeguimientos.length}>
           <Table dataSource={c.otrosSeguimientos} columns={colsOtros} rowKey="leadId" pagination={false} size="middle" />
-        </Card>
+        </SeccionCard>
       )}
 
-      {/* Plan recomendado */}
+      {/* PLAN RECOMENDADO */}
       {c.planRecomendado?.length > 0 && (
         <Alert
           type="info"
@@ -250,7 +306,21 @@ export default function MiReporte() {
               {c.planRecomendado.map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}
             </ul>
           }
+          style={{ marginBottom: 20 }}
         />
+      )}
+
+      {/* TODOS LOS LEADS PARADOS (GRIS, AL FINAL) */}
+      {c.todosLosLeads?.length > 0 && (
+        <SeccionCard tipo="todos" titulo="Todos los leads pendientes" count={c.todosLosLeads.length}>
+          <Table
+            dataSource={c.todosLosLeads}
+            columns={colsTodos}
+            rowKey="id"
+            pagination={{ pageSize: 20, showSizeChanger: false }}
+            size="middle"
+          />
+        </SeccionCard>
       )}
     </div>
   )

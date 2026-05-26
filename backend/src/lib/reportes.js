@@ -131,7 +131,9 @@ async function generarReporteVendedor(vendedorId) {
     cotizacionesUrgentes: ai.cotizacionesUrgentes || [],
     promesasVencidas: ai.promesasVencidas || [],
     otrosSeguimientos: ai.otrosSeguimientos || [],
-    planRecomendado: ai.planRecomendado || []
+    planRecomendado: ai.planRecomendado || [],
+    // Lista completa para que el frontend pueda mostrar TODOS los leads
+    todosLosLeads: datos.leads
   }
 }
 
