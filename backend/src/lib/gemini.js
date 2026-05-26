@@ -1,7 +1,7 @@
 // Wrapper minimalista para Gemini API (REST). Sin SDK para evitar dependencias.
 // Usa GEMINI_API_KEY del entorno.
 
-const MODEL_DEFAULT = 'gemini-2.0-flash'
+const MODEL_DEFAULT = 'gemini-2.0-flash-lite'
 const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 async function generarContenido(prompt, { model = MODEL_DEFAULT, jsonMode = false, temperature = 0.4 } = {}) {
