@@ -1,5 +1,5 @@
 const prisma = require('./prisma')
-const { generarContenido } = require('./gemini')
+const { generarContenido } = require('./groq')
 
 const ETAPAS_OBJETIVO = ['SEGUIMIENTO', 'COTIZACION_ENVIADA', 'VISITA_AGENDADA', 'NEGOCIACION', 'INTERESADO']
 

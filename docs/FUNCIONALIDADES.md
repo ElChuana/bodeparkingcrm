@@ -344,7 +344,7 @@
 - Usa endpoints existentes: `GET /api/leads`, `GET /api/leads/campanas`, `GET /api/usuarios`
 
 ### Mi reporte IA (`/mi-reporte`)
-- Reporte diario personalizado generado con Google Gemini (gratis: 1500 req/día)
+- Reporte diario personalizado generado con Groq (Llama 3.3 70B, gratis: 14.400 req/día)
 - Agrega leads parados (≥3 días) en SEGUIMIENTO, COTIZACION_ENVIADA, etc.
 - IA genera: saludo, insights (warning/info/ok), cotizaciones urgentes con sugerencias por lead, promesas vencidas, otros seguimientos, plan recomendado del día
 - Tabla `reportes_diarios` (unique vendedorId+fecha) — un reporte por vendedor por día
@@ -353,7 +353,7 @@
   - `GET /api/reportes-ia/mi-reporte` — propio (hoy o el más reciente)
   - `GET /api/reportes-ia/vendedor/:id` — específico (GERENTE/JEFE_VENTAS)
   - `POST /api/reportes-ia/generar` — manual, body `{ vendedorId? }` (GERENTE)
-- Variable de entorno requerida: `GEMINI_API_KEY` (en Railway)
+- Variable de entorno requerida: `GROQ_API_KEY` (en Railway)
 - Vista: gerentes/jefes pueden cambiar de vendedor con selector en el header
 
 ---
@@ -368,7 +368,7 @@
 | `mailer.js` | Resend API para emails |
 | `deduplication.js` | `mismoNombre()` + Levenshtein — usado en comuro.js y public.js |
 | `notifications.js` | `notificarLead()` — usado en leadsController.js y comuro.js |
-| `gemini.js` | Wrapper REST a Google Gemini API (`GEMINI_API_KEY`) — usado por reportes IA |
+| `groq.js` | Wrapper REST a Groq API — Llama 3.3 70B (`GROQ_API_KEY`) — usado por reportes IA |
 | `reportes.js` | Generador de reportes diarios con IA (agrega datos + llama a Gemini) |
 
 ---
