@@ -119,12 +119,13 @@ export default function MiReporte() {
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState(null)
 
   const { data: vendedoresData } = useQuery({
-    queryKey: ['vendedores'],
-    queryFn: () => api.get('/usuarios?activos=true').then(r => r.data),
+    queryKey: ['vendedores-reporte'],
+    queryFn: () => api.get('/usuarios').then(r => r.data),
     enabled: esGerente
   })
 
-  const vendedores = (vendedoresData || []).filter(u => ['VENDEDOR', 'JEFE_VENTAS'].includes(u.rol))
+  const vendedores = (vendedoresData || [])
+    .filter(u => u.activo && ['VENDEDOR', 'JEFE_VENTAS'].includes(u.rol))
 
   const reporteUrl = vendedorSeleccionado
     ? `/reportes-ia/vendedor/${vendedorSeleccionado}`
