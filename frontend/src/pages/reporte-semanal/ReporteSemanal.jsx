@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Button, Empty, Alert, Space, message } from 'antd'
+import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Button, Empty, Alert, Space, Select, message } from 'antd'
 import { ReloadOutlined, ThunderboltOutlined, TrophyOutlined, WarningOutlined, BulbOutlined, FireOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -220,10 +221,26 @@ function VistaVendedor({ c }) {
 export default function ReporteSemanal() {
   const qc = useQueryClient()
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
+  const esGerente = usuario.rol === 'GERENTE'
+  const puedeVerOtros = esGerente || usuario.rol === 'JEFE_VENTAS'
+
+  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null)
+
+  // Lista de usuarios para selector (solo si puede ver otros)
+  const { data: usuariosData } = useQuery({
+    queryKey: ['usuarios-reporte-semanal'],
+    queryFn: () => api.get('/usuarios').then(r => r.data),
+    enabled: puedeVerOtros
+  })
+  const usuariosLista = (usuariosData || []).filter(u => u.activo && ['GERENTE','JEFE_VENTAS','VENDEDOR'].includes(u.rol))
+
+  const reporteUrl = usuarioSeleccionado
+    ? `/reportes-semanal/usuario/${usuarioSeleccionado}`
+    : '/reportes-semanal/mi-reporte'
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reporte-semanal'],
-    queryFn: () => api.get('/reportes-semanal/mi-reporte').then(r => r.data)
+    queryKey: ['reporte-semanal', usuarioSeleccionado || 'mio'],
+    queryFn: () => api.get(reporteUrl).then(r => r.data)
   })
 
   const generar = useMutation({
@@ -243,16 +260,44 @@ export default function ReporteSemanal() {
   if (!c) c = {}
 
   const tipo = c.tipo || (usuario.rol === 'GERENTE' ? 'gerente' : 'vendedor')
-  const titulo = tipo === 'gerente' ? '📊 Reporte semanal del equipo' : '🎯 Mi reporte semanal'
+  const tituloBase = tipo === 'gerente' ? '📊 Reporte semanal del equipo' : '🎯 Reporte semanal'
+  const titulo = usuarioSeleccionado ? `${tituloBase} (otro usuario)` : tituloBase
+
+  const headerSelector = puedeVerOtros && (
+    <Space>
+      <Text style={{ color: 'white' }}>Ver reporte de:</Text>
+      <Select
+        style={{ width: 220 }}
+        placeholder="Mi reporte"
+        allowClear
+        value={usuarioSeleccionado}
+        onChange={setUsuarioSeleccionado}
+        options={usuariosLista.map(u => ({ value: u.id, label: `${u.nombre} ${u.apellido}` }))}
+      />
+    </Space>
+  )
 
   if (!reporte) {
+    const descripcion = puedeVerOtros && !usuarioSeleccionado
+      ? 'No tienes reporte semanal propio todavía. Selecciona un usuario arriba para ver el suyo.'
+      : 'Aún no se ha generado un reporte semanal. Se genera automáticamente cada lunes a las 7 AM.'
     return (
-      <div style={{ padding: 24 }}>
-        <Title level={3}>{titulo}</Title>
-        <Empty description="Aún no se ha generado un reporte semanal. Se genera automáticamente cada lunes a las 7 AM.">
-          <Button type="primary" icon={<ThunderboltOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>
-            Generar ahora
-          </Button>
+      <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
+        <Card style={{ background: `linear-gradient(135deg, ${BRAND.azul} 0%, #006a8f 100%)`, marginBottom: 20, border: 'none' }} styles={{ body: { padding: 24 } }}>
+          <Row justify="space-between" align="middle" gutter={[12, 12]}>
+            <Col>
+              <Title level={2} style={{ color: 'white', margin: 0 }}>{titulo}</Title>
+              <Text style={{ color: 'rgba(255,255,255,0.85)' }}>Sin reporte disponible</Text>
+            </Col>
+            <Col><Space wrap>{headerSelector}</Space></Col>
+          </Row>
+        </Card>
+        <Empty description={descripcion}>
+          {esGerente && !usuarioSeleccionado && (
+            <Button type="primary" icon={<ThunderboltOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>
+              Generar ahora
+            </Button>
+          )}
         </Empty>
       </div>
     )
@@ -274,7 +319,10 @@ export default function ReporteSemanal() {
           <Col>
             <Space wrap>
               <Tag style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none' }}>⚡ Generado con IA</Tag>
-              <Button icon={<ReloadOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>Regenerar</Button>
+              {headerSelector}
+              {esGerente && !usuarioSeleccionado && (
+                <Button icon={<ReloadOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>Regenerar</Button>
+              )}
             </Space>
           </Col>
         </Row>

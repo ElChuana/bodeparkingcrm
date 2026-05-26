@@ -22,6 +22,28 @@ async function miReporteSemanal(req, res) {
   }
 }
 
+// GET /api/reportes-semanal/usuario/:usuarioId → reporte de otro usuario
+// Acceso: GERENTE y JEFE_VENTAS (solo lectura)
+async function reportePorUsuario(req, res) {
+  try {
+    if (!['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)) {
+      return res.status(403).json({ error: 'No autorizado.' })
+    }
+    const usuarioId = parseInt(req.params.usuarioId, 10)
+    if (Number.isNaN(usuarioId)) return res.status(400).json({ error: 'usuarioId inválido.' })
+
+    const reporte = await prisma.reporteSemanal.findFirst({
+      where: { usuarioId },
+      orderBy: { fechaInicio: 'desc' }
+    })
+    if (!reporte) return res.json({ reporte: null })
+    res.json({ reporte })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al obtener reporte del usuario.' })
+  }
+}
+
 // GET /api/reportes-semanal → lista de reportes históricos del usuario
 async function listarHistorico(req, res) {
   try {
@@ -58,4 +80,4 @@ async function generarManual(req, res) {
   }
 }
 
-module.exports = { miReporteSemanal, listarHistorico, generarManual }
+module.exports = { miReporteSemanal, reportePorUsuario, listarHistorico, generarManual }

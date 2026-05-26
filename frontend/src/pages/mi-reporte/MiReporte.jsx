@@ -145,13 +145,14 @@ export default function MiReporte() {
   const qc = useQueryClient()
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
   const esGerente = usuario.rol === 'GERENTE'
+  const puedeVerOtros = usuario.rol === 'GERENTE' || usuario.rol === 'JEFE_VENTAS'
 
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState(null)
 
   const { data: vendedoresData } = useQuery({
     queryKey: ['vendedores-reporte'],
     queryFn: () => api.get('/usuarios').then(r => r.data),
-    enabled: esGerente
+    enabled: puedeVerOtros
   })
 
   const vendedores = (vendedoresData || [])
@@ -192,7 +193,7 @@ export default function MiReporte() {
   const totalLeads = (c.cotizacionesUrgentes?.length || 0) + (c.promesasVencidas?.length || 0) + (c.otrosSeguimientos?.length || 0)
   const completados = Object.values(actualizaciones).filter(a => a.gestionado).length
 
-  const headerSelector = esGerente && (
+  const headerSelector = puedeVerOtros && (
     <Space>
       <Text style={{ color: 'white' }}>Ver reporte de:</Text>
       <Select
@@ -207,9 +208,9 @@ export default function MiReporte() {
   )
 
   if (!reporte) {
-    const descripcion = esGerente && !vendedorSeleccionado
-      ? 'Como gerente, no tienes reporte propio. Selecciona un vendedor arriba para ver su reporte.'
-      : 'Aún no se ha generado un reporte. Se genera automáticamente cada mañana, o usa "Generar ahora".'
+    const descripcion = puedeVerOtros && !vendedorSeleccionado
+      ? 'No tienes reporte propio todavía. Selecciona un vendedor arriba para ver el suyo.'
+      : 'Aún no se ha generado un reporte. Se genera automáticamente cada mañana.'
 
     return (
       <div style={{ padding: 24, maxWidth: 1280, margin: '0 auto' }}>
