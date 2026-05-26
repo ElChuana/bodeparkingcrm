@@ -114,7 +114,7 @@ function SeccionCard({ tipo, titulo, badge, children, count }) {
 export default function MiReporte() {
   const qc = useQueryClient()
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
-  const esGerente = usuario.rol === 'GERENTE' || usuario.rol === 'JEFE_VENTAS'
+  const esGerente = usuario.rol === 'GERENTE'
 
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState(null)
 
