@@ -165,13 +165,27 @@ export default function MiReporte() {
   )
 
   if (!reporte) {
+    const descripcion = esGerente && !vendedorSeleccionado
+      ? 'Como gerente, no tienes reporte propio. Selecciona un vendedor arriba para ver su reporte.'
+      : 'Aún no se ha generado un reporte. Se genera automáticamente cada mañana, o usa "Generar ahora".'
+
     return (
-      <div style={{ padding: 24 }}>
-        <Title level={3}>🎯 Mi reporte diario</Title>
-        <Empty description="Aún no se ha generado un reporte. Se generan automáticamente cada mañana.">
+      <div style={{ padding: 24, maxWidth: 1280, margin: '0 auto' }}>
+        <Card style={{ background: `linear-gradient(135deg, ${BRAND.azul} 0%, #006a8f 100%)`, marginBottom: 20, border: 'none' }} styles={{ body: { padding: 24 } }}>
+          <Row justify="space-between" align="middle" gutter={[12, 12]}>
+            <Col>
+              <Title level={2} style={{ color: 'white', margin: 0 }}>🎯 Mi reporte diario</Title>
+              <Text style={{ color: 'rgba(255,255,255,0.85)' }}>Reporte generado con IA</Text>
+            </Col>
+            <Col>
+              <Space wrap>{headerSelector}</Space>
+            </Col>
+          </Row>
+        </Card>
+        <Empty description={descripcion}>
           {esGerente && (
             <Button type="primary" icon={<ThunderboltOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>
-              Generar ahora
+              {vendedorSeleccionado ? 'Generar reporte de este vendedor' : 'Generar para todos'}
             </Button>
           )}
         </Empty>
