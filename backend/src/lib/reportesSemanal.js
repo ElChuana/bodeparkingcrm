@@ -250,94 +250,6 @@ async function guardarReporteSemanal(usuarioId, contenido) {
   })
 }
 
-// ─── Reporte semanal para VENDEDOR ─────────────────────────────────
-function buildPromptVendedor(datos, vendedor) {
-  const v = datos.porVendedor.find(x => x.id === vendedor.id) || { stats: {}, actividadPorDia: [] }
-  return `Eres un coach de ventas para BodeParking. Genera un reporte semanal PERSONAL en JSON para el vendedor ${vendedor.nombre} ${vendedor.apellido}, cubriendo del ${datos.fechaInicio} al ${datos.fechaFin}.
-
-ACTIVIDAD DEL VENDEDOR ESTA SEMANA:
-${JSON.stringify(v, null, 2)}
-
-CONTEXTO DEL EQUIPO (para comparación):
-- Total gestiones equipo: ${datos.totales.gestionesReales}
-- Total cotizaciones equipo: ${datos.totales.cotizacionesEnviadas}
-- Total ventas equipo: ${datos.totales.ventas}
-- UF total equipo: ${datos.totales.ufVendido}
-
-INSTRUCCIONES:
-1. Resumen personal: 2-3 oraciones sobre cómo le fue ESTA SEMANA (no comparar de forma negativa, motivar).
-2. Destacados: 2-3 cosas que hizo bien esta semana.
-3. Áreas de mejora: 1-3 cosas concretas para mejorar la próxima semana (sin tono negativo).
-4. Plan para próxima semana: 3-5 acciones concretas y accionables.
-
-Responde SOLO con JSON válido (sin markdown):
-{
-  "resumenEjecutivo": "string 2-3 oraciones motivacional",
-  "destacados": ["string 1", "string 2"],
-  "areasDeMejora": ["string accionable 1", "string accionable 2"],
-  "planSemana": ["string 1", "string 2"]
-}`
-}
-
-async function generarReporteSemanalVendedor(vendedorId) {
-  const vendedor = await prisma.usuario.findUnique({
-    where: { id: vendedorId },
-    select: { id: true, nombre: true, apellido: true, rol: true }
-  })
-  if (!vendedor) throw new Error(`Vendedor ${vendedorId} no encontrado`)
-
-  const { inicioISO, finISO } = semanaAnterior()
-  const datos = await agregarDatosSemana(inicioISO, finISO)
-  const miData = datos.porVendedor.find(v => v.id === vendedorId)
-
-  // Sin actividad propia
-  if (!miData || miData.stats.gestionesReales === 0 && miData.stats.ventas === 0) {
-    return {
-      tipo: 'vendedor',
-      vendedor,
-      periodo: { inicio: inicioISO, fin: finISO },
-      datos: { miSemana: miData, totales: datos.totales },
-      resumenEjecutivo: `Hola ${vendedor.nombre}, esta semana no registraste gestiones en el CRM. Empezá la próxima semana con foco — un buen lunes marca la diferencia.`,
-      destacados: [],
-      areasDeMejora: ['Registrá cada llamada, email o WhatsApp como interacción en el CRM', 'Movilizá los leads en NUEVO a SEGUIMIENTO con una primera gestión'],
-      planSemana: ['Lunes: hacer la primera ronda de llamadas a leads pendientes', 'Mantener notas reales en cada interacción']
-    }
-  }
-
-  const prompt = buildPromptVendedor(datos, vendedor)
-  const ai = await generarContenido(prompt, { jsonMode: true, temperature: 0.5 })
-
-  return {
-    tipo: 'vendedor',
-    vendedor,
-    periodo: { inicio: inicioISO, fin: finISO },
-    datos: { miSemana: miData, totales: datos.totales },
-    resumenEjecutivo: ai.resumenEjecutivo || `Reporte de tu semana, ${vendedor.nombre}.`,
-    destacados: ai.destacados || [],
-    areasDeMejora: ai.areasDeMejora || [],
-    planSemana: ai.planSemana || []
-  }
-}
-
-async function generarReportesSemanalParaVendedores() {
-  const vendedores = await prisma.usuario.findMany({
-    where: { rol: { in: ['VENDEDOR', 'JEFE_VENTAS'] }, activo: true },
-    select: { id: true, nombre: true }
-  })
-  const resultados = []
-  for (const v of vendedores) {
-    try {
-      const contenido = await generarReporteSemanalVendedor(v.id)
-      await guardarReporteSemanal(v.id, contenido)
-      resultados.push({ usuarioId: v.id, ok: true })
-    } catch (err) {
-      console.error(`[ReporteSemanalVendedor] Error ${v.nombre}:`, err.message)
-      resultados.push({ usuarioId: v.id, ok: false, error: err.message })
-    }
-  }
-  return resultados
-}
-
 async function generarReportesSemanalParaGerentes() {
   const gerentes = await prisma.usuario.findMany({
     where: { rol: 'GERENTE', activo: true },
@@ -359,8 +271,6 @@ async function generarReportesSemanalParaGerentes() {
 
 module.exports = {
   generarReporteSemanalGerente,
-  generarReporteSemanalVendedor,
   guardarReporteSemanal,
-  generarReportesSemanalParaGerentes,
-  generarReportesSemanalParaVendedores
+  generarReportesSemanalParaGerentes
 }

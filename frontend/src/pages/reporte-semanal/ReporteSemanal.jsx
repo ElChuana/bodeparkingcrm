@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Button, Empty, Alert, Space, Select, message } from 'antd'
-import { ReloadOutlined, ThunderboltOutlined, TrophyOutlined, WarningOutlined, BulbOutlined, FireOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Button, Empty, Alert, Space, message } from 'antd'
+import { ReloadOutlined, ThunderboltOutlined, TrophyOutlined, WarningOutlined, BulbOutlined, FireOutlined } from '@ant-design/icons'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
@@ -155,92 +154,13 @@ function VistaGerente({ c }) {
   )
 }
 
-// ─── VISTA VENDEDOR (personal) ─────────────────────────────────────
-function VistaVendedor({ c }) {
-  const mi = c.datos?.miSemana || { stats: {}, actividadPorDia: [] }
-
-  return (
-    <>
-      <Row gutter={12} style={{ marginBottom: 20 }}>
-        <Col xs={12} md={6}><Card><Statistic title="Mis gestiones" value={mi.stats?.gestionesReales || 0} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Cotizaciones" value={mi.stats?.cotizacionesEnviadas || 0} valueStyle={{ color: '#0891b2' }} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Ventas" value={mi.stats?.ventas || 0} valueStyle={{ color: '#10b981' }} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="UF vendido" value={mi.stats?.ufVendido || 0} precision={2} valueStyle={{ color: '#10b981' }} /></Card></Col>
-      </Row>
-
-      {c.destacados?.length > 0 && (
-        <Card title="🏆 Lo que hiciste bien" style={{ marginBottom: 20, background: '#ecfdf5', borderLeft: '4px solid #10b981' }}>
-          <ul style={{ marginBottom: 0, paddingLeft: 18 }}>
-            {c.destacados.map((d, i) => <li key={i} style={{ marginBottom: 6 }}><CheckCircleOutlined style={{ color: '#10b981' }} /> {d}</li>)}
-          </ul>
-        </Card>
-      )}
-
-      {c.areasDeMejora?.length > 0 && (
-        <Card title="📚 Para mejorar la próxima semana" style={{ marginBottom: 20, background: '#fef3c7', borderLeft: '4px solid #d97706' }}>
-          <ul style={{ marginBottom: 0, paddingLeft: 18 }}>
-            {c.areasDeMejora.map((a, i) => <li key={i} style={{ marginBottom: 6 }}>{a}</li>)}
-          </ul>
-        </Card>
-      )}
-
-      <Card title="📅 Tu actividad por día (lun a dom)" style={{ marginBottom: 20 }}>
-        <Row gutter={[8, 8]}>
-          {(mi.actividadPorDia || []).map((d, i) => (
-            <Col xs={12} sm={6} md={3} key={d.fecha}>
-              <Card size="small" style={{ textAlign: 'center', background: d.total >= 8 ? '#ecfdf5' : d.total >= 4 ? '#e0f2fe' : '#f9fafb' }}>
-                <div style={{ fontSize: 11, color: '#888' }}>{diaCorto(d.fecha)} {d.fecha.slice(8, 10)}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: d.total >= 8 ? '#10b981' : d.total >= 4 ? '#0891b2' : '#6b7280' }}>{d.total}</div>
-                <div style={{ fontSize: 10, color: '#888' }}>gestiones</div>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </Card>
-
-      <Card title="📊 Detalle por tipo" style={{ marginBottom: 20 }}>
-        <Row gutter={12}>
-          <Col xs={12} md={6}><Card size="small"><Statistic title="Llamadas" value={mi.stats?.llamadas || 0} /></Card></Col>
-          <Col xs={12} md={6}><Card size="small"><Statistic title="Emails" value={mi.stats?.emails || 0} /></Card></Col>
-          <Col xs={12} md={6}><Card size="small"><Statistic title="WhatsApp" value={mi.stats?.whatsapp || 0} /></Card></Col>
-          <Col xs={12} md={6}><Card size="small"><Statistic title="Reuniones" value={mi.stats?.reuniones || 0} /></Card></Col>
-          <Col xs={12} md={6}><Card size="small"><Statistic title="Cambios etapa" value={mi.stats?.cambiosEtapa || 0} /></Card></Col>
-          <Col xs={12} md={6}><Card size="small"><Statistic title="Leads perdidos" value={mi.stats?.leadsPerdidos || 0} valueStyle={{ color: '#7c3aed' }} /></Card></Col>
-        </Row>
-      </Card>
-
-      {c.planSemana?.length > 0 && (
-        <Alert type="info" showIcon message="🎯 Plan recomendado para esta semana"
-          description={<ul style={{ marginBottom: 0, paddingLeft: 18 }}>{c.planSemana.map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}</ul>}
-        />
-      )}
-    </>
-  )
-}
 
 export default function ReporteSemanal() {
   const qc = useQueryClient()
-  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
-  const esGerente = usuario.rol === 'GERENTE'
-  const puedeVerOtros = esGerente || usuario.rol === 'JEFE_VENTAS'
-
-  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null)
-
-  // Lista de usuarios para selector (solo si puede ver otros)
-  const { data: usuariosData } = useQuery({
-    queryKey: ['usuarios-reporte-semanal'],
-    queryFn: () => api.get('/usuarios').then(r => r.data),
-    enabled: puedeVerOtros
-  })
-  const usuariosLista = (usuariosData || []).filter(u => u.activo && ['GERENTE','JEFE_VENTAS','VENDEDOR'].includes(u.rol))
-
-  const reporteUrl = usuarioSeleccionado
-    ? `/reportes-semanal/usuario/${usuarioSeleccionado}`
-    : '/reportes-semanal/mi-reporte'
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reporte-semanal', usuarioSeleccionado || 'mio'],
-    queryFn: () => api.get(reporteUrl).then(r => r.data)
+    queryKey: ['reporte-semanal'],
+    queryFn: () => api.get('/reportes-semanal/mi-reporte').then(r => r.data)
   })
 
   const generar = useMutation({
@@ -259,45 +179,16 @@ export default function ReporteSemanal() {
   if (typeof c === 'string') { try { c = JSON.parse(c) } catch { c = {} } }
   if (!c) c = {}
 
-  const tipo = c.tipo || (usuario.rol === 'GERENTE' ? 'gerente' : 'vendedor')
-  const tituloBase = tipo === 'gerente' ? '📊 Reporte semanal del equipo' : '🎯 Reporte semanal'
-  const titulo = usuarioSeleccionado ? `${tituloBase} (otro usuario)` : tituloBase
-
-  const headerSelector = puedeVerOtros && (
-    <Space>
-      <Text style={{ color: 'white' }}>Ver reporte de:</Text>
-      <Select
-        style={{ width: 220 }}
-        placeholder="Mi reporte"
-        allowClear
-        value={usuarioSeleccionado}
-        onChange={setUsuarioSeleccionado}
-        options={usuariosLista.map(u => ({ value: u.id, label: `${u.nombre} ${u.apellido}` }))}
-      />
-    </Space>
-  )
+  const titulo = '📊 Reporte semanal del equipo'
 
   if (!reporte) {
-    const descripcion = puedeVerOtros && !usuarioSeleccionado
-      ? 'No tienes reporte semanal propio todavía. Selecciona un usuario arriba para ver el suyo.'
-      : 'Aún no se ha generado un reporte semanal. Se genera automáticamente cada lunes a las 7 AM.'
     return (
       <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
-        <Card style={{ background: `linear-gradient(135deg, ${BRAND.azul} 0%, #006a8f 100%)`, marginBottom: 20, border: 'none' }} styles={{ body: { padding: 24 } }}>
-          <Row justify="space-between" align="middle" gutter={[12, 12]}>
-            <Col>
-              <Title level={2} style={{ color: 'white', margin: 0 }}>{titulo}</Title>
-              <Text style={{ color: 'rgba(255,255,255,0.85)' }}>Sin reporte disponible</Text>
-            </Col>
-            <Col><Space wrap>{headerSelector}</Space></Col>
-          </Row>
-        </Card>
-        <Empty description={descripcion}>
-          {esGerente && !usuarioSeleccionado && (
-            <Button type="primary" icon={<ThunderboltOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>
-              Generar ahora
-            </Button>
-          )}
+        <Title level={3}>{titulo}</Title>
+        <Empty description="Aún no se ha generado un reporte semanal. Se genera automáticamente cada lunes a las 7 AM.">
+          <Button type="primary" icon={<ThunderboltOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>
+            Generar ahora
+          </Button>
         </Empty>
       </div>
     )
@@ -319,17 +210,14 @@ export default function ReporteSemanal() {
           <Col>
             <Space wrap>
               <Tag style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none' }}>⚡ Generado con IA</Tag>
-              {headerSelector}
-              {esGerente && !usuarioSeleccionado && (
-                <Button icon={<ReloadOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>Regenerar</Button>
-              )}
+              <Button icon={<ReloadOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>Regenerar</Button>
             </Space>
           </Col>
         </Row>
         {c.resumenEjecutivo && <Paragraph style={{ color: 'white', marginTop: 12, marginBottom: 0, fontSize: 15 }}>{c.resumenEjecutivo}</Paragraph>}
       </Card>
 
-      {tipo === 'gerente' ? <VistaGerente c={c} /> : <VistaVendedor c={c} />}
+      <VistaGerente c={c} />
     </div>
   )
 }

@@ -120,16 +120,13 @@ cron.schedule('0 11 * * *', async () => {
   }
 })
 
-// ─── Cron: reportes semanales — lunes 11 UTC (7 AM Chile) ───
-// Genera reportes para gerentes (vista equipo) y vendedores/jefes (vista personal)
-const { generarReportesSemanalParaGerentes, generarReportesSemanalParaVendedores } = require('./lib/reportesSemanal')
+// ─── Cron: reporte semanal del gerente — lunes 11 UTC (7 AM Chile) ───
+const { generarReportesSemanalParaGerentes } = require('./lib/reportesSemanal')
 cron.schedule('0 11 * * 1', async () => {
   try {
-    const ger = await generarReportesSemanalParaGerentes()
-    const ven = await generarReportesSemanalParaVendedores()
-    const okG = ger.filter(r => r.ok).length
-    const okV = ven.filter(r => r.ok).length
-    console.log(`[Reporte Semanal] gerentes: ${okG}/${ger.length}, vendedores: ${okV}/${ven.length}`)
+    const resultados = await generarReportesSemanalParaGerentes()
+    const ok = resultados.filter(r => r.ok).length
+    console.log(`[Reporte Semanal] gerentes: ${ok}/${resultados.length}`)
   } catch (err) {
     console.error('[Reporte Semanal] Error en cron:', err.message)
   }
