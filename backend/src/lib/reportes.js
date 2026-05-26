@@ -39,6 +39,24 @@ async function agregarDatosVendedor(vendedorId) {
     }
   })
 
+  // Perdidos sin nota (últimos 30 días, no automáticos)
+  // motivoPerdida vacío excluye los bulk "Traspaso de CRM" porque esos tienen el campo lleno
+  const hace30dias = new Date(Date.now() - 30 * 86400000)
+  const perdidosSinNota = await prisma.lead.findMany({
+    where: {
+      vendedorId,
+      etapa: 'PERDIDO',
+      perdidaAutomatica: false,
+      actualizadoEn: { gte: hace30dias },
+      OR: [{ motivoPerdida: null }, { motivoPerdida: '' }]
+    },
+    include: {
+      contacto: { select: { nombre: true, apellido: true, telefono: true } }
+    },
+    orderBy: { actualizadoEn: 'desc' },
+    take: 50
+  })
+
   const promesasVencidas = leadsParados.filter(l => {
     const u = l.interacciones[0]?.descripcion?.toLowerCase() || ''
     return /llamar|llame|llámame|hablar|conversar|wsp|whatsapp|mañana|lunes|martes|miércoles|jueves|viernes|tarde|mañana|am|pm/.test(u)
@@ -50,7 +68,8 @@ async function agregarDatosVendedor(vendedorId) {
       leadsParados: leadsParados.length,
       promesasVencidas,
       cotizacionesPorCerrar: leadsParados.filter(l => l.etapa === 'COTIZACION_ENVIADA').length,
-      notasUltimos7Dias: notasRecientes
+      notasUltimos7Dias: notasRecientes,
+      perdidosSinNota: perdidosSinNota.length
     },
     leads: leadsParados.map(l => ({
       id: l.id,
@@ -61,6 +80,13 @@ async function agregarDatosVendedor(vendedorId) {
       diasParado: Math.floor((Date.now() - new Date(l.actualizadoEn)) / 86400000),
       ultimaNotaReal: l.interacciones[0]?.descripcion?.slice(0, 250) || null,
       tipoUltimaInteraccion: l.interacciones[0]?.tipo || null
+    })),
+    perdidosSinNota: perdidosSinNota.map(l => ({
+      id: l.id,
+      contacto: `${l.contacto.nombre} ${l.contacto.apellido || ''}`.trim(),
+      telefono: l.contacto.telefono || '',
+      etapaAntesDePerdido: l.etapaAntesDePerdido || null,
+      perdidoHace: Math.floor((Date.now() - new Date(l.actualizadoEn)) / 86400000)
     }))
   }
 }
@@ -116,7 +142,8 @@ async function generarReporteVendedor(vendedorId) {
       cotizacionesUrgentes: [],
       promesasVencidas: [],
       otrosSeguimientos: [],
-      planRecomendado: ['Trabajar los leads NUEVO sin asignar', 'Confirmar visitas agendadas', 'Mantener notas detalladas en cada gestión']
+      planRecomendado: ['Trabajar los leads NUEVO sin asignar', 'Confirmar visitas agendadas', 'Mantener notas detalladas en cada gestión'],
+      perdidosSinNota: datos.perdidosSinNota
     }
   }
 
@@ -133,7 +160,9 @@ async function generarReporteVendedor(vendedorId) {
     otrosSeguimientos: ai.otrosSeguimientos || [],
     planRecomendado: ai.planRecomendado || [],
     // Lista completa para que el frontend pueda mostrar TODOS los leads
-    todosLosLeads: datos.leads
+    todosLosLeads: datos.leads,
+    // Perdidos sin nota — recordatorio para que el vendedor escriba motivo
+    perdidosSinNota: datos.perdidosSinNota
   }
 }
 

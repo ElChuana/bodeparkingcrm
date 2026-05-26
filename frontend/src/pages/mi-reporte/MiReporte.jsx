@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Button, Empty, Alert, Space, Select, message } from 'antd'
-import { ThunderboltOutlined, ReloadOutlined, WarningOutlined, BulbOutlined, CheckCircleOutlined, FileTextOutlined, ClockCircleOutlined, PhoneOutlined, UnorderedListOutlined } from '@ant-design/icons'
+import { ThunderboltOutlined, ReloadOutlined, WarningOutlined, BulbOutlined, CheckCircleOutlined, FileTextOutlined, ClockCircleOutlined, PhoneOutlined, UnorderedListOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
@@ -36,6 +36,12 @@ const SECCION_STYLES = {
     bg: '#f9fafb',
     bgHeader: '#f3f4f6',
     icon: <UnorderedListOutlined />
+  },
+  perdidos: {
+    color: '#7c3aed',
+    bg: '#faf5ff',
+    bgHeader: '#ede9fe',
+    icon: <CloseCircleOutlined />
   }
 }
 
@@ -273,16 +279,19 @@ export default function MiReporte() {
 
       {/* STATS */}
       <Row gutter={12} style={{ marginBottom: 20 }}>
-        <Col xs={12} md={6}>
+        <Col xs={12} md={8} lg={5}>
           <Card><Statistic title="Leads parados" value={c.stats?.leadsParados || 0} valueStyle={{ color: BRAND.rojo }} /></Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={12} md={8} lg={5}>
           <Card><Statistic title="Promesas vencidas" value={c.stats?.promesasVencidas || 0} valueStyle={{ color: '#d97706' }} /></Card>
         </Col>
-        <Col xs={12} md={6}>
-          <Card><Statistic title="Cotizaciones por cerrar" value={c.stats?.cotizacionesPorCerrar || 0} valueStyle={{ color: '#0891b2' }} /></Card>
+        <Col xs={12} md={8} lg={4}>
+          <Card><Statistic title="Cotizaciones x cerrar" value={c.stats?.cotizacionesPorCerrar || 0} valueStyle={{ color: '#0891b2' }} /></Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={12} md={8} lg={5}>
+          <Card><Statistic title="Perdidos sin nota" value={c.stats?.perdidosSinNota || 0} valueStyle={{ color: '#7c3aed' }} /></Card>
+        </Col>
+        <Col xs={12} md={8} lg={5}>
           <Card><Statistic title="Notas escritas (7d)" value={c.stats?.notasUltimos7Dias || 0} valueStyle={{ color: '#10b981' }} /></Card>
         </Col>
       </Row>
@@ -328,6 +337,31 @@ export default function MiReporte() {
           }
           style={{ marginBottom: 20 }}
         />
+      )}
+
+      {/* PERDIDOS SIN NOTA (PÚRPURA) — recordatorio para escribir motivo */}
+      {c.perdidosSinNota?.length > 0 && (
+        <SeccionCard tipo="perdidos" titulo="Perdidos sin motivo escrito" count={c.perdidosSinNota.length} badge="ESCRIBE LA NOTA">
+          <Alert
+            type="warning"
+            showIcon
+            message="Estos leads los marcaste como PERDIDO pero no escribiste el motivo."
+            description="Es importante anotar por qué (no contestó, ya compró en otra empresa, sin presupuesto, etc.) para que el equipo aprenda y mejoren campañas. Hacé click en cada lead y agregá una nota."
+            style={{ margin: 16, marginBottom: 0 }}
+          />
+          <Table
+            dataSource={c.perdidosSinNota}
+            columns={[
+              { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.id} contacto={v} telefono={r.telefono} /> },
+              { title: 'Etapa previa', dataIndex: 'etapaAntesDePerdido', width: 180, render: e => e ? <Tag>{e.replace(/_/g, ' ')}</Tag> : <Text type="secondary">—</Text> },
+              { title: 'Perdido hace', dataIndex: 'perdidoHace', width: 130, render: d => <Tag color="purple" style={{ fontWeight: 600 }}>{d}d</Tag> },
+              { title: 'Acción', key: 'accion', render: (_, r) => <Link to={`/leads/${r.id}`}><Tag color="purple">Abrir y escribir motivo</Tag></Link> }
+            ]}
+            rowKey="id"
+            pagination={{ pageSize: 15, showSizeChanger: false }}
+            size="middle"
+          />
+        </SeccionCard>
       )}
 
       {/* TODOS LOS LEADS PARADOS (GRIS, AL FINAL) */}
