@@ -916,15 +916,15 @@ model ReporteDiario {
 
 model ReporteSemanal {
   id            Int      @id @default(autoincrement())
-  gerenteId     Int
+  usuarioId     Int
   fechaInicio   DateTime @db.Date // lunes
   fechaFin      DateTime @db.Date // domingo
   contenido     Json
   creadoEn      DateTime @default(now())
 
-  gerente       Usuario  @relation(fields: [gerenteId], references: [id], onDelete: Cascade)
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
-  @@unique([gerenteId, fechaInicio])
+  @@unique([usuarioId, fechaInicio])
   @@index([fechaInicio])
   @@map("reportes_semanales")
 }

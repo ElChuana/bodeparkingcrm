@@ -1,13 +1,17 @@
 const prisma = require('../lib/prisma')
-const { generarReporteSemanalGerente, guardarReporteSemanal, generarReportesSemanalParaGerentes } = require('../lib/reportesSemanal')
+const {
+  generarReporteSemanalGerente,
+  generarReporteSemanalVendedor,
+  guardarReporteSemanal,
+  generarReportesSemanalParaGerentes,
+  generarReportesSemanalParaVendedores
+} = require('../lib/reportesSemanal')
 
-// GET /api/reportes-semanal/mi-reporte → más reciente del gerente logeado
+// GET /api/reportes-semanal/mi-reporte → más reciente del usuario logeado
 async function miReporteSemanal(req, res) {
   try {
-    if (req.usuario.rol !== 'GERENTE') return res.status(403).json({ error: 'Solo GERENTE.' })
-
     const reporte = await prisma.reporteSemanal.findFirst({
-      where: { gerenteId: req.usuario.id },
+      where: { usuarioId: req.usuario.id },
       orderBy: { fechaInicio: 'desc' }
     })
     if (!reporte) return res.json({ reporte: null })
@@ -18,13 +22,11 @@ async function miReporteSemanal(req, res) {
   }
 }
 
-// GET /api/reportes-semanal → lista de reportes históricos del gerente
+// GET /api/reportes-semanal → lista de reportes históricos del usuario
 async function listarHistorico(req, res) {
   try {
-    if (req.usuario.rol !== 'GERENTE') return res.status(403).json({ error: 'Solo GERENTE.' })
-
     const reportes = await prisma.reporteSemanal.findMany({
-      where: { gerenteId: req.usuario.id },
+      where: { usuarioId: req.usuario.id },
       orderBy: { fechaInicio: 'desc' },
       select: { id: true, fechaInicio: true, fechaFin: true, creadoEn: true }
     })
@@ -35,13 +37,20 @@ async function listarHistorico(req, res) {
   }
 }
 
-// POST /api/reportes-semanal/generar → fuerza generación manual (GERENTE)
+// POST /api/reportes-semanal/generar → genera el reporte del usuario logueado
+// (GERENTE genera reporte de equipo; VENDEDOR/JEFE_VENTAS genera el suyo personal)
 async function generarManual(req, res) {
   try {
-    if (req.usuario.rol !== 'GERENTE') return res.status(403).json({ error: 'Solo GERENTE.' })
-
-    const contenido = await generarReporteSemanalGerente(req.usuario.id)
-    const r = await guardarReporteSemanal(req.usuario.id, contenido)
+    const usuario = req.usuario
+    let contenido
+    if (usuario.rol === 'GERENTE') {
+      contenido = await generarReporteSemanalGerente(usuario.id)
+    } else if (['VENDEDOR', 'JEFE_VENTAS'].includes(usuario.rol)) {
+      contenido = await generarReporteSemanalVendedor(usuario.id)
+    } else {
+      return res.status(403).json({ error: 'Rol no autorizado para reporte semanal.' })
+    }
+    const r = await guardarReporteSemanal(usuario.id, contenido)
     res.json({ mensaje: 'Reporte semanal generado.', reporte: r })
   } catch (err) {
     console.error(err)

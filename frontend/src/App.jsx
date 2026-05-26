@@ -112,7 +112,7 @@ export default function App() {
                   <Route path="perfil"      element={<RutaProtegida><MiPerfil /></RutaProtegida>} />
                   <Route path="notificaciones" element={<RutaProtegida><Notificaciones /></RutaProtegida>} />
                   <Route path="mi-reporte" element={<RutaProtegida modulo="mi-reporte"><MiReporte /></RutaProtegida>} />
-                  <Route path="reporte-semanal" element={<RutaProtegida roles={['GERENTE']} modulo="reporte-semanal"><ReporteSemanal /></RutaProtegida>} />
+                  <Route path="reporte-semanal" element={<RutaProtegida modulo="reporte-semanal"><ReporteSemanal /></RutaProtegida>} />
                   <Route path="cotizaciones/preview-pdf" element={<RutaProtegida><PreviewPDF /></RutaProtegida>} />
                 </Route>
                 <Route path="*" element={<Navigate to="/leads" replace />} />

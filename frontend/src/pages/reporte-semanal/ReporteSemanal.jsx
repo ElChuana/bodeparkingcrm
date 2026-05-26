@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Button, Empty, Alert, Space, message } from 'antd'
-import { ReloadOutlined, ThunderboltOutlined, TrophyOutlined, WarningOutlined, BulbOutlined, FireOutlined } from '@ant-design/icons'
+import { ReloadOutlined, ThunderboltOutlined, TrophyOutlined, WarningOutlined, BulbOutlined, FireOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
@@ -20,60 +20,22 @@ function AlertaCard({ alerta }) {
     warning: { bg: '#fef3c7', border: '#d97706', text: '#92400e', icon: <WarningOutlined /> },
     info: { bg: '#e0f2fe', border: '#0891b2', text: '#075985', icon: <BulbOutlined /> }
   }
-  const c = colores[alerta.tipo] || colores.info
+  const cc = colores[alerta.tipo] || colores.info
   return (
-    <div style={{ background: c.bg, borderLeft: `4px solid ${c.border}`, padding: '12px 16px', borderRadius: 8, marginBottom: 10 }}>
+    <div style={{ background: cc.bg, borderLeft: `4px solid ${cc.border}`, padding: '12px 16px', borderRadius: 8, marginBottom: 10 }}>
       <Space align="start">
-        <span style={{ color: c.border, fontSize: 16 }}>{c.icon}</span>
+        <span style={{ color: cc.border, fontSize: 16 }}>{cc.icon}</span>
         <div>
-          <Text strong style={{ color: c.text }}>{alerta.titulo}</Text>
-          <div style={{ fontSize: 13, color: c.text, marginTop: 2 }}>{alerta.mensaje}</div>
+          <Text strong style={{ color: cc.text }}>{alerta.titulo}</Text>
+          <div style={{ fontSize: 13, color: cc.text, marginTop: 2 }}>{alerta.mensaje}</div>
         </div>
       </Space>
     </div>
   )
 }
 
-export default function ReporteSemanal() {
-  const qc = useQueryClient()
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['reporte-semanal'],
-    queryFn: () => api.get('/reportes-semanal/mi-reporte').then(r => r.data)
-  })
-
-  const generar = useMutation({
-    mutationFn: () => api.post('/reportes-semanal/generar'),
-    onSuccess: () => {
-      message.success('Reporte generado')
-      qc.invalidateQueries({ queryKey: ['reporte-semanal'] })
-    },
-    onError: e => message.error(e?.response?.data?.error || 'Error al generar')
-  })
-
-  if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}><Spin size="large" /></div>
-
-  const reporte = data?.reporte
-  let c = reporte?.contenido
-  if (typeof c === 'string') { try { c = JSON.parse(c) } catch { c = {} } }
-  if (!c) c = {}
-
-  if (!reporte) {
-    return (
-      <div style={{ padding: 24 }}>
-        <Title level={3}>📊 Reporte semanal del equipo</Title>
-        <Empty description="Aún no se ha generado un reporte semanal. Se genera automáticamente cada lunes a las 7 AM.">
-          <Button type="primary" icon={<ThunderboltOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>
-            Generar ahora
-          </Button>
-        </Empty>
-      </div>
-    )
-  }
-
-  const periodoStr = `${format(new Date(c.periodo.inicio + 'T12:00:00'), "d 'de' MMM", { locale: es })} al ${format(new Date(c.periodo.fin + 'T12:00:00'), "d 'de' MMM yyyy", { locale: es })}`
-
-  // Tabla de actividad diaria por vendedor
+// ─── VISTA GERENTE ────────────────────────────────────────────────
+function VistaGerente({ c }) {
   const colsActividad = [
     { title: 'Vendedor', dataIndex: 'nombre', fixed: 'left', width: 180, render: (v, r) => (
       <div>
@@ -94,7 +56,6 @@ export default function ReporteSemanal() {
     { title: 'Total', dataIndex: ['stats', 'gestionesReales'], width: 80, fixed: 'right', align: 'center', render: v => <Tag color="blue" style={{ fontWeight: 700 }}>{v}</Tag> }
   ]
 
-  // KPIs por vendedor
   const colsKPI = [
     { title: 'Vendedor', dataIndex: 'nombre', fixed: 'left', width: 180 },
     { title: 'Llamadas', dataIndex: ['stats', 'llamadas'], align: 'center' },
@@ -109,36 +70,14 @@ export default function ReporteSemanal() {
   ]
 
   return (
-    <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
-      {/* HEADER */}
-      <Card
-        style={{ background: `linear-gradient(135deg, ${BRAND.azul} 0%, #006a8f 100%)`, marginBottom: 20, border: 'none' }}
-        styles={{ body: { padding: 24 } }}
-      >
-        <Row justify="space-between" align="middle" gutter={[12, 12]}>
-          <Col>
-            <Title level={2} style={{ color: 'white', margin: 0 }}>📊 Reporte semanal del equipo</Title>
-            <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{periodoStr}</Text>
-          </Col>
-          <Col>
-            <Space wrap>
-              <Tag style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none' }}>⚡ Generado con IA</Tag>
-              <Button icon={<ReloadOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>Regenerar</Button>
-            </Space>
-          </Col>
-        </Row>
-        {c.resumenEjecutivo && <Paragraph style={{ color: 'white', marginTop: 12, marginBottom: 0, fontSize: 15 }}>{c.resumenEjecutivo}</Paragraph>}
-      </Card>
-
-      {/* TOTALES */}
+    <>
       <Row gutter={12} style={{ marginBottom: 20 }}>
         <Col xs={12} md={6}><Card><Statistic title="Gestiones reales" value={c.datos?.totales?.gestionesReales || 0} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Cotizaciones enviadas" value={c.datos?.totales?.cotizacionesEnviadas || 0} valueStyle={{ color: '#0891b2' }} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title="Cotizaciones" value={c.datos?.totales?.cotizacionesEnviadas || 0} valueStyle={{ color: '#0891b2' }} /></Card></Col>
         <Col xs={12} md={6}><Card><Statistic title="Ventas cerradas" value={c.datos?.totales?.ventas || 0} valueStyle={{ color: '#10b981' }} /></Card></Col>
         <Col xs={12} md={6}><Card><Statistic title="UF vendido" value={c.datos?.totales?.ufVendido || 0} precision={2} valueStyle={{ color: '#10b981' }} /></Card></Col>
       </Row>
 
-      {/* DESTACADOS Y CAÍDAS */}
       <Row gutter={12} style={{ marginBottom: 20 }}>
         {c.vendedorDestacado && (
           <Col xs={24} md={12}>
@@ -170,77 +109,179 @@ export default function ReporteSemanal() {
         )}
       </Row>
 
-      {/* ALERTAS */}
       {c.alertas?.length > 0 && (
         <Card title="⚠️ Alertas de la semana" style={{ marginBottom: 20 }}>
           {c.alertas.map((a, i) => <AlertaCard key={i} alerta={a} />)}
         </Card>
       )}
 
-      {/* ACTIVIDAD DIARIA POR VENDEDOR */}
       <Card title="📅 Actividad diaria por vendedor (lun a dom)" style={{ marginBottom: 20 }}>
-        <Table
-          dataSource={c.datos?.porVendedor || []}
-          columns={colsActividad}
-          rowKey="id"
-          pagination={false}
-          scroll={{ x: 800 }}
-          size="middle"
-        />
+        <Table dataSource={c.datos?.porVendedor || []} columns={colsActividad} rowKey="id" pagination={false} scroll={{ x: 800 }} size="middle" />
       </Card>
 
-      {/* KPIS POR VENDEDOR */}
       <Card title="📈 KPIs por vendedor" style={{ marginBottom: 20 }}>
-        <Table
-          dataSource={c.datos?.porVendedor || []}
-          columns={colsKPI}
-          rowKey="id"
-          pagination={false}
-          scroll={{ x: 1100 }}
-          size="middle"
-        />
+        <Table dataSource={c.datos?.porVendedor || []} columns={colsKPI} rowKey="id" pagination={false} scroll={{ x: 1100 }} size="middle" />
       </Card>
 
-      {/* PIPELINE */}
       {c.datos?.pipeline && (
-        <Card title="📂 Pipeline actual (cierre de semana)" style={{ marginBottom: 20 }}>
+        <Card title="📂 Pipeline actual" style={{ marginBottom: 20 }}>
           <Row gutter={[12, 12]}>
             {Object.entries(c.datos.pipeline).map(([etapa, count]) => (
               <Col key={etapa} xs={12} sm={8} md={6} lg={4}>
-                <Card size="small">
-                  <Statistic title={etapa.replace(/_/g, ' ')} value={count} />
-                </Card>
+                <Card size="small"><Statistic title={etapa.replace(/_/g, ' ')} value={count} /></Card>
               </Col>
             ))}
           </Row>
         </Card>
       )}
 
-      {/* PATRONES */}
       {c.patrones?.length > 0 && (
         <Card title="🔍 Patrones detectados" style={{ marginBottom: 20 }}>
           {c.patrones.map((p, i) => (
             <div key={i} style={{ padding: 10, background: '#f9fafb', borderRadius: 6, marginBottom: 8 }}>
-              <Text strong>{p.vendedor}: </Text>
-              <Text>{p.patron}</Text>
+              <Text strong>{p.vendedor}: </Text><Text>{p.patron}</Text>
             </div>
           ))}
         </Card>
       )}
 
-      {/* PLAN DE LA SEMANA */}
       {c.planSemana?.length > 0 && (
-        <Alert
-          type="info"
-          showIcon
-          message="🎯 Plan recomendado para esta semana"
-          description={
-            <ul style={{ marginBottom: 0, paddingLeft: 18 }}>
-              {c.planSemana.map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}
-            </ul>
-          }
+        <Alert type="info" showIcon message="🎯 Plan recomendado para esta semana"
+          description={<ul style={{ marginBottom: 0, paddingLeft: 18 }}>{c.planSemana.map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}</ul>}
         />
       )}
+    </>
+  )
+}
+
+// ─── VISTA VENDEDOR (personal) ─────────────────────────────────────
+function VistaVendedor({ c }) {
+  const mi = c.datos?.miSemana || { stats: {}, actividadPorDia: [] }
+
+  return (
+    <>
+      <Row gutter={12} style={{ marginBottom: 20 }}>
+        <Col xs={12} md={6}><Card><Statistic title="Mis gestiones" value={mi.stats?.gestionesReales || 0} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title="Cotizaciones" value={mi.stats?.cotizacionesEnviadas || 0} valueStyle={{ color: '#0891b2' }} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title="Ventas" value={mi.stats?.ventas || 0} valueStyle={{ color: '#10b981' }} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title="UF vendido" value={mi.stats?.ufVendido || 0} precision={2} valueStyle={{ color: '#10b981' }} /></Card></Col>
+      </Row>
+
+      {c.destacados?.length > 0 && (
+        <Card title="🏆 Lo que hiciste bien" style={{ marginBottom: 20, background: '#ecfdf5', borderLeft: '4px solid #10b981' }}>
+          <ul style={{ marginBottom: 0, paddingLeft: 18 }}>
+            {c.destacados.map((d, i) => <li key={i} style={{ marginBottom: 6 }}><CheckCircleOutlined style={{ color: '#10b981' }} /> {d}</li>)}
+          </ul>
+        </Card>
+      )}
+
+      {c.areasDeMejora?.length > 0 && (
+        <Card title="📚 Para mejorar la próxima semana" style={{ marginBottom: 20, background: '#fef3c7', borderLeft: '4px solid #d97706' }}>
+          <ul style={{ marginBottom: 0, paddingLeft: 18 }}>
+            {c.areasDeMejora.map((a, i) => <li key={i} style={{ marginBottom: 6 }}>{a}</li>)}
+          </ul>
+        </Card>
+      )}
+
+      <Card title="📅 Tu actividad por día (lun a dom)" style={{ marginBottom: 20 }}>
+        <Row gutter={[8, 8]}>
+          {(mi.actividadPorDia || []).map((d, i) => (
+            <Col xs={12} sm={6} md={3} key={d.fecha}>
+              <Card size="small" style={{ textAlign: 'center', background: d.total >= 8 ? '#ecfdf5' : d.total >= 4 ? '#e0f2fe' : '#f9fafb' }}>
+                <div style={{ fontSize: 11, color: '#888' }}>{diaCorto(d.fecha)} {d.fecha.slice(8, 10)}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: d.total >= 8 ? '#10b981' : d.total >= 4 ? '#0891b2' : '#6b7280' }}>{d.total}</div>
+                <div style={{ fontSize: 10, color: '#888' }}>gestiones</div>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Card>
+
+      <Card title="📊 Detalle por tipo" style={{ marginBottom: 20 }}>
+        <Row gutter={12}>
+          <Col xs={12} md={6}><Card size="small"><Statistic title="Llamadas" value={mi.stats?.llamadas || 0} /></Card></Col>
+          <Col xs={12} md={6}><Card size="small"><Statistic title="Emails" value={mi.stats?.emails || 0} /></Card></Col>
+          <Col xs={12} md={6}><Card size="small"><Statistic title="WhatsApp" value={mi.stats?.whatsapp || 0} /></Card></Col>
+          <Col xs={12} md={6}><Card size="small"><Statistic title="Reuniones" value={mi.stats?.reuniones || 0} /></Card></Col>
+          <Col xs={12} md={6}><Card size="small"><Statistic title="Cambios etapa" value={mi.stats?.cambiosEtapa || 0} /></Card></Col>
+          <Col xs={12} md={6}><Card size="small"><Statistic title="Leads perdidos" value={mi.stats?.leadsPerdidos || 0} valueStyle={{ color: '#7c3aed' }} /></Card></Col>
+        </Row>
+      </Card>
+
+      {c.planSemana?.length > 0 && (
+        <Alert type="info" showIcon message="🎯 Plan recomendado para esta semana"
+          description={<ul style={{ marginBottom: 0, paddingLeft: 18 }}>{c.planSemana.map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}</ul>}
+        />
+      )}
+    </>
+  )
+}
+
+export default function ReporteSemanal() {
+  const qc = useQueryClient()
+  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['reporte-semanal'],
+    queryFn: () => api.get('/reportes-semanal/mi-reporte').then(r => r.data)
+  })
+
+  const generar = useMutation({
+    mutationFn: () => api.post('/reportes-semanal/generar'),
+    onSuccess: () => {
+      message.success('Reporte generado')
+      qc.invalidateQueries({ queryKey: ['reporte-semanal'] })
+    },
+    onError: e => message.error(e?.response?.data?.error || 'Error al generar')
+  })
+
+  if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}><Spin size="large" /></div>
+
+  const reporte = data?.reporte
+  let c = reporte?.contenido
+  if (typeof c === 'string') { try { c = JSON.parse(c) } catch { c = {} } }
+  if (!c) c = {}
+
+  const tipo = c.tipo || (usuario.rol === 'GERENTE' ? 'gerente' : 'vendedor')
+  const titulo = tipo === 'gerente' ? '📊 Reporte semanal del equipo' : '🎯 Mi reporte semanal'
+
+  if (!reporte) {
+    return (
+      <div style={{ padding: 24 }}>
+        <Title level={3}>{titulo}</Title>
+        <Empty description="Aún no se ha generado un reporte semanal. Se genera automáticamente cada lunes a las 7 AM.">
+          <Button type="primary" icon={<ThunderboltOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>
+            Generar ahora
+          </Button>
+        </Empty>
+      </div>
+    )
+  }
+
+  const periodoStr = `${format(new Date(c.periodo.inicio + 'T12:00:00'), "d 'de' MMM", { locale: es })} al ${format(new Date(c.periodo.fin + 'T12:00:00'), "d 'de' MMM yyyy", { locale: es })}`
+
+  return (
+    <div style={{ padding: 24, maxWidth: 1400, margin: '0 auto' }}>
+      <Card
+        style={{ background: `linear-gradient(135deg, ${BRAND.azul} 0%, #006a8f 100%)`, marginBottom: 20, border: 'none' }}
+        styles={{ body: { padding: 24 } }}
+      >
+        <Row justify="space-between" align="middle" gutter={[12, 12]}>
+          <Col>
+            <Title level={2} style={{ color: 'white', margin: 0 }}>{titulo}</Title>
+            <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{periodoStr}</Text>
+          </Col>
+          <Col>
+            <Space wrap>
+              <Tag style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none' }}>⚡ Generado con IA</Tag>
+              <Button icon={<ReloadOutlined />} loading={generar.isPending} onClick={() => generar.mutate()}>Regenerar</Button>
+            </Space>
+          </Col>
+        </Row>
+        {c.resumenEjecutivo && <Paragraph style={{ color: 'white', marginTop: 12, marginBottom: 0, fontSize: 15 }}>{c.resumenEjecutivo}</Paragraph>}
+      </Card>
+
+      {tipo === 'gerente' ? <VistaGerente c={c} /> : <VistaVendedor c={c} />}
     </div>
   )
 }
