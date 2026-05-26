@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Mi reporte diario — BodeParking CRM</title>
+<style>
+  :root {
+    --azul: #0091c3;
+    --gris: #3d3d3d;
+    --rojo: #ca3a36;
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --border: #e3e8ee;
+    --muted: #6b7280;
+    --warn: #f59e0b;
+    --ok: #10b981;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--gris);
+    padding: 24px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  .header {
+    background: linear-gradient(135deg, var(--azul) 0%, #006a8f 100%);
+    color: white;
+    padding: 28px 32px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 12px rgba(0,145,195,0.15);
+  }
+  .header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .header h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  .header .fecha { opacity: 0.85; font-size: 14px; }
+  .ai-badge {
+    background: rgba(255,255,255,0.2);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat {
+    background: var(--card);
+    padding: 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .stat .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .stat .value { font-size: 28px; font-weight: 700; color: var(--gris); margin-top: 4px; }
+  .stat.alert .value { color: var(--rojo); }
+  .stat.warn .value { color: var(--warn); }
+  .stat.ok .value { color: var(--ok); }
+
+  .section {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+  }
+  .section h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gris);
+  }
+  .section h2 .pill {
+    background: var(--rojo);
+    color: white;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+
+  .ai-insight {
+    background: linear-gradient(to right, #fef3c7, #fef9e7);
+    border-left: 4px solid var(--warn);
+    padding: 14px 18px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+  .ai-insight strong { color: var(--gris); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; padding: 10px 12px; background: #f9fafb; font-size: 12px; text-transform: uppercase; color: var(--muted); font-weight: 600; letter-spacing: 0.3px; border-bottom: 1px solid var(--border); }
+  td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover { background: #fafbfc; }
+
+  .lead-name { font-weight: 600; color: var(--gris); }
+  .lead-phone { font-size: 12px; color: var(--muted); }
+  .dias-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .dias-critico { background: #fee2e2; color: var(--rojo); }
+  .dias-medio { background: #fef3c7; color: #92400e; }
+  .nota { font-size: 13px; color: var(--muted); font-style: italic; }
+  .nota.vacia { color: var(--rojo); }
+  .accion {
+    background: #e0f2fe;
+    border: 1px solid #b6e1f5;
+    color: #075985;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .accion.urgente { background: #fee2e2; border-color: #fca5a5; color: var(--rojo); }
+
+  .footer-ai {
+    background: #f0f9ff;
+    border: 1px solid #b6e1f5;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 24px;
+    font-size: 14px;
+  }
+  .footer-ai h3 { color: var(--azul); margin-bottom: 10px; font-size: 15px; }
+  .footer-ai ul { margin-left: 20px; }
+  .footer-ai li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-row">
+      <div>
+        <h1>🎯 Mi reporte diario</h1>
+        <div class="fecha">Martes, 20 de mayo de 2026 — Valentina Concha</div>
+      </div>
+      <div class="ai-badge">⚡ Generado con IA</div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat alert">
+      <div class="label">Leads parados</div>
+      <div class="value">28</div>
+    </div>
+    <div class="stat warn">
+      <div class="label">Promesas vencidas</div>
+      <div class="value">5</div>
+    </div>
+    <div class="stat">
+      <div class="label">Cotizaciones x cerrar</div>
+      <div class="value">9</div>
+    </div>
+    <div class="stat ok">
+      <div class="label">Notas escritas (7d)</div>
+      <div class="value">13</div>
+    </div>
+  </div>
+
+  <!-- AI INSIGHTS -->
+  <div class="section">
+    <h2>💡 Lo que la IA detectó hoy</h2>
+    <div class="ai-insight">
+      <strong>Tienes 5 leads donde prometiste llamar a una hora específica que ya pasó.</strong> Daniel (5:30 AM), Juan Pablo (en 1 minuto), Arístides (10:30 AM), Jose (3 PM) y Juan Cabezas (lunes pasado) están esperando tu llamada. <strong>Foco hoy: contactarlos primero</strong>.
+    </div>
+    <div class="ai-insight" style="border-color: var(--azul); background: linear-gradient(to right, #e0f2fe, #f0f9ff);">
+      <strong>Gerald Marchant es el lead con mayor potencial parado.</strong> Quinta región, $30M disponibles para invertir. Cotización enviada hace 14 días sin seguimiento. <strong>Priorizar llamada hoy</strong>.
+    </div>
+    <div class="ai-insight" style="border-color: var(--ok); background: linear-gradient(to right, #d1fae5, #ecfdf5);">
+      <strong>Vas bien con las notas.</strong> 13 de tus 28 leads parados tienen notas reales de gestión. Mejor que el promedio del equipo. Sigue así, pero completa los 15 restantes.
+    </div>
+  </div>
+
+  <!-- COTIZACIONES URGENTES -->
+  <div class="section">
+    <h2>📋 Cotizaciones por cerrar <span class="pill">URGENTE</span></h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Días</th>
+          <th>Última gestión</th>
+          <th>Sugerencia IA</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="lead-name">Gerald Marchant</div>
+            <div class="lead-phone">+56964280308</div>
+          </td>
+          <td><span class="dias-badge dias-critico">14d</span></td>
+          <td class="nota">"5ta región, $30M para invertir, le interesa rentabilidad"</td>
+          <td><span class="accion urgente">Llamar HOY — lead de alto valor</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="lead-name">Juan Cabezas</div>
+            <div class="lead-phone">+56997019734</div>
+          </td>
+          <td><span class="dias-badge dias-critico">13d</span></td>
+          <td class="nota">"Mandé wsp con cotización, hablar el próximo lunes"</td>
+          <td><span class="accion urgente">El lunes ya pasó — llamar ahora</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="lead-name">Felipe Méndez</div>
+            <div class="lead-phone">+56940735680</div>
+          </td>
+          <td><span class="dias-badge dias-critico">14d</span></td>
+          <td class="nota">"Link de ubicación enviado por email"</td>
+          <td><span class="accion">Confirmar si visitó la ubicación</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="lead-name">Leo</div>
+            <div class="lead-phone">+56950855119</div>
+          </td>
+          <td><span class="dias-badge dias-critico">13d</span></td>
+          <td class="nota">"Le envié ficha técnica, cotización y costos por wsp"</td>
+          <td><span class="accion">Tiene todo lo que pidió — llamar a cerrar</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="lead-name">Luz Fuenzalida</div>
+            <div class="lead-phone">+56985457874</div>
+          </td>
+          <td><span class="dias-badge dias-critico">14d</span></td>
+          <td class="nota">Cotización enviada por email</td>
+          <td><span class="accion">Llamada de respaldo + confirmar lectura</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- PROMESAS VENCIDAS -->
+  <div class="section">
+    <h2>⏰ Prometiste llamar y no llamaste</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Días</th>
+          <th>Lo que prometiste</th>
+          <th>Sugerencia IA</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="lead-name">Daniel (Chico)</div>
+            <div class="lead-phone">+56994033419</div>
+          </td>
+          <td><span class="dias-badge dias-critico">14d</span></td>
+          <td class="nota">"Llamarme a las 5:30 AM, tiene pacientes después"</td>
+          <td><span class="accion urgente">Llamar mañana 5:30 AM</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="lead-name">Juan Pablo (Vega)</div>
+            <div class="lead-phone">+56988378126</div>
+          </td>
+          <td><span class="dias-badge dias-critico">13d</span></td>
+          <td class="nota">"Tiene interés, llamar en un minuto"</td>
+          <td><span class="accion urgente">Disculparte por la demora y retomar</span></td>
+        </tr>
+        <tr>
+          <td>
+            <div class="lead-name">Arístides Daniel</div>
+            <div class="lead-phone">+56992401328</div>
+          </td>
+          <td><span class="dias-badge dias-critico">13d</span></td>
+          <td class="nota">"Llamar 10:30 AM, audiencia a las 11"</td>
+          <td><span class="accion urgente">Llamar mañana 10:30 AM</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SUGERENCIA FINAL DE LA IA -->
+  <div class="footer-ai">
+    <h3>🤖 Plan recomendado para hoy</h3>
+    <ul>
+      <li><strong>Mañana (9-11 AM):</strong> Llamar a Gerald Marchant, Juan Pablo Vega y Juan Cabezas — son los 3 con mayor potencial estancado</li>
+      <li><strong>Tarde (15-17 PM):</strong> Reintento de las 9 cotizaciones por cerrar — usar wsp si no contestan</li>
+      <li><strong>Fin del día:</strong> Marca como PERDIDO los leads que no contesten después de 3 intentos esta semana</li>
+      <li><strong>Recordatorio constante:</strong> Después de cada llamada/mensaje, escribir <strong>una nota concreta</strong> (qué hablaron, próximo paso). Los cambios de etapa automáticos no sirven al equipo.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

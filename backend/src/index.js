@@ -38,6 +38,7 @@ app.use('/api/uf',          require('./routes/uf'))
 app.use('/api/alertas',     require('./routes/alertas'))
 app.use('/api/dashboard',   require('./routes/dashboard'))
 app.use('/api/reportes',    require('./routes/reportes'))
+app.use('/api/reportes-ia', require('./routes/reportesIa'))
 app.use('/api/cotizaciones', require('./routes/cotizaciones'))
 app.use('/api/public',      require('./routes/public'))
 app.use('/api/buscar',      require('./routes/buscar'))
@@ -102,6 +103,19 @@ cron.schedule('0 12 * * *', async () => {
     console.log(`[Alertas] Chequeo diario: ${resultado.alertasGeneradas?.length || 0} alertas, ${resultado.acciones?.length || 0} acciones`)
   } catch (err) {
     console.error('[Alertas] Error en cron:', err.message)
+  }
+})
+
+// ─── Cron: reportes diarios con IA (Gemini) — 11 UTC = 7-8 AM Chile ───
+const { generarReportesParaVendedoresActivos } = require('./lib/reportes')
+cron.schedule('0 11 * * *', async () => {
+  try {
+    const resultados = await generarReportesParaVendedoresActivos()
+    const ok = resultados.filter(r => r.ok).length
+    const fail = resultados.length - ok
+    console.log(`[Reportes IA] ${ok} generados${fail ? `, ${fail} fallidos` : ''}`)
+  } catch (err) {
+    console.error('[Reportes IA] Error en cron:', err.message)
   }
 })
 

@@ -13,9 +13,9 @@ const ROL_COLOR = {
 }
 
 const MODULOS_POR_ROL = {
-  GERENTE:        ['dashboard','inventario','leads','asignacion','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','equipo','reportes','automatizaciones','api-keys'],
-  JEFE_VENTAS:    ['dashboard','inventario','leads','asignacion','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','reportes','automatizaciones'],
-  VENDEDOR:       ['dashboard','leads','comisiones','promociones','descuentos'],
+  GERENTE:        ['dashboard','inventario','leads','mi-reporte','asignacion','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','equipo','reportes','automatizaciones','api-keys'],
+  JEFE_VENTAS:    ['dashboard','inventario','leads','mi-reporte','asignacion','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','reportes','automatizaciones'],
+  VENDEDOR:       ['dashboard','leads','mi-reporte','comisiones','promociones','descuentos'],
   BROKER_EXTERNO: ['dashboard','leads','comisiones','promociones','descuentos'],
   ABOGADO:        ['dashboard','ventas','legal'],
 }
@@ -25,6 +25,7 @@ const SECCIONES_MODULOS = [
     { key: 'dashboard',  label: 'Dashboard' },
     { key: 'inventario', label: 'Inventario' },
     { key: 'leads',      label: 'Leads' },
+    { key: 'mi-reporte', label: 'Mi reporte IA' },
     { key: 'asignacion', label: 'Asignación' },
     { key: 'visitas',    label: 'Visitas' },
   ]},

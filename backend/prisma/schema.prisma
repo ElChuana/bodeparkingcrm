@@ -241,6 +241,7 @@ model Usuario {
   solicitudesRevisadas      SolicitudDescuento[] @relation("SolicitudesRevisadas")
   recordatoriosCreadosPor   Recordatorio[]       @relation("RecordatoriosCreadosPor")
   emailConversaciones       EmailConversacion[]
+  reportesDiarios           ReporteDiario[]
 
   @@map("usuarios")
 }
@@ -896,4 +897,18 @@ model EmailConversacion {
   usuario     Usuario? @relation(fields: [usuarioId], references: [id])
 
   @@map("email_conversaciones")
+}
+
+model ReporteDiario {
+  id         Int      @id @default(autoincrement())
+  vendedorId Int
+  fecha      DateTime @db.Date
+  contenido  Json
+  creadoEn   DateTime @default(now())
+
+  vendedor   Usuario  @relation(fields: [vendedorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendedorId, fecha])
+  @@index([fecha])
+  @@map("reportes_diarios")
 }
