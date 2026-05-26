@@ -1,6 +1,66 @@
 const prisma = require('../lib/prisma')
 const { generarReporteVendedor, guardarReporte, generarReportesParaVendedoresActivos } = require('../lib/reportes')
 
+// Helper: extrae todos los leadIds que aparecen en el contenido del reporte
+function extraerLeadIds(contenido) {
+  if (!contenido || typeof contenido !== 'object') return { todos: [], perdidos: [] }
+  const ids = new Set()
+  const perdidos = new Set()
+  const colect = (arr, key = 'leadId') => (arr || []).forEach(it => { if (it?.[key]) ids.add(it[key]) })
+  colect(contenido.cotizacionesUrgentes)
+  colect(contenido.promesasVencidas)
+  colect(contenido.otrosSeguimientos)
+  ;(contenido.todosLosLeads || []).forEach(it => { if (it?.id) ids.add(it.id) })
+  ;(contenido.perdidosSinNota || []).forEach(it => { if (it?.id) { ids.add(it.id); perdidos.add(it.id) } })
+  return { todos: [...ids], perdidos: [...perdidos] }
+}
+
+// Helper: dado un reporte, calcula qué leads ya fueron gestionados luego de su creación
+async function calcularActualizaciones(reporte) {
+  if (!reporte) return {}
+  const { todos, perdidos } = extraerLeadIds(reporte.contenido)
+  if (!todos.length) return {}
+
+  const desde = new Date(reporte.creadoEn)
+  const actualizaciones = {}
+
+  // Interacciones reales (no NOTA) posteriores al reporte
+  const interacciones = await prisma.interaccion.findMany({
+    where: {
+      leadId: { in: todos },
+      fecha: { gt: desde },
+      tipo: { in: ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'] }
+    },
+    select: { leadId: true, tipo: true, fecha: true },
+    orderBy: { fecha: 'desc' }
+  })
+  for (const i of interacciones) {
+    if (!actualizaciones[i.leadId]) actualizaciones[i.leadId] = {}
+    actualizaciones[i.leadId].gestionado = true
+    if (!actualizaciones[i.leadId].tipoGestion) {
+      actualizaciones[i.leadId].tipoGestion = i.tipo
+      actualizaciones[i.leadId].fechaGestion = i.fecha
+    }
+  }
+
+  // Perdidos: ¿ya tiene motivoPerdida?
+  if (perdidos.length) {
+    const leadsPerdidos = await prisma.lead.findMany({
+      where: { id: { in: perdidos } },
+      select: { id: true, motivoPerdida: true, motivoPerdidaCat: true }
+    })
+    for (const l of leadsPerdidos) {
+      const motivoOk = (l.motivoPerdida && l.motivoPerdida.trim()) || (l.motivoPerdidaCat && l.motivoPerdidaCat.trim())
+      if (motivoOk) {
+        if (!actualizaciones[l.id]) actualizaciones[l.id] = {}
+        actualizaciones[l.id].motivoEscrito = true
+      }
+    }
+  }
+
+  return actualizaciones
+}
+
 // GET /api/reportes-ia/mi-reporte → reporte del usuario logeado (hoy o el más reciente)
 async function miReporte(req, res) {
   try {
@@ -17,7 +77,8 @@ async function miReporte(req, res) {
       })
     }
     if (!reporte) return res.json({ reporte: null })
-    res.json({ reporte })
+    const actualizaciones = await calcularActualizaciones(reporte)
+    res.json({ reporte, actualizaciones })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al obtener mi reporte.' })
@@ -41,7 +102,8 @@ async function reportePorVendedor(req, res) {
       })
     }
     if (!reporte) return res.json({ reporte: null })
-    res.json({ reporte })
+    const actualizaciones = await calcularActualizaciones(reporte)
+    res.json({ reporte, actualizaciones })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al obtener reporte del vendedor.' })

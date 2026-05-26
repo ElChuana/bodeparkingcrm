@@ -50,12 +50,21 @@ function ChipDias({ dias }) {
   return <Tag color={critico ? 'red' : 'orange'} style={{ margin: 0, fontWeight: 600 }}>{dias}d</Tag>
 }
 
-function ContactoLink({ leadId, contacto, telefono }) {
+function ContactoLink({ leadId, contacto, telefono, completado }) {
+  const styleTach = completado ? { textDecoration: 'line-through', opacity: 0.6 } : {}
   return (
     <Link to={`/leads/${leadId}`} style={{ display: 'block' }}>
-      <div style={{ fontWeight: 600, color: BRAND.azul }}>{contacto}</div>
-      {telefono && <div style={{ fontSize: 12, color: '#666' }}>{telefono}</div>}
+      <div style={{ fontWeight: 600, color: BRAND.azul, ...styleTach }}>{contacto}</div>
+      {telefono && <div style={{ fontSize: 12, color: '#666', ...styleTach }}>{telefono}</div>}
     </Link>
+  )
+}
+
+function BadgeCompletado({ tipo }) {
+  return (
+    <Tag color="green" icon={<CheckCircleOutlined />} style={{ fontWeight: 600 }}>
+      ✓ Gestionado{tipo ? ` (${tipo.toLowerCase()})` : ''}
+    </Tag>
   )
 }
 
@@ -160,6 +169,13 @@ export default function MiReporte() {
     try { c = JSON.parse(c) } catch { c = {} }
   }
   if (!c) c = {}
+  const actualizaciones = data?.actualizaciones || {}
+  const estaCompleto = (leadId, key = 'gestionado') => !!(actualizaciones[leadId]?.[key])
+  const tipoGestion = (leadId) => actualizaciones[leadId]?.tipoGestion
+
+  // Contador motivacional
+  const totalLeads = (c.cotizacionesUrgentes?.length || 0) + (c.promesasVencidas?.length || 0) + (c.otrosSeguimientos?.length || 0)
+  const completados = Object.values(actualizaciones).filter(a => a.gestionado).length
 
   const headerSelector = esGerente && (
     <Space>
@@ -206,44 +222,59 @@ export default function MiReporte() {
 
   const fechaReporte = format(new Date(reporte.fecha), "EEEE d 'de' MMMM 'de' yyyy", { locale: es })
 
-  // Columns con contacto clickeable
+  // Estilo de fila completada (tachado tenue)
+  const rowClass = (record, leadIdKey = 'leadId') =>
+    estaCompleto(record[leadIdKey]) ? 'row-completado' : ''
+
+  const colEstado = (leadIdKey = 'leadId') => ({
+    title: 'Estado',
+    key: 'estado',
+    width: 220,
+    render: (_, r) => estaCompleto(r[leadIdKey])
+      ? <BadgeCompletado tipo={tipoGestion(r[leadIdKey])} />
+      : <Tag color="default">Pendiente</Tag>
+  })
+
   const colSugerencia = (urgente = false) => ({
     title: 'Sugerencia IA',
     dataIndex: 'sugerencia',
     render: (v, r) => (
-      <Tag color={(r.urgente ?? urgente) ? 'red' : 'blue'} style={{ whiteSpace: 'normal', maxWidth: 320, padding: '4px 8px' }}>
+      <Tag color={(r.urgente ?? urgente) ? 'red' : 'blue'} style={{ whiteSpace: 'normal', maxWidth: 320, padding: '4px 8px', ...(estaCompleto(r.leadId) ? { opacity: 0.5 } : {}) }}>
         {v}
       </Tag>
     )
   })
 
   const colsCotiz = [
-    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} /> },
+    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} completado={estaCompleto(r.leadId)} /> },
     { title: 'Días', dataIndex: 'dias', width: 80, render: d => <ChipDias dias={d} /> },
     { title: 'Última gestión', dataIndex: 'ultimaNota', render: v => v ? <Text italic type="secondary">"{v}"</Text> : <Text type="danger">(sin nota)</Text> },
-    colSugerencia(true)
+    colSugerencia(true),
+    colEstado('leadId')
   ]
 
   const colsPromesas = [
-    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} /> },
+    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} completado={estaCompleto(r.leadId)} /> },
     { title: 'Días', dataIndex: 'dias', width: 80, render: d => <ChipDias dias={d} /> },
     { title: 'Lo que prometiste', dataIndex: 'prometio', render: v => v && <Text italic type="secondary">"{v}"</Text> },
-    colSugerencia(true)
+    colSugerencia(true),
+    colEstado('leadId')
   ]
 
   const colsOtros = [
-    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} /> },
+    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.leadId} contacto={v} telefono={r.telefono} completado={estaCompleto(r.leadId)} /> },
     { title: 'Días', dataIndex: 'dias', width: 80, render: d => <ChipDias dias={d} /> },
     { title: 'Última nota', dataIndex: 'ultimaNota', render: v => v ? <Text italic type="secondary">"{v}"</Text> : <Text type="danger">(sin nota)</Text> },
-    colSugerencia(false)
+    colSugerencia(false),
+    colEstado('leadId')
   ]
 
-  // Columnas para "todos los leads" (data raw del backend, sin sugerencia IA)
   const colsTodos = [
-    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.id} contacto={v} telefono={r.telefono} /> },
+    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.id} contacto={v} telefono={r.telefono} completado={estaCompleto(r.id)} /> },
     { title: 'Etapa', dataIndex: 'etapa', width: 180, render: e => <Tag>{e.replace(/_/g, ' ')}</Tag> },
     { title: 'Días sin tocar', dataIndex: 'diasParado', width: 130, render: d => <ChipDias dias={d} /> },
-    { title: 'Última gestión real', dataIndex: 'ultimaNotaReal', render: (v, r) => v ? <Text italic type="secondary">[{r.tipoUltimaInteraccion}] "{v.slice(0, 100)}{v.length > 100 ? '…' : ''}"</Text> : <Text type="danger">— sin nota real —</Text> }
+    { title: 'Última gestión real', dataIndex: 'ultimaNotaReal', render: (v, r) => v ? <Text italic type="secondary">[{r.tipoUltimaInteraccion}] "{v.slice(0, 100)}{v.length > 100 ? '…' : ''}"</Text> : <Text type="danger">— sin nota real —</Text> },
+    colEstado('id')
   ]
 
   return (
@@ -275,6 +306,13 @@ export default function MiReporte() {
           </Col>
         </Row>
         {c.saludo && <Paragraph style={{ color: 'white', marginTop: 12, marginBottom: 0, fontSize: 15 }}>{c.saludo}</Paragraph>}
+        {totalLeads > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <Tag color="green" style={{ fontSize: 13, padding: '4px 10px' }}>
+              ✅ {completados} de {totalLeads} gestionados hoy
+            </Tag>
+          </div>
+        )}
       </Card>
 
       {/* STATS */}
@@ -352,10 +390,17 @@ export default function MiReporte() {
           <Table
             dataSource={c.perdidosSinNota}
             columns={[
-              { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.id} contacto={v} telefono={r.telefono} /> },
+              { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.id} contacto={v} telefono={r.telefono} completado={estaCompleto(r.id, 'motivoEscrito')} /> },
               { title: 'Etapa previa', dataIndex: 'etapaAntesDePerdido', width: 180, render: e => e ? <Tag>{e.replace(/_/g, ' ')}</Tag> : <Text type="secondary">—</Text> },
               { title: 'Perdido hace', dataIndex: 'perdidoHace', width: 130, render: d => <Tag color="purple" style={{ fontWeight: 600 }}>{d}d</Tag> },
-              { title: 'Acción', key: 'accion', render: (_, r) => <Link to={`/leads/${r.id}`}><Tag color="purple">Abrir y escribir motivo</Tag></Link> }
+              {
+                title: 'Estado',
+                key: 'estado',
+                width: 220,
+                render: (_, r) => estaCompleto(r.id, 'motivoEscrito')
+                  ? <Tag color="green" icon={<CheckCircleOutlined />} style={{ fontWeight: 600 }}>✓ Motivo escrito</Tag>
+                  : <Link to={`/leads/${r.id}`}><Tag color="purple">Abrir y escribir motivo</Tag></Link>
+              }
             ]}
             rowKey="id"
             pagination={{ pageSize: 15, showSizeChanger: false }}
