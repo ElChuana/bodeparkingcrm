@@ -343,6 +343,19 @@
 - Barra flotante al seleccionar: elegir vendedor → `POST /api/leads/asignar-masivo`
 - Usa endpoints existentes: `GET /api/leads`, `GET /api/leads/campanas`, `GET /api/usuarios`
 
+### Reporte semanal del gerente (`/reporte-semanal`)
+- Solo GERENTE. Cubre semana anterior (lun-dom, hora Chile UTC-4).
+- Cron lunes 11 UTC (7 AM Chile) genera para todos los gerentes activos.
+- Tabla de actividad diaria por vendedor (lun a dom con totales).
+- KPIs por vendedor: llamadas/emails/wsp/reuniones/cambios etapa/cotizaciones enviadas/perdidos/ventas/UF vendido.
+- Pipeline snapshot al cierre (cuántos leads en cada etapa).
+- IA genera: resumen ejecutivo, vendedor destacado, vendedor en caída, patrones, alertas (warning/info/critico), plan recomendado.
+- Tabla `reportes_semanales` (unique gerenteId+fechaInicio).
+- Endpoints:
+  - `GET /api/reportes-semanal/mi-reporte` — más reciente
+  - `GET /api/reportes-semanal` — histórico
+  - `POST /api/reportes-semanal/generar` — manual
+
 ### Mi reporte IA (`/mi-reporte`)
 - Reporte diario personalizado generado con Groq (Llama 3.3 70B, gratis: 14.400 req/día)
 - Agrega leads parados (≥3 días) en SEGUIMIENTO, COTIZACION_ENVIADA, etc.
@@ -369,7 +382,8 @@
 | `deduplication.js` | `mismoNombre()` + Levenshtein — usado en comuro.js y public.js |
 | `notifications.js` | `notificarLead()` — usado en leadsController.js y comuro.js |
 | `groq.js` | Wrapper REST a Groq API — Llama 3.3 70B (`GROQ_API_KEY`) — usado por reportes IA |
-| `reportes.js` | Generador de reportes diarios con IA (agrega datos + llama a Gemini) |
+| `reportes.js` | Generador de reportes diarios con IA (agrega datos + llama a Groq) |
+| `reportesSemanal.js` | Generador de reporte semanal del gerente (lunes a domingo, agrega datos por vendedor + IA) |
 
 ---
 
@@ -381,6 +395,7 @@
 | Cada 15 min | Procesar recordatorios vencidos → crear notificaciones |
 | Diario 12:00 UTC | Chequeo de alertas (LEAD_SIN_ACTIVIDAD, LEAD_ESTANCADO) |
 | Diario 11:00 UTC (7-8 AM Chile) | Generar reportes IA del día para vendedores activos |
+| Lunes 11:00 UTC (7 AM Chile) | Generar reporte semanal del gerente (cubre lun-dom anterior) |
 
 ---
 

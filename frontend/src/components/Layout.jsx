@@ -68,6 +68,7 @@ function SidebarContent({ selectedKey, onNavigate }) {
       label: 'Admin',
       items: [
         { key: '/equipo',                label: 'Equipo',           icon: <UserSwitchOutlined />,  roles: ['GERENTE'],              modulo: 'equipo' },
+        { key: '/reporte-semanal',       label: 'Reporte semanal',  icon: <BarChartOutlined />,    roles: ['GERENTE'],              modulo: 'reporte-semanal' },
         { key: '/automatizaciones',      label: 'Automatizaciones', icon: <ThunderboltOutlined />, roles: ['GERENTE','JEFE_VENTAS'], modulo: 'automatizaciones' },
         { key: '/configuracion/api-keys',label: 'API Keys',         icon: <ApiOutlined />,         roles: ['GERENTE'],              modulo: 'api-keys' },
       ]

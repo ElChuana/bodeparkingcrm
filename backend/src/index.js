@@ -39,6 +39,7 @@ app.use('/api/alertas',     require('./routes/alertas'))
 app.use('/api/dashboard',   require('./routes/dashboard'))
 app.use('/api/reportes',    require('./routes/reportes'))
 app.use('/api/reportes-ia', require('./routes/reportesIa'))
+app.use('/api/reportes-semanal', require('./routes/reportesSemanal'))
 app.use('/api/cotizaciones', require('./routes/cotizaciones'))
 app.use('/api/public',      require('./routes/public'))
 app.use('/api/buscar',      require('./routes/buscar'))
@@ -116,6 +117,19 @@ cron.schedule('0 11 * * *', async () => {
     console.log(`[Reportes IA] ${ok} generados${fail ? `, ${fail} fallidos` : ''}`)
   } catch (err) {
     console.error('[Reportes IA] Error en cron:', err.message)
+  }
+})
+
+// ─── Cron: reporte semanal del gerente — lunes 11 UTC (7 AM Chile) ───
+const { generarReportesSemanalParaGerentes } = require('./lib/reportesSemanal')
+cron.schedule('0 11 * * 1', async () => {
+  try {
+    const resultados = await generarReportesSemanalParaGerentes()
+    const ok = resultados.filter(r => r.ok).length
+    const fail = resultados.length - ok
+    console.log(`[Reporte Semanal] ${ok} generados${fail ? `, ${fail} fallidos` : ''}`)
+  } catch (err) {
+    console.error('[Reporte Semanal] Error en cron:', err.message)
   }
 })
 

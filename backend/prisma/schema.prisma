@@ -242,6 +242,7 @@ model Usuario {
   recordatoriosCreadosPor   Recordatorio[]       @relation("RecordatoriosCreadosPor")
   emailConversaciones       EmailConversacion[]
   reportesDiarios           ReporteDiario[]
+  reportesSemanales         ReporteSemanal[]
 
   @@map("usuarios")
 }
@@ -911,4 +912,19 @@ model ReporteDiario {
   @@unique([vendedorId, fecha])
   @@index([fecha])
   @@map("reportes_diarios")
+}
+
+model ReporteSemanal {
+  id            Int      @id @default(autoincrement())
+  gerenteId     Int
+  fechaInicio   DateTime @db.Date // lunes
+  fechaFin      DateTime @db.Date // domingo
+  contenido     Json
+  creadoEn      DateTime @default(now())
+
+  gerente       Usuario  @relation(fields: [gerenteId], references: [id], onDelete: Cascade)
+
+  @@unique([gerenteId, fechaInicio])
+  @@index([fechaInicio])
+  @@map("reportes_semanales")
 }

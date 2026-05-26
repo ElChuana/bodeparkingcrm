@@ -29,6 +29,7 @@ import CentroAsignacion from './pages/asignacion/CentroAsignacion'
 import PreviewPDF from './pages/cotizaciones/PreviewPDF'
 import Notificaciones from './pages/notificaciones/Notificaciones'
 import MiReporte from './pages/mi-reporte/MiReporte'
+import ReporteSemanal from './pages/reporte-semanal/ReporteSemanal'
 
 const qc = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } }
@@ -111,6 +112,7 @@ export default function App() {
                   <Route path="perfil"      element={<RutaProtegida><MiPerfil /></RutaProtegida>} />
                   <Route path="notificaciones" element={<RutaProtegida><Notificaciones /></RutaProtegida>} />
                   <Route path="mi-reporte" element={<RutaProtegida modulo="mi-reporte"><MiReporte /></RutaProtegida>} />
+                  <Route path="reporte-semanal" element={<RutaProtegida roles={['GERENTE']} modulo="reporte-semanal"><ReporteSemanal /></RutaProtegida>} />
                   <Route path="cotizaciones/preview-pdf" element={<RutaProtegida><PreviewPDF /></RutaProtegida>} />
                 </Route>
                 <Route path="*" element={<Navigate to="/leads" replace />} />
