@@ -148,7 +148,12 @@ export default function MiReporte() {
   if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}><Spin size="large" /></div>
 
   const reporte = data?.reporte
-  const c = reporte?.contenido
+  // Defensa: contenido puede ser objeto JSON o string serializado
+  let c = reporte?.contenido
+  if (typeof c === 'string') {
+    try { c = JSON.parse(c) } catch { c = {} }
+  }
+  if (!c) c = {}
 
   const headerSelector = esGerente && (
     <Space>
