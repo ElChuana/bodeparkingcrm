@@ -125,9 +125,20 @@ const kanban = async (req, res) => {
         vendedor: { select: { nombre: true, apellido: true } },
         unidadInteres: {
           select: { numero: true, tipo: true, edificio: { select: { nombre: true } } }
+        },
+        _count: {
+          select: {
+            emailConversaciones: { where: { direction: 'RECIBIDO', leido: false } }
+          }
         }
       },
       orderBy: { actualizadoEn: 'desc' }
+    })
+
+    // Agregar campo emailsNoLeidos para destacar cards en el kanban
+    leads.forEach(l => {
+      l.emailsNoLeidos = l._count?.emailConversaciones || 0
+      delete l._count
     })
 
     // Agrupar por etapa
@@ -197,10 +208,17 @@ const obtener = async (req, res) => {
           orderBy: { fecha: 'desc' },
           include: { usuario: { select: { id: true, nombre: true, apellido: true } } }
         },
-        ventas: { select: { id: true, estado: true, unidades: { select: { numero: true, edificio: { select: { nombre: true } } } } } }
+        ventas: { select: { id: true, estado: true, unidades: { select: { numero: true, edificio: { select: { nombre: true } } } } } },
+        _count: {
+          select: {
+            emailConversaciones: { where: { direction: 'RECIBIDO', leido: false } }
+          }
+        }
       }
     })
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado.' })
+    lead.emailsNoLeidos = lead._count?.emailConversaciones || 0
+    delete lead._count
     res.json(lead)
   } catch (err) {
     console.error('[obtener lead]', err)
@@ -332,7 +350,8 @@ const cambiarEtapa = async (req, res) => {
       leadId: Number(id),
       mensaje: `Lead ${lead.contacto?.nombre || ''} ${lead.contacto?.apellido || ''}`.trim() + ` → ${ETAPA_LABEL[etapa] || etapa}`,
       tipo: 'LEAD_ETAPA_CAMBIO',
-      excluirUsuarioId: req.usuario.id
+      excluirUsuarioId: req.usuario.id,
+      soloAVendedor: true // no spamear gerentes con cada cambio menor — ven todo en el reporte
     })
   } catch (err) {
     console.error(err)

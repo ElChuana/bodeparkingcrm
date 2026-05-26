@@ -293,7 +293,11 @@ const LeadCard = React.memo(function LeadCard({ lead, onPreview }) {
     >
       <Card
         size="small"
-        style={{ cursor: 'grab', fontSize: 13, userSelect: 'none', boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.15)' : undefined }}
+        style={{
+          cursor: 'grab', fontSize: 13, userSelect: 'none',
+          boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.15)' : (lead.emailsNoLeidos > 0 ? '0 0 0 2px #fa8c16' : undefined),
+          background: lead.emailsNoLeidos > 0 ? '#fff7e6' : undefined
+        }}
         onClick={() => { if (!isDragging) onPreview(lead.id) }}
         bodyStyle={{ padding: '8px 10px' }}
       >
@@ -301,6 +305,11 @@ const LeadCard = React.memo(function LeadCard({ lead, onPreview }) {
           <Text strong style={{ fontSize: 13 }}>
             {lead.contacto.nombre} {lead.contacto.apellido}
           </Text>
+          {lead.emailsNoLeidos > 0 && (
+            <Tag color="orange" icon={<MailOutlined />} style={{ fontSize: 10, padding: '0 6px', margin: 0, fontWeight: 600 }}>
+              {lead.emailsNoLeidos} sin leer
+            </Tag>
+          )}
           {lead.perdidaAutomatica && (
             <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>🤖 Auto</Tag>
           )}

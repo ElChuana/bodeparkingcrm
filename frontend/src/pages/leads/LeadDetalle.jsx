@@ -1133,7 +1133,16 @@ export default function LeadDetalle() {
               },
               {
                 key: 'emails',
-                label: 'Emails',
+                label: (
+                  <span>
+                    Emails
+                    {lead.emailsNoLeidos > 0 && (
+                      <Tag color="orange" style={{ marginLeft: 6, fontSize: 11, fontWeight: 600 }}>
+                        {lead.emailsNoLeidos} sin leer
+                      </Tag>
+                    )}
+                  </span>
+                ),
                 children: (
                   <EmailCard
                     leadId={parseInt(id)}
