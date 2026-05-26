@@ -42,7 +42,22 @@ const SECCION_STYLES = {
     bg: '#faf5ff',
     bgHeader: '#ede9fe',
     icon: <CloseCircleOutlined />
+  },
+  ayer: {
+    color: '#059669',
+    bg: '#ecfdf5',
+    bgHeader: '#d1fae5',
+    icon: <CheckCircleOutlined />
   }
+}
+
+const NOMBRES_DIA = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+function nombreDiaDeFecha(yyyymmdd) {
+  if (!yyyymmdd) return ''
+  // Interpretar como local para evitar offsets raros
+  const [y, m, d] = yyyymmdd.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return NOMBRES_DIA[date.getDay()]
 }
 
 function ChipDias({ dias }) {
@@ -315,7 +330,61 @@ export default function MiReporte() {
         )}
       </Card>
 
-      {/* STATS */}
+      {/* RESUMEN DE AYER (VERDE, ARRIBA) */}
+      {c.ayer && (
+        <SeccionCard
+          tipo="ayer"
+          titulo={`Resumen de ayer ${c.ayer.fecha ? `(${nombreDiaDeFecha(c.ayer.fecha)} ${c.ayer.fecha.slice(8, 10)}/${c.ayer.fecha.slice(5, 7)})` : ''}`}
+          count={c.ayer.stats?.leadsTrabajados || 0}
+        >
+          <div style={{ padding: 16 }}>
+            {c.resumenAyer && (
+              <div style={{ marginBottom: 16, padding: 14, background: 'white', borderRadius: 8, borderLeft: '4px solid #059669' }}>
+                <Text strong style={{ fontSize: 15, color: '#059669' }}>{c.resumenAyer.titulo || 'Tu día'}</Text>
+                {c.resumenAyer.mensaje && <Paragraph style={{ marginTop: 6, marginBottom: c.resumenAyer.destacados?.length ? 10 : 0 }}>{c.resumenAyer.mensaje}</Paragraph>}
+                {c.resumenAyer.destacados?.length > 0 && (
+                  <ul style={{ marginBottom: 0, paddingLeft: 18 }}>
+                    {c.resumenAyer.destacados.map((d, i) => <li key={i} style={{ fontSize: 13 }}>{d}</li>)}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <Row gutter={8}>
+              <Col xs={8} md={4}><Card size="small"><Statistic title="Llamadas" value={c.ayer.stats?.llamadas || 0} /></Card></Col>
+              <Col xs={8} md={4}><Card size="small"><Statistic title="Emails" value={c.ayer.stats?.emails || 0} /></Card></Col>
+              <Col xs={8} md={4}><Card size="small"><Statistic title="WhatsApp" value={c.ayer.stats?.whatsapp || 0} /></Card></Col>
+              <Col xs={8} md={4}><Card size="small"><Statistic title="Reuniones" value={c.ayer.stats?.reuniones || 0} /></Card></Col>
+              <Col xs={8} md={4}><Card size="small"><Statistic title="Leads trabajados" value={c.ayer.stats?.leadsTrabajados || 0} valueStyle={{ color: '#059669' }} /></Card></Col>
+              <Col xs={8} md={4}><Card size="small"><Statistic title="Cambios etapa" value={c.ayer.stats?.cambiosEtapa || 0} /></Card></Col>
+            </Row>
+
+            {c.ayer.leadsTrabajados?.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <Text strong style={{ display: 'block', marginBottom: 8 }}>Leads que trabajaste:</Text>
+                <Table
+                  dataSource={c.ayer.leadsTrabajados}
+                  rowKey="leadId"
+                  pagination={{ pageSize: 10, showSizeChanger: false }}
+                  size="small"
+                  columns={[
+                    { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <Link to={`/leads/${r.leadId}`} style={{ fontWeight: 600, color: BRAND.azul }}>{v}</Link> },
+                    { title: 'Etapa actual', dataIndex: 'etapaActual', width: 160, render: e => e ? <Tag>{e.replace(/_/g, ' ')}</Tag> : null },
+                    { title: 'Cambio etapa', dataIndex: 'cambioEtapa', width: 200, render: v => v ? <Tag color="cyan">{v}</Tag> : <Text type="secondary">—</Text> },
+                    { title: 'Gestiones', dataIndex: 'interacciones', render: arr => (
+                      <Space wrap size={4}>
+                        {(arr || []).map((it, i) => <Tag key={i} color="green">{it.tipo}</Tag>)}
+                      </Space>
+                    )}
+                  ]}
+                />
+              </div>
+            )}
+          </div>
+        </SeccionCard>
+      )}
+
+      {/* STATS DE HOY */}
       <Row gutter={12} style={{ marginBottom: 20 }}>
         <Col xs={12} md={8} lg={5}>
           <Card><Statistic title="Leads parados" value={c.stats?.leadsParados || 0} valueStyle={{ color: BRAND.rojo }} /></Card>

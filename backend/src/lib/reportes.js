@@ -3,6 +3,89 @@ const { generarContenido } = require('./groq')
 
 const ETAPAS_OBJETIVO = ['SEGUIMIENTO', 'COTIZACION_ENVIADA', 'VISITA_AGENDADA', 'NEGOCIACION', 'INTERESADO']
 
+// Chile es UTC-4. Una hora de diferencia en DST (~3 meses al año) es irrelevante
+// para el caso de uso (resumen de actividad de un día completo).
+const CHILE_UTC_OFFSET_HOURS = 4
+
+// Devuelve la fecha calendario "YYYY-MM-DD" en hora Chile, restando N días
+function fechaChile(daysBack = 0) {
+  const ahoraChile = new Date(Date.now() - CHILE_UTC_OFFSET_HOURS * 3600 * 1000)
+  ahoraChile.setUTCDate(ahoraChile.getUTCDate() - daysBack)
+  return ahoraChile.toISOString().slice(0, 10) // YYYY-MM-DD
+}
+
+// Convierte "YYYY-MM-DD" (día calendario Chile) en bounds UTC para queries
+function boundsUTCdeDiaChile(yyyymmdd) {
+  // 00:00 Chile = 04:00 UTC
+  const inicio = new Date(`${yyyymmdd}T${String(CHILE_UTC_OFFSET_HOURS).padStart(2, '0')}:00:00.000Z`)
+  const fin = new Date(inicio.getTime() + 86400000 - 1)
+  return { inicio, fin }
+}
+
+// Recolecta actividad del día anterior (en hora Chile) para que la IA arme un resumen narrativo
+async function agregarActividadAyer(vendedorId) {
+  const fechaAyer = fechaChile(1) // p.ej. si hoy en Chile es martes 27, devuelve "2026-05-26" (lunes)
+  const { inicio: inicioAyer, fin: finAyer } = boundsUTCdeDiaChile(fechaAyer)
+
+  const interaccionesAyer = await prisma.interaccion.findMany({
+    where: {
+      usuarioId: vendedorId,
+      fecha: { gte: inicioAyer, lte: finAyer }
+    },
+    select: {
+      leadId: true,
+      tipo: true,
+      descripcion: true,
+      fecha: true,
+      lead: {
+        select: {
+          etapa: true,
+          contacto: { select: { nombre: true, apellido: true } }
+        }
+      }
+    },
+    orderBy: { fecha: 'asc' }
+  })
+
+  const reales = interaccionesAyer.filter(i => ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'].includes(i.tipo))
+  const cambios = interaccionesAyer.filter(i => i.tipo === 'NOTA' && i.descripcion?.startsWith('Etapa cambiada:'))
+
+  const porLead = {}
+  for (const i of reales) {
+    if (!porLead[i.leadId]) {
+      porLead[i.leadId] = {
+        leadId: i.leadId,
+        contacto: `${i.lead?.contacto?.nombre || ''} ${i.lead?.contacto?.apellido || ''}`.trim() || `Lead ${i.leadId}`,
+        etapaActual: i.lead?.etapa,
+        interacciones: [],
+        cambioEtapa: null
+      }
+    }
+    porLead[i.leadId].interacciones.push({
+      tipo: i.tipo,
+      descripcion: i.descripcion?.slice(0, 200) || ''
+    })
+  }
+  for (const c of cambios) {
+    if (porLead[c.leadId]) {
+      porLead[c.leadId].cambioEtapa = c.descripcion?.replace('Etapa cambiada: ', '') || null
+    }
+  }
+
+  return {
+    fecha: fechaAyer, // YYYY-MM-DD día calendario Chile
+    stats: {
+      llamadas: reales.filter(i => i.tipo === 'LLAMADA').length,
+      emails: reales.filter(i => i.tipo === 'EMAIL').length,
+      whatsapp: reales.filter(i => i.tipo === 'WHATSAPP').length,
+      reuniones: reales.filter(i => i.tipo === 'REUNION').length,
+      leadsTrabajados: Object.keys(porLead).length,
+      cambiosEtapa: cambios.length
+    },
+    leadsTrabajados: Object.values(porLead).slice(0, 25)
+  }
+}
+
 async function agregarDatosVendedor(vendedorId) {
   const vendedor = await prisma.usuario.findUnique({
     where: { id: vendedorId },
@@ -62,8 +145,11 @@ async function agregarDatosVendedor(vendedorId) {
     return /llamar|llame|llámame|hablar|conversar|wsp|whatsapp|mañana|lunes|martes|miércoles|jueves|viernes|tarde|mañana|am|pm/.test(u)
   }).length
 
+  const ayer = await agregarActividadAyer(vendedorId)
+
   return {
     vendedor,
+    ayer,
     stats: {
       leadsParados: leadsParados.length,
       promesasVencidas,
@@ -94,22 +180,31 @@ async function agregarDatosVendedor(vendedorId) {
 function buildPrompt(datos) {
   return `Eres un asistente de ventas para BodeParking, empresa que vende bodegas y estacionamientos. Genera un reporte diario personalizado en JSON para el vendedor ${datos.vendedor.nombre} ${datos.vendedor.apellido}.
 
-ESTADÍSTICAS:
+ACTIVIDAD DE AYER (${datos.ayer.fecha}):
+${JSON.stringify(datos.ayer, null, 2)}
+
+ESTADÍSTICAS DE HOY:
 ${JSON.stringify(datos.stats, null, 2)}
 
-LEADS PARADOS (≥3 días sin actividad):
+LEADS PARADOS HOY (≥3 días sin actividad):
 ${JSON.stringify(datos.leads, null, 2)}
 
 INSTRUCCIONES:
-1. Analiza qué leads son MÁS URGENTES (alto valor, promesas incumplidas, cotizaciones sin cerrar).
-2. Detecta patrones en las notas (promesas de llamada a hora específica, intereses específicos, motivos de no contacto).
-3. Genera 2-4 "insights" de IA (tipo "warning", "info", "ok") con observaciones útiles.
-4. Para cada lead, genera una "sugerencia" concreta y corta (máx 80 chars) y marca "urgente" true/false.
-5. Arma un "planRecomendado" del día con 3-5 puntos accionables.
+1. Genera un "resumenAyer" narrativo y motivacional sobre lo que el vendedor hizo ayer (qué leads trabajó, cantidad de gestiones, cambios de etapa, destacados). Si no hubo actividad, decirlo claro y motivar a empezar fuerte hoy.
+2. Analiza qué leads son MÁS URGENTES (alto valor, promesas incumplidas, cotizaciones sin cerrar).
+3. Detecta patrones en las notas (promesas de llamada a hora específica, intereses específicos, motivos de no contacto).
+4. Genera 2-4 "insights" de IA (tipo "warning", "info", "ok") con observaciones útiles.
+5. Para cada lead, genera una "sugerencia" concreta y corta (máx 80 chars) y marca "urgente" true/false.
+6. Arma un "planRecomendado" del día con 3-5 puntos accionables.
 
 Responde SOLO con JSON válido en este formato exacto (sin markdown ni texto extra):
 {
   "saludo": "string corto personalizado",
+  "resumenAyer": {
+    "titulo": "string corto (ej: 'Día productivo' / 'Día tranquilo')",
+    "mensaje": "string narrativo 2-3 oraciones sobre lo que hizo ayer",
+    "destacados": ["string punto destacado 1", "string punto destacado 2"]
+  },
   "insights": [
     { "tipo": "warning|info|ok", "titulo": "string", "mensaje": "string detallado" }
   ],
@@ -134,10 +229,19 @@ async function generarReporteVendedor(vendedorId) {
 
   // Si no hay leads parados, generamos reporte mínimo sin IA
   if (datos.stats.leadsParados === 0) {
+    const huboActividad = datos.ayer.stats.leadsTrabajados > 0
     return {
       vendedor: datos.vendedor,
+      ayer: datos.ayer,
       stats: datos.stats,
       saludo: `¡Excelente, ${datos.vendedor.nombre}! No tienes leads parados.`,
+      resumenAyer: {
+        titulo: huboActividad ? 'Día productivo' : 'Día tranquilo',
+        mensaje: huboActividad
+          ? `Ayer trabajaste ${datos.ayer.stats.leadsTrabajados} leads con ${datos.ayer.stats.llamadas + datos.ayer.stats.emails + datos.ayer.stats.whatsapp + datos.ayer.stats.reuniones} gestiones reales.`
+          : 'Ayer no hubo gestiones registradas. Empezá fuerte hoy.',
+        destacados: []
+      },
       insights: [{ tipo: 'ok', titulo: 'Cartera al día', mensaje: 'Ningún lead lleva más de 3 días sin actividad. Mantén el ritmo.' }],
       cotizacionesUrgentes: [],
       promesasVencidas: [],
@@ -152,8 +256,10 @@ async function generarReporteVendedor(vendedorId) {
 
   return {
     vendedor: datos.vendedor,
+    ayer: datos.ayer, // datos raw del día anterior (stats + leads trabajados)
     stats: datos.stats,
     saludo: ai.saludo || `Hola ${datos.vendedor.nombre}, este es tu reporte de hoy.`,
+    resumenAyer: ai.resumenAyer || null, // narrativa de IA sobre ayer
     insights: ai.insights || [],
     cotizacionesUrgentes: ai.cotizacionesUrgentes || [],
     promesasVencidas: ai.promesasVencidas || [],
