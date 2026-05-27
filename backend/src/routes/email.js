@@ -413,4 +413,66 @@ router.get('/sin-responder', autenticar, async (req, res) => {
   }
 })
 
+// ─── GET /api/email/contactos-rapidos ─────────────────────────────────────────
+// Devuelve { equipo: [...], favoritos: [...] } para autocompletado en CC/BCC
+router.get('/contactos-rapidos', autenticar, async (req, res) => {
+  try {
+    const usuarios = await prisma.usuario.findMany({
+      where: { activo: true, smtpEmail: { not: null }, id: { not: req.usuario.id } },
+      select: { id: true, nombre: true, apellido: true, smtpEmail: true, rol: true },
+      orderBy: { nombre: 'asc' }
+    })
+    const favoritos = await prisma.emailFavorito.findMany({
+      where: { usuarioId: req.usuario.id },
+      orderBy: { nombre: 'asc' }
+    })
+    res.json({
+      equipo: usuarios.map(u => ({
+        email: u.smtpEmail,
+        nombre: `${u.nombre} ${u.apellido}`,
+        rol: u.rol
+      })),
+      favoritos: favoritos.map(f => ({ id: f.id, email: f.email, nombre: f.nombre || f.email }))
+    })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al obtener contactos rápidos.' })
+  }
+})
+
+// ─── POST /api/email/favoritos ─── guardar nuevo favorito
+router.post('/favoritos', autenticar, async (req, res) => {
+  try {
+    const { email, nombre } = req.body
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Email inválido.' })
+    }
+    const fav = await prisma.emailFavorito.upsert({
+      where: { usuarioId_email: { usuarioId: req.usuario.id, email } },
+      create: { usuarioId: req.usuario.id, email, nombre: nombre || null },
+      update: { nombre: nombre || null }
+    })
+    res.json(fav)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al guardar favorito.' })
+  }
+})
+
+// ─── DELETE /api/email/favoritos/:id ─── eliminar favorito
+router.delete('/favoritos/:id', autenticar, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    const fav = await prisma.emailFavorito.findUnique({ where: { id } })
+    if (!fav || fav.usuarioId !== req.usuario.id) {
+      return res.status(404).json({ error: 'Favorito no encontrado.' })
+    }
+    await prisma.emailFavorito.delete({ where: { id } })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al eliminar favorito.' })
+  }
+})
+
 module.exports = router

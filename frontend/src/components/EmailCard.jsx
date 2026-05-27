@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Select, Spin, Upload, App } from 'antd'
 import { PaperClipOutlined, FileOutlined, CloseOutlined, SendOutlined, LoadingOutlined } from '@ant-design/icons'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { pdf } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -213,8 +213,8 @@ function MensajeEmail({ e, onResponder }) {
 export default function EmailCard({ leadId, emailPara, nombreLead }) {
   const [asunto, setAsunto] = useState('')
   const [cuerpo, setCuerpo] = useState('')
-  const [cc, setCc] = useState('')
-  const [bcc, setBcc] = useState('')
+  const [cc, setCc] = useState([])
+  const [bcc, setBcc] = useState([])
   const [mostrarCc, setMostrarCc] = useState(false)
   const [mostrarBcc, setMostrarBcc] = useState(false)
   const [cotSeleccionadas, setCotSeleccionadas] = useState([])
@@ -241,6 +241,42 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
     queryFn: () => api.get(`/cotizaciones?leadId=${leadId}`).then(r => r.data),
     enabled: !!leadId,
   })
+
+  // Contactos rápidos (equipo + favoritos) para CC/CCO
+  const { data: contactosRapidos } = useQuery({
+    queryKey: ['contactos-rapidos-email'],
+    queryFn: () => api.get('/email/contactos-rapidos').then(r => r.data),
+    staleTime: 60000
+  })
+
+  const guardarFavorito = useMutation({
+    mutationFn: ({ email, nombre }) => api.post('/email/favoritos', { email, nombre }),
+    onSuccess: () => {
+      message.success('Guardado en favoritos')
+      qc.invalidateQueries({ queryKey: ['contactos-rapidos-email'] })
+    },
+    onError: e => message.error(e?.response?.data?.error || 'Error al guardar')
+  })
+
+  // Opciones agrupadas para el Select
+  const opcionesEmail = [
+    {
+      label: 'Equipo',
+      options: (contactosRapidos?.equipo || []).map(c => ({
+        value: c.email,
+        label: `${c.nombre} (${c.email})`,
+        nombre: c.nombre
+      }))
+    },
+    {
+      label: 'Frecuentes',
+      options: (contactosRapidos?.favoritos || []).map(f => ({
+        value: f.email,
+        label: f.nombre !== f.email ? `${f.nombre} (${f.email})` : f.email,
+        nombre: f.nombre
+      }))
+    }
+  ]
 
   const noLeidos = emails.filter(e => e.direction === 'RECIBIDO' && !e.leido).length
 
@@ -311,8 +347,8 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
 
       const r = await api.post('/email/enviar', {
         para: emailPara,
-        cc: cc.trim() || undefined,
-        bcc: bcc.trim() || undefined,
+        cc: cc.length ? cc : undefined,
+        bcc: bcc.length ? bcc : undefined,
         asunto,
         cuerpo,
         leadId,
@@ -333,8 +369,8 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
   const limpiar = () => {
     setAsunto('')
     setCuerpo('')
-    setCc('')
-    setBcc('')
+    setCc([])
+    setBcc([])
     setMostrarCc(false)
     setMostrarBcc(false)
     setCotSeleccionadas([])
@@ -543,17 +579,20 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
               borderBottom: '1px solid #f3f4f6',
             }}>
               <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, minWidth: 40 }}>CC</span>
-              <input
+              <Select
+                mode="tags"
                 value={cc}
-                onChange={e => setCc(e.target.value)}
-                placeholder="emails separados por coma..."
-                style={{
-                  flex: 1, border: 'none', outline: 'none',
-                  fontSize: 13, color: '#1f2937', background: 'transparent',
-                }}
+                onChange={setCc}
+                options={opcionesEmail}
+                placeholder="Elegir del equipo, frecuentes, o escribir nuevo..."
+                tokenSeparators={[',', ';', ' ']}
+                variant="borderless"
+                style={{ flex: 1, fontSize: 13 }}
+                size="small"
+                maxTagCount="responsive"
               />
               <CloseOutlined
-                onClick={() => { setMostrarCc(false); setCc('') }}
+                onClick={() => { setMostrarCc(false); setCc([]) }}
                 style={{ fontSize: 11, color: '#9ca3af', cursor: 'pointer' }}
               />
             </div>
@@ -567,21 +606,58 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
               borderBottom: '1px solid #f3f4f6',
             }}>
               <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, minWidth: 40 }}>CCO</span>
-              <input
+              <Select
+                mode="tags"
                 value={bcc}
-                onChange={e => setBcc(e.target.value)}
-                placeholder="emails separados por coma (no visibles)..."
-                style={{
-                  flex: 1, border: 'none', outline: 'none',
-                  fontSize: 13, color: '#1f2937', background: 'transparent',
-                }}
+                onChange={setBcc}
+                options={opcionesEmail}
+                placeholder="No visibles para otros destinatarios..."
+                tokenSeparators={[',', ';', ' ']}
+                variant="borderless"
+                style={{ flex: 1, fontSize: 13 }}
+                size="small"
+                maxTagCount="responsive"
               />
               <CloseOutlined
-                onClick={() => { setMostrarBcc(false); setBcc('') }}
+                onClick={() => { setMostrarBcc(false); setBcc([]) }}
                 style={{ fontSize: 11, color: '#9ca3af', cursor: 'pointer' }}
               />
             </div>
           )}
+
+          {/* Acción rápida: guardar emails externos no favoritos */}
+          {(() => {
+            const todosEmails = [...cc, ...bcc]
+            const conocidos = new Set([
+              ...((contactosRapidos?.equipo || []).map(e => e.email)),
+              ...((contactosRapidos?.favoritos || []).map(e => e.email))
+            ])
+            const externosNuevos = [...new Set(todosEmails.filter(e => e && !conocidos.has(e) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))]
+            if (!externosNuevos.length) return null
+            return (
+              <div style={{
+                padding: '6px 16px',
+                borderBottom: '1px solid #f3f4f6',
+                background: '#fafbfc',
+                display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center'
+              }}>
+                <span style={{ fontSize: 11, color: '#6b7280' }}>Guardar en frecuentes:</span>
+                {externosNuevos.map(email => (
+                  <button
+                    key={email}
+                    type="button"
+                    onClick={() => guardarFavorito.mutate({ email, nombre: email })}
+                    style={{
+                      background: '#fff', border: '1px solid #d1d5db',
+                      borderRadius: 99, padding: '2px 9px',
+                      fontSize: 11, color: '#0091c3', cursor: 'pointer',
+                      fontWeight: 500
+                    }}
+                  >★ {email}</button>
+                ))}
+              </div>
+            )
+          })()}
 
           {/* Fila Asunto */}
           <div style={{

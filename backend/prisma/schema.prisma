@@ -243,6 +243,7 @@ model Usuario {
   emailConversaciones       EmailConversacion[]
   reportesDiarios           ReporteDiario[]
   reportesSemanales         ReporteSemanal[]
+  emailsFavoritos           EmailFavorito[]
 
   @@map("usuarios")
 }
@@ -929,4 +930,18 @@ model ReporteSemanal {
   @@unique([usuarioId, fechaInicio])
   @@index([fechaInicio])
   @@map("reportes_semanales")
+}
+
+model EmailFavorito {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int
+  email      String
+  nombre     String?
+  creadoEn   DateTime @default(now())
+
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, email])
+  @@index([usuarioId])
+  @@map("emails_favoritos")
 }
