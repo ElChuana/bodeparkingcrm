@@ -888,6 +888,8 @@ model EmailConversacion {
   cuerpo      String   @db.Text
   de          String
   para        String
+  cc          String[] @default([])
+  bcc         String[] @default([])
   usuarioId   Int?
   leido       Boolean   @default(false)
   abierto     Boolean   @default(false)

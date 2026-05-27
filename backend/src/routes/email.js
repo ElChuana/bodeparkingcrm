@@ -60,7 +60,23 @@ router.post('/enviar',
     const errores = validationResult(req)
     if (!errores.isEmpty()) return res.status(400).json({ errores: errores.array() })
 
-    const { para, cc, asunto, cuerpo, pdfBase64, pdfNombre, adjuntos: adjuntosBody } = req.body
+    const { para, cc, bcc, asunto, cuerpo, pdfBase64, pdfNombre, adjuntos: adjuntosBody } = req.body
+
+    // Normaliza string|array a array limpio
+    const _toArr = v => {
+      if (!v) return []
+      if (Array.isArray(v)) return [...new Set(v.map(s => String(s).trim()).filter(Boolean))]
+      return [...new Set(String(v).split(/[,;]/).map(s => s.trim()).filter(Boolean))]
+    }
+    const ccArr = _toArr(cc)
+    const bccArr = _toArr(bcc)
+
+    // Validar formato de emails en CC/BCC
+    const reEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const invalidos = [...ccArr, ...bccArr].filter(e => !reEmail.test(e))
+    if (invalidos.length) {
+      return res.status(400).json({ error: `Email inválido en CC/CCO: ${invalidos.join(', ')}` })
+    }
 
     // Obtener el email del usuario para usarlo como "from"
     const usuario = await prisma.usuario.findUnique({
@@ -115,10 +131,11 @@ router.post('/enviar',
 
       console.log('[Email] leadId:', leadId, '| INBOUND_DOMAIN:', inboundDomain, '| replyTo:', replyTo)
 
-      const result = await enviarEmail({ para, cc, asunto, html, adjuntos, smtpEmail: fromLabel, replyTo })
+      const result = await enviarEmail({ para, cc: ccArr, bcc: bccArr, asunto, html, adjuntos, smtpEmail: fromLabel, replyTo })
 
       if (leadId) {
         const mensajeId = result?.id || null
+        const descripcionExtra = ccArr.length ? ` (CC: ${ccArr.join(', ')})` : ''
         await Promise.all([
           prisma.emailConversacion.create({
             data: {
@@ -129,6 +146,8 @@ router.post('/enviar',
               cuerpo: html,
               de: fromLabel,
               para,
+              cc: ccArr,
+              bcc: bccArr,
               usuarioId: req.usuario.id,
               leido: true,
             }
@@ -138,13 +157,14 @@ router.post('/enviar',
               leadId,
               usuarioId: req.usuario.id,
               tipo: 'EMAIL',
-              descripcion: `Email enviado: "${asunto}" → ${para}`,
+              descripcion: `Email enviado: "${asunto}" → ${para}${descripcionExtra}`,
             }
           }),
         ]).catch(e => console.error('[Email] Error guardando conversación:', e))
       }
 
-      res.json({ ok: true, mensaje: `Email enviado a ${para}` })
+      const destinatariosResumen = [para, ...ccArr, ...bccArr].length
+      res.json({ ok: true, mensaje: `Email enviado a ${destinatariosResumen} destinatario${destinatariosResumen !== 1 ? 's' : ''}` })
     } catch (err) {
       console.error('[Email] Error:', err.message)
       res.status(500).json({ error: 'No se pudo enviar el email.', detalle: err.message })

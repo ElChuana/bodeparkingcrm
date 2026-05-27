@@ -213,6 +213,10 @@ function MensajeEmail({ e, onResponder }) {
 export default function EmailCard({ leadId, emailPara, nombreLead }) {
   const [asunto, setAsunto] = useState('')
   const [cuerpo, setCuerpo] = useState('')
+  const [cc, setCc] = useState('')
+  const [bcc, setBcc] = useState('')
+  const [mostrarCc, setMostrarCc] = useState(false)
+  const [mostrarBcc, setMostrarBcc] = useState(false)
   const [cotSeleccionadas, setCotSeleccionadas] = useState([])
   const [archivos, setArchivos] = useState([])
   const [generandoPdf, setGenerandoPdf] = useState(false)
@@ -305,15 +309,17 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
 
       setGenerandoPdf(false)
 
-      await api.post('/email/enviar', {
+      const r = await api.post('/email/enviar', {
         para: emailPara,
+        cc: cc.trim() || undefined,
+        bcc: bcc.trim() || undefined,
         asunto,
         cuerpo,
         leadId,
         adjuntos: [...adjuntosCot, ...archivos],
       })
 
-      message.success('Email enviado')
+      message.success(r.data?.mensaje || 'Email enviado')
       limpiar()
       qc.invalidateQueries({ queryKey: ['email-conversacion', leadId] })
     } catch (err) {
@@ -327,6 +333,10 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
   const limpiar = () => {
     setAsunto('')
     setCuerpo('')
+    setCc('')
+    setBcc('')
+    setMostrarCc(false)
+    setMostrarBcc(false)
     setCotSeleccionadas([])
     setArchivos([])
     setMostrarComposer(false)
@@ -506,8 +516,72 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
             borderBottom: '1px solid #f3f4f6',
           }}>
             <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, minWidth: 40 }}>Para</span>
-            <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{emailPara}</span>
+            <span style={{ fontSize: 13, color: '#374151', fontWeight: 500, flex: 1 }}>{emailPara}</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {!mostrarCc && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarCc(true)}
+                  style={{ background: 'none', border: 'none', fontSize: 11, color: '#0091c3', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                >CC</button>
+              )}
+              {!mostrarBcc && (
+                <button
+                  type="button"
+                  onClick={() => setMostrarBcc(true)}
+                  style={{ background: 'none', border: 'none', fontSize: 11, color: '#0091c3', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                >CCO</button>
+              )}
+            </div>
           </div>
+
+          {/* Fila CC */}
+          {mostrarCc && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '9px 16px',
+              borderBottom: '1px solid #f3f4f6',
+            }}>
+              <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, minWidth: 40 }}>CC</span>
+              <input
+                value={cc}
+                onChange={e => setCc(e.target.value)}
+                placeholder="emails separados por coma..."
+                style={{
+                  flex: 1, border: 'none', outline: 'none',
+                  fontSize: 13, color: '#1f2937', background: 'transparent',
+                }}
+              />
+              <CloseOutlined
+                onClick={() => { setMostrarCc(false); setCc('') }}
+                style={{ fontSize: 11, color: '#9ca3af', cursor: 'pointer' }}
+              />
+            </div>
+          )}
+
+          {/* Fila CCO (BCC) */}
+          {mostrarBcc && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '9px 16px',
+              borderBottom: '1px solid #f3f4f6',
+            }}>
+              <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500, minWidth: 40 }}>CCO</span>
+              <input
+                value={bcc}
+                onChange={e => setBcc(e.target.value)}
+                placeholder="emails separados por coma (no visibles)..."
+                style={{
+                  flex: 1, border: 'none', outline: 'none',
+                  fontSize: 13, color: '#1f2937', background: 'transparent',
+                }}
+              />
+              <CloseOutlined
+                onClick={() => { setMostrarBcc(false); setBcc('') }}
+                style={{ fontSize: 11, color: '#9ca3af', cursor: 'pointer' }}
+              />
+            </div>
+          )}
 
           {/* Fila Asunto */}
           <div style={{
