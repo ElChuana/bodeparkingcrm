@@ -1,8 +1,18 @@
 // Wrapper para Groq API (OpenAI-compatible). Sin SDK, fetch nativo.
-// Usa GROQ_API_KEY del entorno.
+// Maneja rate limit 429 con reintento automático.
 
 const MODEL_DEFAULT = 'llama-3.3-70b-versatile'
 const API_URL = 'https://api.groq.com/openai/v1/chat/completions'
+
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+async function _llamar(body, apiKey) {
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(body)
+  })
+}
 
 async function generarContenido(prompt, { model = MODEL_DEFAULT, jsonMode = false, temperature = 0.4 } = {}) {
   const apiKey = process.env.GROQ_API_KEY
@@ -16,14 +26,18 @@ async function generarContenido(prompt, { model = MODEL_DEFAULT, jsonMode = fals
     ...(jsonMode ? { response_format: { type: 'json_object' } } : {})
   }
 
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(body)
-  })
+  let res = await _llamar(body, apiKey)
+
+  // Reintento automático si es 429 (rate limit)
+  if (res.status === 429) {
+    const errText = await res.text()
+    // Buscar "try again in Xs" en el mensaje
+    const m = errText.match(/try again in ([\d.]+)s/)
+    const espera = m ? Math.ceil(parseFloat(m[1])) + 2 : 30 // +2s de margen
+    console.log(`[Groq] Rate limit alcanzado, esperando ${espera}s antes de reintentar...`)
+    await sleep(espera * 1000)
+    res = await _llamar(body, apiKey)
+  }
 
   if (!res.ok) {
     const errText = await res.text()

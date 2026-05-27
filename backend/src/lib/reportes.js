@@ -286,6 +286,8 @@ async function guardarReporte(vendedorId, contenido) {
   })
 }
 
+const _sleep = ms => new Promise(r => setTimeout(r, ms))
+
 async function generarReportesParaVendedoresActivos() {
   const vendedores = await prisma.usuario.findMany({
     where: { rol: { in: ['VENDEDOR', 'JEFE_VENTAS'] }, activo: true },
@@ -293,7 +295,8 @@ async function generarReportesParaVendedoresActivos() {
   })
 
   const resultados = []
-  for (const v of vendedores) {
+  for (let i = 0; i < vendedores.length; i++) {
+    const v = vendedores[i]
     try {
       const contenido = await generarReporteVendedor(v.id)
       await guardarReporte(v.id, contenido)
@@ -302,6 +305,8 @@ async function generarReportesParaVendedoresActivos() {
       console.error(`[Reportes] Error generando reporte de ${v.nombre}:`, err.message)
       resultados.push({ vendedorId: v.id, ok: false, error: err.message })
     }
+    // Esperar entre vendedores para no saturar Groq (12K TPM)
+    if (i < vendedores.length - 1) await _sleep(15000)
   }
   return resultados
 }
