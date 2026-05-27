@@ -143,6 +143,36 @@ async function agregarDatosVendedor(vendedorId) {
     take: 50
   })
 
+  // Leads NUEVO asignados al vendedor que aún no tienen interacción real
+  // (recordatorio personal: "estos te asignaron, contactalos ya")
+  const leadsNuevoSinContactar = await prisma.lead.findMany({
+    where: {
+      vendedorId,
+      etapa: 'NUEVO',
+      interacciones: { none: { tipo: { in: ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'] } } }
+    },
+    include: { contacto: { select: { nombre: true, apellido: true, telefono: true } } },
+    orderBy: { creadoEn: 'desc' },
+    take: 50
+  })
+
+  // Solo para JEFE_VENTAS: leads sin vendedor asignado en NUEVO/NO_CONTESTA recientes
+  let leadsSinAsignar = []
+  if (vendedor.rol === 'JEFE_VENTAS' || vendedor.rol === 'GERENTE') {
+    leadsSinAsignar = await prisma.lead.findMany({
+      where: {
+        vendedorId: null,
+        etapa: { in: ['NUEVO', 'NO_CONTESTA'] },
+        creadoEn: { gte: hace30dias }
+      },
+      include: {
+        contacto: { select: { nombre: true, apellido: true, telefono: true } }
+      },
+      orderBy: { creadoEn: 'desc' },
+      take: 100
+    })
+  }
+
   const promesasVencidas = leadsParados.filter(l => {
     const u = l.interacciones[0]?.descripcion?.toLowerCase() || ''
     return /llamar|llame|llámame|hablar|conversar|wsp|whatsapp|mañana|lunes|martes|miércoles|jueves|viernes|tarde|mañana|am|pm/.test(u)
@@ -158,7 +188,9 @@ async function agregarDatosVendedor(vendedorId) {
       promesasVencidas,
       cotizacionesPorCerrar: leadsParados.filter(l => l.etapa === 'COTIZACION_ENVIADA').length,
       notasUltimos7Dias: notasRecientes,
-      perdidosSinNota: perdidosSinNota.length
+      perdidosSinNota: perdidosSinNota.length,
+      leadsNuevoSinContactar: leadsNuevoSinContactar.length,
+      leadsSinAsignar: leadsSinAsignar.length
     },
     leads: leadsParados.map(l => ({
       id: l.id,
@@ -176,6 +208,21 @@ async function agregarDatosVendedor(vendedorId) {
       telefono: l.contacto.telefono || '',
       etapaAntesDePerdido: l.etapaAntesDePerdido || null,
       perdidoHace: Math.floor((Date.now() - new Date(l.actualizadoEn)) / 86400000)
+    })),
+    leadsNuevoSinContactar: leadsNuevoSinContactar.map(l => ({
+      id: l.id,
+      contacto: `${l.contacto.nombre} ${l.contacto.apellido || ''}`.trim(),
+      telefono: l.contacto.telefono || '',
+      campana: l.campana || null,
+      diasDesdeIngreso: Math.floor((Date.now() - new Date(l.creadoEn)) / 86400000)
+    })),
+    leadsSinAsignar: leadsSinAsignar.map(l => ({
+      id: l.id,
+      contacto: `${l.contacto.nombre} ${l.contacto.apellido || ''}`.trim(),
+      telefono: l.contacto.telefono || '',
+      campana: l.campana || null,
+      etapa: l.etapa,
+      diasDesdeIngreso: Math.floor((Date.now() - new Date(l.creadoEn)) / 86400000)
     }))
   }
 }
@@ -250,7 +297,9 @@ async function generarReporteVendedor(vendedorId) {
       promesasVencidas: [],
       otrosSeguimientos: [],
       planRecomendado: ['Trabajar los leads NUEVO sin asignar', 'Confirmar visitas agendadas', 'Mantener notas detalladas en cada gestión'],
-      perdidosSinNota: datos.perdidosSinNota
+      perdidosSinNota: datos.perdidosSinNota,
+      leadsNuevoSinContactar: datos.leadsNuevoSinContactar,
+      leadsSinAsignar: datos.leadsSinAsignar
     }
   }
 
@@ -271,7 +320,11 @@ async function generarReporteVendedor(vendedorId) {
     // Lista completa para que el frontend pueda mostrar TODOS los leads
     todosLosLeads: datos.leads,
     // Perdidos sin nota — recordatorio para que el vendedor escriba motivo
-    perdidosSinNota: datos.perdidosSinNota
+    perdidosSinNota: datos.perdidosSinNota,
+    // Leads asignados al vendedor que aún no contactó (recordatorio personal)
+    leadsNuevoSinContactar: datos.leadsNuevoSinContactar,
+    // Solo para JEFE_VENTAS/GERENTE: leads sin asignar a ningún vendedor
+    leadsSinAsignar: datos.leadsSinAsignar
   }
 }
 

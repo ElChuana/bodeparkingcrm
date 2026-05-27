@@ -48,6 +48,18 @@ const SECCION_STYLES = {
     bg: '#ecfdf5',
     bgHeader: '#d1fae5',
     icon: <CheckCircleOutlined />
+  },
+  nuevoSinContactar: {
+    color: '#0891b2',
+    bg: '#f0fdfa',
+    bgHeader: '#ccfbf1',
+    icon: <PhoneOutlined />
+  },
+  sinAsignar: {
+    color: '#be185d',
+    bg: '#fdf2f8',
+    bgHeader: '#fce7f3',
+    icon: <WarningOutlined />
   }
 }
 
@@ -387,20 +399,25 @@ export default function MiReporte() {
 
       {/* STATS DE HOY */}
       <Row gutter={12} style={{ marginBottom: 20 }}>
-        <Col xs={12} md={8} lg={5}>
+        <Col xs={12} md={8} lg={4}>
           <Card><Statistic title="Leads parados" value={c.stats?.leadsParados || 0} valueStyle={{ color: BRAND.rojo }} /></Card>
         </Col>
-        <Col xs={12} md={8} lg={5}>
+        <Col xs={12} md={8} lg={4}>
+          <Card><Statistic title="Sin contactar" value={c.stats?.leadsNuevoSinContactar || 0} valueStyle={{ color: '#0891b2' }} /></Card>
+        </Col>
+        {c.stats?.leadsSinAsignar > 0 && (
+          <Col xs={12} md={8} lg={4}>
+            <Card><Statistic title="Sin asignar" value={c.stats?.leadsSinAsignar || 0} valueStyle={{ color: '#be185d' }} /></Card>
+          </Col>
+        )}
+        <Col xs={12} md={8} lg={4}>
           <Card><Statistic title="Promesas vencidas" value={c.stats?.promesasVencidas || 0} valueStyle={{ color: '#d97706' }} /></Card>
         </Col>
         <Col xs={12} md={8} lg={4}>
-          <Card><Statistic title="Cotizaciones x cerrar" value={c.stats?.cotizacionesPorCerrar || 0} valueStyle={{ color: '#0891b2' }} /></Card>
-        </Col>
-        <Col xs={12} md={8} lg={5}>
           <Card><Statistic title="Perdidos sin nota" value={c.stats?.perdidosSinNota || 0} valueStyle={{ color: '#7c3aed' }} /></Card>
         </Col>
-        <Col xs={12} md={8} lg={5}>
-          <Card><Statistic title="Notas escritas (7d)" value={c.stats?.notasUltimos7Dias || 0} valueStyle={{ color: '#10b981' }} /></Card>
+        <Col xs={12} md={8} lg={4}>
+          <Card><Statistic title="Notas 7d" value={c.stats?.notasUltimos7Dias || 0} valueStyle={{ color: '#10b981' }} /></Card>
         </Col>
       </Row>
 
@@ -422,6 +439,55 @@ export default function MiReporte() {
       {c.promesasVencidas?.length > 0 && (
         <SeccionCard tipo="promesas" titulo="⏰ Prometiste llamar y no llamaste" count={c.promesasVencidas.length}>
           <Table dataSource={c.promesasVencidas} columns={colsPromesas} rowKey="leadId" pagination={false} size="middle" />
+        </SeccionCard>
+      )}
+
+      {/* LEADS SIN ASIGNAR (solo JEFE_VENTAS / GERENTE) */}
+      {c.leadsSinAsignar?.length > 0 && (
+        <SeccionCard tipo="sinAsignar" titulo="Leads sin asignar a vendedor" count={c.leadsSinAsignar.length} badge="ASIGNAR">
+          <Alert
+            type="warning"
+            showIcon
+            message="Estos leads están en NUEVO o NO_CONTESTA sin vendedor asignado."
+            description={<>Es tu responsabilidad asignarlos. Podés hacerlo desde <Link to="/asignacion">Centro de Asignación</Link>.</>}
+            style={{ margin: 16, marginBottom: 0 }}
+          />
+          <Table
+            dataSource={c.leadsSinAsignar}
+            columns={[
+              { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.id} contacto={v} telefono={r.telefono} /> },
+              { title: 'Etapa', dataIndex: 'etapa', width: 140, render: e => <Tag>{e.replace(/_/g, ' ')}</Tag> },
+              { title: 'Campaña', dataIndex: 'campana', width: 180, render: c => c || <Text type="secondary">—</Text> },
+              { title: 'Días sin asignar', dataIndex: 'diasDesdeIngreso', width: 140, render: d => <Tag color={d >= 7 ? 'red' : d >= 3 ? 'orange' : 'default'} style={{ fontWeight: 600 }}>{d}d</Tag> }
+            ]}
+            rowKey="id"
+            pagination={{ pageSize: 15, showSizeChanger: false }}
+            size="middle"
+          />
+        </SeccionCard>
+      )}
+
+      {/* LEADS NUEVOS SIN CONTACTAR (cyan) — recordatorio personal para todos */}
+      {c.leadsNuevoSinContactar?.length > 0 && (
+        <SeccionCard tipo="nuevoSinContactar" titulo="Tus leads NUEVO sin tu primer contacto" count={c.leadsNuevoSinContactar.length} badge="CONTACTAR">
+          <Alert
+            type="info"
+            showIcon
+            message="Estos leads están asignados a vos y todavía no registraste ninguna llamada, email, WhatsApp o reunión."
+            description="El primer contacto rápido aumenta mucho la conversión. Hacé al menos un intento hoy."
+            style={{ margin: 16, marginBottom: 0 }}
+          />
+          <Table
+            dataSource={c.leadsNuevoSinContactar}
+            columns={[
+              { title: 'Cliente', dataIndex: 'contacto', render: (v, r) => <ContactoLink leadId={r.id} contacto={v} telefono={r.telefono} /> },
+              { title: 'Campaña', dataIndex: 'campana', width: 180, render: c => c || <Text type="secondary">—</Text> },
+              { title: 'Días sin contactar', dataIndex: 'diasDesdeIngreso', width: 150, render: d => <Tag color={d >= 7 ? 'red' : d >= 3 ? 'orange' : 'cyan'} style={{ fontWeight: 600 }}>{d}d</Tag> }
+            ]}
+            rowKey="id"
+            pagination={{ pageSize: 15, showSizeChanger: false }}
+            size="middle"
+          />
         </SeccionCard>
       )}
 
