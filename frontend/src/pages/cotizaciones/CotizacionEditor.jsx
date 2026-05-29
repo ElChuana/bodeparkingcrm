@@ -770,7 +770,8 @@ export default function CotizacionEditor() {
           {!esNueva && cotizacion && items.length > 0 && (
             <>
               <PDFDownloadLink
-                document={<CotizacionDocumento cotizacion={cotizacionParaPDF(cotizacion)} logoUrl={logoUrl} valorUF={valorUF} />}
+                key={`pdf-${id}-${notas}-${validezDias}`}
+                document={<CotizacionDocumento cotizacion={{ ...cotizacionParaPDF(cotizacion), notas, validezDias }} logoUrl={logoUrl} valorUF={valorUF} />}
                 fileName={`Cotizacion-${id}-${cotizacion.lead?.contacto?.apellido || 'cliente'}.pdf`}
               >
                 {({ loading }) => (
