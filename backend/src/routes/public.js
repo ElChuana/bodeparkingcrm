@@ -129,12 +129,12 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
       }
     }
 
-    // ── 4. Verificar que no exista ya un lead activo del mismo contacto ──
+    // ── 4. Verificar si el contacto YA tiene CUALQUIER lead (incluido PERDIDO) ──
+    // Si ya existe (en cualquier etapa), no creamos otro — solo dejamos registro
+    // de que se intentó reingresar y actualizamos datos nuevos si hay
     const leadExistente = await prisma.lead.findFirst({
-      where: {
-        contactoId: contacto.id,
-        etapa: { notIn: ['PERDIDO'] }
-      },
+      where: { contactoId: contacto.id },
+      orderBy: { creadoEn: 'desc' }, // el más reciente
       include: {
         contacto:      { select: { nombre: true, apellido: true, email: true, telefono: true } },
         unidadInteres: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
@@ -152,21 +152,24 @@ router.post('/leads', autenticarApiKey, async (req, res) => {
 
       if (Object.keys(actualizarLead).length > 0) {
         await prisma.lead.update({ where: { id: leadExistente.id }, data: actualizarLead })
-        await prisma.interaccion.create({
-          data: {
-            leadId:      leadExistente.id,
-            tipo:        'NOTA',
-            descripcion: `Lead actualizado vía API (${req.apiKey.nombre}) — contacto ya existía en el sistema.`,
-          }
-        })
       }
+
+      // Siempre dejar registro del intento de reingreso para visibilidad
+      await prisma.interaccion.create({
+        data: {
+          leadId:      leadExistente.id,
+          tipo:        'NOTA',
+          descripcion: `Reingreso vía API (${req.apiKey.nombre}) — etapa actual: ${leadExistente.etapa}${campana ? ` · Campaña nueva: ${campana}` : ''}. No se creó lead duplicado.`,
+        }
+      })
 
       return res.status(200).json({
         ok: true,
         duplicado: true,
-        mensaje: 'El contacto ya tiene un lead activo en el sistema. Se actualizaron los datos disponibles.',
+        mensaje: `El contacto ya tiene un lead en el sistema (etapa: ${leadExistente.etapa}). No se creó duplicado.`,
         leadId:    leadExistente.id,
         contactoId: contacto.id,
+        etapaActual: leadExistente.etapa,
       })
     }
 
