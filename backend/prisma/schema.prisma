@@ -244,6 +244,7 @@ model Usuario {
   reportesDiarios           ReporteDiario[]
   reportesSemanales         ReporteSemanal[]
   emailsFavoritos           EmailFavorito[]
+  cambiosPrecio             HistorialPrecioUnidad[]
 
   @@map("usuarios")
 }
@@ -296,8 +297,25 @@ model Unidad {
   cotizacionItems       CotizacionItem[]
   packs                 UnidadPack[]
   beneficios            UnidadBeneficio[]
+  historialPrecios      HistorialPrecioUnidad[]
 
   @@map("unidades")
+}
+
+model HistorialPrecioUnidad {
+  id                Int      @id @default(autoincrement())
+  unidadId          Int
+  unidad            Unidad   @relation(fields: [unidadId], references: [id])
+  precioAnteriorUF  Float?
+  precioNuevoUF     Float
+  motivo            String?
+  usuarioId         Int?
+  usuario           Usuario? @relation(fields: [usuarioId], references: [id])
+  creadoEn          DateTime @default(now())
+
+  @@index([unidadId])
+  @@index([creadoEn])
+  @@map("historial_precios_unidad")
 }
 
 model Archivo {
