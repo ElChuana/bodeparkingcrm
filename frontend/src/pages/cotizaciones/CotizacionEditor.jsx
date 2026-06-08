@@ -110,40 +110,67 @@ function SelectorUnidades({ items, onAdd, onRemove }) {
 // ── Panel de resumen de precio ──────────────────────────────────
 function ResumenPrecio({ cotizacion }) {
   const items = cotizacion?.items || []
+  const promociones = cotizacion?.promociones || []
+  // Compat: cotizaciones antiguas con packs/beneficios separados
   const packs = cotizacion?.packs || []
   const beneficios = cotizacion?.beneficios || []
   const descAprobado = cotizacion?.descuentoAprobadoUF || 0
 
+  // Precio lista (sin tachado por unidad) y precio con descuentos por unidad ya aplicados
   const precioLista = items.reduce((s, i) => s + (i.precioListaUF || 0), 0)
+  const descUnidades = items.reduce((s, i) => s + (i.descuentoUF || 0), 0)
+
+  // Promos que NO son descuento por-unidad (esas ya van tachadas arriba)
+  const promosVolumen = promociones.filter(cp => cp.descuentoAplicadoUF > 0 && !esDescuentoPorUnidad(cp.promocion))
+  const promosBeneficio = promociones.filter(cp => cp.promocion?.categoria === 'BENEFICIO')
+
+  const descPromos = promosVolumen.reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
   const descPacks = packs.reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
-  const precioFinal = Math.max(precioLista - descPacks - descAprobado, 0)
+  const precioFinal = Math.max(precioLista - descUnidades - descPromos - descPacks - descAprobado, 0)
 
   return (
     <Card title="Resumen de precio" size="small" style={{ background: '#f8faff', border: '1px solid #d6e4ff' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {items.map(i => (
-          <div key={i.unidadId || i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-            <Text type="secondary">
-              {i.unidad?.edificio?.nombre || i.edificio} — {i.unidad?.tipo === 'BODEGA' || i.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {i.unidad?.numero || i.numero}
-              {(i.unidad?.tipo === 'BODEGA' || i.tipo === 'BODEGA') && (i.unidad?.m2 || i.m2) ? ` · ${i.unidad?.m2 || i.m2} m²` : ''}
-            </Text>
-            <Text strong>{(i.precioListaUF || 0).toFixed(2)} UF</Text>
-          </div>
-        ))}
+        {items.map(i => {
+          const dto = i.descuentoUF || 0
+          const final = (i.precioListaUF || 0) - dto
+          return (
+            <div key={i.unidadId || i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+              <Text type="secondary">
+                {i.unidad?.edificio?.nombre || i.edificio} — {i.unidad?.tipo === 'BODEGA' || i.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} {i.unidad?.numero || i.numero}
+                {(i.unidad?.tipo === 'BODEGA' || i.tipo === 'BODEGA') && (i.unidad?.m2 || i.m2) ? ` · ${i.unidad?.m2 || i.m2} m²` : ''}
+              </Text>
+              {dto > 0 ? (
+                <span>
+                  <Text delete type="secondary" style={{ fontSize: 12, marginRight: 6 }}>{(i.precioListaUF || 0).toFixed(2)}</Text>
+                  <Text strong style={{ color: '#389e0d' }}>{final.toFixed(2)} UF</Text>
+                </span>
+              ) : (
+                <Text strong>{(i.precioListaUF || 0).toFixed(2)} UF</Text>
+              )}
+            </div>
+          )
+        })}
 
         {items.length > 1 && (
           <>
             <Divider style={{ margin: '4px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <Text>Precio de lista</Text>
-              <Text strong>{precioLista.toFixed(2)} UF</Text>
+              <Text>Subtotal</Text>
+              <Text strong>{(precioLista - descUnidades).toFixed(2)} UF</Text>
             </div>
           </>
         )}
 
-        {descPacks > 0 && (
+        {(promosVolumen.length > 0 || descPacks > 0) && (
           <>
             <Divider style={{ margin: '4px 0' }} />
+            {promosVolumen.map(cp => (
+              <div key={cp.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                <Text style={{ color: '#d46b08' }}>− {cp.promocion.nombre}</Text>
+                <Text style={{ color: '#d46b08' }}>−{cp.descuentoAplicadoUF.toFixed(2)} UF</Text>
+              </div>
+            ))}
             {packs.map(p => (
               <div key={p.packId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                 <Text style={{ color: '#d46b08' }}>− Pack: {p.pack.nombre}</Text>
@@ -166,9 +193,15 @@ function ResumenPrecio({ cotizacion }) {
           </>
         )}
 
-        {beneficios.length > 0 && (
+        {(promosBeneficio.length > 0 || beneficios.length > 0) && (
           <>
             <Divider style={{ margin: '4px 0' }} />
+            {promosBeneficio.map(cp => (
+              <div key={cp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                <Text style={{ color: '#52c41a' }}>{cp.promocion.nombre}</Text>
+              </div>
+            ))}
             {beneficios.map(b => (
               <div key={b.beneficioId} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                 <CheckCircleOutlined style={{ color: '#52c41a' }} />
@@ -408,149 +441,129 @@ function PanelDescuento({ cotizacionId, esGerente, soloLectura }) {
   )
 }
 
-// ── Panels de packs y beneficios ───────────────────────────────
-function PanelPacks({ cotizacionId, packs, soloLectura }) {
-  const qc = useQueryClient()
-  const { message } = App.useApp()
-
-  const { data: todosLosPacks = [] } = useQuery({
-    queryKey: ['packs-activos'],
-    queryFn: () => api.get('/packs', { params: { activa: true } }).then(r => r.data)
-  })
-
-  const packIds = new Set(packs.map(p => p.packId))
-  const packsDisponibles = todosLosPacks.filter(p => !packIds.has(p.id))
-
-  const agregar = useMutation({
-    mutationFn: (packId) => api.post(`/cotizaciones/${cotizacionId}/packs`, { packId }),
-    onSuccess: () => { message.success('Pack agregado'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
-    onError: err => message.error(err.response?.data?.error || 'Error al agregar pack')
-  })
-
-  const quitar = useMutation({
-    mutationFn: (packId) => api.delete(`/cotizaciones/${cotizacionId}/packs/${packId}`),
-    onSuccess: () => { message.success('Pack quitado'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
-    onError: err => message.error(err.response?.data?.error || 'Error')
-  })
-
-  return (
-    <Card
-      size="small"
-      title={<Text strong style={{ color: '#d46b08' }}>Packs — descuentos sobre el precio</Text>}
-      style={{ borderColor: '#ffd591' }}
-      extra={
-        !soloLectura && packsDisponibles.length > 0 && (
-          <Select
-            placeholder="Agregar pack..."
-            size="small"
-            style={{ width: 200 }}
-            showSearch
-            filterOption={(v, o) => o.label.toLowerCase().includes(v.toLowerCase())}
-            options={packsDisponibles.map(p => ({ value: p.id, label: `${p.nombre} (−${p.descuentoUF} UF)` }))}
-            onChange={id => agregar.mutate(id)}
-            value={null}
-          />
-        )
-      }
-    >
-      {packs.length === 0 ? (
-        <Text type="secondary" style={{ fontSize: 12 }}>Sin packs aplicados</Text>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {packs.map(cp => (
-            <div key={cp.packId} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '6px 10px', borderRadius: 8, background: '#fff7e6', border: '1px solid #ffd591'
-            }}>
-              <div>
-                <Text strong style={{ fontSize: 13 }}>{cp.pack.nombre}</Text>
-                {cp.pack.descripcion && <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>{cp.pack.descripcion}</Text>}
-                <div><Text style={{ color: '#d46b08', fontSize: 12 }}>−{cp.descuentoAplicadoUF} UF</Text></div>
-              </div>
-              {!soloLectura && (
-                <Button size="small" danger type="text" icon={<DeleteOutlined />} onClick={() => quitar.mutate(cp.packId)} />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  )
+// ── Panel unificado de promociones (descuentos, packs y beneficios) ──
+const TIPO_LABEL = {
+  DESCUENTO_UF: 'Descuento UF', DESCUENTO_PORCENTAJE: 'Descuento %', PAQUETE: 'Pack',
+  BENEFICIO: 'Beneficio', ARRIENDO_ASEGURADO: 'Arriendo asegurado',
+  GASTOS_NOTARIALES: 'Gastos notariales', CUOTAS_SIN_INTERES: 'Cuotas sin interés', OTRO: 'Otro',
 }
 
-function PanelBeneficios({ cotizacionId, beneficios, soloLectura }) {
+function resumenPromoLabel(p) {
+  if (p.categoria === 'BENEFICIO') return null
+  if (p.tipo === 'DESCUENTO_UF') return `−${p.valorUF} UF${p.minUnidades ? ` · mín. ${p.minUnidades}` : ''}`
+  if (p.tipo === 'DESCUENTO_PORCENTAJE') return `−${p.valorPorcentaje}%`
+  if (p.tipo === 'PAQUETE') return `pack −${p.valorUF} UF`
+  return null
+}
+
+function PanelPromociones({ cotizacionId, promociones, soloLectura }) {
   const qc = useQueryClient()
   const { message } = App.useApp()
 
-  const { data: todosBeneficios = [] } = useQuery({
-    queryKey: ['beneficios-activos'],
-    queryFn: () => api.get('/beneficios', { params: { activa: true } }).then(r => r.data)
+  const { data: todas = [] } = useQuery({
+    queryKey: ['promociones-activas'],
+    queryFn: () => api.get('/promociones', { params: { activa: true } }).then(r => r.data)
   })
 
-  const beneficioIds = new Set(beneficios.map(b => b.beneficioId))
-  const disponibles = todosBeneficios.filter(b => !beneficioIds.has(b.id))
+  const aplicadasIds = new Set(promociones.map(cp => cp.promocionId))
+  const disponibles = todas.filter(p => !aplicadasIds.has(p.id))
 
   const agregar = useMutation({
-    mutationFn: (beneficioId) => api.post(`/cotizaciones/${cotizacionId}/beneficios`, { beneficioId }),
-    onSuccess: () => { message.success('Beneficio agregado'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
-    onError: err => message.error(err.response?.data?.error || 'Error')
+    mutationFn: (promocionId) => api.post(`/cotizaciones/${cotizacionId}/promociones`, { promocionId }),
+    onSuccess: () => { message.success('Promoción agregada'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
+    onError: err => message.error(err.response?.data?.error || 'Error al agregar promoción')
   })
 
   const quitar = useMutation({
-    mutationFn: (beneficioId) => api.delete(`/cotizaciones/${cotizacionId}/beneficios/${beneficioId}`),
-    onSuccess: () => { message.success('Beneficio quitado'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
+    mutationFn: (promocionId) => api.delete(`/cotizaciones/${cotizacionId}/promociones/${promocionId}`),
+    onSuccess: () => { message.success('Promoción quitada'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
-  const TIPO_LABEL = { ARRIENDO_ASEGURADO: 'Arriendo asegurado', GASTOS_NOTARIALES: 'Gastos notariales', CUOTAS_SIN_INTERES: 'Cuotas sin interés', OTRO: 'Otro' }
+  const esBeneficio = (cp) => cp.promocion?.categoria === 'BENEFICIO'
 
   return (
     <Card
       size="small"
-      title={<Text strong style={{ color: '#389e0d' }}>Beneficios adicionales</Text>}
-      style={{ borderColor: '#b7eb8f' }}
+      title={<Text strong style={{ color: '#d46b08' }}>Promociones — descuentos, packs y beneficios</Text>}
+      style={{ borderColor: '#ffd591' }}
       extra={
         !soloLectura && disponibles.length > 0 && (
           <Select
-            placeholder="Agregar beneficio..."
+            placeholder="Agregar promoción..."
             size="small"
-            style={{ width: 200 }}
+            style={{ width: 220 }}
             showSearch
             filterOption={(v, o) => o.label.toLowerCase().includes(v.toLowerCase())}
-            options={disponibles.map(b => ({ value: b.id, label: b.nombre }))}
+            options={disponibles.map(p => {
+              const r = resumenPromoLabel(p)
+              return { value: p.id, label: `${p.nombre}${r ? ` (${r})` : ''}` }
+            })}
             onChange={id => agregar.mutate(id)}
             value={null}
           />
         )
       }
     >
-      {beneficios.length === 0 ? (
-        <Text type="secondary" style={{ fontSize: 12 }}>Sin beneficios aplicados</Text>
+      {promociones.length === 0 ? (
+        <Text type="secondary" style={{ fontSize: 12 }}>Sin promociones aplicadas</Text>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {beneficios.map(cb => (
-            <div key={cb.beneficioId} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '6px 10px', borderRadius: 8, background: '#f6ffed', border: '1px solid #b7eb8f'
-            }}>
-              <div>
-                <Tag color="green" style={{ fontSize: 11 }}>{TIPO_LABEL[cb.beneficio.tipo] || cb.beneficio.tipo}</Tag>
-                <Text style={{ fontSize: 13 }}>{cb.beneficio.nombre}</Text>
+          {promociones.map(cp => {
+            const beneficio = esBeneficio(cp)
+            return (
+              <div key={cp.promocionId} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '6px 10px', borderRadius: 8,
+                background: beneficio ? '#f6ffed' : '#fff7e6',
+                border: `1px solid ${beneficio ? '#b7eb8f' : '#ffd591'}`,
+              }}>
+                <div>
+                  <Tag color={beneficio ? 'green' : 'orange'} style={{ fontSize: 11 }}>
+                    {TIPO_LABEL[cp.promocion?.tipo] || cp.promocion?.tipo}
+                  </Tag>
+                  <Text strong style={{ fontSize: 13 }}>{cp.promocion?.nombre}</Text>
+                  {!beneficio && cp.descuentoAplicadoUF > 0 && (
+                    <div><Text style={{ color: '#d46b08', fontSize: 12 }}>−{cp.descuentoAplicadoUF.toFixed(2)} UF</Text></div>
+                  )}
+                  {!beneficio && cp.descuentoAplicadoUF === 0 && (
+                    <div><Text type="secondary" style={{ fontSize: 11 }}>No aplica (revisar unidades / mínimo)</Text></div>
+                  )}
+                </div>
+                {!soloLectura && (
+                  <Button size="small" danger type="text" icon={<DeleteOutlined />} onClick={() => quitar.mutate(cp.promocionId)} />
+                )}
               </div>
-              {!soloLectura && (
-                <Button size="small" danger type="text" icon={<DeleteOutlined />} onClick={() => quitar.mutate(cb.beneficioId)} />
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </Card>
   )
 }
 
-// Transforma packs/beneficios al formato promociones que espera CotizacionDocumento
+// ¿Es un descuento por-unidad? (ya se refleja tachado en la tabla del PDF, no se lista como global)
+const esDescuentoPorUnidad = (promo) => promo?.tipo === 'DESCUENTO_UF' && (promo?.unidades?.length > 0)
+
+// Arma el formato `promociones` que espera CotizacionDocumento, desde el modelo unificado.
+// Excluye los descuentos por-unidad (van tachados en la tabla). Mantiene compat con packs/beneficios viejos.
 function cotizacionParaPDF(cot) {
   const promociones = [
+    ...(cot.promociones || [])
+      .filter(cp => !esDescuentoPorUnidad(cp.promocion))
+      .map(cp => ({
+        aplicada: true,
+        ahorroUF: cp.descuentoAplicadoUF,
+        promocion: {
+          nombre: cp.promocion?.nombre,
+          tipo: cp.promocion?.tipo,
+          valorUF: cp.promocion?.valorUF,
+          valorPorcentaje: cp.promocion?.valorPorcentaje,
+          minUnidades: cp.promocion?.minUnidades,
+          detalle: cp.promocion?.detalle,
+        },
+      })),
+    // Compat: cotizaciones antiguas con packs/beneficios
     ...(cot.packs || []).map(cp => ({
       aplicada: true,
       ahorroUF: cp.descuentoAplicadoUF,
@@ -560,7 +573,7 @@ function cotizacionParaPDF(cot) {
       aplicada: true,
       ahorroUF: 0,
       promocion: { nombre: cb.beneficio?.nombre || 'Beneficio', tipo: cb.beneficio?.tipo || 'OTRO' }
-    }))
+    })),
   ]
   return { ...cot, promociones }
 }
@@ -860,18 +873,11 @@ export default function CotizacionEditor() {
             <ResumenPrecio cotizacion={cotizacion} />
 
             {!esNueva && (
-              <>
-                <PanelPacks
-                  cotizacionId={Number(id)}
-                  packs={cotizacion?.packs || []}
-                  soloLectura={soloLectura}
-                />
-                <PanelBeneficios
-                  cotizacionId={Number(id)}
-                  beneficios={cotizacion?.beneficios || []}
-                  soloLectura={soloLectura}
-                />
-              </>
+              <PanelPromociones
+                cotizacionId={Number(id)}
+                promociones={cotizacion?.promociones || []}
+                soloLectura={soloLectura}
+              />
             )}
 
             {/* Validez y notas */}

@@ -166,6 +166,8 @@ const s = StyleSheet.create({
   tCell:     { fontSize: 10, color: TEXT },
   tCellBold: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
   tCellPesos: { fontSize: 8, color: MUTED, marginTop: 1 },
+  tCellStrike: { fontSize: 8.5, color: MUTED2, textDecoration: 'line-through' },
+  tCellFinal:  { fontSize: 10, fontFamily: 'Helvetica-Bold', color: GREEN },
 
   // ── Promos ──
   promoRow: {
@@ -445,22 +447,25 @@ function calcularAhorroPromo(promo, items, base) {
 
 function calcularResumen(items, promociones) {
   const base = items.reduce((s, i) => s + i.precioListaUF, 0)
+  // Descuentos por unidad (precio webinar): ya van tachados en la tabla, no en la lista de promos
+  const descuentoUnidades = items.reduce((s, i) => s + (i.descuentoUF || 0), 0)
   const descuentos = []
   const beneficios = []
-  let descuentoTotal = 0
+  let descuentoPromos = 0
   ;(promociones || []).filter(cp => cp.aplicada).forEach(cp => {
     const promo = cp.promocion
     if (TIPOS_DESCUENTO.includes(promo.tipo)) {
       const ahorro = cp.ahorroUF > 0 ? cp.ahorroUF : calcularAhorroPromo(promo, items, base)
       if (ahorro > 0) {
         descuentos.push({ nombre: promo.nombre, tipo: promo.tipo, ahorro, label: TIPO_PROMO_LABEL[promo.tipo] })
-        descuentoTotal += ahorro
+        descuentoPromos += ahorro
       }
     } else {
       beneficios.push({ nombre: promo.nombre, tipo: promo.tipo, label: TIPO_PROMO_LABEL[promo.tipo] })
     }
   })
-  return { base, descuentoTotal, final: Math.max(base - descuentoTotal, 0), descuentos, beneficios }
+  const descuentoTotal = descuentoUnidades + descuentoPromos
+  return { base, descuentoUnidades, descuentoPromos, descuentoTotal, final: Math.max(base - descuentoTotal, 0), descuentos, beneficios }
 }
 
 // ── Helpers de formato ──────────────────────────────────────────────────────
@@ -540,26 +545,42 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
             <Text style={[s.tHeadText, s.cUnidad]}>UNIDAD</Text>
             <Text style={[s.tHeadText, s.cTipo]}>TIPO</Text>
             <Text style={[s.tHeadText, s.cM2]}>M²</Text>
-            <Text style={[s.tHeadText, s.cPrecio]}>PRECIO LISTA</Text>
+            <Text style={[s.tHeadText, s.cPrecio]}>PRECIO</Text>
           </View>
-          {items.map((item, i) => (
-            <View key={item.id} style={[s.tRow, i % 2 !== 0 && s.tRowAlt]}>
-              <Text style={[s.tCell, s.cEdificio]}>{item.unidad.edificio.nombre}</Text>
-              <Text style={[s.tCell, s.cUnidad]}>{item.unidad.numero}</Text>
-              <Text style={[s.tCell, s.cTipo]}>
-                {item.unidad.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento'}
-              </Text>
-              <Text style={[s.tCell, s.cM2]}>
-                {item.unidad.tipo === 'BODEGA' && item.unidad.m2 ? `${item.unidad.m2} m²` : '—'}
-              </Text>
-              <View style={[s.cPrecio, { alignItems: 'flex-end' }]}>
-                <Text style={s.tCellBold}>{fmtUF(item.precioListaUF)}</Text>
-                {fmtPesos(item.precioListaUF, valorUF) && (
-                  <Text style={s.tCellPesos}>{fmtPesos(item.precioListaUF, valorUF)}</Text>
-                )}
+          {items.map((item, i) => {
+            const dto = item.descuentoUF || 0
+            const precioFinalItem = item.precioListaUF - dto
+            return (
+              <View key={item.id} style={[s.tRow, i % 2 !== 0 && s.tRowAlt]}>
+                <Text style={[s.tCell, s.cEdificio]}>{item.unidad.edificio.nombre}</Text>
+                <Text style={[s.tCell, s.cUnidad]}>{item.unidad.numero}</Text>
+                <Text style={[s.tCell, s.cTipo]}>
+                  {item.unidad.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento'}
+                </Text>
+                <Text style={[s.tCell, s.cM2]}>
+                  {item.unidad.tipo === 'BODEGA' && item.unidad.m2 ? `${item.unidad.m2} m²` : '—'}
+                </Text>
+                <View style={[s.cPrecio, { alignItems: 'flex-end' }]}>
+                  {dto > 0 ? (
+                    <>
+                      <Text style={s.tCellStrike}>{fmtUF(item.precioListaUF)}</Text>
+                      <Text style={s.tCellFinal}>{fmtUF(precioFinalItem)}</Text>
+                      {fmtPesos(precioFinalItem, valorUF) && (
+                        <Text style={s.tCellPesos}>{fmtPesos(precioFinalItem, valorUF)}</Text>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Text style={s.tCellBold}>{fmtUF(item.precioListaUF)}</Text>
+                      {fmtPesos(item.precioListaUF, valorUF) && (
+                        <Text style={s.tCellPesos}>{fmtPesos(item.precioListaUF, valorUF)}</Text>
+                      )}
+                    </>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            )
+          })}
 
           {/* ── Descuentos ── */}
           {(resumen.descuentos.length > 0 || aprobado > 0) && (

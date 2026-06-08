@@ -195,25 +195,38 @@
 - Uso: en VentaDetalle > Agregar comisión → selector de plantilla auto-rellena campos y calcula split según conPromesa
 - Frontend: sección "Plantillas de comisión" en `pages/comisiones/Comisiones.jsx` (solo GERENTE)
 
-### PACKS — `/api/packs`
-- Archivos: `routes/packs.js`, `controllers/packsController.js`
-- `GET /` — listar packs activos
-- `POST /` — crear pack (GERENTE, JEFE_VENTAS)
-- `PUT /:id` — editar
-- `DELETE /:id` — desactivar
-- Tipos: COMBO_ESPECIFICO (unidades específicas), POR_CANTIDAD (por número de unidades)
-- Se aplican en cotizaciones: `CotizacionPack`
-- Frontend: `pages/configuracion/PacksBeneficios.jsx`
-
-### BENEFICIOS — `/api/beneficios`
-- Archivos: `routes/beneficios.js`, `controllers/beneficiosController.js`
-- `GET /` — listar beneficios activos
+### PROMOCIONES — `/api/promociones` ⭐ MODELO UNIFICADO (descuentos + packs + beneficios)
+- Archivos: `routes/promociones.js`, `controllers/promocionesController.js`
+- Unifica packs, beneficios y descuentos por unidad en un solo modelo `Promocion`. Reemplaza el uso de `/api/packs` y `/api/beneficios` (que siguen existiendo solo por compatibilidad con cotizaciones antiguas).
+- `GET /` — listar (acepta `?activa=true`, `?campanaId=X`)
+- `GET /:id` — obtener
 - `POST /` — crear (GERENTE, JEFE_VENTAS)
 - `PUT /:id` — editar
 - `DELETE /:id` — desactivar
+- `POST /:id/unidades` / `DELETE /:id/unidades/:unidadId` — asociar/quitar unidades a la promo
+- **Categoría** (discriminador): `DESCUENTO` (afecta precio) | `BENEFICIO` (no afecta precio, es regalo, mantiene seguimiento post-venta)
+- **Tipos**: `DESCUENTO_UF`, `DESCUENTO_PORCENTAJE`, `PAQUETE`, `BENEFICIO`, `ARRIENDO_ASEGURADO`, `GASTOS_NOTARIALES`, `CUOTAS_SIN_INTERES`, `OTRO`
+- **DESCUENTO_UF con unidades asociadas = descuento POR UNIDAD** → se snapshotea en `CotizacionItem.descuentoUF` → habilita el **precio tachado por unidad** en la cotización (precio webinar). Sin unidades = descuento fijo por volumen (si items ≥ `minUnidades`).
+- Campos: nombre, descripcion, categoria, tipo, valorUF, valorPorcentaje, minUnidades, meses, montoMensualUF, detalle, fechaInicio, fechaFin, activa, campanaId (nullable), unidades[]
+- Alias para el frontend: `mesesArriendo` y `cuotasSinInteres` = `meses`
+- Se aplican en cotizaciones: `CotizacionPromocion` (con `descuentoAplicadoUF` recalculado)
+- Frontend: `pages/promociones/Promociones.jsx`
+
+### CAMPAÑAS DE PROMOCIÓN — `/api/campanas` ⭐
+- Archivos: `routes/campanas.js`, `controllers/campanasController.js`
+- Agrupan promociones (ej: "Webinar Junio 2026"). `campanaId` es **opcional** en una promo: un beneficio permanente o de otra ocasión tiene `campanaId=null` y su vigencia vive en la propia `Promocion`.
+- CRUD con `autorizar('GERENTE','JEFE_VENTAS')` para escrituras.
+- Seed del webinar: `backend/scripts/seedWebinar.js`. Migración packs/beneficios→promoción: `backend/scripts/migrarPromociones.js`.
+
+### PACKS — `/api/packs` (LEGACY, solo compat)
+- Archivos: `routes/packs.js`, `controllers/packsController.js`. Migrados a `Promocion`. Crear nuevos vía `/api/promociones`.
+- Tipos: COMBO_ESPECIFICO (unidades específicas), POR_CANTIDAD (por número de unidades)
+- Se aplican en cotizaciones antiguas: `CotizacionPack`
+
+### BENEFICIOS — `/api/beneficios` (LEGACY, solo compat)
+- Archivos: `routes/beneficios.js`, `controllers/beneficiosController.js`. Migrados a `Promocion`. Crear nuevos vía `/api/promociones`.
 - Tipos: ARRIENDO_ASEGURADO, GASTOS_NOTARIALES, CUOTAS_SIN_INTERES, OTRO
-- Se aplican en cotizaciones: `CotizacionBeneficio`
-- Frontend: `pages/configuracion/PacksBeneficios.jsx`
+- Se aplican en cotizaciones antiguas: `CotizacionBeneficio`
 
 ### ARRIENDOS — `/api/arriendos`
 - Archivos: `routes/arriendos.js`, `controllers/arrendosController.js`
@@ -293,10 +306,13 @@
 - `PUT /:id` — editar
 - `PUT /:id/estado` — cambiar estado (BORRADOR, ENVIADA, ACEPTADA, RECHAZADA)
 - `DELETE /:id` — eliminar
-- `POST /:id/convertir` — **convertir a venta** (crea Venta + PlanPago + Comisiones automáticas)
-- `POST /:id/packs` / `DELETE /:id/packs/:packId` — agregar/quitar packs
-- `POST /:id/beneficios` / `DELETE /:id/beneficios/:beneficioId` — agregar/quitar beneficios
-- Totales calculados: precioListaUF - descuentoPacksUF - descuentoAprobadoUF = precioFinalUF
+- `POST /:id/convertir` — **convertir a venta** (crea Venta + PlanPago + Comisiones + `VentaPromocion` para seguimiento post-venta de beneficios)
+- `POST /:id/promociones` / `DELETE /:id/promociones/:promocionId` — agregar/quitar promociones (modelo unificado) ⭐
+- `POST /:id/packs` / `DELETE /:id/packs/:packId` — agregar/quitar packs (legacy)
+- `POST /:id/beneficios` / `DELETE /:id/beneficios/:beneficioId` — agregar/quitar beneficios (legacy)
+- Al cambiar items o promociones se llama `recalcularPromociones(cotizacionId)`: recalcula `CotizacionPromocion.descuentoAplicadoUF` y el snapshot por ítem `CotizacionItem.descuentoUF` (precio tachado).
+- Totales calculados: precioListaUF − (Σ item.descuentoUF) − descuentoPromosUF − descuentoPacksUF − descuentoAprobadoUF = precioFinalUF
+- **Cotización vendedora**: el PDF (`CotizacionPDF.jsx`) muestra el precio lista **tachado** por unidad cuando hay descuento por-unidad, con el precio webinar destacado en verde. Las promos de volumen y beneficios se listan aparte.
 - PDF incluye: m2 de bodegas, teléfono y email del ejecutivo de ventas
 - Frontend: `pages/cotizaciones/CotizacionEditor.jsx`, `pages/cotizaciones/CotizacionPDF.jsx`
 
@@ -415,7 +431,7 @@
 ## Páginas sin módulo backend dedicado
 
 - `pages/automatizaciones/Automatizaciones.jsx` — página de automatizaciones (UI solamente)
-- `pages/promociones/Promociones.jsx` — gestión de packs/beneficios (usa `/api/packs` y `/api/beneficios`)
+- `pages/promociones/Promociones.jsx` — gestión de promociones unificadas (descuentos, packs y beneficios; usa `/api/promociones` y `/api/campanas`)
 - `pages/perfil/MiPerfil.jsx` — perfil propio: email de envío, plantillas de email (general + cotización), firma HTML, notificaciones
 
 ---

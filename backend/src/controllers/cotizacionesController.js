@@ -30,6 +30,11 @@ const INCLUDE_COMPLETO = {
   beneficios: {
     include: { beneficio: true }
   },
+  promociones: {
+    include: {
+      promocion: { include: { unidades: { select: { unidadId: true } } } }
+    }
+  },
   solicitudesDescuento: {
     orderBy: { creadoEn: 'desc' },
     include: {
@@ -42,9 +47,79 @@ const INCLUDE_COMPLETO = {
 function calcularTotales(cotizacion) {
   const precioListaUF = (cotizacion.items || []).reduce((s, i) => s + (i.precioListaUF || 0), 0)
   const descuentoPacksUF = (cotizacion.packs || []).reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
+  const descuentoPromosUF = (cotizacion.promociones || []).reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
   const descuentoAprobadoUF = cotizacion.descuentoAprobadoUF || 0
-  const precioFinalUF = Math.max(precioListaUF - descuentoPacksUF - descuentoAprobadoUF, 0)
-  return { precioListaUF, descuentoPacksUF, descuentoAprobadoUF, precioFinalUF }
+  const precioFinalUF = Math.max(precioListaUF - descuentoPacksUF - descuentoPromosUF - descuentoAprobadoUF, 0)
+  return { precioListaUF, descuentoPacksUF, descuentoPromosUF, descuentoAprobadoUF, precioFinalUF }
+}
+
+// Recalcula el descuento de cada promoción aplicada y el snapshot por ítem (descuentoUF).
+// Reglas por tipo (categoría DESCUENTO):
+//   - DESCUENTO_UF con unidades asociadas  → POR UNIDAD: valorUF por cada unidad de la promo presente
+//     (se snapshotea en CotizacionItem.descuentoUF → habilita el precio tachado por unidad)
+//   - DESCUENTO_UF sin unidades             → fijo por volumen si items >= minUnidades
+//   - DESCUENTO_PORCENTAJE                  → % sobre la base (unidades de la promo o todas)
+//   - PAQUETE                               → suma de precios de las unidades del pack − valorUF
+//   - categoría BENEFICIO                   → 0 (no afecta precio)
+async function recalcularPromociones(cotizacionId) {
+  const cot = await prisma.cotizacion.findUnique({
+    where: { id: cotizacionId },
+    include: {
+      items: true,
+      promociones: { include: { promocion: { include: { unidades: { select: { unidadId: true } } } } } },
+    },
+  })
+  if (!cot) return
+
+  const itemUnidadIds = cot.items.map(i => i.unidadId)
+  const descuentoPorUnidad = {} // unidadId → UF acumulado (para el snapshot/tachado)
+
+  for (const cp of cot.promociones) {
+    const promo = cp.promocion
+    const promoUnidadIds = promo.unidades.map(u => u.unidadId)
+    const tieneUnidades = promoUnidadIds.length > 0
+    let descuento = 0
+
+    if (promo.categoria === 'DESCUENTO') {
+      if (promo.tipo === 'PAQUETE') {
+        const todas = tieneUnidades && promoUnidadIds.every(id => itemUnidadIds.includes(id))
+        if (todas) {
+          const suma = cot.items.filter(i => promoUnidadIds.includes(i.unidadId)).reduce((s, i) => s + i.precioListaUF, 0)
+          descuento = Math.max(suma - (promo.valorUF || 0), 0)
+        }
+      } else if (promo.tipo === 'DESCUENTO_UF') {
+        if (tieneUnidades) {
+          const afectadas = cot.items.filter(i => promoUnidadIds.includes(i.unidadId))
+          descuento = (promo.valorUF || 0) * afectadas.length
+          for (const it of afectadas) {
+            descuentoPorUnidad[it.unidadId] = (descuentoPorUnidad[it.unidadId] || 0) + (promo.valorUF || 0)
+          }
+        } else if (!promo.minUnidades || cot.items.length >= promo.minUnidades) {
+          descuento = promo.valorUF || 0
+        }
+      } else if (promo.tipo === 'DESCUENTO_PORCENTAJE') {
+        const base = tieneUnidades
+          ? cot.items.filter(i => promoUnidadIds.includes(i.unidadId)).reduce((s, i) => s + i.precioListaUF, 0)
+          : cot.items.reduce((s, i) => s + i.precioListaUF, 0)
+        if (!promo.minUnidades || cot.items.length >= promo.minUnidades) {
+          descuento = base * ((promo.valorPorcentaje || 0) / 100)
+        }
+      }
+    }
+
+    await prisma.cotizacionPromocion.update({
+      where: { id: cp.id },
+      data: { descuentoAplicadoUF: Number(descuento.toFixed(2)) },
+    })
+  }
+
+  // Snapshot por ítem (descuento por unidad → precio tachado en el PDF)
+  for (const it of cot.items) {
+    const d = Number((descuentoPorUnidad[it.unidadId] || 0).toFixed(2))
+    if (it.descuentoUF !== d) {
+      await prisma.cotizacionItem.update({ where: { id: it.id }, data: { descuentoUF: d } })
+    }
+  }
 }
 
 const listar = async (req, res) => {
@@ -155,7 +230,12 @@ const actualizar = async (req, res) => {
       include: INCLUDE_COMPLETO
     })
 
-    res.json({ ...cotizacion, ...calcularTotales(cotizacion) })
+    // Si cambiaron las unidades, recalcular descuentos de promociones y snapshot por ítem
+    if (Array.isArray(items)) {
+      await recalcularPromociones(Number(id))
+    }
+    const refrescada = await prisma.cotizacion.findUnique({ where: { id: Number(id) }, include: INCLUDE_COMPLETO })
+    res.json({ ...refrescada, ...calcularTotales(refrescada) })
   } catch (err) {
     console.error(err)
     if (err.code === 'P2025') return res.status(404).json({ error: 'Cotización no encontrada.' })
@@ -224,6 +304,15 @@ const unidadesDisponibles = async (req, res) => {
           include: { beneficio: true },
           where: {
             beneficio: {
+              activa: true,
+              OR: [{ fechaFin: null }, { fechaFin: { gte: new Date() } }]
+            }
+          }
+        },
+        promociones: {
+          include: { promocion: true },
+          where: {
+            promocion: {
               activa: true,
               OR: [{ fechaFin: null }, { fechaFin: { gte: new Date() } }]
             }
@@ -348,6 +437,75 @@ const quitarBeneficio = async (req, res) => {
   }
 }
 
+// ─── Promociones unificadas (descuentos + beneficios) ─────────────
+const agregarPromocion = async (req, res) => {
+  const { id } = req.params
+  const { promocionId } = req.body
+  if (!promocionId) return res.status(400).json({ error: 'promocionId requerido.' })
+
+  try {
+    const cotizacion = await prisma.cotizacion.findUnique({
+      where: { id: Number(id) },
+      include: { items: true, promociones: true, ventaOrigen: true },
+    })
+    if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada.' })
+    if (cotizacion.ventaOrigen) return res.status(400).json({ error: 'Cotización ya fue convertida.' })
+
+    const promo = await prisma.promocion.findUnique({
+      where: { id: Number(promocionId) },
+      include: { unidades: { select: { unidadId: true } } },
+    })
+    if (!promo || !promo.activa) return res.status(404).json({ error: 'Promoción no encontrada o inactiva.' })
+    if (cotizacion.promociones.find(p => p.promocionId === Number(promocionId))) {
+      return res.status(400).json({ error: 'Promoción ya aplicada a esta cotización.' })
+    }
+
+    // Validaciones para descuentos
+    if (promo.categoria === 'DESCUENTO') {
+      const promoUnidadIds = promo.unidades.map(u => u.unidadId)
+      const itemUnidadIds = cotizacion.items.map(i => i.unidadId)
+      if (promo.tipo === 'PAQUETE') {
+        if (promoUnidadIds.length === 0) return res.status(400).json({ error: 'El pack no tiene unidades configuradas.' })
+        const faltan = promoUnidadIds.filter(uid => !itemUnidadIds.includes(uid))
+        if (faltan.length > 0) return res.status(400).json({ error: 'La cotización no contiene todas las unidades del pack.' })
+      } else if (promoUnidadIds.length > 0) {
+        if (!promoUnidadIds.some(uid => itemUnidadIds.includes(uid))) {
+          return res.status(400).json({ error: 'Ninguna unidad de la cotización aplica a esta promoción.' })
+        }
+      } else if (promo.minUnidades && cotizacion.items.length < promo.minUnidades) {
+        return res.status(400).json({ error: `Esta promoción requiere al menos ${promo.minUnidades} unidades.` })
+      }
+    }
+
+    await prisma.cotizacionPromocion.create({
+      data: { cotizacionId: Number(id), promocionId: Number(promocionId), descuentoAplicadoUF: 0 },
+    })
+    await recalcularPromociones(Number(id))
+
+    const actualizada = await prisma.cotizacion.findUnique({ where: { id: Number(id) }, include: INCLUDE_COMPLETO })
+    res.json({ ...actualizada, ...calcularTotales(actualizada) })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al agregar promoción.' })
+  }
+}
+
+const quitarPromocion = async (req, res) => {
+  const { id, promocionId } = req.params
+  try {
+    await prisma.cotizacionPromocion.deleteMany({
+      where: { cotizacionId: Number(id), promocionId: Number(promocionId) },
+    })
+    await recalcularPromociones(Number(id))
+    const actualizada = await prisma.cotizacion.findUnique({ where: { id: Number(id) }, include: INCLUDE_COMPLETO })
+    if (!actualizada) return res.status(404).json({ error: 'Cotización no encontrada.' })
+    res.json({ ...actualizada, ...calcularTotales(actualizada) })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al quitar promoción.' })
+  }
+}
+
 const convertir = async (req, res) => {
   const { id } = req.params
   const { conPromesa = true } = req.body
@@ -359,6 +517,7 @@ const convertir = async (req, res) => {
         items: { include: { unidad: true } },
         packs: true,
         beneficios: true,
+        promociones: { include: { promocion: true } },
         lead: { select: { id: true, vendedorId: true, brokerId: true, contactoId: true } },
         ventaOrigen: true
       }
@@ -376,7 +535,10 @@ const convertir = async (req, res) => {
     }
 
     const precioListaUF = cotizacion.items.reduce((s, i) => s + i.precioListaUF, 0)
-    const descuentoPacksUF = cotizacion.packs.reduce((s, p) => s + p.descuentoAplicadoUF, 0)
+    const descuentoPacksLegacyUF = cotizacion.packs.reduce((s, p) => s + p.descuentoAplicadoUF, 0)
+    const descuentoPromosUF = cotizacion.promociones.reduce((s, p) => s + p.descuentoAplicadoUF, 0)
+    // En la venta los descuentos de packs y promociones se consolidan en descuentoPacksUF
+    const descuentoPacksUF = descuentoPacksLegacyUF + descuentoPromosUF
     const descuentoAprobadoUF = cotizacion.descuentoAprobadoUF || 0
     const precioFinalUF = Math.max(precioListaUF - descuentoPacksUF - descuentoAprobadoUF, 0)
 
@@ -412,6 +574,17 @@ const convertir = async (req, res) => {
       for (const cb of cotizacion.beneficios) {
         await tx.ventaBeneficio.create({
           data: { ventaId: nuevaVenta.id, beneficioId: cb.beneficioId }
+        })
+      }
+
+      for (const cp of cotizacion.promociones) {
+        await tx.ventaPromocion.create({
+          data: {
+            ventaId: nuevaVenta.id,
+            promocionId: cp.promocionId,
+            categoria: cp.promocion.categoria,
+            descuentoAplicadoUF: cp.descuentoAplicadoUF,
+          }
         })
       }
 
@@ -495,4 +668,4 @@ async function calcularComisiones(ventaId, precioFinalUF, lead) {
   }
 }
 
-module.exports = { listar, obtener, crear, actualizar, cambiarEstado, eliminar, unidadesDisponibles, agregarPack, quitarPack, agregarBeneficio, quitarBeneficio, convertir }
+module.exports = { listar, obtener, crear, actualizar, cambiarEstado, eliminar, unidadesDisponibles, agregarPack, quitarPack, agregarBeneficio, quitarBeneficio, agregarPromocion, quitarPromocion, convertir, recalcularPromociones, calcularTotales }

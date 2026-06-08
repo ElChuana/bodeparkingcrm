@@ -43,8 +43,26 @@ const PLANTILLAS = [
   },
 ]
 
+// ¿Descuento por-unidad? (ya va tachado en la tabla del PDF, no se lista como global)
+const esDescuentoPorUnidad = (promo) => promo?.tipo === 'DESCUENTO_UF' && (promo?.unidades?.length > 0)
+
 function cotizacionParaPDF(cot) {
   const promociones = [
+    ...(cot.promociones || [])
+      .filter(cp => !esDescuentoPorUnidad(cp.promocion))
+      .map(cp => ({
+        aplicada: true,
+        ahorroUF: cp.descuentoAplicadoUF,
+        promocion: {
+          nombre: cp.promocion?.nombre,
+          tipo: cp.promocion?.tipo,
+          valorUF: cp.promocion?.valorUF,
+          valorPorcentaje: cp.promocion?.valorPorcentaje,
+          minUnidades: cp.promocion?.minUnidades,
+          detalle: cp.promocion?.detalle,
+        },
+      })),
+    // Compat: cotizaciones antiguas con packs/beneficios
     ...(cot.packs || []).map(cp => ({
       aplicada: true,
       ahorroUF: cp.descuentoAplicadoUF,

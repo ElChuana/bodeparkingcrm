@@ -2,7 +2,8 @@ const express = require('express')
 const router = express.Router()
 const {
   listar, obtener, crear, actualizar, cambiarEstado, eliminar, unidadesDisponibles,
-  agregarPack, quitarPack, agregarBeneficio, quitarBeneficio, convertir
+  agregarPack, quitarPack, agregarBeneficio, quitarBeneficio,
+  agregarPromocion, quitarPromocion, convertir
 } = require('../controllers/cotizacionesController')
 const { autenticar } = require('../middleware/auth')
 
@@ -21,5 +22,7 @@ router.post('/:id/packs', agregarPack)
 router.delete('/:id/packs/:packId', quitarPack)
 router.post('/:id/beneficios', agregarBeneficio)
 router.delete('/:id/beneficios/:beneficioId', quitarBeneficio)
+router.post('/:id/promociones', agregarPromocion)
+router.delete('/:id/promociones/:promocionId', quitarPromocion)
 
 module.exports = router
