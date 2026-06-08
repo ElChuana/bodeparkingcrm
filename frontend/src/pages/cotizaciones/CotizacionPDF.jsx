@@ -158,16 +158,26 @@ const s = StyleSheet.create({
     borderBottomColor: BORDER,
   },
   tRowAlt: { backgroundColor: SMOKE },
-  cEdificio: { flex: 3 },
-  cUnidad:   { flex: 2 },
-  cTipo:     { flex: 1.5 },
+  cEdificio: { flex: 2.8 },
+  cUnidad:   { flex: 1.6 },
+  cTipo:     { flex: 1.6 },
   cM2:       { flex: 1, alignItems: 'flex-end' },
-  cPrecio:   { flex: 1.8, alignItems: 'flex-end' },
+  cPrecio:   { flex: 2.4, alignItems: 'flex-end' },
   tCell:     { fontSize: 10, color: TEXT },
   tCellBold: { fontSize: 10, fontFamily: 'Helvetica-Bold', color: TEXT },
   tCellPesos: { fontSize: 8, color: MUTED, marginTop: 1 },
-  tCellStrike: { fontSize: 8.5, color: MUTED2, textDecoration: 'line-through' },
-  tCellFinal:  { fontSize: 10, fontFamily: 'Helvetica-Bold', color: GREEN },
+  tCellStrike: { fontSize: 9, color: '#B23B3B', textDecoration: 'line-through', marginBottom: 1 },
+  tCellFinal:  { fontSize: 12, fontFamily: 'Helvetica-Bold', color: GREEN },
+  tCellAhorro: {
+    fontSize: 6.5,
+    fontFamily: 'Helvetica-Bold',
+    color: GREEN,
+    backgroundColor: GREEN_BG,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+    borderRadius: 2,
+    marginTop: 2,
+  },
 
   // ── Promos ──
   promoRow: {
@@ -568,6 +578,7 @@ export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
                       {fmtPesos(precioFinalItem, valorUF) && (
                         <Text style={s.tCellPesos}>{fmtPesos(precioFinalItem, valorUF)}</Text>
                       )}
+                      <Text style={s.tCellAhorro}>AHORRAS {dto.toFixed(2)} UF</Text>
                     </>
                   ) : (
                     <>

@@ -42,6 +42,7 @@ const listar = async (req, res) => {
       },
       include: {
         campana: { select: { id: true, nombre: true } },
+        unidades: { select: { unidadId: true } },
         _count: { select: { unidades: true, ventas: true } },
       },
       orderBy: { creadoEn: 'desc' },

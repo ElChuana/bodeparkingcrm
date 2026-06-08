@@ -141,9 +141,10 @@ function ResumenPrecio({ cotizacion }) {
                 {(i.unidad?.tipo === 'BODEGA' || i.tipo === 'BODEGA') && (i.unidad?.m2 || i.m2) ? ` · ${i.unidad?.m2 || i.m2} m²` : ''}
               </Text>
               {dto > 0 ? (
-                <span>
-                  <Text delete type="secondary" style={{ fontSize: 12, marginRight: 6 }}>{(i.precioListaUF || 0).toFixed(2)}</Text>
-                  <Text strong style={{ color: '#389e0d' }}>{final.toFixed(2)} UF</Text>
+                <span style={{ textAlign: 'right' }}>
+                  <Text delete style={{ fontSize: 11, color: '#cf1322', marginRight: 6 }}>{(i.precioListaUF || 0).toFixed(2)}</Text>
+                  <Text strong style={{ color: '#389e0d', fontSize: 14 }}>{final.toFixed(2)} UF</Text>
+                  <div><Text style={{ color: '#389e0d', fontSize: 11 }}>Ahorras {dto.toFixed(2)} UF</Text></div>
                 </span>
               ) : (
                 <Text strong>{(i.precioListaUF || 0).toFixed(2)} UF</Text>
@@ -456,7 +457,28 @@ function resumenPromoLabel(p) {
   return null
 }
 
-function PanelPromociones({ cotizacionId, promociones, soloLectura }) {
+// ¿La promo se puede aplicar a esta cotización (según sus unidades / mínimo)?
+function promoAplicable(p, unidadIdsCot) {
+  const unidadesPromo = (p.unidades || []).map(u => u.unidadId)
+  const tieneUnidades = unidadesPromo.length > 0
+  // Beneficios: siempre aplicables
+  if (p.categoria === 'BENEFICIO') return true
+  if (p.tipo === 'PAQUETE') {
+    // Requiere que TODAS las unidades del pack estén en la cotización
+    return tieneUnidades && unidadesPromo.every(id => unidadIdsCot.includes(id))
+  }
+  if (p.tipo === 'DESCUENTO_UF' || p.tipo === 'DESCUENTO_PORCENTAJE') {
+    if (tieneUnidades) {
+      // Descuento por-unidad: al menos una unidad de la promo está en la cotización
+      return unidadesPromo.some(id => unidadIdsCot.includes(id))
+    }
+    // Descuento por volumen: cumple el mínimo de unidades
+    return unidadIdsCot.length >= (p.minUnidades || 1)
+  }
+  return true
+}
+
+function PanelPromociones({ cotizacionId, promociones, items = [], soloLectura }) {
   const qc = useQueryClient()
   const { message } = App.useApp()
 
@@ -465,8 +487,10 @@ function PanelPromociones({ cotizacionId, promociones, soloLectura }) {
     queryFn: () => api.get('/promociones', { params: { activa: true } }).then(r => r.data)
   })
 
+  const unidadIdsCot = items.map(i => i.unidadId)
   const aplicadasIds = new Set(promociones.map(cp => cp.promocionId))
-  const disponibles = todas.filter(p => !aplicadasIds.has(p.id))
+  // Solo las que NO están aplicadas Y que se pueden aplicar a esta cotización
+  const disponibles = todas.filter(p => !aplicadasIds.has(p.id) && promoAplicable(p, unidadIdsCot))
 
   const agregar = useMutation({
     mutationFn: (promocionId) => api.post(`/cotizaciones/${cotizacionId}/promociones`, { promocionId }),
@@ -876,6 +900,7 @@ export default function CotizacionEditor() {
               <PanelPromociones
                 cotizacionId={Number(id)}
                 promociones={cotizacion?.promociones || []}
+                items={cotizacion?.items || []}
                 soloLectura={soloLectura}
               />
             )}
