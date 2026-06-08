@@ -11,10 +11,12 @@ const p = new PrismaClient()
 
 const FECHA_FIN = new Date('2026-06-30T23:59:59')
 
-// Precio webinar prometido por tier (UF exacta, base $ a UF=40.391)
+// Precio webinar prometido por tier. El objetivo está en PESOS: el descuento UF
+// se calcula dinámicamente con la UF vigente para que el precio final caiga exacto.
 const TIERS = {
   ENTRY: {
     precioWebinar: 74.03,
+    objetivoPesos: 2990000,
     unidades: [
       ['Plus', 'B142'],
       ['Obispo Salas', '87'], ['Obispo Salas', '45'], ['Obispo Salas', '159'], ['Obispo Salas', '151'],
@@ -24,6 +26,7 @@ const TIERS = {
   },
   MID: {
     precioWebinar: 86.41,
+    objetivoPesos: 3490000,
     unidades: [
       ['Obispo Salas', '126'], ['Obispo Salas', '40'], ['Obispo Salas', '152'],
       ['Obispo Salas', '24'], ['Obispo Salas', '110'], ['Obispo Salas', '79'],
@@ -31,6 +34,7 @@ const TIERS = {
   },
   PREMIUM: {
     precioWebinar: 98.78,
+    objetivoPesos: 3990000,
     unidades: [
       ['Obispo Salas', '153'], ['Obispo Salas', '128'], ['Obispo Salas', '86'], ['Obispo Salas', '133'], ['Obispo Salas', '28'],
       ['Aldunate', '1'], ['Aldunate', '2'], ['Aldunate', '15'], ['Aldunate', '43'], ['Aldunate', '46'],
@@ -83,10 +87,11 @@ async function main() {
     const descuento = Number((base - info.precioWebinar).toFixed(2))
 
     const promo = await upsertPromo(`Precio Webinar ${tier}`, {
-      descripcion: `Precio webinar: ${base} UF → ${info.precioWebinar} UF (−${descuento} UF)`,
+      descripcion: `Precio webinar: $${info.objetivoPesos.toLocaleString('es-CL')} (descuento UF dinámico según UF vigente)`,
       categoria: 'DESCUENTO',
       tipo: 'DESCUENTO_UF',
-      valorUF: descuento,
+      valorUF: descuento, // fallback si no hay UF vigente
+      precioObjetivoPesos: info.objetivoPesos,
       minUnidades: null,
       fechaFin: FECHA_FIN,
       activa: true,

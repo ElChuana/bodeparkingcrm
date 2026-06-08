@@ -71,6 +71,10 @@ async function recalcularPromociones(cotizacionId) {
   })
   if (!cot) return
 
+  // UF vigente: para descuentos con precio objetivo en pesos (peso exacto)
+  const ufRow = await prisma.uFDiaria.findFirst({ orderBy: { fecha: 'desc' } })
+  const valorUF = ufRow?.valorPesos || null
+
   const itemUnidadIds = cot.items.map(i => i.unidadId)
   const descuentoPorUnidad = {} // unidadId → UF acumulado (para el snapshot/tachado)
 
@@ -90,9 +94,15 @@ async function recalcularPromociones(cotizacionId) {
       } else if (promo.tipo === 'DESCUENTO_UF') {
         if (tieneUnidades) {
           const afectadas = cot.items.filter(i => promoUnidadIds.includes(i.unidadId))
-          descuento = (promo.valorUF || 0) * afectadas.length
+          // Si la promo define un precio objetivo en pesos, el descuento por unidad
+          // se calcula con la UF vigente para que el precio final en $ caiga exacto.
+          const usarObjetivo = promo.precioObjetivoPesos != null && valorUF
           for (const it of afectadas) {
-            descuentoPorUnidad[it.unidadId] = (descuentoPorUnidad[it.unidadId] || 0) + (promo.valorUF || 0)
+            const d = usarObjetivo
+              ? Math.max(it.precioListaUF - (promo.precioObjetivoPesos / valorUF), 0)
+              : (promo.valorUF || 0)
+            descuentoPorUnidad[it.unidadId] = (descuentoPorUnidad[it.unidadId] || 0) + d
+            descuento += d
           }
         } else if (!promo.minUnidades || cot.items.length >= promo.minUnidades) {
           descuento = promo.valorUF || 0
@@ -109,13 +119,14 @@ async function recalcularPromociones(cotizacionId) {
 
     await prisma.cotizacionPromocion.update({
       where: { id: cp.id },
-      data: { descuentoAplicadoUF: Number(descuento.toFixed(2)) },
+      // 6 decimales: con precio objetivo en pesos el peso final debe caer exacto
+      data: { descuentoAplicadoUF: Number(descuento.toFixed(6)) },
     })
   }
 
   // Snapshot por ítem (descuento por unidad → precio tachado en el PDF)
   for (const it of cot.items) {
-    const d = Number((descuentoPorUnidad[it.unidadId] || 0).toFixed(2))
+    const d = Number((descuentoPorUnidad[it.unidadId] || 0).toFixed(6))
     if (it.descuentoUF !== d) {
       await prisma.cotizacionItem.update({ where: { id: it.id }, data: { descuentoUF: d } })
     }

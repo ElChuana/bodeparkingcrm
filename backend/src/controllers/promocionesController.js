@@ -9,7 +9,7 @@ const conAlias = (p) => (p ? { ...p, mesesArriendo: p.meses, cuotasSinInteres: p
 
 function construirData(body) {
   const {
-    nombre, descripcion, tipo, valorUF, valorPorcentaje, minUnidades,
+    nombre, descripcion, tipo, valorUF, valorPorcentaje, precioObjetivoPesos, minUnidades,
     meses, mesesArriendo, cuotasSinInteres, montoMensualUF, detalle,
     fechaInicio, fechaFin, activa, campanaId,
   } = body
@@ -21,6 +21,7 @@ function construirData(body) {
     tipo,
     valorUF: valorUF != null && valorUF !== '' ? Number(valorUF) : null,
     valorPorcentaje: valorPorcentaje != null && valorPorcentaje !== '' ? Number(valorPorcentaje) : null,
+    precioObjetivoPesos: precioObjetivoPesos != null && precioObjetivoPesos !== '' ? Number(precioObjetivoPesos) : null,
     minUnidades: minUnidades != null && minUnidades !== '' ? Number(minUnidades) : null,
     meses: mesesFinal != null && mesesFinal !== '' ? Number(mesesFinal) : null,
     montoMensualUF: montoMensualUF != null && montoMensualUF !== '' ? Number(montoMensualUF) : null,

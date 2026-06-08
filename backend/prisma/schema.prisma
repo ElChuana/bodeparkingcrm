@@ -757,6 +757,7 @@ model Promocion {
   tipo            TipoPromocion
   valorUF         Float? // DESCUENTO_UF / PAQUETE (precio del pack)
   valorPorcentaje Float? // DESCUENTO_PORCENTAJE
+  precioObjetivoPesos Float? // precio final por unidad en $ (el descuento UF se calcula dinámico con la UF vigente → peso exacto)
   minUnidades     Int? // mínimo de unidades en la cotización (volumen)
   meses           Int? // ARRIENDO_ASEGURADO / CUOTAS_SIN_INTERES
   montoMensualUF  Float? // ARRIENDO_ASEGURADO
