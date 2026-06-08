@@ -16,6 +16,7 @@ import Visitas from './pages/visitas/Visitas'
 import Pagos from './pages/pagos/Pagos'
 import Comisiones from './pages/comisiones/Comisiones'
 import PacksBeneficios from './pages/configuracion/PacksBeneficios'
+import Promociones from './pages/promociones/Promociones'
 import Arriendos from './pages/arriendos/Arriendos'
 import Llaves from './pages/llaves/Llaves'
 import Equipo from './pages/equipo/Equipo'
@@ -101,6 +102,7 @@ export default function App() {
                   <Route path="legal"       element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS','ABOGADO']} modulo="legal"><Legal /></RutaProtegida>} />
                   <Route path="pagos"       element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="pagos"><Pagos /></RutaProtegida>} />
                   <Route path="comisiones"  element={<RutaProtegida modulo="comisiones"><Comisiones /></RutaProtegida>} />
+                  <Route path="promociones" element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="promociones"><Promociones /></RutaProtegida>} />
                   <Route path="configuracion/packs-beneficios" element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="packs-beneficios"><PacksBeneficios /></RutaProtegida>} />
                   <Route path="arriendos"   element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="arriendos"><Arriendos /></RutaProtegida>} />
                   <Route path="llaves"      element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="llaves"><Llaves /></RutaProtegida>} />
