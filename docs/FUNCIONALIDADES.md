@@ -329,7 +329,15 @@
 ### API PÚBLICA — `/api/public`
 - Archivo: `routes/public.js`
 - Auth: API Key (header `X-Api-Key`)
-- `POST /leads` — crear lead desde sistema externo
+- `POST /leads` — crear lead desde sistema externo (Webhook 1 — formulario rellenado)
+- `POST /webhooks/agenda` — **Webhook 2 — cita agendada (tipo Calendly)** ⭐
+  - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `inicio`/`fechaHora` (ISO 8601) o `fecha` "DD/MM/YYYY" + `hora` "HH:MM", opcionales `vendedorId`, `edificioNombre`, `tipo`, `notas`
+  - Dedup/crea contacto+lead, **crea Visita (calendario)** con la fecha, mueve lead a `VISITA_AGENDADA`, registra interacción REUNION y **notifica al vendedor+gerencia** (`ACTIVIDAD_EN_LEAD`)
+  - Idempotente: no duplica la Visita si llega el mismo lead+fechaHora
+  - Recordatorios automáticos vía el cron de visitas próximas (24h) — igual que las visitas
+  - Si no llega fecha/hora: deja el lead en VISITA_AGENDADA y notifica para coordinar (no crea Visita)
+  - Vendedor fallback: Felix (ID 8) si el lead no tiene asignado
+  - Test e2e: `backend/scripts/testWebhookAgenda.js`
 - Deduplicación: por email/teléfono + similitud nombre (Levenshtein ≥ 0.6)
 - Auto-asigna a JEFE_VENTAS si no se especifica vendedor
 - Usa `lib/deduplication.js`

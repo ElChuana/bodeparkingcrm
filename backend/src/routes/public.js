@@ -3,9 +3,58 @@ const router = express.Router()
 const crypto = require('crypto')
 const prisma = require('../lib/prisma')
 const { mismoNombre: _mismoNombre } = require('../lib/deduplication')
+const { notificarLead } = require('../lib/notifications')
 
 // Wrapper para compatibilidad: public.js llama con (nombre, apellido, nombre2, apellido2)
 const mismoNombre = (n1, a1, n2, a2) => _mismoNombre(`${n1} ${a1}`, `${n2} ${a2}`)
+
+const FELIX_ID = 8 // vendedor fallback (Jefe de Ventas)
+
+// "María González Pérez" → { nombre: "María", apellido: "González Pérez" }
+function splitNombre(completo) {
+  const partes = (completo || '').trim().split(/\s+/)
+  if (partes.length === 0) return { nombre: '', apellido: '' }
+  if (partes.length === 1) return { nombre: partes[0], apellido: '' }
+  return { nombre: partes[0], apellido: partes.slice(1).join(' ') }
+}
+
+// Fecha/hora de la cita. Acepta ISO 8601 (inicio/fechaHora/start_time, estilo Calendly)
+// o fecha "DD/MM/YYYY" + hora "HH:MM" por separado. Devuelve Date válido o null.
+function parsearFechaHoraCita(body) {
+  const iso = body.inicio || body.fechaHora || body.start_time || body.startTime
+  if (iso) {
+    const dt = new Date(iso)
+    if (!isNaN(dt.getTime())) return dt
+  }
+  if (body.fecha && body.hora) {
+    const m = String(body.fecha).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    if (m) {
+      const [, dia, mes, anio] = m
+      const dt = new Date(`${anio}-${mes}-${dia}T${body.hora}:00`)
+      if (!isNaN(dt.getTime())) return dt
+    }
+  }
+  return null
+}
+
+// Busca un contacto existente por correo (match seguro) o teléfono + nombre similar
+async function buscarContactoDuplicado({ correo, telefono, nombre, apellido }) {
+  if (!correo && !telefono) return null
+  const candidatos = await prisma.contacto.findMany({
+    where: {
+      OR: [
+        ...(correo   ? [{ email:    { equals: correo, mode: 'insensitive' } }] : []),
+        ...(telefono ? [{ telefono: telefono }] : []),
+      ]
+    }
+  })
+  for (const c of candidatos) {
+    const matchEmail = correo && c.email && c.email.toLowerCase() === correo.toLowerCase()
+    const matchTel   = telefono && c.telefono === telefono
+    if (matchEmail || (matchTel && mismoNombre(nombre, apellido, c.nombre, c.apellido))) return c
+  }
+  return null
+}
 
 // ─── Middleware: autenticar por API Key ───────────────────────────
 async function autenticarApiKey(req, res, next) {
@@ -237,6 +286,141 @@ router.get('/leads/:id', autenticarApiKey, async (req, res) => {
     res.json(lead)
   } catch {
     res.status(500).json({ error: 'Error al consultar lead.' })
+  }
+})
+
+// ─── POST /api/public/webhooks/agenda ─────────────────────────────
+// Cita agendada (tipo Calendly): crea/dedup el lead, agenda la reunión en el
+// calendario (modelo Visita), mueve el lead a VISITA_AGENDADA y notifica al
+// vendedor — igual que una visita normal. Si no llega fecha/hora, igual deja
+// el lead agendado y notifica para coordinar.
+//
+// Payload (formato propio):
+//   nombre   (req)  "María González"  — nombre completo
+//   correo / email
+//   telefono
+//   inicio / fechaHora  ISO 8601  (o)  fecha "DD/MM/YYYY" + hora "HH:MM"
+//   vendedorId, edificioNombre, tipo, notas  (opcionales)
+router.post('/webhooks/agenda', autenticarApiKey, async (req, res) => {
+  const body = req.body || {}
+  const correo   = (body.correo || body.email)?.trim() || null
+  const telefono = body.telefono?.trim() || null
+  const { nombre, apellido } = splitNombre(body.nombre)
+
+  if (!nombre) {
+    return res.status(400).json({
+      error: 'nombre es requerido.',
+      campos_requeridos: ['nombre'],
+      campos_opcionales: ['correo', 'telefono', 'inicio (ISO) o fecha+hora', 'vendedorId', 'edificioNombre', 'tipo', 'notas'],
+    })
+  }
+
+  try {
+    const fechaHora = parsearFechaHoraCita(body)
+
+    // 1. Contacto (dedup o crear)
+    let contacto = await buscarContactoDuplicado({ correo, telefono, nombre, apellido })
+    if (!contacto) {
+      contacto = await prisma.contacto.create({
+        data: { nombre, apellido, email: correo, telefono, origen: 'WEB' },
+      })
+    } else {
+      // completar datos faltantes
+      const upd = {}
+      if (correo   && !contacto.email)    upd.email    = correo
+      if (telefono && !contacto.telefono) upd.telefono = telefono
+      if (Object.keys(upd).length) contacto = await prisma.contacto.update({ where: { id: contacto.id }, data: upd })
+    }
+
+    // 2. Lead (reusar el más reciente del contacto o crear)
+    let lead = await prisma.lead.findFirst({
+      where: { contactoId: contacto.id },
+      orderBy: { creadoEn: 'desc' },
+    })
+    if (!lead) {
+      lead = await prisma.lead.create({
+        data: {
+          contactoId: contacto.id,
+          vendedorId: body.vendedorId ? Number(body.vendedorId) : null,
+          etapa: 'VISITA_AGENDADA',
+          campana: body.campana?.trim() || 'Webinar',
+        },
+      })
+    }
+
+    // 3. Vendedor responsable (del payload, del lead, o Felix de fallback)
+    const vendedorId = body.vendedorId ? Number(body.vendedorId) : (lead.vendedorId || FELIX_ID)
+
+    // 4. Edificio opcional
+    let edificioId = null
+    if (body.edificioNombre) {
+      const ed = await prisma.edificio.findFirst({ where: { nombre: { contains: body.edificioNombre, mode: 'insensitive' } } })
+      if (ed) edificioId = ed.id
+    }
+
+    // 5. Agendar la reunión en el calendario (si hay fecha/hora)
+    let visita = null
+    if (fechaHora) {
+      // deduplicar: misma reunión (lead + fechaHora) no se duplica
+      visita = await prisma.visita.findFirst({ where: { leadId: lead.id, fechaHora } })
+      if (!visita) {
+        visita = await prisma.visita.create({
+          data: {
+            leadId: lead.id,
+            vendedorId,
+            edificioId,
+            fechaHora,
+            tipo: body.tipo?.trim() || 'Reunión comercial',
+            notas: body.notas?.trim() || 'Agendada vía webhook (lanzamiento)',
+          },
+        })
+      }
+    }
+
+    // 6. Actualizar lead: etapa + asegurar vendedor asignado (para recordatorios)
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: {
+        etapa: 'VISITA_AGENDADA',
+        ...(lead.vendedorId ? {} : { vendedorId }),
+      },
+    })
+
+    // 7. Interacción REUNION en la bitácora
+    const cuandoTxt = fechaHora
+      ? `el ${fechaHora.toLocaleDateString('es-CL')} a las ${fechaHora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`
+      : '(fecha por coordinar)'
+    await prisma.interaccion.create({
+      data: {
+        leadId: lead.id,
+        usuarioId: vendedorId,
+        tipo: 'REUNION',
+        descripcion: `Cita agendada vía ${req.apiKey.nombre} ${cuandoTxt}`,
+        ...(fechaHora ? { fecha: fechaHora } : {}),
+      },
+    })
+
+    // 8. Notificar al vendedor + gerencia (como las visitas)
+    await notificarLead({
+      leadId: lead.id,
+      tipo: 'ACTIVIDAD_EN_LEAD',
+      mensaje: `Nueva cita agendada con ${contacto.nombre} ${contacto.apellido} ${cuandoTxt}`,
+    })
+
+    return res.status(201).json({
+      ok: true,
+      leadId: lead.id,
+      contactoId: contacto.id,
+      visitaId: visita?.id || null,
+      agendadaEnCalendario: !!visita,
+      fechaHora: fechaHora ? fechaHora.toISOString() : null,
+      mensaje: fechaHora
+        ? 'Cita agendada en el calendario y vendedor notificado.'
+        : 'Lead marcado como VISITA_AGENDADA. Falta fecha/hora para el calendario; vendedor notificado para coordinar.',
+    })
+  } catch (err) {
+    console.error('[Webhook agenda]', err)
+    res.status(500).json({ error: 'Error interno al procesar la cita.' })
   }
 })
 
