@@ -132,8 +132,9 @@
 }</pre>
 
     <div class="note">La fecha/hora se puede enviar de dos formas (usar una): <br>
-      • <code>"inicio"</code> en formato ISO 8601 — <em>recomendado, es lo que entrega Calendly</em>.<br>
-      • o por separado: <code>"fecha": "12/06/2026"</code> + <code>"hora": "16:30"</code>.</div>
+      • <code>"inicio"</code> en formato ISO 8601 — <em>recomendado, es lo que entrega Calendly</em> (ej: <code>"2026-06-12T20:30:00Z"</code> o con offset <code>"2026-06-12T16:30:00-04:00"</code>).<br>
+      • o por separado: <code>"fecha": "12/06/2026"</code> + <code>"hora": "16:30"</code>.<br>
+      <strong>Zona horaria:</strong> si el ISO incluye zona (<code>Z</code> u offset) se respeta; si se envía sin zona, o como <code>fecha</code>+<code>hora</code>, se interpreta como <strong>hora de Chile</strong>.</div>
 
     <div class="label">Respuesta</div>
 <pre>{

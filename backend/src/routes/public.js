@@ -18,20 +18,48 @@ function splitNombre(completo) {
   return { nombre: partes[0], apellido: partes.slice(1).join(' ') }
 }
 
+// Offset de America/Santiago (en minutos) para una fecha UTC dada — maneja horario de verano.
+function offsetSantiagoMin(utcDate) {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Santiago', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  const p = dtf.formatToParts(utcDate).reduce((a, x) => (a[x.type] = x.value, a), {})
+  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second)
+  return (asUTC - utcDate.getTime()) / 60000
+}
+
+// Interpreta componentes de hora LOCAL de Chile → Date (UTC correcto, con DST)
+function desdeHoraChile(y, mo, d, h, mi) {
+  const guess = Date.UTC(y, mo - 1, d, h, mi)
+  const off = offsetSantiagoMin(new Date(guess))
+  return new Date(guess - off * 60000)
+}
+
 // Fecha/hora de la cita. Acepta ISO 8601 (inicio/fechaHora/start_time, estilo Calendly)
-// o fecha "DD/MM/YYYY" + hora "HH:MM" por separado. Devuelve Date válido o null.
+// o fecha "DD/MM/YYYY" + hora "HH:MM". Si el ISO trae zona (Z u offset) se respeta;
+// si viene sin zona o como fecha+hora, se interpreta como hora de Chile. Devuelve Date o null.
 function parsearFechaHoraCita(body) {
   const iso = body.inicio || body.fechaHora || body.start_time || body.startTime
   if (iso) {
-    const dt = new Date(iso)
-    if (!isNaN(dt.getTime())) return dt
+    const s = String(iso).trim()
+    const tieneZona = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)
+    if (tieneZona) {
+      const dt = new Date(s)
+      if (!isNaN(dt.getTime())) return dt
+    } else {
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+      if (m) return desdeHoraChile(+m[1], +m[2], +m[3], +m[4], +m[5])
+      const dt = new Date(s)
+      if (!isNaN(dt.getTime())) return dt
+    }
   }
   if (body.fecha && body.hora) {
     const m = String(body.fecha).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-    if (m) {
+    const hm = String(body.hora).match(/^(\d{1,2}):(\d{2})$/)
+    if (m && hm) {
       const [, dia, mes, anio] = m
-      const dt = new Date(`${anio}-${mes}-${dia}T${body.hora}:00`)
-      if (!isNaN(dt.getTime())) return dt
+      return desdeHoraChile(+anio, +mes, +dia, +hm[1], +hm[2])
     }
   }
   return null
@@ -363,8 +391,10 @@ router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
 
     // ── Caso B: cita agendada → reunión en el calendario ──
     const fechaHora = parsearFechaHoraCita(body)
+    // El servidor corre en UTC: formatear el texto en hora de Chile para que el mensaje sea correcto
+    const TZ = 'America/Santiago'
     const cuandoTxt = fechaHora
-      ? `el ${fechaHora.toLocaleDateString('es-CL')} a las ${fechaHora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`
+      ? `el ${fechaHora.toLocaleDateString('es-CL', { timeZone: TZ })} a las ${fechaHora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', timeZone: TZ })}`
       : '(fecha por coordinar)'
 
     // Reunión = Interaccion tipo REUNION con fecha (mismo patrón que Comuro → sale en el calendario)
