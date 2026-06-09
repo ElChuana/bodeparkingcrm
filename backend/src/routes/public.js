@@ -44,10 +44,14 @@ function parsearFechaHoraCita(body) {
   const iso = body.inicio || body.fechaHora || body.start_time || body.startTime
   if (iso) {
     const s = String(iso).trim()
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+    // 1) Tomar los dígitos de fecha/hora del texto (en cualquier parte) → hora de Chile
+    const m = s.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
     if (m) return desdeHoraChile(+m[1], +m[2], +m[3], +m[4], +m[5])
+    // 2) Fallback: si es parseable, usar los componentes "de pared" (UTC) como hora de Chile
     const dt = new Date(s)
-    if (!isNaN(dt.getTime())) return dt
+    if (!isNaN(dt.getTime())) {
+      return desdeHoraChile(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate(), dt.getUTCHours(), dt.getUTCMinutes())
+    }
   }
   if (body.fecha && body.hora) {
     const m = String(body.fecha).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
