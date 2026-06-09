@@ -606,7 +606,7 @@ model Cotizacion {
   leadId              Int
   creadoPorId         Int
   estado              EstadoCotizacion @default(BORRADOR)
-  validezDias         Int              @default(30)
+  validezDias         Int              @default(7)
   descuentoAprobadoUF Float            @default(0)
   notas               String?
   creadoEn            DateTime         @default(now())

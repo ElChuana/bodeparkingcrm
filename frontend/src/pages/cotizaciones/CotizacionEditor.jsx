@@ -620,7 +620,7 @@ export default function CotizacionEditor() {
   // Estado del editor
   const [items, setItems] = useState([])          // { unidadId, precioListaUF, numero, tipo, edificio }
   const [notas, setNotas] = useState('')
-  const [validezDias, setValidezDias] = useState(30)
+  const [validezDias, setValidezDias] = useState(7)
   const [leadId, setLeadId] = useState(leadIdParam ? Number(leadIdParam) : null)
   const [modalConvertir, setModalConvertir] = useState(false)
   const [conPromesa, setConPromesa] = useState(true)

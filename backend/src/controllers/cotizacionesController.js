@@ -190,7 +190,7 @@ const crear = async (req, res) => {
         leadId: Number(leadId),
         creadoPorId: req.usuario.id,
         notas: notas || null,
-        validezDias: validezDias || 30,
+        validezDias: validezDias || 7,
         items: {
           create: items.map(i => ({
             unidadId: Number(i.unidadId),
