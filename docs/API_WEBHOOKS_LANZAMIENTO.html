@@ -89,7 +89,7 @@
     <div class="note">La API Key se las entrega BodeParking. Si falta o es inválida, el CRM responde <code>401</code>.</div>
 
     <div class="label">URL base</div>
-    <div class="warn"><strong>⚠ Reemplazar</strong> <code>[URL-DEL-CRM]</code> por la URL real del CRM que les confirme BodeParking (ej: <code>https://crm.bodeparking.cl</code>).</div>
+    <div class="endpoint" style="margin-top:8px"><span class="method" style="background:#475569">BASE</span> https://backend-production-1c52.up.railway.app</div>
   </div>
 
   <!-- Webhook 1 -->
@@ -97,7 +97,7 @@
     <h2><span class="num">1</span>Formulario rellenado</h2>
     <div class="when">Se dispara cuando el prospecto completa el formulario / reserva, <strong>sin agendar</strong> cita.</div>
 
-    <div class="endpoint"><span class="method">POST</span> https://[URL-DEL-CRM]/api/public/webhooks/formulario</div>
+    <div class="endpoint"><span class="method">POST</span> https://backend-production-1c52.up.railway.app/api/public/webhooks/formulario</div>
 
     <div class="label">Cuerpo (JSON)</div>
 <pre><span class="c">// estado: opcional, informativo</span>
@@ -118,7 +118,7 @@
     <h2><span class="num">2</span>Cita agendada <span class="pill">→ calendario</span></h2>
     <div class="when">Se dispara cuando el prospecto <strong>agenda la cita</strong> de asesoría / reunión comercial (tipo Calendly).</div>
 
-    <div class="endpoint"><span class="method">POST</span> https://[URL-DEL-CRM]/api/public/webhooks/agenda</div>
+    <div class="endpoint"><span class="method">POST</span> https://backend-production-1c52.up.railway.app/api/public/webhooks/agenda</div>
 
     <div class="label">Cuerpo (JSON)</div>
 <pre>{
@@ -173,7 +173,7 @@
   <!-- Ejemplo curl -->
   <div class="card">
     <h2>Ejemplo (cURL)</h2>
-<pre>curl -X POST https://[URL-DEL-CRM]/api/public/webhooks/agenda \
+<pre>curl -X POST https://backend-production-1c52.up.railway.app/api/public/webhooks/agenda \
   -H <span class="s">"Content-Type: application/json"</span> \
   -H <span class="s">"X-Api-Key: bp_xxxxxxxxxxxxxxxxxxxxxxxx"</span> \
   -d '{
