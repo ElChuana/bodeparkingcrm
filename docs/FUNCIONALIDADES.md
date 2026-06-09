@@ -330,15 +330,16 @@
 - Archivo: `routes/public.js`
 - Auth: API Key (header `X-Api-Key`)
 - `POST /leads` — crear lead desde sistema externo (formato nombre+apellido, legacy/Comuro)
-- `POST /webhooks/formulario` — **Webhook 1 — formulario rellenado** (formato unificado nombre completo + correo). Crea lead NUEVO, notifica LEAD_NUEVO, dedup.
-- `POST /webhooks/agenda` — **Webhook 2 — cita agendada (tipo Calendly)** ⭐
-  - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `inicio`/`fechaHora` (ISO 8601) o `fecha` "DD/MM/YYYY" + `hora` "HH:MM", opcionales `vendedorId`, `edificioNombre`, `tipo`, `notas`
-  - Dedup/crea contacto+lead, **crea Visita (calendario)** con la fecha, mueve lead a `VISITA_AGENDADA`, registra interacción REUNION y **notifica al vendedor+gerencia** (`ACTIVIDAD_EN_LEAD`)
-  - Idempotente: no duplica la Visita si llega el mismo lead+fechaHora
-  - Recordatorios automáticos vía el cron de visitas próximas (24h) — igual que las visitas
-  - Si no llega fecha/hora: deja el lead en VISITA_AGENDADA y notifica para coordinar (no crea Visita)
+- `POST /webhooks/webinar` — **Webhook único del lanzamiento (tipo Calendly)** ⭐ enruta por `estado`
+  - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `estado` (`formulario-rellenado` | `agenda`), `inicio`/`fechaHora` (ISO 8601) o `fecha` "DD/MM/YYYY" + `hora` "HH:MM" (solo agenda), opcionales `vendedorId`, `campana`, `notas`
+  - `estado: formulario-rellenado` → un lead **nuevo normal** (etapa NUEVO, campaña "Webinar"), notifica LEAD_NUEVO. Dedup.
+  - `estado: agenda` → busca/crea el lead + **agenda la reunión como `Interaccion` tipo REUNION con fecha** (mismo patrón que Comuro → aparece en el calendario que combina visitas + interacciones), etapa `VISITA_AGENDADA`, notifica (`ACTIVIDAD_EN_LEAD`)
+  - **No crea modelo Visita** — la reunión es una interacción REUNION (consistente con Comuro)
+  - Idempotente: no duplica la reunión si llega el mismo lead + fecha/hora
+  - Recordatorio automático 24h: el cron ahora cubre **visitas Y reuniones (interacciones REUNION)** próximas
+  - Si no llega fecha/hora: deja el lead en VISITA_AGENDADA y notifica para coordinar
   - Vendedor fallback: Felix (ID 8) si el lead no tiene asignado
-  - Test e2e: `backend/scripts/testWebhookAgenda.js`
+  - Doc para el proveedor: `docs/API_WEBHOOKS_LANZAMIENTO.html` · Test e2e: `backend/scripts/testWebhookWebinar.js`
 - Deduplicación: por email/teléfono + similitud nombre (Levenshtein ≥ 0.6)
 - Auto-asigna a JEFE_VENTAS si no se especifica vendedor
 - Usa `lib/deduplication.js`

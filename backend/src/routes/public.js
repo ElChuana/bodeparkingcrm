@@ -289,179 +289,106 @@ router.get('/leads/:id', autenticarApiKey, async (req, res) => {
   }
 })
 
-// ─── POST /api/public/webhooks/formulario ─────────────────────────
-// Webhook 1 — formulario rellenado / reserva sin agendar. Mismo formato que
-// el de agenda (nombre completo + correo). Crea el lead en etapa NUEVO.
-router.post('/webhooks/formulario', autenticarApiKey, async (req, res) => {
-  const body = req.body || {}
-  const correo   = (body.correo || body.email)?.trim() || null
-  const telefono = body.telefono?.trim() || null
-  const { nombre, apellido } = splitNombre(body.nombre)
-
-  if (!nombre) {
-    return res.status(400).json({
-      error: 'nombre es requerido.',
-      campos_requeridos: ['nombre'],
-      campos_opcionales: ['correo', 'telefono', 'campana', 'notas', 'vendedorId'],
-    })
-  }
-
-  try {
-    // 1. Contacto (dedup o crear)
-    let contacto = await buscarContactoDuplicado({ correo, telefono, nombre, apellido })
-    if (!contacto) {
-      contacto = await prisma.contacto.create({
-        data: { nombre, apellido, email: correo, telefono, origen: 'WEB' },
-      })
-    } else {
-      const upd = {}
-      if (correo   && !contacto.email)    upd.email    = correo
-      if (telefono && !contacto.telefono) upd.telefono = telefono
-      if (Object.keys(upd).length) contacto = await prisma.contacto.update({ where: { id: contacto.id }, data: upd })
-    }
-
-    // 2. Lead: si ya existe uno del contacto, no duplicar
-    const existente = await prisma.lead.findFirst({ where: { contactoId: contacto.id }, orderBy: { creadoEn: 'desc' } })
-    if (existente) {
-      await prisma.interaccion.create({
-        data: { leadId: existente.id, tipo: 'NOTA', descripcion: `Reingreso vía ${req.apiKey.nombre} (formulario). Etapa actual: ${existente.etapa}. No se creó duplicado.` },
-      })
-      return res.status(200).json({ ok: true, duplicado: true, leadId: existente.id, contactoId: contacto.id, etapaActual: existente.etapa })
-    }
-
-    const lead = await prisma.lead.create({
-      data: {
-        contactoId: contacto.id,
-        vendedorId: body.vendedorId ? Number(body.vendedorId) : null,
-        etapa: 'NUEVO',
-        campana: body.campana?.trim() || 'Webinar',
-        notas: body.notas?.trim() || null,
-      },
-    })
-    await prisma.interaccion.create({
-      data: { leadId: lead.id, tipo: 'NOTA', descripcion: `Lead ingresado vía ${req.apiKey.nombre} (formulario)` },
-    })
-    await notificarLead({ leadId: lead.id, tipo: 'LEAD_NUEVO', mensaje: `Nuevo lead del formulario: ${contacto.nombre} ${contacto.apellido}` })
-
-    return res.status(201).json({ ok: true, duplicado: false, leadId: lead.id, contactoId: contacto.id, etapa: lead.etapa })
-  } catch (err) {
-    console.error('[Webhook formulario]', err)
-    res.status(500).json({ error: 'Error interno al procesar el formulario.' })
-  }
-})
-
-// ─── POST /api/public/webhooks/agenda ─────────────────────────────
-// Cita agendada (tipo Calendly): crea/dedup el lead, agenda la reunión en el
-// calendario (modelo Visita), mueve el lead a VISITA_AGENDADA y notifica al
-// vendedor — igual que una visita normal. Si no llega fecha/hora, igual deja
-// el lead agendado y notifica para coordinar.
+// ─── POST /api/public/webhooks/webinar ────────────────────────────
+// Webhook único del lanzamiento (tipo Calendly). Enruta según `estado`:
+//   - "agenda"                  → busca/crea el lead + agenda la reunión
+//                                 (Interaccion tipo REUNION con fecha → aparece en
+//                                 el calendario, igual que Comuro) + etapa VISITA_AGENDADA
+//   - cualquier otro / formulario → solo crea el lead nuevo (etapa NUEVO)
+// En ambos casos deduplica contacto/lead y notifica al vendedor + gerencia.
 //
-// Payload (formato propio):
-//   nombre   (req)  "María González"  — nombre completo
-//   correo / email
-//   telefono
-//   inicio / fechaHora  ISO 8601  (o)  fecha "DD/MM/YYYY" + hora "HH:MM"
-//   vendedorId, edificioNombre, tipo, notas  (opcionales)
-router.post('/webhooks/agenda', autenticarApiKey, async (req, res) => {
+// Payload (lo definimos nosotros):
+//   nombre  (req) "María González" — completo
+//   correo/email, telefono, estado
+//   inicio/fechaHora ISO 8601  (o)  fecha "DD/MM/YYYY" + hora "HH:MM"   (solo agenda)
+//   vendedorId, campana, notas  (opcionales)
+router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
   const body = req.body || {}
   const correo   = (body.correo || body.email)?.trim() || null
   const telefono = body.telefono?.trim() || null
   const { nombre, apellido } = splitNombre(body.nombre)
+  const esAgenda = String(body.estado || '').toLowerCase() === 'agenda'
 
   if (!nombre) {
     return res.status(400).json({
       error: 'nombre es requerido.',
       campos_requeridos: ['nombre'],
-      campos_opcionales: ['correo', 'telefono', 'inicio (ISO) o fecha+hora', 'vendedorId', 'edificioNombre', 'tipo', 'notas'],
+      campos_opcionales: ['correo', 'telefono', 'estado', 'inicio (ISO) o fecha+hora', 'vendedorId', 'campana', 'notas'],
     })
   }
 
   try {
-    const fechaHora = parsearFechaHoraCita(body)
-
     // 1. Contacto (dedup o crear)
     let contacto = await buscarContactoDuplicado({ correo, telefono, nombre, apellido })
     if (!contacto) {
-      contacto = await prisma.contacto.create({
-        data: { nombre, apellido, email: correo, telefono, origen: 'WEB' },
-      })
+      contacto = await prisma.contacto.create({ data: { nombre, apellido, email: correo, telefono, origen: 'WEB' } })
     } else {
-      // completar datos faltantes
       const upd = {}
       if (correo   && !contacto.email)    upd.email    = correo
       if (telefono && !contacto.telefono) upd.telefono = telefono
       if (Object.keys(upd).length) contacto = await prisma.contacto.update({ where: { id: contacto.id }, data: upd })
     }
 
-    // 2. Lead (reusar el más reciente del contacto o crear)
-    let lead = await prisma.lead.findFirst({
-      where: { contactoId: contacto.id },
-      orderBy: { creadoEn: 'desc' },
-    })
+    // 2. Lead (reusar el del contacto o crear como cualquier lead nuevo del webinar)
+    const campana = body.campana?.trim() || 'Webinar'
+    let lead = await prisma.lead.findFirst({ where: { contactoId: contacto.id }, orderBy: { creadoEn: 'desc' } })
+    const leadNuevo = !lead
     if (!lead) {
       lead = await prisma.lead.create({
         data: {
           contactoId: contacto.id,
           vendedorId: body.vendedorId ? Number(body.vendedorId) : null,
-          etapa: 'VISITA_AGENDADA',
-          campana: body.campana?.trim() || 'Webinar',
+          etapa: esAgenda ? 'VISITA_AGENDADA' : 'NUEVO',
+          campana,
+          notas: body.notas?.trim() || null,
         },
       })
     }
 
-    // 3. Vendedor responsable (del payload, del lead, o Felix de fallback)
     const vendedorId = body.vendedorId ? Number(body.vendedorId) : (lead.vendedorId || FELIX_ID)
 
-    // 4. Edificio opcional
-    let edificioId = null
-    if (body.edificioNombre) {
-      const ed = await prisma.edificio.findFirst({ where: { nombre: { contains: body.edificioNombre, mode: 'insensitive' } } })
-      if (ed) edificioId = ed.id
-    }
-
-    // 5. Agendar la reunión en el calendario (si hay fecha/hora)
-    let visita = null
-    if (fechaHora) {
-      // deduplicar: misma reunión (lead + fechaHora) no se duplica
-      visita = await prisma.visita.findFirst({ where: { leadId: lead.id, fechaHora } })
-      if (!visita) {
-        visita = await prisma.visita.create({
-          data: {
-            leadId: lead.id,
-            vendedorId,
-            edificioId,
-            fechaHora,
-            tipo: body.tipo?.trim() || 'Reunión comercial',
-            notas: body.notas?.trim() || 'Agendada vía webhook (lanzamiento)',
-          },
-        })
+    // ── Caso A: formulario rellenado → lead nuevo, sin agendar ──
+    if (!esAgenda) {
+      await prisma.interaccion.create({
+        data: { leadId: lead.id, tipo: 'NOTA', descripcion: `${leadNuevo ? 'Lead ingresado' : 'Reingreso'} vía ${req.apiKey.nombre} (formulario webinar)` },
+      })
+      if (leadNuevo) {
+        await notificarLead({ leadId: lead.id, tipo: 'LEAD_NUEVO', mensaje: `Nuevo lead del webinar: ${contacto.nombre} ${contacto.apellido}` })
       }
+      return res.status(leadNuevo ? 201 : 200).json({
+        ok: true, evento: 'formulario', duplicado: !leadNuevo,
+        leadId: lead.id, contactoId: contacto.id, etapa: lead.etapa,
+      })
     }
 
-    // 6. Actualizar lead: etapa + asegurar vendedor asignado (para recordatorios)
-    await prisma.lead.update({
-      where: { id: lead.id },
-      data: {
-        etapa: 'VISITA_AGENDADA',
-        ...(lead.vendedorId ? {} : { vendedorId }),
-      },
-    })
-
-    // 7. Interacción REUNION en la bitácora
+    // ── Caso B: cita agendada → reunión en el calendario ──
+    const fechaHora = parsearFechaHoraCita(body)
     const cuandoTxt = fechaHora
       ? `el ${fechaHora.toLocaleDateString('es-CL')} a las ${fechaHora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}`
       : '(fecha por coordinar)'
-    await prisma.interaccion.create({
-      data: {
-        leadId: lead.id,
-        usuarioId: vendedorId,
-        tipo: 'REUNION',
-        descripcion: `Cita agendada vía ${req.apiKey.nombre} ${cuandoTxt}`,
-        ...(fechaHora ? { fecha: fechaHora } : {}),
-      },
+
+    // Reunión = Interaccion tipo REUNION con fecha (mismo patrón que Comuro → sale en el calendario)
+    let reunion = fechaHora
+      ? await prisma.interaccion.findFirst({ where: { leadId: lead.id, tipo: 'REUNION', fecha: fechaHora } })
+      : null
+    if (!reunion) {
+      reunion = await prisma.interaccion.create({
+        data: {
+          leadId: lead.id,
+          usuarioId: vendedorId,
+          tipo: 'REUNION',
+          descripcion: body.notas?.trim() || `Cita agendada vía ${req.apiKey.nombre} ${cuandoTxt}`,
+          ...(fechaHora ? { fecha: fechaHora } : {}),
+        },
+      })
+    }
+
+    // Etapa + asegurar vendedor asignado (para los recordatorios)
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: { etapa: 'VISITA_AGENDADA', ...(lead.vendedorId ? {} : { vendedorId }) },
     })
 
-    // 8. Notificar al vendedor + gerencia (como las visitas)
     await notificarLead({
       leadId: lead.id,
       tipo: 'ACTIVIDAD_EN_LEAD',
@@ -469,19 +396,17 @@ router.post('/webhooks/agenda', autenticarApiKey, async (req, res) => {
     })
 
     return res.status(201).json({
-      ok: true,
-      leadId: lead.id,
-      contactoId: contacto.id,
-      visitaId: visita?.id || null,
-      agendadaEnCalendario: !!visita,
+      ok: true, evento: 'agenda',
+      leadId: lead.id, contactoId: contacto.id, reunionId: reunion.id,
+      enCalendario: !!fechaHora,
       fechaHora: fechaHora ? fechaHora.toISOString() : null,
       mensaje: fechaHora
         ? 'Cita agendada en el calendario y vendedor notificado.'
-        : 'Lead marcado como VISITA_AGENDADA. Falta fecha/hora para el calendario; vendedor notificado para coordinar.',
+        : 'Lead en VISITA_AGENDADA; falta fecha/hora, vendedor notificado para coordinar.',
     })
   } catch (err) {
-    console.error('[Webhook agenda]', err)
-    res.status(500).json({ error: 'Error interno al procesar la cita.' })
+    console.error('[Webhook webinar]', err)
+    res.status(500).json({ error: 'Error interno al procesar el evento.' })
   }
 })
 

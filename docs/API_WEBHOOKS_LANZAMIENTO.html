@@ -70,7 +70,7 @@
 
   <div class="card">
     <div class="label" style="margin-top:0">Resumen</div>
-    <p>Dos eventos. Cuando un prospecto <strong>rellena el formulario</strong> envían el Webhook 1; cuando <strong>agenda la cita</strong> (tipo Calendly) envían el Webhook 2. El CRM crea/actualiza el contacto, evita duplicados, agenda la reunión en el calendario y notifica al ejecutivo de ventas.</p>
+    <p><strong>Un solo endpoint</strong>, dos eventos distinguidos por el campo <code>estado</code>: cuando el prospecto <strong>rellena el formulario</strong> (<code>estado: "formulario-rellenado"</code>) y cuando <strong>agenda la cita</strong> tipo Calendly (<code>estado: "agenda"</code>). El CRM crea/actualiza el contacto, evita duplicados, en el caso de agenda deja la reunión en el calendario, y notifica al ejecutivo de ventas.</p>
   </div>
 
   <!-- Convenciones -->
@@ -92,16 +92,20 @@
     <div class="endpoint" style="margin-top:8px"><span class="method" style="background:#475569">BASE</span> https://backend-production-1c52.up.railway.app</div>
   </div>
 
-  <!-- Webhook 1 -->
+  <!-- Endpoint único -->
+  <div class="card">
+    <h2>Endpoint</h2>
+    <div class="when">Un mismo endpoint recibe los dos eventos. Se diferencian por el campo <code>estado</code>.</div>
+    <div class="endpoint"><span class="method">POST</span> https://backend-production-1c52.up.railway.app/api/public/webhooks/webinar</div>
+  </div>
+
+  <!-- Evento 1 -->
   <div class="card">
     <h2><span class="num">1</span>Formulario rellenado</h2>
-    <div class="when">Se dispara cuando el prospecto completa el formulario / reserva, <strong>sin agendar</strong> cita.</div>
-
-    <div class="endpoint"><span class="method">POST</span> https://backend-production-1c52.up.railway.app/api/public/webhooks/formulario</div>
+    <div class="when">El prospecto completa el formulario / reserva, <strong>sin agendar</strong> cita. <code>estado: "formulario-rellenado"</code></div>
 
     <div class="label">Cuerpo (JSON)</div>
-<pre><span class="c">// estado: opcional, informativo</span>
-{
+<pre>{
   <span class="k">"nombre"</span>: <span class="s">"María González"</span>,
   <span class="k">"correo"</span>: <span class="s">"maria.gonzalez@email.com"</span>,
   <span class="k">"telefono"</span>: <span class="s">"+56912345678"</span>,
@@ -109,16 +113,14 @@
 }</pre>
 
     <div class="label">Respuesta</div>
-<pre>{ <span class="k">"ok"</span>: true, <span class="k">"duplicado"</span>: false, <span class="k">"leadId"</span>: 1234, <span class="k">"etapa"</span>: <span class="s">"NUEVO"</span> }</pre>
-    <p style="margin-top:6px;font-size:13px;color:#475569">Crea el lead en etapa <strong>NUEVO</strong>. Si el contacto ya existía, responde <code>duplicado: true</code> y no crea otro.</p>
+<pre>{ <span class="k">"ok"</span>: true, <span class="k">"evento"</span>: <span class="s">"formulario"</span>, <span class="k">"duplicado"</span>: false, <span class="k">"leadId"</span>: 1234, <span class="k">"etapa"</span>: <span class="s">"NUEVO"</span> }</pre>
+    <p style="margin-top:6px;font-size:13px;color:#475569">Crea el lead en etapa <strong>NUEVO</strong> (campaña "Webinar"). Si el contacto ya existía, responde <code>duplicado: true</code> y no crea otro.</p>
   </div>
 
-  <!-- Webhook 2 -->
+  <!-- Evento 2 -->
   <div class="card">
     <h2><span class="num">2</span>Cita agendada <span class="pill">→ calendario</span></h2>
-    <div class="when">Se dispara cuando el prospecto <strong>agenda la cita</strong> de asesoría / reunión comercial (tipo Calendly).</div>
-
-    <div class="endpoint"><span class="method">POST</span> https://backend-production-1c52.up.railway.app/api/public/webhooks/agenda</div>
+    <div class="when">El prospecto <strong>agenda la cita</strong> de asesoría / reunión comercial (tipo Calendly). <code>estado: "agenda"</code></div>
 
     <div class="label">Cuerpo (JSON)</div>
 <pre>{
@@ -136,12 +138,13 @@
     <div class="label">Respuesta</div>
 <pre>{
   <span class="k">"ok"</span>: true,
+  <span class="k">"evento"</span>: <span class="s">"agenda"</span>,
   <span class="k">"leadId"</span>: 1234,
-  <span class="k">"visitaId"</span>: 56,
-  <span class="k">"agendadaEnCalendario"</span>: true,
+  <span class="k">"reunionId"</span>: 56,
+  <span class="k">"enCalendario"</span>: true,
   <span class="k">"fechaHora"</span>: <span class="s">"2026-06-12T16:30:00.000Z"</span>
 }</pre>
-    <p style="margin-top:6px;font-size:13px;color:#475569">Crea la reunión en el <strong>calendario</strong>, mueve el lead a <strong>VISITA_AGENDADA</strong> y <strong>notifica al ejecutivo</strong> (con recordatorio automático 24 h antes). Si llega sin fecha/hora, igual agenda el lead y avisa para coordinar.</p>
+    <p style="margin-top:6px;font-size:13px;color:#475569">Deja la reunión en el <strong>calendario</strong>, mueve el lead a <strong>VISITA_AGENDADA</strong> y <strong>notifica al ejecutivo</strong> (con recordatorio automático 24 h antes). Si llega sin fecha/hora, igual agenda el lead y avisa para coordinar.</p>
   </div>
 
   <!-- Campos -->
@@ -152,7 +155,7 @@
       <tr><td><code>nombre</code></td><td>string</td><td><span class="req">requerido</span></td><td>Nombre completo del contacto ("Nombre Apellido").</td></tr>
       <tr><td><code>correo</code></td><td>string</td><td><span class="opt">opcional</span></td><td>Email del contacto (también se acepta <code>email</code>).</td></tr>
       <tr><td><code>telefono</code></td><td>string</td><td><span class="opt">opcional</span></td><td>Formato internacional (+569…).</td></tr>
-      <tr><td><code>estado</code></td><td>string</td><td><span class="opt">opcional</span></td><td><code>formulario-rellenado</code> o <code>agenda</code>. Informativo.</td></tr>
+      <tr><td><code>estado</code></td><td>string</td><td><span class="req">requerido</span></td><td><code>formulario-rellenado</code> o <code>agenda</code>. Determina qué hace el CRM.</td></tr>
       <tr><td><code>inicio</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td>Fecha/hora de la cita en ISO 8601. Alternativa: <code>fecha</code> + <code>hora</code>.</td></tr>
       <tr><td><code>fecha</code> / <code>hora</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td><code>"DD/MM/YYYY"</code> y <code>"HH:MM"</code> (si no se usa <code>inicio</code>).</td></tr>
     </table>
@@ -173,7 +176,7 @@
   <!-- Ejemplo curl -->
   <div class="card">
     <h2>Ejemplo (cURL)</h2>
-<pre>curl -X POST https://backend-production-1c52.up.railway.app/api/public/webhooks/agenda \
+<pre>curl -X POST https://backend-production-1c52.up.railway.app/api/public/webhooks/webinar \
   -H <span class="s">"Content-Type: application/json"</span> \
   -H <span class="s">"X-Api-Key: bp_xxxxxxxxxxxxxxxxxxxxxxxx"</span> \
   -d '{
