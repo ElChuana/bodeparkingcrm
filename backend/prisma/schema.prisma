@@ -424,6 +424,7 @@ model Visita {
   tipo       String
   resultado  String?
   notas      String?
+  enlace     String? // link de la reunión online (Meet/Zoom) cuando es virtual
   creadoEn   DateTime @default(now())
 
   lead     Lead      @relation(fields: [leadId], references: [id])

@@ -58,7 +58,7 @@ const listarTodas = async (req, res) => {
 }
 
 const crear = async (req, res) => {
-  const { leadId, fechaHora, tipo, notas, edificioId } = req.body
+  const { leadId, fechaHora, tipo, notas, edificioId, enlace } = req.body
 
   if (!leadId || !fechaHora || !tipo) {
     return res.status(400).json({ error: 'Lead, fecha/hora y tipo son requeridos.' })
@@ -72,7 +72,8 @@ const crear = async (req, res) => {
         edificioId: edificioId ? Number(edificioId) : null,
         fechaHora: new Date(fechaHora),
         tipo,
-        notas
+        notas,
+        enlace: enlace?.trim() || null
       }
     })
 
@@ -133,7 +134,7 @@ const actualizarResultado = async (req, res) => {
 // Edición completa de una visita (fecha, tipo, notas, edificio, vendedor)
 const actualizar = async (req, res) => {
   const { id } = req.params
-  const { fechaHora, tipo, notas, edificioId, vendedorId } = req.body
+  const { fechaHora, tipo, notas, edificioId, vendedorId, enlace } = req.body
 
   try {
     const visita = await prisma.visita.update({
@@ -144,6 +145,7 @@ const actualizar = async (req, res) => {
         ...(notas !== undefined && { notas: notas || null }),
         ...(edificioId !== undefined && { edificioId: edificioId ? Number(edificioId) : null }),
         ...(vendedorId !== undefined && { vendedorId: vendedorId ? Number(vendedorId) : null }),
+        ...(enlace !== undefined && { enlace: enlace?.trim() || null }),
       },
       include: {
         vendedor: { select: { id: true, nombre: true, apellido: true } },

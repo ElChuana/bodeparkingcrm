@@ -108,7 +108,7 @@
 ### VISITAS — anidado en `/api/leads/:leadId/visitas`
 - Archivos: `controllers/visitasController.js` (rutas en `leads.js`)
 - `GET /` — listar visitas del lead
-- `POST /` — agendar visita (cambia etapa a VISITA_AGENDADA)
+- `POST /` — agendar visita (cambia etapa a VISITA_AGENDADA). Campos: fechaHora, tipo, notas, edificioId, vendedorId, **enlace** (link Meet/Zoom)
 - `PATCH /:id` — editar datos visita
 - `PUT /:id` — marcar resultado (cambia etapa a VISITA_REALIZADA)
 - `DELETE /:id` — eliminar visita
@@ -334,6 +334,8 @@
   - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `estado` (`formulario-rellenado` | `agenda`), `inicio`/`fechaHora` (ISO 8601) o `fecha` "DD/MM/YYYY" + `hora` "HH:MM" (solo agenda), opcionales `vendedorId`, `campana`, `notas`
   - `estado: formulario-rellenado` → un lead **nuevo normal** (etapa NUEVO, campaña "Webinar"), notifica LEAD_NUEVO. Dedup.
   - `estado: agenda` → busca/crea el lead + **agenda la reunión como `Visita`** (aparece destacada en el calendario y en la lista de Visitas), etapa `VISITA_AGENDADA`, deja una NOTA en el timeline y notifica (`ACTIVIDAD_EN_LEAD`)
+  - Acepta `enlace` (o `meetUrl`/`link`) → link del Meet/Zoom, se guarda en `Visita.enlace`
+  - Hora: se interpreta **siempre como hora de Chile** (ignora Z/offset del ISO)
   - Usa el **modelo Visita** (no interacción REUNION) para que se vea/comporte como las visitas; el recordatorio 24h lo da el cron de visitas existente
   - Idempotente: no duplica la Visita si llega el mismo lead + fecha/hora
   - La entrada de timeline es NOTA (sin fecha futura) para no duplicar el evento en el calendario

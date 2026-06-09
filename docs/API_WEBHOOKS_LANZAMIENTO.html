@@ -128,7 +128,8 @@
   <span class="k">"correo"</span>: <span class="s">"maria.gonzalez@email.com"</span>,
   <span class="k">"telefono"</span>: <span class="s">"+56912345678"</span>,
   <span class="k">"estado"</span>: <span class="s">"agenda"</span>,
-  <span class="k">"inicio"</span>: <span class="s">"2026-06-12T16:30:00"</span>   <span class="c">// fecha/hora de la cita (ISO 8601)</span>
+  <span class="k">"inicio"</span>: <span class="s">"2026-06-12T16:30:00"</span>,   <span class="c">// fecha/hora de la cita (hora de Chile)</span>
+  <span class="k">"enlace"</span>: <span class="s">"https://meet.google.com/abc-defg-hij"</span>   <span class="c">// opcional: link del Meet/Zoom</span>
 }</pre>
 
     <div class="note">La fecha/hora se puede enviar de dos formas (usar una): <br>
@@ -159,6 +160,7 @@
       <tr><td><code>estado</code></td><td>string</td><td><span class="req">requerido</span></td><td><code>formulario-rellenado</code> o <code>agenda</code>. Determina qué hace el CRM.</td></tr>
       <tr><td><code>inicio</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td>Fecha/hora de la cita en ISO 8601. Alternativa: <code>fecha</code> + <code>hora</code>.</td></tr>
       <tr><td><code>fecha</code> / <code>hora</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td><code>"DD/MM/YYYY"</code> y <code>"HH:MM"</code> (si no se usa <code>inicio</code>).</td></tr>
+      <tr><td><code>enlace</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td>Link de la reunión online (Meet/Zoom). También se acepta <code>meetUrl</code> / <code>link</code>.</td></tr>
     </table>
     <div class="note">Se recomienda enviar <strong>correo o teléfono</strong> (idealmente ambos): el CRM los usa para evitar contactos duplicados.</div>
   </div>

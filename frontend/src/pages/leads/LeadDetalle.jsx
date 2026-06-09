@@ -180,6 +180,9 @@ function ModalVisita({ open, onClose, leadId }) {
         <Form.Item name="tipo" label="Tipo">
           <Select options={[{ value: 'presencial', label: 'Presencial' }, { value: 'virtual', label: 'Virtual' }]} />
         </Form.Item>
+        <Form.Item name="enlace" label="Link de la reunión (Meet/Zoom)">
+          <Input placeholder="https://meet.google.com/..." />
+        </Form.Item>
         <Form.Item name="vendedorId" label="Quién realiza la visita">
           <Select allowClear placeholder="Seleccionar..." options={vendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))} />
         </Form.Item>
@@ -247,6 +250,7 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
   const [fechaHora, setFechaHora] = useState('')
   const [tipo, setTipo] = useState('presencial')
   const [notas, setNotas] = useState('')
+  const [enlace, setEnlace] = useState('')
   const [vendedorId, setVendedorId] = useState(undefined)
   const [edificioId, setEdificioId] = useState(undefined)
 
@@ -262,6 +266,7 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
       setFechaHora(toLocalDatetime(visita.fechaHora))
       setTipo(visita.tipo || 'presencial')
       setNotas(visita.notas || '')
+      setEnlace(visita.enlace || '')
       setVendedorId(visita.vendedor?.id || undefined)
       setEdificioId(visita.edificioId || undefined)
     }
@@ -284,7 +289,7 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
     setLoading(true)
     try {
       const fechaHoraUTC = new Date(fechaHora).toISOString()
-      await api.patch(`/leads/${leadId}/visitas/${visita.id}`, { fechaHora: fechaHoraUTC, tipo, notas, vendedorId, edificioId })
+      await api.patch(`/leads/${leadId}/visitas/${visita.id}`, { fechaHora: fechaHoraUTC, tipo, notas, enlace, vendedorId, edificioId })
       await qc.refetchQueries({ queryKey: ['lead', String(leadId)], type: 'active' })
       qc.invalidateQueries(['visitas-todas'])
       message.success('Visita actualizada')
@@ -315,6 +320,10 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
           <div style={{ marginBottom: 4, fontSize: 13 }}>Tipo</div>
           <Select value={tipo} onChange={setTipo} style={{ width: '100%' }}
             options={[{ value: 'presencial', label: 'Presencial' }, { value: 'virtual', label: 'Virtual' }]} />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4, fontSize: 13 }}>Link de la reunión (Meet/Zoom)</div>
+          <Input value={enlace} onChange={e => setEnlace(e.target.value)} placeholder="https://meet.google.com/..." />
         </div>
         <div>
           <div style={{ marginBottom: 4, fontSize: 13 }}>Quién realiza la visita</div>
@@ -800,6 +809,13 @@ export default function LeadDetalle() {
             </Text></div>
             {item.vendedor && (
               <div><Text type="secondary" style={{ fontSize: 12 }}>👤 {item.vendedor.nombre} {item.vendedor.apellido}</Text></div>
+            )}
+            {item.enlace && (
+              <div style={{ marginTop: 2 }}>
+                <a href={item.enlace} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
+                  🔗 Unirse a la reunión
+                </a>
+              </div>
             )}
             {item.notas && <Text style={{ fontSize: 13, display: 'block', marginTop: 4 }}>{item.notas}</Text>}
           </div>

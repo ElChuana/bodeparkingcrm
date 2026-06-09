@@ -393,6 +393,9 @@ router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
       ? `el ${fechaHora.toLocaleDateString('es-CL', { timeZone: TZ })} a las ${fechaHora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', timeZone: TZ })}`
       : '(fecha por coordinar)'
 
+    // Link de la reunión online (Meet/Zoom) si viene en el payload
+    const enlace = (body.enlace || body.meetUrl || body.linkMeet || body.link || body.url)?.trim() || null
+
     // La reunión se agenda como VISITA (modelo Visita) → aparece destacada en el
     // calendario y en la lista de Visitas, con recordatorio 24h nativo (igual que las visitas).
     let visita = null
@@ -401,6 +404,8 @@ router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
       visita = await prisma.visita.findFirst({ where: { leadId: lead.id, fechaHora } })
       if (visita) {
         reunionNueva = false // reenvío del mismo evento → no duplicar
+        // si el reenvío trae enlace y no había, completarlo
+        if (enlace && !visita.enlace) visita = await prisma.visita.update({ where: { id: visita.id }, data: { enlace } })
       } else {
         visita = await prisma.visita.create({
           data: {
@@ -409,6 +414,7 @@ router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
             fechaHora,
             tipo: body.tipo?.trim() || 'Reunión comercial',
             notas: body.notas?.trim() || `Cita agendada vía ${req.apiKey.nombre} (webinar)`,
+            enlace,
           },
         })
       }
