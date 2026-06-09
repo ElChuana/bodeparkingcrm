@@ -451,7 +451,9 @@ const TIPO_LABEL = {
 
 function resumenPromoLabel(p) {
   if (p.categoria === 'BENEFICIO') return null
-  if (p.tipo === 'DESCUENTO_UF') return `−${p.valorUF} UF${p.minUnidades ? ` · mín. ${p.minUnidades}` : ''}`
+  // Precio webinar: el objetivo es un peso fijo por unidad
+  if (p.precioObjetivoPesos) return `→ $${p.precioObjetivoPesos.toLocaleString('es-CL')} c/u`
+  if (p.tipo === 'DESCUENTO_UF') return `−${p.valorUF} UF${p.minUnidades ? ` · ${p.minUnidades}+ unidades` : ''}`
   if (p.tipo === 'DESCUENTO_PORCENTAJE') return `−${p.valorPorcentaje}%`
   if (p.tipo === 'PAQUETE') return `pack −${p.valorUF} UF`
   return null

@@ -43,11 +43,10 @@ const TIERS = {
   },
 }
 
-const PACKS = [
-  { nombre: 'Pack Dúo Webinar', min: 2 },
-  { nombre: 'Pack Trío Webinar', min: 3 },
-  { nombre: 'Pack Inversor', min: 4 },
-]
+// Un solo pack por volumen: −5 UF al comprar 2 o más unidades.
+const PACK = { nombre: 'Pack 2+ Unidades', min: 2 }
+// Packs antiguos (redundantes) que hay que desactivar.
+const PACKS_OBSOLETOS = ['Pack Dúo Webinar', 'Pack Trío Webinar', 'Pack Inversor']
 
 async function resolverUnidad(edificioNombre, numero) {
   return p.unidad.findFirst({
@@ -105,20 +104,25 @@ async function main() {
     console.log(`  ${tier}: promo #${promo.id} −${descuento} UF (${base}→${info.precioWebinar}) · ${unidades.length} unidades`)
   }
 
-  // 3. Packs por volumen (5 UF fijo cada uno)
-  for (const pk of PACKS) {
-    const promo = await upsertPromo(pk.nombre, {
-      descripcion: '+ Gastos Operacionales de regalo',
-      categoria: 'DESCUENTO',
-      tipo: 'DESCUENTO_UF',
-      valorUF: 5,
-      minUnidades: pk.min,
-      fechaFin: FECHA_FIN,
-      activa: true,
-      campanaId: campana.id,
-    })
-    console.log(`  ${pk.nombre}: promo #${promo.id} −5 UF (min ${pk.min} unidades)`)
-  }
+  // 3. Pack por volumen: uno solo, −5 UF al comprar 2+ unidades
+  const pack = await upsertPromo(PACK.nombre, {
+    descripcion: '−5 UF al comprar 2 o más unidades + Gastos Operacionales de regalo',
+    categoria: 'DESCUENTO',
+    tipo: 'DESCUENTO_UF',
+    valorUF: 5,
+    minUnidades: PACK.min,
+    fechaFin: FECHA_FIN,
+    activa: true,
+    campanaId: campana.id,
+  })
+  console.log(`  ${PACK.nombre}: promo #${pack.id} −5 UF (min ${PACK.min} unidades)`)
+
+  // Desactivar los packs antiguos redundantes
+  const desactivados = await p.promocion.updateMany({
+    where: { nombre: { in: PACKS_OBSOLETOS } },
+    data: { activa: false },
+  })
+  if (desactivados.count) console.log(`  (desactivados ${desactivados.count} packs antiguos redundantes)`)
 
   // 4. Beneficio Gastos Operacionales (permanente) — asegurar activo
   const go = await p.promocion.findFirst({
