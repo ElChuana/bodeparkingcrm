@@ -61,6 +61,27 @@ function parsearFechaHoraCita(body) {
   return null
 }
 
+// Recolecta todas las URLs http(s) presentes en el payload (búsqueda recursiva).
+function urlsEnPayload(obj, depth = 0, acc = []) {
+  if (depth > 5 || obj == null) return acc
+  if (typeof obj === 'string') {
+    const s = obj.trim()
+    if (/^https?:\/\/\S+/i.test(s)) acc.push(s)
+    return acc
+  }
+  if (typeof obj === 'object') for (const v of Object.values(obj)) urlsEnPayload(v, depth + 1, acc)
+  return acc
+}
+
+// Link de la reunión: primero campos conocidos; si no, cualquier URL de videollamada en el payload.
+function detectarEnlaceReunion(body) {
+  const conocido = (body.enlace || body.meetUrl || body.linkMeet || body.link || body.url ||
+    body.join_url || body.meeting_url || body.location)?.trim()
+  if (conocido && /^https?:\/\//i.test(conocido)) return conocido
+  const urls = urlsEnPayload(body)
+  return urls.find(u => /(meet\.google|zoom\.us|teams\.microsoft|whereby|jit\.si|hangouts|meet\.)/i.test(u)) || null
+}
+
 // Busca un contacto existente por correo (match seguro) o teléfono + nombre similar
 async function buscarContactoDuplicado({ correo, telefono, nombre, apellido }) {
   if (!correo && !telefono) return null
@@ -328,6 +349,7 @@ router.get('/leads/:id', autenticarApiKey, async (req, res) => {
 //   vendedorId, campana, notas  (opcionales)
 router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
   const body = req.body || {}
+  console.log('[Webhook webinar] payload:', JSON.stringify(body))
   const correo   = (body.correo || body.email)?.trim() || null
   const telefono = body.telefono?.trim() || null
   const { nombre, apellido } = splitNombre(body.nombre)
@@ -393,8 +415,8 @@ router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
       ? `el ${fechaHora.toLocaleDateString('es-CL', { timeZone: TZ })} a las ${fechaHora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', timeZone: TZ })}`
       : '(fecha por coordinar)'
 
-    // Link de la reunión online (Meet/Zoom) si viene en el payload
-    const enlace = (body.enlace || body.meetUrl || body.linkMeet || body.link || body.url)?.trim() || null
+    // Link de la reunión online (Meet/Zoom): campos conocidos o cualquier URL de videollamada en el payload
+    const enlace = detectarEnlaceReunion(body)
 
     // La reunión se agenda como VISITA (modelo Visita) → aparece destacada en el
     // calendario y en la lista de Visitas, con recordatorio 24h nativo (igual que las visitas).
@@ -449,7 +471,9 @@ router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
       ok: true, evento: 'agenda',
       leadId: lead.id, contactoId: contacto.id, visitaId: visita?.id || null,
       enCalendario: !!visita,
-      fechaHora: fechaHora ? fechaHora.toISOString() : null,
+      fechaHora: fechaHora ? fechaHora.toISOString() : null,          // UTC (estándar)
+      fechaHoraChile: fechaHora ? cuandoTxt.replace(/^el /, '') : null, // legible, hora de Chile
+      enlace: enlace || null,
       mensaje: fechaHora
         ? 'Cita agendada como visita en el calendario y vendedor notificado.'
         : 'Lead en VISITA_AGENDADA; falta fecha/hora, vendedor notificado para coordinar.',
