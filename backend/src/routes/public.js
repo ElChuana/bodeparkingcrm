@@ -397,18 +397,36 @@ router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
       ? `el ${fechaHora.toLocaleDateString('es-CL', { timeZone: TZ })} a las ${fechaHora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', timeZone: TZ })}`
       : '(fecha por coordinar)'
 
-    // Reunión = Interaccion tipo REUNION con fecha (mismo patrón que Comuro → sale en el calendario)
-    let reunion = fechaHora
-      ? await prisma.interaccion.findFirst({ where: { leadId: lead.id, tipo: 'REUNION', fecha: fechaHora } })
-      : null
-    if (!reunion) {
-      reunion = await prisma.interaccion.create({
+    // La reunión se agenda como VISITA (modelo Visita) → aparece destacada en el
+    // calendario y en la lista de Visitas, con recordatorio 24h nativo (igual que las visitas).
+    let visita = null
+    let reunionNueva = true
+    if (fechaHora) {
+      visita = await prisma.visita.findFirst({ where: { leadId: lead.id, fechaHora } })
+      if (visita) {
+        reunionNueva = false // reenvío del mismo evento → no duplicar
+      } else {
+        visita = await prisma.visita.create({
+          data: {
+            leadId: lead.id,
+            vendedorId,
+            fechaHora,
+            tipo: body.tipo?.trim() || 'Reunión comercial',
+            notas: body.notas?.trim() || `Cita agendada vía ${req.apiKey.nombre} (webinar)`,
+          },
+        })
+      }
+    }
+
+    // Registrar en la bitácora del lead (timeline) como NOTA — sin fecha futura, para
+    // no duplicar el evento en el calendario (que ya muestra la Visita). Sin duplicar en reenvíos.
+    if (reunionNueva) {
+      await prisma.interaccion.create({
         data: {
           leadId: lead.id,
           usuarioId: vendedorId,
-          tipo: 'REUNION',
-          descripcion: body.notas?.trim() || `Cita agendada vía ${req.apiKey.nombre} ${cuandoTxt}`,
-          ...(fechaHora ? { fecha: fechaHora } : {}),
+          tipo: 'NOTA',
+          descripcion: `Cita agendada vía ${req.apiKey.nombre} ${cuandoTxt}`,
         },
       })
     }
@@ -427,11 +445,11 @@ router.post('/webhooks/webinar', autenticarApiKey, async (req, res) => {
 
     return res.status(201).json({
       ok: true, evento: 'agenda',
-      leadId: lead.id, contactoId: contacto.id, reunionId: reunion.id,
-      enCalendario: !!fechaHora,
+      leadId: lead.id, contactoId: contacto.id, visitaId: visita?.id || null,
+      enCalendario: !!visita,
       fechaHora: fechaHora ? fechaHora.toISOString() : null,
       mensaje: fechaHora
-        ? 'Cita agendada en el calendario y vendedor notificado.'
+        ? 'Cita agendada como visita en el calendario y vendedor notificado.'
         : 'Lead en VISITA_AGENDADA; falta fecha/hora, vendedor notificado para coordinar.',
     })
   } catch (err) {

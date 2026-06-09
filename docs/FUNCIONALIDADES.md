@@ -333,10 +333,10 @@
 - `POST /webhooks/webinar` — **Webhook único del lanzamiento (tipo Calendly)** ⭐ enruta por `estado`
   - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `estado` (`formulario-rellenado` | `agenda`), `inicio`/`fechaHora` (ISO 8601) o `fecha` "DD/MM/YYYY" + `hora` "HH:MM" (solo agenda), opcionales `vendedorId`, `campana`, `notas`
   - `estado: formulario-rellenado` → un lead **nuevo normal** (etapa NUEVO, campaña "Webinar"), notifica LEAD_NUEVO. Dedup.
-  - `estado: agenda` → busca/crea el lead + **agenda la reunión como `Interaccion` tipo REUNION con fecha** (mismo patrón que Comuro → aparece en el calendario que combina visitas + interacciones), etapa `VISITA_AGENDADA`, notifica (`ACTIVIDAD_EN_LEAD`)
-  - **No crea modelo Visita** — la reunión es una interacción REUNION (consistente con Comuro)
-  - Idempotente: no duplica la reunión si llega el mismo lead + fecha/hora
-  - Recordatorio automático 24h: el cron ahora cubre **visitas Y reuniones (interacciones REUNION)** próximas
+  - `estado: agenda` → busca/crea el lead + **agenda la reunión como `Visita`** (aparece destacada en el calendario y en la lista de Visitas), etapa `VISITA_AGENDADA`, deja una NOTA en el timeline y notifica (`ACTIVIDAD_EN_LEAD`)
+  - Usa el **modelo Visita** (no interacción REUNION) para que se vea/comporte como las visitas; el recordatorio 24h lo da el cron de visitas existente
+  - Idempotente: no duplica la Visita si llega el mismo lead + fecha/hora
+  - La entrada de timeline es NOTA (sin fecha futura) para no duplicar el evento en el calendario
   - Si no llega fecha/hora: deja el lead en VISITA_AGENDADA y notifica para coordinar
   - Vendedor fallback: Felix (ID 8) si el lead no tiene asignado
   - Doc para el proveedor: `docs/API_WEBHOOKS_LANZAMIENTO.html` · Test e2e: `backend/scripts/testWebhookWebinar.js`

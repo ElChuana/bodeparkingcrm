@@ -1,6 +1,6 @@
 // Test e2e del webhook único del webinar (/api/public/webhooks/webinar).
-// Prueba estado "formulario-rellenado" (lead nuevo) y "agenda" (lead + reunión
-// como Interaccion REUNION → calendario). Verifica e idempotencia, luego limpia.
+// formulario-rellenado → lead NUEVO · agenda → lead + VISITA en el calendario.
+// Verifica, prueba idempotencia y limpia.
 require('dotenv').config()
 process.env.DATABASE_URL = process.env.DATABASE_URL_RAILWAY || process.env.DATABASE_URL
 const express = require('express')
@@ -16,39 +16,36 @@ async function main() {
   }).then(r => r.json())
 
   const correo = `webinar.${Date.now()}@ejemplo.cl`
-  const ids = {}
 
-  // 1. Formulario rellenado → lead nuevo NUEVO
+  // 1. Formulario → lead NUEVO
   const f = await post({ nombre: 'Cliente Webinar Test', correo, telefono: '+56900000123', estado: 'formulario-rellenado' })
-  console.log('Formulario:', JSON.stringify(f))
-  ids.leadId = f.leadId; ids.contactoId = f.contactoId
   const leadF = await prisma.lead.findUnique({ where: { id: f.leadId } })
-  console.log('  etapa:', leadF.etapa, '· campaña:', leadF.campana, leadF.etapa === 'NUEVO' ? '✅' : '❌')
+  console.log('Formulario:', JSON.stringify(f), '· etapa', leadF.etapa, leadF.etapa === 'NUEVO' ? '✅' : '❌')
 
-  // 2. Agenda (mismo contacto) → reusa lead + reunión en calendario
+  // 2. Agenda → reusa lead + VISITA en el calendario
   const fechaCita = new Date(Date.now() + 24 * 3600 * 1000)
   const a = await post({ nombre: 'Cliente Webinar Test', correo, telefono: '+56900000123', estado: 'agenda', inicio: fechaCita.toISOString() })
-  console.log('\nAgenda:', JSON.stringify(a))
   const leadA = await prisma.lead.findUnique({ where: { id: a.leadId } })
-  const reunion = await prisma.interaccion.findUnique({ where: { id: a.reunionId } })
+  const visita = a.visitaId ? await prisma.visita.findUnique({ where: { id: a.visitaId } }) : null
   const notis = await prisma.notificacion.findMany({ where: { referenciaId: a.leadId, referenciaTipo: 'lead', tipo: 'ACTIVIDAD_EN_LEAD' } })
+  console.log('\nAgenda:', JSON.stringify(a))
   console.log('  mismo lead:', a.leadId === f.leadId ? '✅' : '❌')
   console.log('  etapa:', leadA.etapa, leadA.etapa === 'VISITA_AGENDADA' ? '✅' : '❌')
-  console.log('  reunión (Interaccion REUNION con fecha):', reunion?.tipo, reunion?.fecha?.toISOString(), reunion?.tipo === 'REUNION' && reunion?.fecha ? '✅' : '❌')
+  console.log('  VISITA en calendario:', visita ? `#${visita.id} ${visita.fechaHora.toISOString()} (${visita.tipo})` : 'NO', visita ? '✅' : '❌')
   console.log('  notificaciones:', notis.length, notis.length > 0 ? '✅' : '❌')
 
-  // 3. Idempotencia: reenviar agenda misma fecha → no duplica reunión
+  // 3. Idempotencia: reenviar agenda misma fecha → no duplica visita
   await post({ nombre: 'Cliente Webinar Test', correo, telefono: '+56900000123', estado: 'agenda', inicio: fechaCita.toISOString() })
-  const reuniones = await prisma.interaccion.findMany({ where: { leadId: a.leadId, tipo: 'REUNION' } })
-  console.log('  reenvío → reuniones:', reuniones.length, reuniones.length === 1 ? '✅ no duplica' : '❌ duplicó')
+  const visitas = await prisma.visita.findMany({ where: { leadId: a.leadId } })
+  console.log('  reenvío → visitas:', visitas.length, visitas.length === 1 ? '✅ no duplica' : '❌ duplicó')
 
   // Cleanup
-  await prisma.notificacion.deleteMany({ where: { referenciaId: ids.leadId, referenciaTipo: 'lead' } })
-  await prisma.interaccion.deleteMany({ where: { leadId: ids.leadId } })
-  await prisma.lead.delete({ where: { id: ids.leadId } })
-  await prisma.contacto.delete({ where: { id: ids.contactoId } })
+  await prisma.notificacion.deleteMany({ where: { referenciaId: f.leadId, referenciaTipo: 'lead' } })
+  await prisma.visita.deleteMany({ where: { leadId: f.leadId } })
+  await prisma.interaccion.deleteMany({ where: { leadId: f.leadId } })
+  await prisma.lead.delete({ where: { id: f.leadId } })
+  await prisma.contacto.delete({ where: { id: f.contactoId } })
   console.log('\n(datos de prueba eliminados)')
-
   server.close(); await prisma.$disconnect()
 }
 main().catch(e => { console.error(e); process.exit(1) })

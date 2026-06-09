@@ -210,42 +210,6 @@ cron.schedule('*/15 * * * *', async () => {
     if (visitasProximas.length > 0) {
       console.log(`[Visitas] ${visitasProximas.length} visitas próximas procesadas`)
     }
-
-    // ── Reuniones próximas (24h) — interacciones tipo REUNION con fecha ──
-    // Cubre las reuniones agendadas por sistemas externos (webinar, Comuro),
-    // que viven como interacción REUNION (no como Visita).
-    const reunionesProximas = await prisma.interaccion.findMany({
-      where: { tipo: 'REUNION', fecha: { gte: ventanaMin, lte: ventanaMax } },
-      include: {
-        lead: { select: { id: true, vendedorId: true, contacto: { select: { nombre: true, apellido: true } } } }
-      }
-    })
-    for (const r of reunionesProximas) {
-      if (!r.lead?.vendedorId) continue
-      const yaNotificado = await prisma.notificacion.findFirst({
-        where: {
-          tipo: 'VISITA_PROXIMA',
-          referenciaId: r.id,
-          referenciaTipo: 'interaccion',
-          usuarioId: r.lead.vendedorId,
-          creadoEn: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }
-        }
-      })
-      if (!yaNotificado) {
-        await prisma.notificacion.create({
-          data: {
-            usuarioId: r.lead.vendedorId,
-            tipo: 'VISITA_PROXIMA',
-            mensaje: `Reunión mañana con ${r.lead.contacto.nombre} ${r.lead.contacto.apellido}`,
-            referenciaId: r.id,
-            referenciaTipo: 'interaccion'
-          }
-        })
-      }
-    }
-    if (reunionesProximas.length > 0) {
-      console.log(`[Reuniones] ${reunionesProximas.length} reuniones próximas procesadas`)
-    }
   } catch (err) {
     console.error('[Recordatorios] Error en cron:', err.message)
   }
