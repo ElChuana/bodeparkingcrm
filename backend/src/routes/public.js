@@ -289,6 +289,67 @@ router.get('/leads/:id', autenticarApiKey, async (req, res) => {
   }
 })
 
+// ─── POST /api/public/webhooks/formulario ─────────────────────────
+// Webhook 1 — formulario rellenado / reserva sin agendar. Mismo formato que
+// el de agenda (nombre completo + correo). Crea el lead en etapa NUEVO.
+router.post('/webhooks/formulario', autenticarApiKey, async (req, res) => {
+  const body = req.body || {}
+  const correo   = (body.correo || body.email)?.trim() || null
+  const telefono = body.telefono?.trim() || null
+  const { nombre, apellido } = splitNombre(body.nombre)
+
+  if (!nombre) {
+    return res.status(400).json({
+      error: 'nombre es requerido.',
+      campos_requeridos: ['nombre'],
+      campos_opcionales: ['correo', 'telefono', 'campana', 'notas', 'vendedorId'],
+    })
+  }
+
+  try {
+    // 1. Contacto (dedup o crear)
+    let contacto = await buscarContactoDuplicado({ correo, telefono, nombre, apellido })
+    if (!contacto) {
+      contacto = await prisma.contacto.create({
+        data: { nombre, apellido, email: correo, telefono, origen: 'WEB' },
+      })
+    } else {
+      const upd = {}
+      if (correo   && !contacto.email)    upd.email    = correo
+      if (telefono && !contacto.telefono) upd.telefono = telefono
+      if (Object.keys(upd).length) contacto = await prisma.contacto.update({ where: { id: contacto.id }, data: upd })
+    }
+
+    // 2. Lead: si ya existe uno del contacto, no duplicar
+    const existente = await prisma.lead.findFirst({ where: { contactoId: contacto.id }, orderBy: { creadoEn: 'desc' } })
+    if (existente) {
+      await prisma.interaccion.create({
+        data: { leadId: existente.id, tipo: 'NOTA', descripcion: `Reingreso vía ${req.apiKey.nombre} (formulario). Etapa actual: ${existente.etapa}. No se creó duplicado.` },
+      })
+      return res.status(200).json({ ok: true, duplicado: true, leadId: existente.id, contactoId: contacto.id, etapaActual: existente.etapa })
+    }
+
+    const lead = await prisma.lead.create({
+      data: {
+        contactoId: contacto.id,
+        vendedorId: body.vendedorId ? Number(body.vendedorId) : null,
+        etapa: 'NUEVO',
+        campana: body.campana?.trim() || 'Webinar',
+        notas: body.notas?.trim() || null,
+      },
+    })
+    await prisma.interaccion.create({
+      data: { leadId: lead.id, tipo: 'NOTA', descripcion: `Lead ingresado vía ${req.apiKey.nombre} (formulario)` },
+    })
+    await notificarLead({ leadId: lead.id, tipo: 'LEAD_NUEVO', mensaje: `Nuevo lead del formulario: ${contacto.nombre} ${contacto.apellido}` })
+
+    return res.status(201).json({ ok: true, duplicado: false, leadId: lead.id, contactoId: contacto.id, etapa: lead.etapa })
+  } catch (err) {
+    console.error('[Webhook formulario]', err)
+    res.status(500).json({ error: 'Error interno al procesar el formulario.' })
+  }
+})
+
 // ─── POST /api/public/webhooks/agenda ─────────────────────────────
 // Cita agendada (tipo Calendly): crea/dedup el lead, agenda la reunión en el
 // calendario (modelo Visita), mueve el lead a VISITA_AGENDADA y notifica al

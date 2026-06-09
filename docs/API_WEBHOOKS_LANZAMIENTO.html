@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webhooks de Lanzamiento — BodeParking CRM</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1a1a2e;
+    background: #f8fafc;
+    padding: 40px 20px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+    color: white;
+    padding: 36px 40px;
+    border-radius: 14px;
+    margin-bottom: 28px;
+  }
+  .header h1 { font-size: 27px; font-weight: 700; letter-spacing: -0.5px; }
+  .header .sub { font-size: 14px; color: #bfdbfe; margin-top: 6px; }
+  .header .meta { margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 12.5px; color: #dbeafe; }
+
+  /* Cards */
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 26px 30px; margin-bottom: 22px; }
+  .card h2 { font-size: 19px; color: #1e3a8a; margin-bottom: 4px; }
+  .card h2 .num { display: inline-block; background: #1d4ed8; color: #fff; width: 26px; height: 26px; border-radius: 50%; text-align: center; line-height: 26px; font-size: 14px; margin-right: 8px; }
+  .card .when { color: #6b7280; font-size: 13px; margin-bottom: 16px; }
+
+  .label { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #6b7280; margin: 18px 0 8px; }
+
+  .endpoint { display: flex; align-items: center; gap: 10px; background: #0f172a; color: #e2e8f0; padding: 12px 16px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 13.5px; word-break: break-all; }
+  .method { background: #16a34a; color: #fff; font-weight: 700; padding: 3px 9px; border-radius: 5px; font-size: 12px; flex-shrink: 0; }
+
+  pre { background: #0f172a; color: #e2e8f0; padding: 16px 18px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 13px; overflow-x: auto; line-height: 1.5; }
+  .k { color: #7dd3fc; } .s { color: #86efac; } .c { color: #64748b; font-style: italic; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  th { text-align: left; background: #f1f5f9; padding: 9px 12px; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: #475569; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  td code { background: #eef2ff; color: #4338ca; padding: 1px 6px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 12.5px; }
+  .req { color: #dc2626; font-weight: 700; font-size: 11px; }
+  .opt { color: #94a3b8; font-size: 11px; }
+
+  .note { background: #eff6ff; border-left: 4px solid #2563eb; padding: 12px 16px; border-radius: 6px; margin: 14px 0; font-size: 13px; color: #1e40af; }
+  .warn { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 6px; margin: 14px 0; font-size: 13px; color: #92400e; }
+
+  .pill { display: inline-block; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 2px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 600; }
+  .foot { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; }
+  a { color: #2563eb; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <h1>Integración de Webhooks — Lanzamiento</h1>
+    <div class="sub">Recepción de contactos del lanzamiento en el CRM de BodeParking</div>
+    <div class="meta">
+      Dirección del flujo: <strong style="color:#fff">ustedes emiten (outbound) → BodeParking recibe (inbound)</strong>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="margin-top:0">Resumen</div>
+    <p>Dos eventos. Cuando un prospecto <strong>rellena el formulario</strong> envían el Webhook 1; cuando <strong>agenda la cita</strong> (tipo Calendly) envían el Webhook 2. El CRM crea/actualiza el contacto, evita duplicados, agenda la reunión en el calendario y notifica al ejecutivo de ventas.</p>
+  </div>
+
+  <!-- Convenciones -->
+  <div class="card">
+    <h2>Convenciones generales</h2>
+    <div class="label">Método y formato</div>
+    <table>
+      <tr><td style="width:160px"><code>POST</code></td><td>Todos los webhooks usan POST.</td></tr>
+      <tr><td><code>Content-Type</code></td><td><code>application/json; charset=utf-8</code></td></tr>
+      <tr><td>Respuesta esperada</td><td>El CRM responde <code>2xx</code> al recibir correctamente (<code>201</code> creado / <code>200</code> ya existía).</td></tr>
+    </table>
+
+    <div class="label">Autenticación</div>
+    <p>Cada request debe incluir la API Key en el header:</p>
+    <div class="endpoint" style="margin-top:8px"><span class="method" style="background:#475569">HEADER</span> X-Api-Key: bp_xxxxxxxxxxxxxxxxxxxxxxxx</div>
+    <div class="note">La API Key se las entrega BodeParking. Si falta o es inválida, el CRM responde <code>401</code>.</div>
+
+    <div class="label">URL base</div>
+    <div class="warn"><strong>⚠ Reemplazar</strong> <code>[URL-DEL-CRM]</code> por la URL real del CRM que les confirme BodeParking (ej: <code>https://crm.bodeparking.cl</code>).</div>
+  </div>
+
+  <!-- Webhook 1 -->
+  <div class="card">
+    <h2><span class="num">1</span>Formulario rellenado</h2>
+    <div class="when">Se dispara cuando el prospecto completa el formulario / reserva, <strong>sin agendar</strong> cita.</div>
+
+    <div class="endpoint"><span class="method">POST</span> https://[URL-DEL-CRM]/api/public/webhooks/formulario</div>
+
+    <div class="label">Cuerpo (JSON)</div>
+<pre><span class="c">// estado: opcional, informativo</span>
+{
+  <span class="k">"nombre"</span>: <span class="s">"María González"</span>,
+  <span class="k">"correo"</span>: <span class="s">"maria.gonzalez@email.com"</span>,
+  <span class="k">"telefono"</span>: <span class="s">"+56912345678"</span>,
+  <span class="k">"estado"</span>: <span class="s">"formulario-rellenado"</span>
+}</pre>
+
+    <div class="label">Respuesta</div>
+<pre>{ <span class="k">"ok"</span>: true, <span class="k">"duplicado"</span>: false, <span class="k">"leadId"</span>: 1234, <span class="k">"etapa"</span>: <span class="s">"NUEVO"</span> }</pre>
+    <p style="margin-top:6px;font-size:13px;color:#475569">Crea el lead en etapa <strong>NUEVO</strong>. Si el contacto ya existía, responde <code>duplicado: true</code> y no crea otro.</p>
+  </div>
+
+  <!-- Webhook 2 -->
+  <div class="card">
+    <h2><span class="num">2</span>Cita agendada <span class="pill">→ calendario</span></h2>
+    <div class="when">Se dispara cuando el prospecto <strong>agenda la cita</strong> de asesoría / reunión comercial (tipo Calendly).</div>
+
+    <div class="endpoint"><span class="method">POST</span> https://[URL-DEL-CRM]/api/public/webhooks/agenda</div>
+
+    <div class="label">Cuerpo (JSON)</div>
+<pre>{
+  <span class="k">"nombre"</span>: <span class="s">"María González"</span>,
+  <span class="k">"correo"</span>: <span class="s">"maria.gonzalez@email.com"</span>,
+  <span class="k">"telefono"</span>: <span class="s">"+56912345678"</span>,
+  <span class="k">"estado"</span>: <span class="s">"agenda"</span>,
+  <span class="k">"inicio"</span>: <span class="s">"2026-06-12T16:30:00"</span>   <span class="c">// fecha/hora de la cita (ISO 8601)</span>
+}</pre>
+
+    <div class="note">La fecha/hora se puede enviar de dos formas (usar una): <br>
+      • <code>"inicio"</code> en formato ISO 8601 — <em>recomendado, es lo que entrega Calendly</em>.<br>
+      • o por separado: <code>"fecha": "12/06/2026"</code> + <code>"hora": "16:30"</code>.</div>
+
+    <div class="label">Respuesta</div>
+<pre>{
+  <span class="k">"ok"</span>: true,
+  <span class="k">"leadId"</span>: 1234,
+  <span class="k">"visitaId"</span>: 56,
+  <span class="k">"agendadaEnCalendario"</span>: true,
+  <span class="k">"fechaHora"</span>: <span class="s">"2026-06-12T16:30:00.000Z"</span>
+}</pre>
+    <p style="margin-top:6px;font-size:13px;color:#475569">Crea la reunión en el <strong>calendario</strong>, mueve el lead a <strong>VISITA_AGENDADA</strong> y <strong>notifica al ejecutivo</strong> (con recordatorio automático 24 h antes). Si llega sin fecha/hora, igual agenda el lead y avisa para coordinar.</p>
+  </div>
+
+  <!-- Campos -->
+  <div class="card">
+    <h2>Campos</h2>
+    <table>
+      <tr><th>Campo</th><th>Tipo</th><th></th><th>Notas</th></tr>
+      <tr><td><code>nombre</code></td><td>string</td><td><span class="req">requerido</span></td><td>Nombre completo del contacto ("Nombre Apellido").</td></tr>
+      <tr><td><code>correo</code></td><td>string</td><td><span class="opt">opcional</span></td><td>Email del contacto (también se acepta <code>email</code>).</td></tr>
+      <tr><td><code>telefono</code></td><td>string</td><td><span class="opt">opcional</span></td><td>Formato internacional (+569…).</td></tr>
+      <tr><td><code>estado</code></td><td>string</td><td><span class="opt">opcional</span></td><td><code>formulario-rellenado</code> o <code>agenda</code>. Informativo.</td></tr>
+      <tr><td><code>inicio</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td>Fecha/hora de la cita en ISO 8601. Alternativa: <code>fecha</code> + <code>hora</code>.</td></tr>
+      <tr><td><code>fecha</code> / <code>hora</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td><code>"DD/MM/YYYY"</code> y <code>"HH:MM"</code> (si no se usa <code>inicio</code>).</td></tr>
+    </table>
+    <div class="note">Se recomienda enviar <strong>correo o teléfono</strong> (idealmente ambos): el CRM los usa para evitar contactos duplicados.</div>
+  </div>
+
+  <!-- Comportamiento -->
+  <div class="card">
+    <h2>Comportamiento del CRM</h2>
+    <table>
+      <tr><td style="width:200px"><strong>Anti-duplicados</strong></td><td>Si el contacto ya existe (por correo o teléfono + nombre similar), se reutiliza; no se crean duplicados.</td></tr>
+      <tr><td><strong>Reenvío idempotente</strong></td><td>Reenviar el mismo evento de agenda (mismo contacto + misma fecha/hora) no duplica la reunión.</td></tr>
+      <tr><td><strong>Notificación</strong></td><td>El ejecutivo de ventas y la gerencia reciben aviso al instante; recordatorio automático 24 h antes de la cita.</td></tr>
+      <tr><td><strong>Sin fecha</strong></td><td>Si el webhook de agenda llega sin fecha/hora, el lead queda agendado y se notifica para coordinar la hora manualmente.</td></tr>
+    </table>
+  </div>
+
+  <!-- Ejemplo curl -->
+  <div class="card">
+    <h2>Ejemplo (cURL)</h2>
+<pre>curl -X POST https://[URL-DEL-CRM]/api/public/webhooks/agenda \
+  -H <span class="s">"Content-Type: application/json"</span> \
+  -H <span class="s">"X-Api-Key: bp_xxxxxxxxxxxxxxxxxxxxxxxx"</span> \
+  -d '{
+    <span class="k">"nombre"</span>: <span class="s">"María González"</span>,
+    <span class="k">"correo"</span>: <span class="s">"maria.gonzalez@email.com"</span>,
+    <span class="k">"telefono"</span>: <span class="s">"+56912345678"</span>,
+    <span class="k">"estado"</span>: <span class="s">"agenda"</span>,
+    <span class="k">"inicio"</span>: <span class="s">"2026-06-12T16:30:00"</span>
+  }'</pre>
+
+    <div class="label">Códigos de respuesta</div>
+    <table>
+      <tr><td style="width:90px"><code>201</code></td><td>Creado correctamente.</td></tr>
+      <tr><td><code>200</code></td><td>OK — el contacto/lead ya existía (no se duplicó).</td></tr>
+      <tr><td><code>400</code></td><td>Falta el campo <code>nombre</code>.</td></tr>
+      <tr><td><code>401</code></td><td>API Key faltante o inválida.</td></tr>
+    </table>
+  </div>
+
+  <div class="foot">BodeParking CRM · Documento de integración de webhooks · v1</div>
+
+</div>
+</body>
+</html>

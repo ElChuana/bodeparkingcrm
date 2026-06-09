@@ -329,7 +329,8 @@
 ### API PÚBLICA — `/api/public`
 - Archivo: `routes/public.js`
 - Auth: API Key (header `X-Api-Key`)
-- `POST /leads` — crear lead desde sistema externo (Webhook 1 — formulario rellenado)
+- `POST /leads` — crear lead desde sistema externo (formato nombre+apellido, legacy/Comuro)
+- `POST /webhooks/formulario` — **Webhook 1 — formulario rellenado** (formato unificado nombre completo + correo). Crea lead NUEVO, notifica LEAD_NUEVO, dedup.
 - `POST /webhooks/agenda` — **Webhook 2 — cita agendada (tipo Calendly)** ⭐
   - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `inicio`/`fechaHora` (ISO 8601) o `fecha` "DD/MM/YYYY" + `hora` "HH:MM", opcionales `vendedorId`, `edificioNombre`, `tipo`, `notas`
   - Dedup/crea contacto+lead, **crea Visita (calendario)** con la fecha, mueve lead a `VISITA_AGENDADA`, registra interacción REUNION y **notifica al vendedor+gerencia** (`ACTIVIDAD_EN_LEAD`)
