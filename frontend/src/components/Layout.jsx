@@ -43,7 +43,7 @@ function SidebarContent({ selectedKey, onNavigate }) {
         { key: '/notificaciones', label: 'Notificaciones', icon: <BellOutlined />,   roles: null,                     modulo: null },
         { key: '/mi-reporte',     label: 'Mi reporte IA',  icon: <FileTextOutlined />, roles: null,                   modulo: 'mi-reporte' },
         { key: '/asignacion', label: 'Asignación',  icon: <UserSwitchOutlined />, roles: ['GERENTE','JEFE_VENTAS'],         modulo: 'asignacion' },
-        { key: '/visitas',    label: 'Visitas',     icon: <CalendarOutlined />,  roles: ['GERENTE','JEFE_VENTAS'],          modulo: 'visitas' },
+        { key: '/visitas',    label: 'Visitas',     icon: <CalendarOutlined />,  roles: null,                              modulo: 'visitas' },
       ]
     },
     {

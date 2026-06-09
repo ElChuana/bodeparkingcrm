@@ -96,7 +96,7 @@ export default function App() {
                   <Route path="asignacion"  element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="asignacion"><CentroAsignacion /></RutaProtegida>} />
                   <Route path="cotizaciones/nueva"  element={<RutaProtegida modulo="leads"><CotizacionEditor /></RutaProtegida>} />
                   <Route path="cotizaciones/:id"    element={<RutaProtegida modulo="leads"><CotizacionEditor /></RutaProtegida>} />
-                  <Route path="visitas"     element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="visitas"><Visitas /></RutaProtegida>} />
+                  <Route path="visitas"     element={<RutaProtegida modulo="visitas"><Visitas /></RutaProtegida>} />
                   <Route path="ventas"      element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS','ABOGADO']} modulo="ventas"><Ventas /></RutaProtegida>} />
                   <Route path="ventas/:id"  element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS','ABOGADO']} modulo="ventas"><VentaDetalle /></RutaProtegida>} />
                   <Route path="legal"       element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS','ABOGADO']} modulo="legal"><Legal /></RutaProtegida>} />

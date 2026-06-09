@@ -59,12 +59,12 @@ const crear = async (req, res) => {
 }
 
 const listarTodas = async (req, res) => {
-  const rolesPermitidos = ['GERENTE', 'JEFE_VENTAS']
-  if (!rolesPermitidos.includes(req.usuario.rol)) {
-    return res.status(403).json({ error: 'Acceso denegado.' })
-  }
-
+  const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
   const { desde, hasta, usuarioId } = req.query
+  // Gerencia/JV ven todo (o filtran por vendedor); el resto solo sus propias actividades
+  const filtroUsuario = esGerenciaOJV
+    ? (usuarioId ? { usuarioId: Number(usuarioId) } : {})
+    : { usuarioId: req.usuario.id }
   try {
     const interacciones = await prisma.interaccion.findMany({
       where: {
@@ -74,7 +74,7 @@ const listarTodas = async (req, res) => {
             ...(hasta && { lte: new Date(hasta) })
           }
         } : {}),
-        ...(usuarioId && { usuarioId: Number(usuarioId) })
+        ...filtroUsuario
       },
       include: {
         lead: {
