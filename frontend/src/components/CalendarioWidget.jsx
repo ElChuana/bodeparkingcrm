@@ -47,7 +47,13 @@ export default function CalendarioWidget() {
 
   const content = (
     <div style={{ width: 320 }}>
-      <Text strong style={{ fontSize: 14 }}>Próximas visitas</Text>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text strong style={{ fontSize: 14 }}>Próximas visitas</Text>
+        <Button type="link" size="small" style={{ padding: 0 }}
+          onClick={() => { navigate('/visitas'); setOpen(false) }}>
+          Ver calendario
+        </Button>
+      </div>
 
       {visitas.length === 0 ? (
         <Empty description="Sin visitas agendadas" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ margin: '16px 0' }} />

@@ -108,7 +108,7 @@ function VistaCalendario({ vendedorId, edificioId }) {
 
     return (
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {eventos.slice(0, 3).map((ev, i) => (
+        {eventos.slice(0, 5).map((ev, i) => (
           <li key={i}
             style={{ cursor: ev.leadId ? 'pointer' : 'default', marginBottom: 1 }}
             onClick={ev.leadId ? (e) => { e.stopPropagation(); navigate(`/leads/${ev.leadId}`) } : undefined}
@@ -125,8 +125,8 @@ function VistaCalendario({ vendedorId, edificioId }) {
             </Tooltip>
           </li>
         ))}
-        {eventos.length > 3 && (
-          <li style={{ fontSize: 11, color: '#8c8c8c' }}>+{eventos.length - 3} más</li>
+        {eventos.length > 5 && (
+          <li style={{ fontSize: 11, color: '#8c8c8c' }}>+{eventos.length - 5} más</li>
         )}
       </ul>
     )
