@@ -634,6 +634,7 @@ model CotizacionItem {
   cotizacion Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   unidad     Unidad     @relation(fields: [unidadId], references: [id])
 
+  @@unique([cotizacionId, unidadId])
   @@map("cotizacion_items")
 }
 

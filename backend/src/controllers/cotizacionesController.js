@@ -220,8 +220,22 @@ const actualizar = async (req, res) => {
       return res.status(400).json({ error: 'No se puede editar una cotización que ya fue convertida en venta.' })
     }
 
-    if (Array.isArray(items)) {
-      await prisma.cotizacionItem.deleteMany({ where: { cotizacionId: Number(id) } })
+    // Deduplicar items entrantes por unidad (evita filas repetidas) y aplicar de forma atómica
+    const itemsUnicos = Array.isArray(items)
+      ? Array.from(new Map(items.map(i => [Number(i.unidadId), i])).values())
+      : null
+
+    if (itemsUnicos) {
+      await prisma.$transaction([
+        prisma.cotizacionItem.deleteMany({ where: { cotizacionId: Number(id) } }),
+        prisma.cotizacionItem.createMany({
+          data: itemsUnicos.map(i => ({
+            cotizacionId: Number(id),
+            unidadId: Number(i.unidadId),
+            precioListaUF: Number(i.precioListaUF),
+          })),
+        }),
+      ])
     }
 
     const cotizacion = await prisma.cotizacion.update({
@@ -229,14 +243,6 @@ const actualizar = async (req, res) => {
       data: {
         ...(notas !== undefined && { notas }),
         ...(validezDias !== undefined && { validezDias }),
-        ...(Array.isArray(items) && {
-          items: {
-            create: items.map(i => ({
-              unidadId: Number(i.unidadId),
-              precioListaUF: Number(i.precioListaUF),
-            }))
-          }
-        })
       },
       include: INCLUDE_COMPLETO
     })

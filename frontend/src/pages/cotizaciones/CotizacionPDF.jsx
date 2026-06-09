@@ -489,7 +489,9 @@ function fmtPesos(uf, valorUF) {
 
 // ── Componente ─────────────────────────────────────────────────────────────
 export function CotizacionDocumento({ cotizacion, logoUrl, valorUF }) {
-  const { lead, items, promociones, notas, validezDias, creadoEn, id, estado, descuentoAprobadoUF } = cotizacion
+  const { lead, promociones, notas, validezDias, creadoEn, id, estado, descuentoAprobadoUF } = cotizacion
+  // Deduplicar por unidad (defensivo): evita filas repetidas si llegan items duplicados
+  const items = Array.from(new Map((cotizacion.items || []).map(i => [i.unidadId, i])).values())
   const resumen  = calcularResumen(items, promociones)
   const aprobado = descuentoAprobadoUF || 0
   const totalFinal = Math.max(resumen.final - aprobado, 0)
