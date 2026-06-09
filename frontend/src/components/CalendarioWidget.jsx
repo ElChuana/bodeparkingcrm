@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Badge, Popover, Button, Typography, Empty, Tag, Divider } from 'antd'
 import { CalendarOutlined, EnvironmentOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { format, isToday, isTomorrow, startOfDay, addDays } from 'date-fns'
+import { startOfDay, addDays, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../services/api'
+import { horaChile, diaChile, esHoyChile } from '../utils/fechaChile'
 
 const { Text } = Typography
 
@@ -14,7 +15,7 @@ const TIPO_COLOR = { presencial: '#1677ff', virtual: '#722ed1', llamada: '#52c41
 function agruparPorDia(visitas) {
   const grupos = {}
   visitas.forEach(v => {
-    const key = format(new Date(v.fechaHora), 'yyyy-MM-dd')
+    const key = diaChile(v.fechaHora)
     if (!grupos[key]) grupos[key] = []
     grupos[key].push(v)
   })
@@ -22,9 +23,9 @@ function agruparPorDia(visitas) {
 }
 
 function tituloGrupo(fechaStr) {
+  if (fechaStr === diaChile(new Date())) return 'Hoy'
+  if (fechaStr === diaChile(addDays(new Date(), 1))) return 'Mañana'
   const fecha = new Date(fechaStr + 'T12:00:00')
-  if (isToday(fecha)) return 'Hoy'
-  if (isTomorrow(fecha)) return 'Mañana'
   return format(fecha, "EEEE d 'de' MMMM", { locale: es })
 }
 
@@ -41,7 +42,7 @@ export default function CalendarioWidget() {
     refetchInterval: 300000, // cada 5 min
   })
 
-  const hoy = visitas.filter(v => isToday(new Date(v.fechaHora)))
+  const hoy = visitas.filter(v => esHoyChile(v.fechaHora))
   const grupos = agruparPorDia(visitas)
   const diasOrdenados = Object.keys(grupos).sort()
 
@@ -73,14 +74,14 @@ export default function CalendarioWidget() {
                     style={{
                       display: 'flex', gap: 10, alignItems: 'flex-start',
                       padding: '8px 10px', borderRadius: 8,
-                      background: isToday(new Date(v.fechaHora)) ? '#e6f4ff' : '#fafafa',
-                      border: `1px solid ${isToday(new Date(v.fechaHora)) ? '#91caff' : '#f0f0f0'}`,
+                      background: esHoyChile(v.fechaHora) ? '#e6f4ff' : '#fafafa',
+                      border: `1px solid ${esHoyChile(v.fechaHora) ? '#91caff' : '#f0f0f0'}`,
                       cursor: 'pointer',
                     }}
                   >
                     <div style={{ minWidth: 42, textAlign: 'center' }}>
                       <div style={{ fontSize: 18, fontWeight: 700, color: '#1677ff', lineHeight: 1 }}>
-                        {format(new Date(v.fechaHora), 'HH:mm')}
+                        {horaChile(v.fechaHora)}
                       </div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>

@@ -10,6 +10,7 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns
 import { es } from 'date-fns/locale'
 import dayjs from 'dayjs'
 import api from '../../services/api'
+import { horaChile, diaChile, fechaHoraChile } from '../../utils/fechaChile'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -62,11 +63,11 @@ function VistaCalendario({ vendedorId, edificioId }) {
     const mapa = {}
 
     for (const v of visitas) {
-      const dia = format(new Date(v.fechaHora), 'yyyy-MM-dd')
+      const dia = diaChile(v.fechaHora)
       if (!mapa[dia]) mapa[dia] = []
       mapa[dia].push({
         tipo: 'visita',
-        hora: format(new Date(v.fechaHora), 'HH:mm'),
+        hora: horaChile(v.fechaHora),
         label: `${v.lead?.contacto?.nombre} ${v.lead?.contacto?.apellido}`,
         subtitulo: v.edificio?.nombre || v.tipo,
         color: '#fa8c16',
@@ -77,11 +78,11 @@ function VistaCalendario({ vendedorId, edificioId }) {
 
     for (const a of actividades) {
       if (a.tipo === 'NOTA') continue
-      const dia = format(new Date(a.fecha), 'yyyy-MM-dd')
+      const dia = diaChile(a.fecha)
       if (!mapa[dia]) mapa[dia] = []
       mapa[dia].push({
         tipo: 'actividad',
-        hora: format(new Date(a.fecha), 'HH:mm'),
+        hora: horaChile(a.fecha),
         label: `${a.lead?.contacto?.nombre} ${a.lead?.contacto?.apellido}`,
         subtitulo: a.tipo,
         color: TIPO_COLOR[a.tipo] || '#8c8c8c',
@@ -202,7 +203,7 @@ function VistaLista({ rango, setRango, vendedorId, setVendedorId, edificioId, se
       title: 'Fecha', key: 'fecha', width: 160,
       render: (_, v) => (
         <Text style={{ fontSize: 13 }}>
-          {format(new Date(v.fechaHora), "d MMM yyyy · HH:mm", { locale: es })}
+          {fechaHoraChile(v.fechaHora)}
         </Text>
       ),
       sorter: (a, b) => new Date(a.fechaHora) - new Date(b.fechaHora),

@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow, format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { fechaHoraChile } from '../../utils/fechaChile'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components/ui'
@@ -805,7 +806,7 @@ export default function LeadDetalle() {
               </Space>
             </div>
             <div><Text type="secondary" style={{ fontSize: 12 }}>
-              {format(new Date(item.fechaHora), "d MMM yyyy 'a las' HH:mm", { locale: es })}
+              {fechaHoraChile(item.fechaHora)}
             </Text></div>
             {item.vendedor && (
               <div><Text type="secondary" style={{ fontSize: 12 }}>👤 {item.vendedor.nombre} {item.vendedor.apellido}</Text></div>
