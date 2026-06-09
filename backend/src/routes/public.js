@@ -36,20 +36,14 @@ function desdeHoraChile(y, mo, d, h, mi) {
   return new Date(guess - off * 60000)
 }
 
-// Fecha/hora de la cita.
-//  - Si el ISO trae zona (Z u offset, ej Calendly "...-04:00" o "...Z") se RESPETA
-//    (el sistema de agendamiento ya manda la zona correcta) → new Date la convierte bien.
-//  - Si viene sin zona, o como fecha "DD/MM/YYYY" + hora "HH:MM", se interpreta como hora de Chile.
+// Fecha/hora de la cita. El proveedor (Calendly) envía la hora YA en horario chileno
+// (el número que ve el cliente), aunque la marque con "Z" o un offset. Por eso se toman
+// los componentes de fecha/hora TAL CUAL y se interpretan como hora de Chile, ignorando
+// la etiqueta de zona. Acepta ISO 8601 o fecha "DD/MM/YYYY" + hora "HH:MM".
 function parsearFechaHoraCita(body) {
   const iso = body.inicio || body.fechaHora || body.start_time || body.startTime
   if (iso) {
     const s = String(iso).trim()
-    const tieneZona = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)
-    if (tieneZona) {
-      const dt = new Date(s) // respeta el offset/UTC que manda el proveedor
-      if (!isNaN(dt.getTime())) return dt
-    }
-    // sin zona → hora de Chile
     const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
     if (m) return desdeHoraChile(+m[1], +m[2], +m[3], +m[4], +m[5])
     const dt = new Date(s)
