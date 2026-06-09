@@ -36,23 +36,19 @@ function desdeHoraChile(y, mo, d, h, mi) {
   return new Date(guess - off * 60000)
 }
 
-// Fecha/hora de la cita. Acepta ISO 8601 (inicio/fechaHora/start_time, estilo Calendly)
-// o fecha "DD/MM/YYYY" + hora "HH:MM". Si el ISO trae zona (Z u offset) se respeta;
-// si viene sin zona o como fecha+hora, se interpreta como hora de Chile. Devuelve Date o null.
+// Fecha/hora de la cita. La hora SIEMPRE se interpreta como HORA DE CHILE: las citas
+// son con clientes en Chile y el sistema de agendamiento envía la hora que el cliente
+// eligió en horario chileno. Se ignora la marca de zona (Z u offset) del ISO para evitar
+// desfases. Acepta ISO 8601 (inicio/fechaHora/start_time) o fecha "DD/MM/YYYY" + hora "HH:MM".
 function parsearFechaHoraCita(body) {
   const iso = body.inicio || body.fechaHora || body.start_time || body.startTime
   if (iso) {
     const s = String(iso).trim()
-    const tieneZona = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)
-    if (tieneZona) {
-      const dt = new Date(s)
-      if (!isNaN(dt.getTime())) return dt
-    } else {
-      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
-      if (m) return desdeHoraChile(+m[1], +m[2], +m[3], +m[4], +m[5])
-      const dt = new Date(s)
-      if (!isNaN(dt.getTime())) return dt
-    }
+    // Tomar los componentes de fecha/hora tal cual (ignorando Z/offset) e interpretarlos como hora de Chile
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+    if (m) return desdeHoraChile(+m[1], +m[2], +m[3], +m[4], +m[5])
+    const dt = new Date(s)
+    if (!isNaN(dt.getTime())) return dt
   }
   if (body.fecha && body.hora) {
     const m = String(body.fecha).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
