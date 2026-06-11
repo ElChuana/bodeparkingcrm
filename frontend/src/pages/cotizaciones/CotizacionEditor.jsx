@@ -109,6 +109,8 @@ function SelectorUnidades({ items, onAdd, onRemove }) {
 
 // ── Panel de resumen de precio ──────────────────────────────────
 function ResumenPrecio({ cotizacion }) {
+  const { ufAPesos, formatPesos } = useUF()
+  const enPesos = (uf) => { const v = ufAPesos(uf); return v ? formatPesos(v) : null }
   const items = cotizacion?.items || []
   const promociones = cotizacion?.promociones || []
   // Compat: cotizaciones antiguas con packs/beneficios separados
@@ -144,10 +146,14 @@ function ResumenPrecio({ cotizacion }) {
                 <span style={{ textAlign: 'right' }}>
                   <Text delete style={{ fontSize: 11, color: '#cf1322', marginRight: 6 }}>{(i.precioListaUF || 0).toFixed(2)}</Text>
                   <Text strong style={{ color: '#389e0d', fontSize: 14 }}>{final.toFixed(2)} UF</Text>
+                  {enPesos(final) && <div><Text strong style={{ color: '#389e0d', fontSize: 12 }}>{enPesos(final)}</Text></div>}
                   <div><Text style={{ color: '#389e0d', fontSize: 11 }}>Ahorras {dto.toFixed(2)} UF</Text></div>
                 </span>
               ) : (
-                <Text strong>{(i.precioListaUF || 0).toFixed(2)} UF</Text>
+                <span style={{ textAlign: 'right' }}>
+                  <Text strong>{(i.precioListaUF || 0).toFixed(2)} UF</Text>
+                  {enPesos(i.precioListaUF || 0) && <div><Text type="secondary" style={{ fontSize: 12 }}>{enPesos(i.precioListaUF || 0)}</Text></div>}
+                </span>
               )}
             </div>
           )
@@ -213,9 +219,12 @@ function ResumenPrecio({ cotizacion }) {
         )}
 
         <Divider style={{ margin: '6px 0' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <Text strong style={{ fontSize: 15 }}>Total</Text>
-          <Text strong style={{ fontSize: 17, color: '#1677ff' }}>{precioFinal.toFixed(2)} UF</Text>
+          <div style={{ textAlign: 'right' }}>
+            {enPesos(precioFinal) && <div><Text strong style={{ fontSize: 19, color: '#1677ff' }}>{enPesos(precioFinal)}</Text></div>}
+            <Text strong style={{ fontSize: 13, color: enPesos(precioFinal) ? '#8c8c8c' : '#1677ff' }}>{precioFinal.toFixed(2)} UF</Text>
+          </div>
         </div>
       </div>
     </Card>
