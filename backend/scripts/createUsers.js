@@ -3,7 +3,12 @@ const bcrypt = require('bcryptjs')
 const prisma = require('../src/lib/prisma')
 
 async function main() {
-  const hash = await bcrypt.hash('***CREDENCIAL-ELIMINADA***', 10)
+  const passwordInicial = process.env.SEED_PASSWORD
+  if (!passwordInicial) {
+    console.error('Falta SEED_PASSWORD en el entorno. Ej: SEED_PASSWORD=xxx node scripts/createUsers.js')
+    process.exit(1)
+  }
+  const hash = await bcrypt.hash(passwordInicial, 10)
 
   const juan = await prisma.usuario.upsert({
     where: { email: 'jvaldivieso@bodeparking.cl' },

@@ -1524,7 +1524,7 @@ sleep 2
 # Login to get token
 TOKEN=$(curl -s -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"gerente@bodeparking.cl","password":"***CREDENCIAL-ELIMINADA***"}' \
+  -d '{"email":"gerente@bodeparking.cl","password":"<PASSWORD>"}' \
   | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); console.log(JSON.parse(d).token)")
 
 curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3001/api/packs | node -e "const d=require('fs').readFileSync('/dev/stdin','utf8'); console.log(JSON.parse(d))"
@@ -2335,7 +2335,7 @@ sleep 3
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:3001/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"gerente@bodeparking.cl","password":"***CREDENCIAL-ELIMINADA***"}' \
+  -d '{"email":"gerente@bodeparking.cl","password":"<PASSWORD>"}' \
   | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).token))")
 
 echo "=== Packs ===" && curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3001/api/packs

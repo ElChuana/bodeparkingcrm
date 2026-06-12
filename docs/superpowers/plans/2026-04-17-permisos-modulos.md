@@ -164,7 +164,7 @@ const actualizar = async (req, res) => {
 ```bash
 curl -s -X POST https://backend-production-1c52.up.railway.app/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"jgonzalez@bodeparking.cl","password":"***CREDENCIAL-ELIMINADA***"}' | \
+  -d '{"email":"jgonzalez@bodeparking.cl","password":"<PASSWORD>"}' | \
   node -e "let d=''; process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).usuario))"
 ```
 

@@ -494,7 +494,7 @@ git push
 sleep 60 && curl -s https://backend-production-1c52.up.railway.app/api/leads/campanas \
   -H "Authorization: Bearer $(curl -s -X POST https://backend-production-1c52.up.railway.app/api/auth/login \
     -H 'Content-Type: application/json' \
-    -d '{"email":"fbetancourtt@bodeparking.cl","password":"***CREDENCIAL-ELIMINADA***"}' | \
+    -d '{"email":"fbetancourtt@bodeparking.cl","password":"<PASSWORD>"}' | \
     node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).token))")"
 ```
 
@@ -505,7 +505,7 @@ Resultado esperado: array JSON con nombres de campañas o `[]` si no hay campañ
 ```bash
 TOKEN=$(curl -s -X POST https://backend-production-1c52.up.railway.app/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"fbetancourtt@bodeparking.cl","password":"***CREDENCIAL-ELIMINADA***"}' | \
+  -d '{"email":"fbetancourtt@bodeparking.cl","password":"<PASSWORD>"}' | \
   node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).token))")
 
 curl -s "https://backend-production-1c52.up.railway.app/api/leads?limit=3" \
