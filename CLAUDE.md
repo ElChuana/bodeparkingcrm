@@ -17,7 +17,7 @@ Después de implementar algo nuevo, **actualizar `docs/FUNCIONALIDADES.md`** par
 
 1. **Siempre hacer `git push origin main` después de cada commit** — Railway despliega desde GitHub
 2. **Usar Railway para la BD** — nunca localhost para scripts que afecten producción
-   - URL: `postgresql://bodeparking:***CREDENCIAL-ELIMINADA***@monorail.proxy.rlwy.net:35865/bodeparkingcrm`
+   - La URL de conexión está en `backend/.env` (`DATABASE_URL`). **Nunca escribir credenciales en archivos trackeados por git.**
 3. **Schema**: usar `prisma db push` (no `migrate dev`) — hay drift en historial de migraciones
 4. **Precio en ventas**: usar `precioFinalUF` — el campo `precioUF` ya no existe en el modelo Venta
 5. **Notificaciones**: usar `lib/notifications.js` — no duplicar la función `notificarLead`

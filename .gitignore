@@ -1,5 +1,10 @@
 !backend/uploads/.gitkeep
 docs/enviar/
+backups/
+*.xlsx
+*.sql.gz
+.claude/settings.local.json
+API_LEADS.pdf
 *.log
 .DS_Store
 .env
