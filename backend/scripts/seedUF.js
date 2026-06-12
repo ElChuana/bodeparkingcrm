@@ -2,7 +2,7 @@
 // Ejecutar: node src/seedUF.js
 require('dotenv').config()
 const axios = require('axios')
-const prisma = require('./lib/prisma')
+const prisma = require('../src/lib/prisma')
 
 async function descargarAnio(anio) {
   console.log(`\nDescargando UF ${anio}...`)

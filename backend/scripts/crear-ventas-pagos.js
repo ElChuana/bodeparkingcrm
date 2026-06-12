@@ -1,4 +1,4 @@
-const prisma = require('../backend/src/lib/prisma')
+const prisma = require('../src/lib/prisma')
 
 // Fecha de vencimiento: día 5 del mes, comenzando Feb 2026
 function fechaCuota(numeroCuota) {

@@ -18,3 +18,5 @@ frontend/node_modules/
 node_modules/
 tools/emailmasivo/.env
 tools/emailmasivo/node_modules/
+.claude/skills/
+__pycache__/

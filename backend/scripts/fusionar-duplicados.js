@@ -1,4 +1,4 @@
-const { PrismaClient } = require('../backend/node_modules/@prisma/client')
+const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient({
   datasources: { db: { url: 'postgresql://bodeparking:***CREDENCIAL-ELIMINADA***@monorail.proxy.rlwy.net:35865/bodeparkingcrm' } }
 })

@@ -1,6 +1,6 @@
 require('dotenv').config()
 const bcrypt = require('bcryptjs')
-const prisma = require('./lib/prisma')
+const prisma = require('../src/lib/prisma')
 
 async function main() {
   console.log('🌱 Creando datos de prueba...')

@@ -1,10 +1,25 @@
 #!/bin/bash
-# Backup de Railway → carpeta local backups/
-# Uso: bash scripts/backup-railway.sh
+# Backup de Railway → carpeta local backups/ (gitignorada — nunca subir backups al repo)
+# Uso: bash backend/scripts/backup-railway.sh
 # Recomendado: correr una vez a la semana o antes de cambios grandes
+# Lee DATABASE_URL desde backend/.env
 
-RAILWAY_URL="postgresql://bodeparking:***CREDENCIAL-ELIMINADA***@monorail.proxy.rlwy.net:35865/bodeparkingcrm"
-BACKUP_DIR="$(dirname "$0")/../backups"
+DIR="$(dirname "$0")"
+ENV_FILE="$DIR/../.env"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ No existe $ENV_FILE"
+  exit 1
+fi
+
+RAILWAY_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"')
+
+if [ -z "$RAILWAY_URL" ]; then
+  echo "❌ DATABASE_URL no encontrada en $ENV_FILE"
+  exit 1
+fi
+
+BACKUP_DIR="$DIR/../../backups"
 FECHA=$(date +"%Y-%m-%d_%H-%M")
 ARCHIVO="$BACKUP_DIR/railway_$FECHA.sql"
 

@@ -38,12 +38,16 @@ Después de implementar algo nuevo, **actualizar `docs/FUNCIONALIDADES.md`** par
 bodeparkingcrm/
 ├── backend/
 │   ├── prisma/schema.prisma      ← modelos de BD
+│   ├── scripts/                  ← seeds, migraciones one-off, imports, backup (TODOS los scripts viven aquí)
 │   ├── src/
-│   │   ├── index.js              ← entry point, rutas, cron jobs
+│   │   ├── index.js              ← entry point, montaje de rutas
+│   │   ├── config.js             ← config compartida (ej: VENDEDOR_FALLBACK_ID)
+│   │   ├── jobs/                 ← cron jobs (UF, alertas, reportes, recordatorios)
 │   │   ├── controllers/          ← lógica de negocio
-│   │   ├── routes/               ← definición de endpoints
-│   │   ├── middleware/auth.js    ← JWT + roles
+│   │   ├── routes/               ← definición de endpoints (thin, solo wiring)
+│   │   ├── middleware/           ← auth.js (JWT + roles), apiKey.js (integraciones externas)
 │   │   └── lib/                  ← utilidades compartidas
+│   ├── tests/                    ← tests (node:test) — correr con `npm test`
 │   └── uploads/                  ← archivos subidos
 ├── frontend/
 │   └── src/
@@ -54,3 +58,8 @@ bodeparkingcrm/
 └── docs/
     └── FUNCIONALIDADES.md        ← mapa completo del sistema ← LEER SIEMPRE
 ```
+
+## Seguridad del repo
+
+- **Nunca** commitear: backups SQL, planillas con datos de clientes, credenciales, `.env`, `.claude/settings.local.json`
+- La historia de git fue reescrita el 2026-06-12 para purgar credenciales y datos — no restaurar commits antiguos desde forks/clones viejos

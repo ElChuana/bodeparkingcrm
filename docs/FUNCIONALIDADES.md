@@ -415,7 +415,7 @@
 
 ---
 
-## Cron jobs (backend/src/index.js)
+## Cron jobs (backend/src/jobs/ — registrados desde index.js)
 
 | Schedule | Acción |
 |----------|--------|

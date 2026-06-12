@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BodeParking — Calculadora de Rentabilidad</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+
+  .page-header {
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-header h1 { font-size: 16px; font-weight: 700; color: #111; }
+  .page-header p { font-size: 12px; color: #9ca3af; }
+  .badge { background: #eff6ff; color: #0091c3; border: 1px solid #bfdbfe; border-radius: 99px; padding: 3px 10px; font-size: 11px; font-weight: 600; }
+
+  .container { max-width: 1100px; margin: 28px auto; padding: 0 24px; }
+
+  /* ── Contexto del lead ── */
+  .lead-bar {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 20px;
+  }
+  .lead-av { width: 36px; height: 36px; background: #e8f4fb; border-radius: 50%; display:flex;align-items:center;justify-content:center; font-size:13px; font-weight:700; color:#0091c3; }
+  .lead-name { font-size: 14px; font-weight: 600; color: #111; }
+  .lead-sub { font-size: 12px; color: #9ca3af; }
+  .lead-unit { margin-left: auto; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 14px; text-align:right; }
+  .lead-unit-name { font-size: 13px; font-weight: 600; color: #111; }
+  .lead-unit-price { font-size: 12px; color: #0091c3; font-weight: 600; }
+
+  /* ── Grid principal ── */
+  .grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+
+  /* ── Panel inputs ── */
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+  .card-header { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; display:flex;align-items:center;gap:8px; }
+  .card-title { font-size: 13px; font-weight: 700; color: #111; }
+  .card-body { padding: 20px; }
+
+  .section-label {
+    font-size: 10px; font-weight: 700; color: #9ca3af;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    margin-bottom: 12px; margin-top: 20px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 5px; }
+  .field-row { display: flex; align-items: center; gap: 0; }
+  .field-prefix {
+    background: #f8fafc; border: 1px solid #e5e7eb; border-right: none;
+    border-radius: 7px 0 0 7px; padding: 0 11px; height: 36px;
+    display: flex; align-items: center;
+    font-size: 12px; font-weight: 500; color: #6b7280;
+  }
+  .field-suffix {
+    background: #f8fafc; border: 1px solid #e5e7eb; border-left: none;
+    border-radius: 0 7px 7px 0; padding: 0 11px; height: 36px;
+    display: flex; align-items: center;
+    font-size: 12px; font-weight: 500; color: #6b7280;
+  }
+  .field input[type="number"], .field input[type="text"] {
+    width: 100%; height: 36px; border: 1px solid #e5e7eb;
+    border-radius: 7px; padding: 0 12px;
+    font-size: 13px; color: #1f2937; font-family: inherit;
+    outline: none; background: #fff;
+    transition: border-color .15s;
+  }
+  .field input[type="number"]:focus { border-color: #0091c3; box-shadow: 0 0 0 3px rgba(0,145,195,.08); }
+  .field-row input { border-radius: 0; flex: 1; }
+  .field-row input:focus { border-color: #0091c3; }
+  .field-hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+  .slider-wrap { margin-top: 6px; }
+  input[type="range"] {
+    width: 100%; -webkit-appearance: none; height: 4px;
+    background: linear-gradient(to right, #0091c3 0%, #0091c3 var(--pct, 40%), #e5e7eb var(--pct, 40%), #e5e7eb 100%);
+    border-radius: 99px; outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    background: #0091c3; border-radius: 50%;
+    border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  }
+  .slider-labels { display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; margin-top: 4px; }
+
+  /* ── Panel resultados ── */
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .kpi-card {
+    background: #f8fafc; border: 1px solid #e5e7eb;
+    border-radius: 10px; padding: 16px;
+  }
+  .kpi-card.highlight {
+    background: linear-gradient(135deg, #0091c3, #006e97);
+    border-color: #0091c3;
+  }
+  .kpi-label { font-size: 11px; color: #6b7280; font-weight: 500; margin-bottom: 4px; }
+  .kpi-card.highlight .kpi-label { color: rgba(255,255,255,.7); }
+  .kpi-value { font-size: 26px; font-weight: 800; color: #111; letter-spacing: -1px; }
+  .kpi-card.highlight .kpi-value { color: #fff; }
+  .kpi-sub { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+  .kpi-card.highlight .kpi-sub { color: rgba(255,255,255,.6); }
+  .kpi-good { color: #16a34a !important; }
+  .kpi-warn { color: #d97706 !important; }
+  .kpi-bad  { color: #ca3a36 !important; }
+
+  /* ── Proyección a N años ── */
+  .projection-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .year-tabs { display: flex; gap: 4px; }
+  .year-tab {
+    padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer;
+  }
+  .year-tab.active { background: #0091c3; color: #fff; border-color: #0091c3; }
+
+  /* ── Barra de proyección ── */
+  .projection-table { width: 100%; border-collapse: collapse; }
+  .projection-table th { font-size: 11px; color: #9ca3af; font-weight: 600; text-align: left; padding: 4px 8px; }
+  .projection-table td { padding: 7px 8px; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
+  .projection-table tr:last-child td { border-bottom: none; }
+  .bar-cell { width: 120px; }
+  .bar-wrap { background: #f1f5f9; border-radius: 99px; height: 6px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(to right, #0091c3, #00b4d8); }
+  .val-green { color: #16a34a; font-weight: 600; }
+
+  /* ── Desglose flujo de caja ── */
+  .flujo { margin-top: 16px; }
+  .flujo-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+  .flujo-row:last-child { border-bottom: none; font-weight: 700; }
+  .flujo-label { color: #4b5563; }
+  .flujo-val { font-weight: 500; }
+  .flujo-neg { color: #ca3a36; }
+  .flujo-pos { color: #16a34a; }
+  .flujo-total { color: #0091c3; }
+
+  /* ── Footer acciones ── */
+  .actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+  .btn {
+    padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: none; display: flex; align-items: center; gap: 6px;
+    transition: all .15s;
+  }
+  .btn-primary { background: #0091c3; color: #fff; }
+  .btn-primary:hover { background: #007ba8; }
+  .btn-ghost { background: #f1f5f9; color: #4b5563; border: 1px solid #e5e7eb; }
+  .btn-ghost:hover { background: #e5e7eb; }
+
+  .divider { height: 1px; background: #f1f5f9; margin: 16px 0; }
+
+  .nota { font-size: 11px; color: #9ca3af; margin-top: 12px; line-height: 1.5; }
+
+  @media (max-width: 800px) {
+    .grid { grid-template-columns: 1fr; }
+    .results-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Calculadora de Rentabilidad</h1>
+    <p>Proyección de inversión para el cliente</p>
+  </div>
+  <span class="badge">BodeParking CRM</span>
+</div>
+
+<div class="container">
+
+  <!-- Lead context bar -->
+  <div class="lead-bar">
+    <div class="lead-av">MR</div>
+    <div>
+      <div class="lead-name">Mario Rodríguez</div>
+      <div class="lead-sub">Lead #847 · Cotización #23</div>
+    </div>
+    <div class="lead-unit">
+      <div class="lead-unit-name">Bodega B-203 · Torre Norte</div>
+      <div class="lead-unit-price">2.450 UF</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- ── Panel izquierdo: inputs ── -->
+    <div class="card">
+      <div class="card-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0091c3" stroke-width="2">
+          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+        <span class="card-title">Parámetros de inversión</span>
+      </div>
+      <div class="card-body">
+
+        <div class="section-label">Precio de compra</div>
+
+        <div class="field">
+          <label>Precio final UF</label>
+          <div class="field-row">
+            <span class="field-prefix">UF</span>
+            <input type="number" id="precio" value="2450" oninput="calcular()">
+          </div>
+          <div class="field-hint">Pre-cargado desde cotización #23</div>
+        </div>
+
+        <div class="field">
+          <label>Valor UF hoy</label>
+          <div class="field-row">
+            <span class="field-prefix">$</span>
+            <input type="number" id="valorUF" value="38500" oninput="calcular()">
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="section-label">Arriendo</div>
+
+        <div class="field">
+          <label>Arriendo mensual estimado</label>
+          <div class="field-row">
+            <span class="field-prefix">UF</span>
+            <input type="number" id="arriendo" value="5.5" step="0.1" oninput="calcular()">
+          </div>
+          <div class="field-hint">Bodegas similares en la zona: 4.5–7 UF/mes</div>
+        </div>
+
+        <div class="field">
+          <label>Vacancia anual estimada</label>
+          <div class="slider-wrap">
+            <input type="range" id="vacancia" min="0" max="30" value="5" step="1" oninput="calcular(); updateSlider(this)" style="--pct: 17%">
+            <div class="slider-labels"><span>0%</span><span id="vacanciaVal">5%</span><span>30%</span></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Gastos comunes / administración</label>
+          <div class="field-row">
+            <span class="field-prefix">UF</span>
+            <input type="number" id="gastos" value="0.3" step="0.1" oninput="calcular()">
+            <span class="field-suffix">/mes</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="section-label">Proyección</div>
+
+        <div class="field">
+          <label>Plusvalía anual estimada</label>
+          <div class="slider-wrap">
+            <input type="range" id="plusvalia" min="0" max="10" value="3" step="0.5" oninput="calcular(); updateSlider2(this)" style="--pct: 30%">
+            <div class="slider-labels"><span>0%</span><span id="plusvaliaVal">3%</span><span>10%</span></div>
+          </div>
+          <div class="field-hint">Promedio zona oriente Santiago: 3–5% anual</div>
+        </div>
+
+        <div class="field">
+          <label>Horizonte de inversión</label>
+          <div class="field-row">
+            <input type="number" id="anios" value="10" min="1" max="30" oninput="calcular()">
+            <span class="field-suffix">años</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Panel derecho: resultados ── -->
+    <div>
+
+      <!-- KPIs principales -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div class="card-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0091c3" stroke-width="2">
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+          </svg>
+          <span class="card-title">Resultados</span>
+        </div>
+        <div class="card-body">
+          <div class="results-grid">
+            <div class="kpi-card highlight">
+              <div class="kpi-label">Rentabilidad bruta anual</div>
+              <div class="kpi-value" id="rentBruta">—</div>
+              <div class="kpi-sub">sobre precio de compra</div>
+            </div>
+            <div class="kpi-card highlight">
+              <div class="kpi-label">Rentabilidad neta anual</div>
+              <div class="kpi-value" id="rentNeta">—</div>
+              <div class="kpi-sub">descontando vacancia y gastos</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Payback</div>
+              <div class="kpi-value" id="payback" style="font-size:22px">—</div>
+              <div class="kpi-sub">años para recuperar inversión</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Flujo neto anual</div>
+              <div class="kpi-value" id="flujoAnual" style="font-size:20px">—</div>
+              <div class="kpi-sub">arriendo neto en UF/año</div>
+            </div>
+          </div>
+
+          <!-- Desglose flujo de caja anual -->
+          <div class="card-title" style="font-size:12px; margin-bottom:8px; color:#374151;">Flujo de caja anual</div>
+          <div class="flujo">
+            <div class="flujo-row">
+              <span class="flujo-label">Arriendo bruto anual</span>
+              <span class="flujo-val flujo-pos" id="arriendoBrutoAnual">—</span>
+            </div>
+            <div class="flujo-row">
+              <span class="flujo-label">Pérdida por vacancia</span>
+              <span class="flujo-val flujo-neg" id="perdidaVacancia">—</span>
+            </div>
+            <div class="flujo-row">
+              <span class="flujo-label">Gastos anuales</span>
+              <span class="flujo-val flujo-neg" id="gastosAnuales">—</span>
+            </div>
+            <div class="flujo-row" style="padding-top:10px">
+              <span class="flujo-label" style="font-weight:700;">Flujo neto anual</span>
+              <span class="flujo-val flujo-total" id="flujoNeto">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Proyección por año -->
+      <div class="card">
+        <div class="card-body">
+          <div class="projection-header">
+            <span class="card-title" style="font-size:13px;">Proyección acumulada</span>
+            <div class="year-tabs">
+              <div class="year-tab active" onclick="setHorizonte(5, this)">5 años</div>
+              <div class="year-tab" onclick="setHorizonte(10, this)">10 años</div>
+              <div class="year-tab" onclick="setHorizonte(15, this)">15 años</div>
+            </div>
+          </div>
+
+          <table class="projection-table">
+            <thead>
+              <tr>
+                <th>Año</th>
+                <th>Arriendo acum.</th>
+                <th>Valor propiedad</th>
+                <th>Retorno total</th>
+                <th style="width:100px"></th>
+              </tr>
+            </thead>
+            <tbody id="projectionBody">
+            </tbody>
+          </table>
+
+          <p class="nota">* Proyección referencial. No incluye impuestos, corretaje ni gastos notariales. El arriendo se mantiene constante en UF reales. La plusvalía es estimada según tendencia de mercado.</p>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div class="actions">
+        <button class="btn btn-ghost">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Exportar PDF
+        </button>
+        <button class="btn btn-primary">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+          </svg>
+          Incluir en cotización y enviar
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  let horizonteTabla = 5
+
+  function setHorizonte(n, el) {
+    horizonteTabla = n
+    document.querySelectorAll('.year-tab').forEach(t => t.classList.remove('active'))
+    el.classList.add('active')
+    calcular()
+  }
+
+  function updateSlider(el) {
+    const pct = (el.value - el.min) / (el.max - el.min) * 100
+    el.style.setProperty('--pct', pct + '%')
+    document.getElementById('vacanciaVal').textContent = el.value + '%'
+  }
+
+  function updateSlider2(el) {
+    const pct = (el.value - el.min) / (el.max - el.min) * 100
+    el.style.setProperty('--pct', pct + '%')
+    document.getElementById('plusvaliaVal').textContent = el.value + '%'
+  }
+
+  function fmt(n, dec=1) { return n.toFixed(dec) + ' UF' }
+  function fmtPct(n) {
+    const s = n.toFixed(1) + '%'
+    return s
+  }
+
+  function colorPct(n, el) {
+    if (n >= 6) el.className = 'kpi-value kpi-good'
+    else if (n >= 4) el.className = 'kpi-value kpi-warn'
+    else el.className = 'kpi-value kpi-bad'
+  }
+
+  function calcular() {
+    const precio    = parseFloat(document.getElementById('precio').value) || 0
+    const arriendo  = parseFloat(document.getElementById('arriendo').value) || 0
+    const vacancia  = parseFloat(document.getElementById('vacancia').value) / 100
+    const gastos    = parseFloat(document.getElementById('gastos').value) || 0
+    const plusvalia = parseFloat(document.getElementById('plusvalia').value) / 100
+    const anios     = parseInt(document.getElementById('anios').value) || 10
+
+    if (!precio || !arriendo) return
+
+    const arriendoBruto = arriendo * 12
+    const perdVacancia  = arriendoBruto * vacancia
+    const gastosAnu     = gastos * 12
+    const flujoNeto     = arriendoBruto - perdVacancia - gastosAnu
+
+    const rentBruta = (arriendoBruto / precio) * 100
+    const rentNeta  = (flujoNeto / precio) * 100
+    const payback   = flujoNeto > 0 ? (precio / flujoNeto) : Infinity
+
+    // KPIs
+    const elRB = document.getElementById('rentBruta')
+    const elRN = document.getElementById('rentNeta')
+    elRB.textContent = fmtPct(rentBruta)
+    elRN.textContent = fmtPct(rentNeta)
+    colorPct(rentBruta, elRB)
+    colorPct(rentNeta, elRN)
+
+    document.getElementById('payback').textContent     = payback < 100 ? payback.toFixed(1) + ' años' : '—'
+    document.getElementById('flujoAnual').textContent  = fmt(flujoNeto)
+
+    // Flujo de caja
+    document.getElementById('arriendoBrutoAnual').textContent = '+' + fmt(arriendoBruto)
+    document.getElementById('perdidaVacancia').textContent    = '-' + fmt(perdVacancia)
+    document.getElementById('gastosAnuales').textContent      = '-' + fmt(gastosAnu)
+    document.getElementById('flujoNeto').textContent          = fmt(flujoNeto)
+
+    // Proyección tabla
+    const tbody = document.getElementById('projectionBody')
+    tbody.innerHTML = ''
+    let arriendoAcum = 0
+    let valorProp = precio
+    const maxRetorno = (flujoNeto * horizonteTabla) + (precio * Math.pow(1 + plusvalia, horizonteTabla) - precio)
+
+    for (let y = 1; y <= horizonteTabla; y++) {
+      arriendoAcum += flujoNeto
+      valorProp = precio * Math.pow(1 + plusvalia, y)
+      const plusvaliAcum = valorProp - precio
+      const retornoTotal = arriendoAcum + plusvaliAcum
+      const barPct = Math.min(100, (retornoTotal / maxRetorno) * 100)
+
+      const tr = document.createElement('tr')
+      tr.innerHTML = `
+        <td style="font-weight:600; color:#374151">Año ${y}</td>
+        <td style="color:#0891b2">${fmt(arriendoAcum)}</td>
+        <td>${fmt(valorProp, 0)}</td>
+        <td class="val-green">${fmt(retornoTotal, 0)}</td>
+        <td class="bar-cell">
+          <div class="bar-wrap">
+            <div class="bar-fill" style="width:${barPct}%"></div>
+          </div>
+        </td>
+      `
+      tbody.appendChild(tr)
+    }
+  }
+
+  // Init
+  calcular()
+</script>
+</body>
+</html>

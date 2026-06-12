@@ -2,13 +2,14 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 const path = require('path')
-const cron = require('node-cron')
-const axios = require('axios')
-const prisma = require('./lib/prisma')
+const { registrarJobs } = require('./jobs')
 
 const app = express()
 
-app.use(cors())
+// En producción el frontend se sirve desde este mismo Express (same-origin),
+// así que CORS solo se abre a los orígenes listados en CORS_ORIGIN (separados
+// por coma). Sin la variable, se mantiene abierto como antes.
+app.use(cors(process.env.CORS_ORIGIN ? { origin: process.env.CORS_ORIGIN.split(',') } : {}))
 app.use(express.json({ limit: '10mb' }))
 
 // Archivos estáticos (fotos, planos, documentos subidos)
@@ -20,6 +21,8 @@ app.use('/api/usuarios',    require('./routes/usuarios'))
 app.use('/api/edificios',   require('./routes/edificios'))
 app.use('/api/unidades',    require('./routes/unidades'))
 app.use('/api/contactos',   require('./routes/contactos'))
+// Comuro expone POST /api/leads/upsert (URL pactada con ellos); se monta antes
+// que ./routes/leads y solo define esa ruta — cuidado con colisiones al agregar más
 app.use('/api/leads',       require('./routes/comuro'))
 app.use('/api/leads',       require('./routes/leads'))
 app.use('/api/visitas',        require('./routes/visitas'))
@@ -50,7 +53,6 @@ app.use('/api/email',       require('./routes/email'))
 app.use('/api/leads/:id/recordatorios', require('./routes/recordatorios'))
 app.use('/api/recordatorios',           require('./routes/recordatorios-completar'))
 
-
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
@@ -71,149 +73,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Error interno del servidor.' })
 })
 
-// ─── Cron: actualizar UF una vez al día a las 9:00 AM ────────────
-async function actualizarUF() {
-  try {
-    const hoy = new Date()
-    const d = String(hoy.getDate()).padStart(2, '0')
-    const m = String(hoy.getMonth() + 1).padStart(2, '0')
-    const y = hoy.getFullYear()
-
-    const resp = await axios.get(`https://mindicador.cl/api/uf/${d}-${m}-${y}`, { timeout: 10000 })
-    const serie = resp.data?.serie
-    if (!serie?.length) throw new Error('Sin datos')
-
-    const { fecha, valor } = serie[0]
-    await prisma.uFDiaria.upsert({
-      where: { fecha: new Date(fecha) },
-      update: { valorPesos: valor },
-      create: { fecha: new Date(fecha), valorPesos: valor }
-    })
-    console.log(`[UF] Actualizada: $${valor.toLocaleString('es-CL')} (${d}/${m}/${y})`)
-  } catch (err) {
-    console.error('[UF] Error al actualizar:', err.message)
-  }
-}
-
-// Ejecutar cada día a las 09:00 AM (hora del servidor)
-cron.schedule('0 9 * * *', actualizarUF)
-
-// ─── Cron: chequeo de alertas (leads sin actividad/estancados) ───
-const { _ejecutarChequeo } = require('./controllers/alertasController')
-cron.schedule('0 12 * * *', async () => {
-  try {
-    const resultado = await _ejecutarChequeo()
-    console.log(`[Alertas] Chequeo diario: ${resultado.alertasGeneradas?.length || 0} alertas, ${resultado.acciones?.length || 0} acciones`)
-  } catch (err) {
-    console.error('[Alertas] Error en cron:', err.message)
-  }
-})
-
-// ─── Cron: reportes diarios con IA (Gemini) — 11 UTC = 7-8 AM Chile ───
-const { generarReportesParaVendedoresActivos } = require('./lib/reportes')
-cron.schedule('0 11 * * *', async () => {
-  try {
-    const resultados = await generarReportesParaVendedoresActivos()
-    const ok = resultados.filter(r => r.ok).length
-    const fail = resultados.length - ok
-    console.log(`[Reportes IA] ${ok} generados${fail ? `, ${fail} fallidos` : ''}`)
-  } catch (err) {
-    console.error('[Reportes IA] Error en cron:', err.message)
-  }
-})
-
-// ─── Cron: reporte semanal del gerente — lunes 11 UTC (7 AM Chile) ───
-const { generarReportesSemanalParaGerentes } = require('./lib/reportesSemanal')
-cron.schedule('0 11 * * 1', async () => {
-  try {
-    const resultados = await generarReportesSemanalParaGerentes()
-    const ok = resultados.filter(r => r.ok).length
-    console.log(`[Reporte Semanal] gerentes: ${ok}/${resultados.length}`)
-  } catch (err) {
-    console.error('[Reporte Semanal] Error en cron:', err.message)
-  }
-})
-
-// ─── Cron: recordatorios vencidos → notificación ──────────────────
-cron.schedule('*/15 * * * *', async () => {
-  try {
-    const pendientes = await prisma.recordatorio.findMany({
-      where: { fechaHora: { lte: new Date() }, completado: false, notificado: false },
-      include: {
-        lead: {
-          select: {
-            id: true,
-            vendedorId: true,
-            contacto: { select: { nombre: true, apellido: true } }
-          }
-        }
-      }
-    })
-    for (const r of pendientes) {
-      if (r.lead.vendedorId) {
-        await prisma.notificacion.create({
-          data: {
-            usuarioId:      r.lead.vendedorId,
-            tipo:           'RECORDATORIO_LEAD',
-            mensaje:        `Recordatorio: ${r.descripcion} — ${r.lead.contacto.nombre} ${r.lead.contacto.apellido}`,
-            referenciaId:   r.leadId,
-            referenciaTipo: 'lead'
-          }
-        })
-      }
-      await prisma.recordatorio.update({ where: { id: r.id }, data: { notificado: true } })
-    }
-    if (pendientes.length > 0) {
-      console.log(`[Recordatorios] ${pendientes.length} procesados`)
-    }
-
-    // ── Visitas próximas (24h) ─────────────────────────────────────
-    const ventanaMin = new Date(Date.now() + 23 * 60 * 60 * 1000)
-    const ventanaMax = new Date(Date.now() + 25 * 60 * 60 * 1000)
-
-    const visitasProximas = await prisma.visita.findMany({
-      where: { fechaHora: { gte: ventanaMin, lte: ventanaMax }, resultado: null },
-      include: {
-        lead: {
-          select: {
-            id: true,
-            vendedorId: true,
-            contacto: { select: { nombre: true, apellido: true } }
-          }
-        }
-      }
-    })
-
-    for (const visita of visitasProximas) {
-      if (!visita.lead.vendedorId) continue
-      const yaNotificado = await prisma.notificacion.findFirst({
-        where: {
-          tipo: 'VISITA_PROXIMA',
-          referenciaId: visita.id,
-          referenciaTipo: 'visita',
-          usuarioId: visita.lead.vendedorId,
-          creadoEn: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }
-        }
-      })
-      if (!yaNotificado) {
-        await prisma.notificacion.create({
-          data: {
-            usuarioId: visita.lead.vendedorId,
-            tipo: 'VISITA_PROXIMA',
-            mensaje: `Visita mañana con ${visita.lead.contacto.nombre} ${visita.lead.contacto.apellido}`,
-            referenciaId: visita.id,
-            referenciaTipo: 'visita'
-          }
-        })
-      }
-    }
-    if (visitasProximas.length > 0) {
-      console.log(`[Visitas] ${visitasProximas.length} visitas próximas procesadas`)
-    }
-  } catch (err) {
-    console.error('[Recordatorios] Error en cron:', err.message)
-  }
-})
+// Cron jobs (UF, alertas, reportes, recordatorios) — ver src/jobs/
+registrarJobs()
 
 const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {

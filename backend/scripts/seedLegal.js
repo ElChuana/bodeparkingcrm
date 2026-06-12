@@ -1,7 +1,7 @@
 // Script para crear datos legales y de pagos conectados a las ventas existentes
 // Ejecutar: node src/seedLegal.js
 require('dotenv').config()
-const prisma = require('./lib/prisma')
+const prisma = require('../src/lib/prisma')
 
 async function main() {
   // Obtener las ventas existentes

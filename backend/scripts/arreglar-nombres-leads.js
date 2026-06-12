@@ -7,8 +7,8 @@
  */
 
 const path = require('path')
-module.paths.unshift(path.join(__dirname, '../backend/node_modules'))
-require('dotenv').config({ path: path.join(__dirname, '../backend/.env') })
+module.paths.unshift(path.join(__dirname, '../node_modules'))
+require('dotenv').config({ path: path.join(__dirname, '../.env') })
 
 const { PrismaClient } = require('@prisma/client')
 const axios = require('axios')

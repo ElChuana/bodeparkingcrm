@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Análisis mensual BodeParking — Abril 2026 en adelante</title>
+<style>
+  :root {
+    --azul: #0091c3; --gris: #3d3d3d; --rojo: #ca3a36;
+    --bg: #f5f7fa; --card: #fff; --border: #e3e8ee; --muted: #6b7280;
+    --warn: #f59e0b; --ok: #10b981; --purple: #7c3aed;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--gris); padding: 24px; line-height: 1.55; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .header { background: linear-gradient(135deg, var(--azul), #006a8f); color: white; padding: 28px 32px; border-radius: 16px; margin-bottom: 24px; }
+  .header h1 { font-size: 26px; margin-bottom: 4px; }
+  .header .sub { opacity: 0.9; font-size: 14px; }
+
+  .section { background: var(--card); border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid var(--border); }
+  .section h2 { font-size: 18px; font-weight: 700; margin-bottom: 14px; color: var(--gris); }
+  .section h3 { font-size: 15px; font-weight: 600; margin: 14px 0 8px; color: var(--gris); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th { text-align: left; padding: 10px 12px; background: #f9fafb; font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 600; letter-spacing: 0.3px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:hover { background: #fafbfc; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .mes { font-weight: 700; color: var(--azul); }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat { background: #f9fafb; border-radius: 10px; padding: 14px; }
+  .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+  .stat .val { font-size: 26px; font-weight: 700; margin-top: 4px; }
+  .stat.ok .val { color: var(--ok); }
+  .stat.warn .val { color: var(--warn); }
+  .stat.alert .val { color: var(--rojo); }
+
+  .bar-container { display: flex; align-items: flex-end; gap: 8px; height: 140px; padding: 24px 0; position: relative; }
+  .bar { flex: 1; background: linear-gradient(to top, var(--azul), #4dc4e8); border-radius: 4px 4px 0 0; position: relative; min-height: 4px; }
+  .bar.green { background: linear-gradient(to top, var(--ok), #4ade80); }
+  .bar .val { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 700; }
+  .bar .lbl { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+  .insight { background: #fef3c7; border-left: 4px solid var(--warn); padding: 14px 18px; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
+  .insight.ok { background: #d1fae5; border-color: var(--ok); }
+  .insight.info { background: #e0f2fe; border-color: var(--azul); }
+  .insight.alert { background: #fee2e2; border-color: var(--rojo); }
+  .insight strong { font-weight: 700; }
+
+  ul.rec { padding-left: 20px; }
+  ul.rec li { margin-bottom: 6px; font-size: 14px; }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .tag.green { background: #d1fae5; color: #065f46; }
+  .tag.red { background: #fee2e2; color: #991b1b; }
+  .tag.blue { background: #dbeafe; color: #1e40af; }
+  .tag.purple { background: #ede9fe; color: #5b21b6; }
+
+  .nota-meta { font-size: 12px; color: var(--muted); margin-top: 10px; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>📊 Análisis mensual BodeParking</h1>
+    <div class="sub">Análisis CRM — empezado a usar en abril 2026. Datos previos son cargas históricas de ventas.</div>
+  </div>
+
+  <!-- ACLARACIÓN IMPORTANTE -->
+  <div class="section" style="background: #fef9e7; border-color: #f59e0b">
+    <h2 style="color: #92400e">⚠️ Importante — sobre los datos</h2>
+    <p style="font-size: 14px; line-height: 1.6">
+      El CRM <strong>empezó a usarse en abril 2026</strong>. Las ventas que aparecen con fecha <code>creadoEn</code> anterior a esa fecha son <strong>cargas históricas masivas</strong>: el equipo subió las ventas ya cerradas con sus fechas reales de reserva (<code>fechaReserva</code>) desde julio 2025.
+    </p>
+    <p style="font-size: 14px; line-height: 1.6; margin-top: 8px">
+      Por eso este análisis usa <strong><code>fechaReserva</code> para medir ventas reales por mes</strong> y se enfoca en <strong>abril–mayo 2026</strong> como el periodo donde el CRM se usa activamente.
+    </p>
+  </div>
+
+  <!-- RESUMEN EJECUTIVO -->
+  <div class="section">
+    <h2>🎯 Resumen ejecutivo</h2>
+    <div class="insight info">
+      <strong>Abril 2026 marca el inicio del uso real del CRM.</strong> 740 leads creados, 72 interacciones reales, primer mes con gestión documentada.
+    </div>
+    <div class="insight ok">
+      <strong>Febrero 2026 fue el mejor mes en ventas históricas:</strong> 6 ventas por UF 1.477 (promedio UF 246 por venta). Esos contratos se cargaron al CRM en abril cuando arrancó el sistema.
+    </div>
+    <div class="insight">
+      <strong>Mayo 2026 sin ventas cerradas todavía</strong> pero 52 leads avanzaron a etapa cotización. Si la conversión histórica promedio se mantiene, deberían cerrarse 2-3 ventas antes que termine el mes.
+    </div>
+    <div class="insight alert">
+      <strong>Captación cayó -74% en mayo</strong>: 195 leads vs 740 de abril. Revisar campañas pausadas, presupuesto Meta/Instagram, o problema con el webhook de Comuro.
+    </div>
+  </div>
+
+  <!-- VENTAS REALES POR MES -->
+  <div class="section">
+    <h2>💰 Ventas reales por mes (según fecha de reserva)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mes de reserva</th>
+          <th style="text-align: right">Ventas</th>
+          <th style="text-align: right">UF total</th>
+          <th style="text-align: right">UF promedio</th>
+          <th>Origen del registro</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mes">Jul 2025</td>
+          <td class="num">2</td>
+          <td class="num">UF 447</td>
+          <td class="num">UF 224</td>
+          <td><span class="tag purple">CARGA HISTÓRICA</span></td>
+        </tr>
+        <tr>
+          <td class="mes">Sep 2025</td>
+          <td class="num">1</td>
+          <td class="num">UF 447</td>
+          <td class="num">UF 447</td>
+          <td><span class="tag purple">CARGA HISTÓRICA</span></td>
+        </tr>
+        <tr>
+          <td class="mes">Dic 2025</td>
+          <td class="num">1</td>
+          <td class="num">UF 298</td>
+          <td class="num">UF 298</td>
+          <td><span class="tag purple">CARGA HISTÓRICA</span></td>
+        </tr>
+        <tr>
+          <td class="mes">Ene 2026</td>
+          <td class="num">3</td>
+          <td class="num">UF 296</td>
+          <td class="num">UF 99</td>
+          <td><span class="tag purple">CARGA HISTÓRICA</span></td>
+        </tr>
+        <tr style="background: #f0fdf4">
+          <td class="mes">Feb 2026</td>
+          <td class="num">6</td>
+          <td class="num" style="color: var(--ok); font-weight: 700">UF 1.477</td>
+          <td class="num">UF 246</td>
+          <td><span class="tag purple">CARGA HISTÓRICA</span></td>
+        </tr>
+        <tr>
+          <td class="mes">Mar 2026</td>
+          <td class="num">3</td>
+          <td class="num">UF 240</td>
+          <td class="num">UF 80</td>
+          <td><span class="tag purple">CARGA HISTÓRICA</span></td>
+        </tr>
+        <tr style="background: #ecfdf5">
+          <td class="mes">Abr 2026 <span class="tag green">CRM ACTIVO</span></td>
+          <td class="num">3</td>
+          <td class="num">UF 507</td>
+          <td class="num">UF 169</td>
+          <td><span class="tag green">CON CRM</span></td>
+        </tr>
+        <tr style="background: #fef9e7">
+          <td class="mes">May 2026 <span class="tag blue">EN CURSO</span></td>
+          <td class="num">0</td>
+          <td class="num">—</td>
+          <td class="num">—</td>
+          <td><span class="tag green">CON CRM</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="nota-meta">El sello "CARGA HISTÓRICA" indica que la venta se ingresó al sistema en abril 2026 pero el contrato se firmó antes. Por eso son útiles para entender historial, no para evaluar performance reciente.</p>
+  </div>
+
+  <!-- KPIs MES CRM (ABRIL EN ADELANTE) -->
+  <div class="section">
+    <h2>📈 KPIs del periodo con CRM activo (abril → mayo)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th style="text-align: right">Leads nuevos</th>
+          <th style="text-align: right">Interacciones reales</th>
+          <th style="text-align: right">Cambios etapa</th>
+          <th style="text-align: right">Llegaron a cotización</th>
+          <th style="text-align: right">Ventas (por reserva)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background: #ecfdf5">
+          <td class="mes">Abr 2026</td>
+          <td class="num">740</td>
+          <td class="num">72</td>
+          <td class="num">342</td>
+          <td class="num">26</td>
+          <td class="num">3</td>
+        </tr>
+        <tr style="background: #fef9e7">
+          <td class="mes">May 2026 *</td>
+          <td class="num">195</td>
+          <td class="num" style="color: var(--ok); font-weight: 700">276</td>
+          <td class="num" style="color: var(--ok); font-weight: 700">708</td>
+          <td class="num">52</td>
+          <td class="num">0</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="nota-meta">* Mayo está incompleto: datos hasta el 26/05.</p>
+  </div>
+
+  <!-- TENDENCIAS VISUALES -->
+  <div class="section">
+    <h2>📊 Tendencias visuales</h2>
+
+    <h3>Leads creados por mes</h3>
+    <div class="bar-container">
+      <div class="bar" style="height: 49%"><div class="val">365</div><div class="lbl">Oct'25</div></div>
+      <div class="bar" style="height: 26%"><div class="val">190</div><div class="lbl">Nov</div></div>
+      <div class="bar" style="height: 65%"><div class="val">478</div><div class="lbl">Dic</div></div>
+      <div class="bar" style="height: 87%"><div class="val">642</div><div class="lbl">Ene</div></div>
+      <div class="bar" style="height: 63%"><div class="val">463</div><div class="lbl">Feb</div></div>
+      <div class="bar" style="height: 69%"><div class="val">508</div><div class="lbl">Mar</div></div>
+      <div class="bar" style="height: 100%"><div class="val">740</div><div class="lbl">Abr</div></div>
+      <div class="bar" style="height: 26%"><div class="val">195</div><div class="lbl">May*</div></div>
+    </div>
+
+    <h3 style="margin-top: 22px">Interacciones reales del equipo (LLAMADA + EMAIL + WSP + REUNION)</h3>
+    <div class="bar-container">
+      <div class="bar green" style="height: 1%"><div class="val">0</div><div class="lbl">Oct'25</div></div>
+      <div class="bar green" style="height: 1%"><div class="val">0</div><div class="lbl">Nov</div></div>
+      <div class="bar green" style="height: 1%"><div class="val">0</div><div class="lbl">Dic</div></div>
+      <div class="bar green" style="height: 1%"><div class="val">0</div><div class="lbl">Ene</div></div>
+      <div class="bar green" style="height: 1%"><div class="val">0</div><div class="lbl">Feb</div></div>
+      <div class="bar green" style="height: 1%"><div class="val">0</div><div class="lbl">Mar</div></div>
+      <div class="bar green" style="height: 26%"><div class="val">72</div><div class="lbl">Abr</div></div>
+      <div class="bar green" style="height: 100%"><div class="val">276</div><div class="lbl">May*</div></div>
+    </div>
+    <p class="nota-meta">El equipo de ventas empezó a usar el CRM en abril 2026. Antes había leads cargados pero sin gestión documentada.</p>
+  </div>
+
+  <!-- ORIGEN DE LEADS -->
+  <div class="section">
+    <h2>🎯 Origen de leads por mes</h2>
+    <table>
+      <thead>
+        <tr><th>Mes</th><th>Instagram</th><th>Meta</th><th>Web</th><th>Otros</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="mes">Oct 2025</td><td class="num">48</td><td class="num">317</td><td class="num">—</td><td class="num">—</td></tr>
+        <tr><td class="mes">Nov 2025</td><td class="num">34</td><td class="num">156</td><td class="num">—</td><td class="num">—</td></tr>
+        <tr><td class="mes">Dic 2025</td><td class="num">458</td><td class="num">20</td><td class="num">—</td><td class="num">—</td></tr>
+        <tr><td class="mes">Ene 2026</td><td class="num">626</td><td class="num">13</td><td class="num">—</td><td class="num">3</td></tr>
+        <tr><td class="mes">Feb 2026</td><td class="num">445</td><td class="num">11</td><td class="num">—</td><td class="num">7</td></tr>
+        <tr><td class="mes">Mar 2026</td><td class="num">491</td><td class="num">17</td><td class="num">—</td><td class="num">—</td></tr>
+        <tr style="background: #ecfdf5"><td class="mes">Abr 2026</td><td class="num">341</td><td class="num">327</td><td class="num">52</td><td class="num">20</td></tr>
+        <tr style="background: #fef9e7"><td class="mes">May 2026</td><td class="num">94</td><td class="num">17</td><td class="num">76</td><td class="num">8</td></tr>
+      </tbody>
+    </table>
+    <div class="insight info" style="margin-top: 14px">
+      <strong>Cambio en abril 2026:</strong> Meta volvió a destacar (327, similar a Instagram con 341). Web apareció como canal nuevo. Tu cartera se diversificó.
+    </div>
+  </div>
+
+  <!-- CONVERSIÓN -->
+  <div class="section">
+    <h2>🔄 Conversión a cotización (periodo CRM activo)</h2>
+    <table>
+      <thead>
+        <tr><th>Mes</th><th style="text-align: right">Leads</th><th style="text-align: right">Contactados</th><th style="text-align: right">→ Cotización</th><th style="text-align: right">% conversión a cot.</th></tr>
+      </thead>
+      <tbody>
+        <tr style="background: #ecfdf5">
+          <td class="mes">Abr 2026</td>
+          <td class="num">740</td>
+          <td class="num">54</td>
+          <td class="num">26</td>
+          <td class="num">3,5%</td>
+        </tr>
+        <tr style="background: #fef9e7">
+          <td class="mes">May 2026 *</td>
+          <td class="num">195</td>
+          <td class="num">82</td>
+          <td class="num">52</td>
+          <td class="num" style="color: var(--ok); font-weight: 700">26,7%</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="nota-meta">"Contactados" excluye etapas NUEVO, PERDIDO, NO_CONTESTA. La conversión salta de 3,5% a 26,7% — el equipo está procesando mejor los leads de mayo.</p>
+  </div>
+
+  <!-- HALLAZGOS CLAVE -->
+  <div class="section">
+    <h2>🔍 Hallazgos clave</h2>
+    <div class="insight ok">
+      <strong>1. El equipo está mejorando rápido.</strong> En mayo con menos de la mitad de leads, el equipo procesa <strong>3,8x más interacciones</strong> que en abril (276 vs 72). La curva de aprendizaje es positiva.
+    </div>
+    <div class="insight info">
+      <strong>2. Tasa de conversión a cotización subió fuerte.</strong> Abril: 26 de 740 leads (3,5%). Mayo: 52 de 195 (26,7%). El equipo está más enfocado.
+    </div>
+    <div class="insight alert">
+      <strong>3. Captación cayó -74% en mayo</strong> (195 vs 740). Razones posibles: campañas pausadas, presupuesto cortado, webhook con problema, o efecto del incidente Railway del 19 mayo (BD caída).
+    </div>
+    <div class="insight">
+      <strong>4. Mayo aún no tiene ventas registradas</strong> pero tiene 52 cotizaciones activas. Si conviertes al 11,5% (promedio histórico de ventas con CRM activo), deberías cerrar ~6 ventas este mes.
+    </div>
+    <div class="insight info">
+      <strong>5. Mejor mes histórico de ventas fue febrero 2026</strong> (UF 1.477 en 6 ventas). Esos contratos venían de leads de Instagram/Meta y se cargaron al CRM en abril.
+    </div>
+    <div class="insight info">
+      <strong>6. Canal Web crece</strong> (52 → 76 leads). Suele tener mejor conversión que social ads — vale la pena invertir más en SEO/landing pages.
+    </div>
+  </div>
+
+  <!-- RECOMENDACIONES -->
+  <div class="section">
+    <h2>💡 Recomendaciones</h2>
+    <ul class="rec">
+      <li><strong>Investigar la caída de captación de mayo</strong> (195 vs 740 de abril) — verificar campañas, presupuesto Meta/Instagram, webhook Comuro</li>
+      <li><strong>Acelerar el cierre de las 52 cotizaciones activas en mayo</strong> — son leads tibios que podrían enfriarse si no se les hace seguimiento esta semana</li>
+      <li><strong>Capitalizar el canal Web</strong> que va creciendo (52→76 leads). Optimizar landings y formularios</li>
+      <li><strong>Establecer meta de ventas mensual basada en abril (3 ventas / UF 507)</strong> — primer mes con CRM activo, base mínima razonable</li>
+      <li><strong>Apuntar a una conversión sostenida del 20%+</strong> a cotización (mayo ya lo logra)</li>
+      <li><strong>Tracking de canal REFERIDO</strong> — solo apareció 1 en mayo. Si tu negocio tiene referidos, probablemente no se está registrando bien</li>
+    </ul>
+  </div>
+
+  <!-- NOTAS METODOLÓGICAS -->
+  <div class="section" style="background: #f9fafb">
+    <h2 style="color: var(--muted); font-size: 14px">📋 Notas metodológicas</h2>
+    <ul style="padding-left: 20px; font-size: 12px; color: var(--muted);">
+      <li><strong>Ventas reales</strong> = se cuentan por <code>fechaReserva</code> (cuándo el cliente reservó realmente), no por <code>creadoEn</code> (cuándo se ingresó la venta al CRM)</li>
+      <li><strong>Ventas históricas</strong> (anteriores a abril 2026) se cargaron en batch al CRM cuando empezaron a usarlo</li>
+      <li><strong>"Interacciones reales"</strong> = LLAMADA + EMAIL + WHATSAPP + REUNION. No incluye notas automáticas de cambio de etapa</li>
+      <li><strong>"Cambios de etapa"</strong> son las anotaciones tipo NOTA cuando se mueve un lead en el kanban</li>
+      <li>Mayo 2026 incompleto (hasta el 26/05)</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

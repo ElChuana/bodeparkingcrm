@@ -1,6 +1,6 @@
 // Crea un lead completo que hace todo el recorrido: lead → visita → venta → legal → pagos
 require('dotenv').config()
-const prisma = require('./lib/prisma')
+const prisma = require('../src/lib/prisma')
 
 async function main() {
   console.log('Creando recorrido completo de un lead...\n')
