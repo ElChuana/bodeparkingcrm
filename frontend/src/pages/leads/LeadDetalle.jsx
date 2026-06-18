@@ -12,7 +12,7 @@ import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components
 import ModalPerdido from '../../components/ModalPerdido'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
-  Space, Spin, Row, Col, Timeline, Descriptions, App, DatePicker, Alert, Tabs
+  Space, Spin, Row, Col, Timeline, Descriptions, App, DatePicker, Alert, Tabs, Avatar
 } from 'antd'
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
@@ -56,6 +56,14 @@ const TIPO_LABEL = {
   LLAMADA: 'Llamada', EMAIL: 'Email', WHATSAPP: 'WhatsApp',
   REUNION: 'Reunión', REUNION_COMERCIAL: 'Reunión comercial', OTRO: 'Otra', NOTA: 'Nota',
 }
+
+const AVATAR_COLORS = ['#1677ff', '#7c3aed', '#16a34a', '#f59e0b', '#0ea5e9', '#e11d48', '#0891b2', '#64748b']
+const inicialesDe = (u) => {
+  if (!u) return '·'
+  const s = `${(u.nombre || '')[0] || ''}${(u.apellido || '')[0] || ''}`.toUpperCase()
+  return s || '·'
+}
+const colorAvatar = (id) => AVATAR_COLORS[(Number(id) || 0) % AVATAR_COLORS.length]
 
 // ─── Modal cambiar etapa ─────────────────────────────────────────
 function ModalCambiarEtapa({ open, onClose, lead, onPerdido }) {
@@ -1039,7 +1047,21 @@ export default function LeadDetalle() {
                 label: `Actividades (${actividades.length})`,
                 children: (
                   <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                    {/* NOTAS — comentarios libres */}
+                    {/* ACTIVIDADES — acciones con fecha (calendario) */}
+                    <Card
+                      title={<span>📋 Actividades <Text type="secondary" style={{ fontWeight: 400 }}>({actividades.length})</Text></span>}
+                      extra={<Button type="link" size="small" onClick={() => setModalInteraccion(true)}>+ Agregar</Button>}
+                    >
+                      {actividades.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '32px 0', color: '#aaa' }}>
+                          <Text type="secondary">Sin actividades registradas.</Text>
+                        </div>
+                      ) : (
+                        <Timeline items={timelineItems} style={{ marginTop: 8 }} />
+                      )}
+                    </Card>
+
+                    {/* NOTAS — comentarios libres (lista con avatar) */}
                     <Card title={<span>💬 Notas <Text type="secondary" style={{ fontWeight: 400 }}>({notas.length})</Text></span>}>
                       <NotaRapida leadId={id} />
                       {notas.length === 0 ? (
@@ -1047,38 +1069,40 @@ export default function LeadDetalle() {
                           <Text type="secondary">Sin notas.</Text>
                         </div>
                       ) : (
-                        <Space direction="vertical" style={{ width: '100%', marginTop: 8 }} size={8}>
-                          {notas.map(n => (
-                            <div key={`n-${n.id}`} style={{ background: '#f7f8fa', borderRadius: 8, padding: '8px 12px', borderLeft: '3px solid #d9d9d9' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                  <EditOutlined style={{ marginRight: 6, color: '#8c8c8c' }} />
-                                  {n.usuario ? `${n.usuario.nombre} ${n.usuario.apellido || ''}` : 'Sistema'}
-                                </Text>
-                                <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                  {formatDistanceToNow(new Date(n.fecha), { addSuffix: true, locale: es })}
+                        <div style={{ marginTop: 4 }}>
+                          {notas.map((n, i) => (
+                            <div
+                              key={`n-${n.id}`}
+                              style={{
+                                display: 'flex', gap: 12, padding: '12px 0',
+                                borderTop: i === 0 ? 'none' : '1px solid #f0f0f0'
+                              }}
+                            >
+                              <Avatar
+                                shape="square"
+                                style={{ background: colorAvatar(n.usuario?.id), flex: 'none', borderRadius: 9, fontSize: 12, fontWeight: 600 }}
+                                size={34}
+                              >
+                                {inicialesDe(n.usuario)}
+                              </Avatar>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                                  <Text strong style={{ fontSize: 13 }}>
+                                    {n.usuario ? `${n.usuario.nombre} ${n.usuario.apellido || ''}` : 'Sistema'}
+                                  </Text>
+                                  <Text type="secondary" style={{ fontSize: 11.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                    {formatDistanceToNow(new Date(n.fecha), { addSuffix: true, locale: es })}
+                                  </Text>
+                                </div>
+                                <Text style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 2 }}>
+                                  {n.descripcion}
                                 </Text>
                               </div>
-                              <Text style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{n.descripcion}</Text>
                             </div>
                           ))}
-                        </Space>
+                        </div>
                       )}
                     </Card>
-
-                    {/* ACTIVIDADES — acciones con fecha (calendario) */}
-                    <Card
-                      title={<span>📋 Actividades <Text type="secondary" style={{ fontWeight: 400 }}>({actividades.length})</Text></span>}
-                      extra={<Button type="link" size="small" onClick={() => setModalInteraccion(true)}>+ Agregar</Button>}
-                    >
-              {actividades.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: '#aaa' }}>
-                  <Text type="secondary">Sin actividades registradas.</Text>
-                </div>
-              ) : (
-                <Timeline items={timelineItems} style={{ marginTop: 8 }} />
-              )}
-            </Card>
 
             <CotizacionesLead leadId={id} />
 
