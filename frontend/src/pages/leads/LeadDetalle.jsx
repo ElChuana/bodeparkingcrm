@@ -12,7 +12,7 @@ import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components
 import ModalPerdido from '../../components/ModalPerdido'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
-  Space, Spin, Row, Col, Timeline, Descriptions, App, DatePicker, Alert, Tabs, Avatar
+  Space, Spin, Row, Col, Descriptions, App, DatePicker, Alert, Tabs, Avatar
 } from 'antd'
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
@@ -55,6 +55,11 @@ const TIPO_COLOR = {
 const TIPO_LABEL = {
   LLAMADA: 'Llamada', EMAIL: 'Email', WHATSAPP: 'WhatsApp',
   REUNION: 'Reunión', REUNION_COMERCIAL: 'Reunión comercial', OTRO: 'Otra', NOTA: 'Nota',
+}
+
+const TIPO_EMOJI = {
+  LLAMADA: '📞', EMAIL: '✉️', WHATSAPP: '💬',
+  REUNION: '📅', REUNION_COMERCIAL: '📅', OTRO: '📌', NOTA: '📝',
 }
 
 const AVATAR_COLORS = ['#1677ff', '#7c3aed', '#16a34a', '#f59e0b', '#0ea5e9', '#e11d48', '#0891b2', '#64748b']
@@ -787,84 +792,68 @@ export default function LeadDetalle() {
     .slice()
     .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
 
-  const timelineItems = actividades.map(item => {
-    if (item._tipo === 'visita') {
-      const puedeEliminar = esGerenciaOJV || item.vendedor?.id === usuario?.id
-      const resultadoTag = item.resultado === 'ASISTIO'
-        ? <Tag color="green">Asistió</Tag>
-        : item.resultado === 'NO_ASISTIO'
-        ? <Tag color="red">No asistió</Tag>
-        : <Tag color="default">Pendiente</Tag>
+  // Timeline custom: badge cuadrado con emoji + línea conectora
+  const renderActividad = (item, i, total) => {
+    const esVisita = item._tipo === 'visita'
+    const color = esVisita ? '#f59e0b' : (TIPO_COLOR[item.tipo] || '#64748b')
+    const emoji = esVisita ? '📅' : (TIPO_EMOJI[item.tipo] || '📌')
+    const last = i === total - 1
+    return (
+      <div key={esVisita ? `v-${item.id}` : `a-${item.id}`} style={{ position: 'relative', padding: `0 0 ${last ? 2 : 18}px 34px` }}>
+        {!last && (
+          <span style={{ position: 'absolute', left: 13, top: 26, bottom: 0, width: 2, background: 'linear-gradient(#e7eaf0,#f3f4f7)' }} />
+        )}
+        <span style={{
+          position: 'absolute', left: 0, top: 1, width: 26, height: 26, borderRadius: 8,
+          background: color, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 13,
+          boxShadow: `0 2px 6px -1px ${color}66`
+        }}>{emoji}</span>
 
-      return {
-        key: `v-${item.id}`,
-        color: '#fa8c16',
-        dot: <CalendarOutlined style={{ color: '#fa8c16' }} />,
-        children: (
+        {esVisita ? (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <Space wrap>
-                <Text strong style={{ fontSize: 13 }}>Visita {item.tipo}</Text>
-                {resultadoTag}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              <Space wrap size={6}>
+                <Text strong style={{ fontSize: 13.5 }}>Visita {item.tipo}</Text>
+                {item.resultado === 'ASISTIO'
+                  ? <Tag color="green" style={{ marginInlineEnd: 0 }}>Asistió</Tag>
+                  : item.resultado === 'NO_ASISTIO'
+                  ? <Tag color="red" style={{ marginInlineEnd: 0 }}>No asistió</Tag>
+                  : <Tag color="default" style={{ marginInlineEnd: 0 }}>Pendiente</Tag>}
               </Space>
-              <Space size={4}>
+              <Space size={2}>
                 {!item.resultado && (
-                  <Button size="small" type="primary" ghost onClick={() => setVisitaResultando(item)}>
-                    Registrar resultado
-                  </Button>
+                  <Button size="small" type="primary" ghost onClick={() => setVisitaResultando(item)}>Registrar resultado</Button>
                 )}
                 <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setVisitaEditando(item)} />
-                {puedeEliminar && (
-                  <Button
-                    type="text"
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => confirmarEliminarVisita(item)}
-                  />
+                {(esGerenciaOJV || item.vendedor?.id === usuario?.id) && (
+                  <Button type="text" size="small" danger icon={<DeleteOutlined />} onClick={() => confirmarEliminarVisita(item)} />
                 )}
               </Space>
             </div>
-            <div><Text type="secondary" style={{ fontSize: 12 }}>
-              {fechaHoraChile(item.fechaHora)}
-            </Text></div>
-            {item.vendedor && (
-              <div><Text type="secondary" style={{ fontSize: 12 }}>👤 {item.vendedor.nombre} {item.vendedor.apellido}</Text></div>
-            )}
+            <div><Text type="secondary" style={{ fontSize: 12 }}>{fechaHoraChile(item.fechaHora)}</Text></div>
+            {item.vendedor && <div><Text type="secondary" style={{ fontSize: 12 }}>👤 {item.vendedor.nombre} {item.vendedor.apellido}</Text></div>}
             {item.enlace && (
               <div style={{ marginTop: 2 }}>
-                <a href={item.enlace} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
-                  🔗 Unirse a la reunión
-                </a>
+                <a href={item.enlace} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>🔗 Unirse a la reunión</a>
               </div>
             )}
-            {item.notas && <Text style={{ fontSize: 13, display: 'block', marginTop: 4 }}>{item.notas}</Text>}
+            {item.notas && <Text style={{ fontSize: 13, display: 'block', marginTop: 4, color: '#3a4452' }}>{item.notas}</Text>}
           </div>
-        )
-      }
-    }
-    return {
-      key: `a-${item.id}`,
-      color: TIPO_COLOR[item.tipo] || '#8c8c8c',
-      dot: TIPO_ICON[item.tipo],
-      children: (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Text strong style={{ fontSize: 13 }}>
-              {TIPO_LABEL[item.tipo] || item.tipo}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {formatDistanceToNow(new Date(item.fecha), { addSuffix: true, locale: es })}
-            </Text>
+        ) : (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+              <Text strong style={{ fontSize: 13.5 }}>{TIPO_LABEL[item.tipo] || item.tipo}</Text>
+              <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {formatDistanceToNow(new Date(item.fecha), { addSuffix: true, locale: es })}
+              </Text>
+            </div>
+            {item.usuario && <div><Text type="secondary" style={{ fontSize: 12 }}>{item.usuario.nombre} {item.usuario.apellido}</Text></div>}
+            <Text style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 1 }}>{item.descripcion}</Text>
           </div>
-          {item.usuario && (
-            <div><Text type="secondary" style={{ fontSize: 12 }}>{item.usuario.nombre} {item.usuario.apellido}</Text></div>
-          )}
-          <Text style={{ fontSize: 13 }}>{item.descripcion}</Text>
-        </div>
-      )
-    }
-  })
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
@@ -1057,7 +1046,9 @@ export default function LeadDetalle() {
                           <Text type="secondary">Sin actividades registradas.</Text>
                         </div>
                       ) : (
-                        <Timeline items={timelineItems} style={{ marginTop: 8 }} />
+                        <div style={{ marginTop: 6 }}>
+                          {actividades.map((it, i) => renderActividad(it, i, actividades.length))}
+                        </div>
                       )}
                     </Card>
 
