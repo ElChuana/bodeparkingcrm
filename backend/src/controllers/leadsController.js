@@ -85,7 +85,7 @@ const listar = async (req, res) => {
             edificio: { select: { nombre: true, region: true } }
           }
         },
-        _count: { select: { visitas: true, interacciones: true } }
+        _count: { select: { visitas: true, interacciones: true, actividades: true } }
       },
       orderBy: { actualizadoEn: 'desc' }
     })
@@ -205,6 +205,11 @@ const obtener = async (req, res) => {
           include: { vendedor: { select: { id: true, nombre: true, apellido: true } }, edificio: { select: { nombre: true } } }
         },
         interacciones: {
+          where: { tipo: 'NOTA' },
+          orderBy: { fecha: 'desc' },
+          include: { usuario: { select: { id: true, nombre: true, apellido: true } } }
+        },
+        actividades: {
           orderBy: { fecha: 'desc' },
           include: { usuario: { select: { id: true, nombre: true, apellido: true } } }
         },

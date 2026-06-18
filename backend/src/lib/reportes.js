@@ -27,28 +27,36 @@ async function agregarActividadAyer(vendedorId) {
   const fechaAyer = fechaChile(1) // p.ej. si hoy en Chile es martes 27, devuelve "2026-05-26" (lunes)
   const { inicio: inicioAyer, fin: finAyer } = boundsUTCdeDiaChile(fechaAyer)
 
-  const interaccionesAyer = await prisma.interaccion.findMany({
-    where: {
-      usuarioId: vendedorId,
-      fecha: { gte: inicioAyer, lte: finAyer }
-    },
-    select: {
-      leadId: true,
-      tipo: true,
-      descripcion: true,
-      fecha: true,
-      lead: {
-        select: {
-          etapa: true,
-          contacto: { select: { nombre: true, apellido: true } }
-        }
+  const selectLead = {
+    leadId: true,
+    tipo: true,
+    descripcion: true,
+    fecha: true,
+    lead: {
+      select: {
+        etapa: true,
+        contacto: { select: { nombre: true, apellido: true } }
       }
-    },
+    }
+  }
+
+  // Actividades reales (llamadas, emails, whatsapp, reuniones) ahora viven en su propio modelo
+  const reales = await prisma.actividad.findMany({
+    where: { usuarioId: vendedorId, fecha: { gte: inicioAyer, lte: finAyer } },
+    select: selectLead,
     orderBy: { fecha: 'asc' }
   })
-
-  const reales = interaccionesAyer.filter(i => ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'].includes(i.tipo))
-  const cambios = interaccionesAyer.filter(i => i.tipo === 'NOTA' && i.descripcion?.startsWith('Etapa cambiada:'))
+  // Cambios de etapa quedan como NOTA en el timeline
+  const cambios = await prisma.interaccion.findMany({
+    where: {
+      usuarioId: vendedorId,
+      tipo: 'NOTA',
+      descripcion: { startsWith: 'Etapa cambiada:' },
+      fecha: { gte: inicioAyer, lte: finAyer }
+    },
+    select: selectLead,
+    orderBy: { fecha: 'asc' }
+  })
 
   // "Trabajar" un lead = interacción real O cambio de etapa
   const trabajos = [...reales, ...cambios]
@@ -81,7 +89,7 @@ async function agregarActividadAyer(vendedorId) {
       llamadas: reales.filter(i => i.tipo === 'LLAMADA').length,
       emails: reales.filter(i => i.tipo === 'EMAIL').length,
       whatsapp: reales.filter(i => i.tipo === 'WHATSAPP').length,
-      reuniones: reales.filter(i => i.tipo === 'REUNION').length,
+      reuniones: reales.filter(i => i.tipo === 'REUNION_COMERCIAL').length,
       leadsTrabajados: Object.keys(porLead).length,
       cambiosEtapa: cambios.length
     },
@@ -106,8 +114,7 @@ async function agregarDatosVendedor(vendedorId) {
     },
     include: {
       contacto: { select: { nombre: true, apellido: true, telefono: true, email: true } },
-      interacciones: {
-        where: { tipo: { not: 'NOTA' } },
+      actividades: {
         orderBy: { fecha: 'desc' },
         take: 3,
         select: { tipo: true, descripcion: true, fecha: true }
@@ -117,10 +124,9 @@ async function agregarDatosVendedor(vendedorId) {
     take: 40
   })
 
-  const notasRecientes = await prisma.interaccion.count({
+  const notasRecientes = await prisma.actividad.count({
     where: {
       usuarioId: vendedorId,
-      tipo: { not: 'NOTA' },
       fecha: { gte: new Date(Date.now() - 7 * 86400000) }
     }
   })
@@ -149,7 +155,7 @@ async function agregarDatosVendedor(vendedorId) {
     where: {
       vendedorId,
       etapa: 'NUEVO',
-      interacciones: { none: { tipo: { in: ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'] } } }
+      actividades: { none: {} }
     },
     include: { contacto: { select: { nombre: true, apellido: true, telefono: true } } },
     orderBy: { creadoEn: 'desc' },
@@ -174,7 +180,7 @@ async function agregarDatosVendedor(vendedorId) {
   }
 
   const promesasVencidas = leadsParados.filter(l => {
-    const u = l.interacciones[0]?.descripcion?.toLowerCase() || ''
+    const u = l.actividades[0]?.descripcion?.toLowerCase() || ''
     return /llamar|llame|llámame|hablar|conversar|wsp|whatsapp|mañana|lunes|martes|miércoles|jueves|viernes|tarde|mañana|am|pm/.test(u)
   }).length
 
@@ -199,8 +205,8 @@ async function agregarDatosVendedor(vendedorId) {
       email: l.contacto.email || '',
       etapa: l.etapa,
       diasParado: Math.floor((Date.now() - new Date(l.actualizadoEn)) / 86400000),
-      ultimaNotaReal: l.interacciones[0]?.descripcion?.slice(0, 250) || null,
-      tipoUltimaInteraccion: l.interacciones[0]?.tipo || null
+      ultimaNotaReal: l.actividades[0]?.descripcion?.slice(0, 250) || null,
+      tipoUltimaInteraccion: l.actividades[0]?.tipo || null
     })),
     perdidosSinNota: perdidosSinNota.map(l => ({
       id: l.id,

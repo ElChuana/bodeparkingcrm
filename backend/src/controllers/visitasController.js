@@ -83,12 +83,13 @@ const crear = async (req, res) => {
       data: { etapa: 'VISITA_AGENDADA' }
     })
 
-    await prisma.interaccion.create({
+    await prisma.actividad.create({
       data: {
         leadId: Number(leadId),
         usuarioId: req.usuario.id,
-        tipo: 'REUNION',
-        descripcion: `Visita agendada para el ${new Date(fechaHora).toLocaleDateString('es-CL')} (${tipo})`
+        tipo: 'REUNION_COMERCIAL',
+        descripcion: `Visita agendada para el ${new Date(fechaHora).toLocaleDateString('es-CL')} (${tipo})`,
+        fecha: new Date(fechaHora)
       }
     })
 
@@ -115,12 +116,13 @@ const actualizarResultado = async (req, res) => {
       data: { etapa: 'VISITA_REALIZADA' }
     })
 
-    await prisma.interaccion.create({
+    await prisma.actividad.create({
       data: {
         leadId: visita.leadId,
         usuarioId: req.usuario.id,
-        tipo: 'REUNION',
-        descripcion: `Visita realizada. Resultado: ${resultado}. ${notas || ''}`
+        tipo: 'REUNION_COMERCIAL',
+        descripcion: `Visita realizada. Resultado: ${resultado}. ${notas || ''}`,
+        resultado
       }
     })
 

@@ -18,7 +18,7 @@ import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
   EditOutlined, ArrowRightOutlined, ShoppingOutlined, UserOutlined,
   FileTextOutlined, PlusOutlined, DeleteOutlined, RobotOutlined,
-  ExpandOutlined
+  ExpandOutlined, ClockCircleOutlined
 } from '@ant-design/icons'
 
 const { Title, Text } = Typography
@@ -45,11 +45,16 @@ function parsearFechaComuro(context) {
 
 const TIPO_ICON = {
   LLAMADA: <PhoneOutlined />, EMAIL: <MailOutlined />,
-  WHATSAPP: <MessageOutlined />, REUNION: <CalendarOutlined />, NOTA: <EditOutlined />,
+  WHATSAPP: <MessageOutlined />, REUNION: <CalendarOutlined />, REUNION_COMERCIAL: <CalendarOutlined />,
+  OTRO: <ClockCircleOutlined />, NOTA: <EditOutlined />,
 }
 const TIPO_COLOR = {
   LLAMADA: '#1677ff', EMAIL: '#722ed1', WHATSAPP: '#52c41a',
-  REUNION: '#fa8c16', NOTA: '#8c8c8c',
+  REUNION: '#fa8c16', REUNION_COMERCIAL: '#fa8c16', OTRO: '#8c8c8c', NOTA: '#8c8c8c',
+}
+const TIPO_LABEL = {
+  LLAMADA: 'Llamada', EMAIL: 'Email', WHATSAPP: 'WhatsApp',
+  REUNION: 'Reunión', REUNION_COMERCIAL: 'Reunión comercial', OTRO: 'Otra', NOTA: 'Nota',
 }
 
 // ─── Modal cambiar etapa ─────────────────────────────────────────
@@ -100,7 +105,7 @@ function ModalInteraccion({ open, onClose, leadId }) {
   const { message } = App.useApp()
 
   const crear = useMutation({
-    mutationFn: (d) => api.post(`/leads/${leadId}/interacciones`, {
+    mutationFn: (d) => api.post(`/leads/${leadId}/actividades`, {
       leadId,
       tipo: d.tipo,
       descripcion: d.descripcion,
@@ -126,7 +131,8 @@ function ModalInteraccion({ open, onClose, leadId }) {
             { value: 'LLAMADA', label: '📞 Llamada' },
             { value: 'WHATSAPP', label: '💬 WhatsApp' },
             { value: 'EMAIL', label: '✉️ Email' },
-            { value: 'REUNION', label: '📅 Reunión' },
+            { value: 'REUNION_COMERCIAL', label: '📅 Reunión comercial' },
+            { value: 'OTRO', label: '📌 Otra' },
           ]} />
         </Form.Item>
         <Form.Item name="fecha" label="Fecha y hora (dejar vacío = ahora)">
@@ -762,12 +768,18 @@ export default function LeadDetalle() {
   if (isLoading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
   if (!lead) return <Text type="secondary" style={{ padding: 24, display: 'block' }}>Lead no encontrado.</Text>
 
-  const timeline = [
-    ...(lead.interacciones || []).map(i => ({ ...i, _tipo: 'interaccion' })),
+  // Actividades = acciones con fecha (van al calendario): actividades + visitas
+  const actividades = [
+    ...(lead.actividades || []).map(a => ({ ...a, _tipo: 'actividad' })),
     ...(lead.visitas || []).map(v => ({ ...v, _tipo: 'visita', fecha: v.fechaHora }))
   ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
 
-  const timelineItems = timeline.map(item => {
+  // Notas = comentarios libres (interacciones tipo NOTA)
+  const notas = (lead.interacciones || [])
+    .slice()
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+
+  const timelineItems = actividades.map(item => {
     if (item._tipo === 'visita') {
       const puedeEliminar = esGerenciaOJV || item.vendedor?.id === usuario?.id
       const resultadoTag = item.resultado === 'ASISTIO'
@@ -824,14 +836,14 @@ export default function LeadDetalle() {
       }
     }
     return {
-      key: `i-${item.id}`,
+      key: `a-${item.id}`,
       color: TIPO_COLOR[item.tipo] || '#8c8c8c',
       dot: TIPO_ICON[item.tipo],
       children: (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <Text strong style={{ fontSize: 13 }}>
-              {item.tipo?.charAt(0) + item.tipo?.slice(1).toLowerCase()}
+              {TIPO_LABEL[item.tipo] || item.tipo}
             </Text>
             <Text type="secondary" style={{ fontSize: 12 }}>
               {formatDistanceToNow(new Date(item.fecha), { addSuffix: true, locale: es })}
@@ -1024,17 +1036,44 @@ export default function LeadDetalle() {
             items={[
               {
                 key: 'actividades',
-                label: `Actividades (${timeline.length})`,
+                label: `Actividades (${actividades.length})`,
                 children: (
                   <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                    {/* NOTAS — comentarios libres */}
+                    <Card title={<span>💬 Notas <Text type="secondary" style={{ fontWeight: 400 }}>({notas.length})</Text></span>}>
+                      <NotaRapida leadId={id} />
+                      {notas.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px 0', color: '#aaa' }}>
+                          <Text type="secondary">Sin notas.</Text>
+                        </div>
+                      ) : (
+                        <Space direction="vertical" style={{ width: '100%', marginTop: 8 }} size={8}>
+                          {notas.map(n => (
+                            <div key={`n-${n.id}`} style={{ background: '#f7f8fa', borderRadius: 8, padding: '8px 12px', borderLeft: '3px solid #d9d9d9' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  <EditOutlined style={{ marginRight: 6, color: '#8c8c8c' }} />
+                                  {n.usuario ? `${n.usuario.nombre} ${n.usuario.apellido || ''}` : 'Sistema'}
+                                </Text>
+                                <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                  {formatDistanceToNow(new Date(n.fecha), { addSuffix: true, locale: es })}
+                                </Text>
+                              </div>
+                              <Text style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{n.descripcion}</Text>
+                            </div>
+                          ))}
+                        </Space>
+                      )}
+                    </Card>
+
+                    {/* ACTIVIDADES — acciones con fecha (calendario) */}
                     <Card
-                      title={`Actividad (${timeline.length})`}
+                      title={<span>📋 Actividades <Text type="secondary" style={{ fontWeight: 400 }}>({actividades.length})</Text></span>}
                       extra={<Button type="link" size="small" onClick={() => setModalInteraccion(true)}>+ Agregar</Button>}
                     >
-              <NotaRapida leadId={id} />
-              {timeline.length === 0 ? (
+              {actividades.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '32px 0', color: '#aaa' }}>
-                  <Text type="secondary">Sin actividad registrada.</Text>
+                  <Text type="secondary">Sin actividades registradas.</Text>
                 </div>
               ) : (
                 <Timeline items={timelineItems} style={{ marginTop: 8 }} />

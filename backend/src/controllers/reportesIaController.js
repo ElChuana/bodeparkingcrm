@@ -30,18 +30,17 @@ async function calcularActualizaciones(reporte) {
   // Gestiones que tachan el item:
   //  - Interacciones reales (LLAMADA, EMAIL, WHATSAPP, REUNION)
   //  - Cambios de etapa (NOTA con "Etapa cambiada: ..." → mover el lead también es gestión)
-  const interacciones = await prisma.interaccion.findMany({
-    where: {
-      leadId: { in: todos },
-      fecha: { gt: desde },
-      OR: [
-        { tipo: { in: ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'] } },
-        { tipo: 'NOTA', descripcion: { startsWith: 'Etapa cambiada:' } }
-      ]
-    },
-    select: { leadId: true, tipo: true, fecha: true, descripcion: true },
-    orderBy: { fecha: 'desc' }
-  })
+  const [actividades, cambiosEtapa] = await Promise.all([
+    prisma.actividad.findMany({
+      where: { leadId: { in: todos }, fecha: { gt: desde } },
+      select: { leadId: true, tipo: true, fecha: true, descripcion: true }
+    }),
+    prisma.interaccion.findMany({
+      where: { leadId: { in: todos }, fecha: { gt: desde }, tipo: 'NOTA', descripcion: { startsWith: 'Etapa cambiada:' } },
+      select: { leadId: true, tipo: true, fecha: true, descripcion: true }
+    })
+  ])
+  const interacciones = [...actividades, ...cambiosEtapa].sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
   for (const i of interacciones) {
     if (!actualizaciones[i.leadId]) actualizaciones[i.leadId] = {}
     actualizaciones[i.leadId].gestionado = true

@@ -23,11 +23,15 @@ const RESULTADO_COLOR = {
 
 const TIPO_COLOR = {
   LLAMADA: '#1677ff', EMAIL: '#722ed1', WHATSAPP: '#52c41a',
-  REUNION: '#fa8c16', NOTA: '#8c8c8c',
+  REUNION: '#fa8c16', REUNION_COMERCIAL: '#fa8c16', OTRO: '#8c8c8c', NOTA: '#8c8c8c',
 }
 const TIPO_BADGE = {
   LLAMADA: 'processing', EMAIL: 'error', WHATSAPP: 'success',
-  REUNION: 'warning', NOTA: 'default',
+  REUNION: 'warning', REUNION_COMERCIAL: 'warning', OTRO: 'default', NOTA: 'default',
+}
+const TIPO_LABEL = {
+  LLAMADA: 'Llamada', EMAIL: 'Email', WHATSAPP: 'WhatsApp',
+  REUNION: 'Reunión', REUNION_COMERCIAL: 'Reunión comercial', OTRO: 'Otra',
 }
 
 // ─── Vista Calendario ─────────────────────────────────────────────
@@ -50,7 +54,7 @@ function VistaCalendario({ vendedorId, edificioId }) {
 
   const { data: actividades = [] } = useQuery({
     queryKey: ['actividades-cal', desde, hasta, vendedorId],
-    queryFn: () => api.get('/interacciones', {
+    queryFn: () => api.get('/actividades', {
       params: {
         desde, hasta,
         ...(vendedorId && { usuarioId: vendedorId })
@@ -84,7 +88,7 @@ function VistaCalendario({ vendedorId, edificioId }) {
         tipo: 'actividad',
         hora: horaChile(a.fecha),
         label: `${a.lead?.contacto?.nombre} ${a.lead?.contacto?.apellido}`,
-        subtitulo: a.tipo,
+        subtitulo: TIPO_LABEL[a.tipo] || a.tipo,
         color: TIPO_COLOR[a.tipo] || '#8c8c8c',
         badgeStatus: TIPO_BADGE[a.tipo] || 'default',
         leadId: a.lead?.id,
@@ -116,7 +120,7 @@ function VistaCalendario({ vendedorId, edificioId }) {
           >
             <Tooltip title={`${ev.hora} · ${ev.label}${ev.subtitulo ? ` · ${ev.subtitulo}` : ''}`}>
               <Badge
-                status={ev.tipo === 'visita' ? 'warning' : (TIPO_BADGE[ev.subtitulo] || 'default')}
+                status={ev.tipo === 'visita' ? 'warning' : (ev.badgeStatus || 'default')}
                 text={
                   <span style={{ fontSize: 11, color: ev.color }}>
                     {ev.hora} {ev.label}

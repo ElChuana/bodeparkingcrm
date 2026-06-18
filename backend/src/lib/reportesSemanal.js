@@ -64,10 +64,19 @@ async function agregarDatosSemana(lunesISO, domingoISO) {
     select: { id: true, nombre: true, apellido: true, rol: true }
   })
 
-  // Interacciones de la semana, por todos los vendedores
+  // Actividades reales (llamadas/emails/whatsapp/reuniones) de la semana
+  const actividades = await prisma.actividad.findMany({
+    where: {
+      usuarioId: { in: vendedores.map(v => v.id) },
+      fecha: { gte: inicio, lt: fin }
+    },
+    select: { usuarioId: true, leadId: true, tipo: true, descripcion: true, fecha: true }
+  })
+  // Notas de cambio de etapa (cuentan como gestión)
   const interacciones = await prisma.interaccion.findMany({
     where: {
       usuarioId: { in: vendedores.map(v => v.id) },
+      tipo: 'NOTA',
       fecha: { gte: inicio, lt: fin }
     },
     select: { usuarioId: true, leadId: true, tipo: true, descripcion: true, fecha: true }
@@ -100,9 +109,8 @@ async function agregarDatosSemana(lunesISO, domingoISO) {
 
   // Por vendedor: actividad diaria
   const porVendedor = vendedores.map(v => {
-    const ints = interacciones.filter(i => i.usuarioId === v.id)
-    const reales = ints.filter(i => ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION'].includes(i.tipo))
-    const cambios = ints.filter(i => i.tipo === 'NOTA' && i.descripcion?.startsWith('Etapa cambiada:'))
+    const reales = actividades.filter(i => i.usuarioId === v.id)
+    const cambios = interacciones.filter(i => i.usuarioId === v.id && i.descripcion?.startsWith('Etapa cambiada:'))
     // Mover lead también cuenta como gestión
     const totalGestiones = reales.length + cambios.length
     const cotizaciones = cambios.filter(i => i.descripcion?.includes('→ COTIZACION_ENVIADA'))

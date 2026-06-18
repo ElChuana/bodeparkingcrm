@@ -77,6 +77,14 @@ enum TipoInteraccion {
   NOTA
 }
 
+enum TipoActividad {
+  REUNION_COMERCIAL
+  LLAMADA
+  WHATSAPP
+  EMAIL
+  OTRO
+}
+
 enum EstadoVenta {
   RESERVA
   PROMESA
@@ -247,6 +255,7 @@ model Usuario {
   leadsComoBroker         Lead[]                  @relation("BrokerLead")
   visitasRealizadas       Visita[]
   interacciones           Interaccion[]
+  actividades             Actividad[]
   ventasComoVendedor      Venta[]                 @relation("VendedorVenta")
   ventasComoBroker        Venta[]                 @relation("BrokerVenta")
   ventasComoGerente       Venta[]                 @relation("GerenteVenta")
@@ -407,6 +416,7 @@ model Lead {
   broker              Usuario?            @relation("BrokerLead", fields: [brokerId], references: [id])
   visitas             Visita[]
   interacciones       Interaccion[]
+  actividades         Actividad[]
   ventas              Venta[]
   cotizaciones        Cotizacion[]
   recordatorios       Recordatorio[]
@@ -446,6 +456,22 @@ model Interaccion {
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
 
   @@map("interacciones")
+}
+
+model Actividad {
+  id          Int           @id @default(autoincrement())
+  leadId      Int
+  usuarioId   Int?
+  tipo        TipoActividad
+  descripcion String
+  fecha       DateTime      @default(now()) // puede ser futura → aparece en el calendario
+  resultado   String?
+  creadoEn    DateTime      @default(now())
+
+  lead    Lead     @relation(fields: [leadId], references: [id])
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@map("actividades")
 }
 
 model Venta {

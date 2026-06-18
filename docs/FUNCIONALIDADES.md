@@ -115,15 +115,26 @@
 - También: `GET /api/visitas` — calendario global (página Visitas)
 - Frontend: `pages/visitas/Visitas.jsx` (lista + calendario con actividades)
 
-### INTERACCIONES (ACTIVIDADES) — anidado en `/api/leads/:leadId/interacciones`
-- Archivo: `controllers/interaccionesController.js`
-- `GET /` — listar interacciones del lead
-- `POST /` — crear actividad (LLAMADA, EMAIL, WHATSAPP, REUNION, NOTA)
-- Campo `fecha`: opcional, por defecto = now. Si es fecha futura, aparece en el calendario
-- **Las actividades con fecha futura se muestran en el calendario** de Visitas
-- También: `GET /api/interacciones` — listado global (GERENTE, JEFE_VENTAS)
+### ACTIVIDADES — anidado en `/api/leads/:leadId/actividades`
+- Modelo `Actividad` (tabla `actividades`) — **separado de las Notas** (jun 2026)
+- Archivo: `controllers/actividadesController.js` (rutas en `leads.js`)
+- Tipos (`TipoActividad`): `REUNION_COMERCIAL`, `LLAMADA`, `WHATSAPP`, `EMAIL`, `OTRO`
+- `GET /` — listar actividades del lead · `POST /` — crear · `PATCH /:id` — editar · `DELETE /:id` — eliminar
+- Campo `fecha`: opcional, por defecto = now. **Las actividades aparecen en el calendario** de Visitas (pasadas y futuras según el mes visible)
+- También: `GET /api/actividades` — listado global / calendario (filtros desde/hasta/usuarioId; GERENTE/JEFE_VENTAS ven todo)
+- Las crean también: visitas (REUNION_COMERCIAL), Comuro (REUNION_COMERCIAL), email enviado/recibido (EMAIL)
+- Fuente de actividad para: alerta `LEAD_SIN_ACTIVIDAD` (`lib/reportes.js`), reportes diario/semanal e IA
 - **NO confundir con Recordatorios** — las actividades son la fuente de verdad
-- **Nota rápida inline** en LeadDetalle: cuadro arriba del timeline, sin modal. Crea interacción tipo NOTA con descripción + contexto de edificio/unidades de interés (opcionales). Cmd+Enter para guardar rápido.
+
+### NOTAS — anidado en `/api/leads/:leadId/interacciones`
+- Modelo `Interaccion` (tabla `interacciones`) — quedó **solo para comentarios** (tipo `NOTA`)
+- Archivo: `controllers/interaccionesController.js`
+- `GET /` — listar notas del lead · `POST /` — crear nota (fuerza tipo `NOTA`)
+- También: `GET /api/interacciones` — listado global de notas (GERENTE, JEFE_VENTAS)
+- Las notas **no** aparecen en el calendario
+- Logs de sistema que quedan como NOTA: cambios de etapa, reingresos/altas vía API, automatizaciones, `PAGÓ reserva Webinar` (lo usan los reportes), resúmenes `📋`
+- **Nota rápida inline** en LeadDetalle: cuadro dentro del cuadro "Notas", sin modal. Crea NOTA con descripción + contexto de edificio/unidades (opcionales). Cmd+Enter para guardar rápido.
+- En LeadDetalle, tab "Actividades": cuadro **💬 Notas** (comentarios) separado del cuadro **📋 Actividades** (timeline con fecha).
 
 ### RECORDATORIOS — `/api/leads/:id/recordatorios` y `/api/recordatorios`
 - Archivos: `routes/recordatorios.js`, `routes/recordatorios-completar.js`, `controllers/recordatoriosController.js`

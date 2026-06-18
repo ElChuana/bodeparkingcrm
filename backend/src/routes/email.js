@@ -152,7 +152,7 @@ router.post('/enviar',
               leido: true,
             }
           }),
-          prisma.interaccion.create({
+          prisma.actividad.create({
             data: {
               leadId,
               usuarioId: req.usuario.id,
@@ -337,7 +337,7 @@ router.post('/respuesta', async (req, res) => {
       }).catch(() => {})
     }
 
-    await prisma.interaccion.create({
+    await prisma.actividad.create({
       data: { leadId, tipo: 'EMAIL', descripcion: `Email recibido: "${asunto}" de ${deEmail}` }
     }).catch(() => {})
 

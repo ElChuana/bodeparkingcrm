@@ -31,11 +31,16 @@ const ETAPAS = Object.keys(ETAPA_LABEL)
 
 const TIPO_ICON = {
   LLAMADA: <PhoneOutlined />, EMAIL: <MailOutlined />,
-  WHATSAPP: <MessageOutlined />, REUNION: <CalendarOutlined />, NOTA: <EditOutlined />,
+  WHATSAPP: <MessageOutlined />, REUNION: <CalendarOutlined />, REUNION_COMERCIAL: <CalendarOutlined />,
+  OTRO: <ClockCircleOutlined />, NOTA: <EditOutlined />,
 }
 const TIPO_COLOR_MAP = {
   LLAMADA: '#1677ff', EMAIL: '#722ed1', WHATSAPP: '#52c41a',
-  REUNION: '#fa8c16', NOTA: '#8c8c8c',
+  REUNION: '#fa8c16', REUNION_COMERCIAL: '#fa8c16', OTRO: '#8c8c8c', NOTA: '#8c8c8c',
+}
+const TIPO_LABEL = {
+  LLAMADA: 'Llamada', EMAIL: 'Email', WHATSAPP: 'WhatsApp',
+  REUNION: 'Reunión', REUNION_COMERCIAL: 'Reunión comercial', OTRO: 'Otra', NOTA: 'Nota',
 }
 
 const ORIGEN_OPTIONS = [
@@ -160,6 +165,7 @@ function LeadPreviewDrawer({ leadId, onClose }) {
 
   const timeline = lead ? [
     ...(lead.interacciones || []).map(i => ({ ...i, _tipo: 'interaccion' })),
+    ...(lead.actividades || []).map(a => ({ ...a, _tipo: 'actividad' })),
     ...(lead.visitas || []).map(v => ({ ...v, _tipo: 'visita', fecha: v.fechaHora }))
   ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)) : []
 
@@ -183,7 +189,7 @@ function LeadPreviewDrawer({ leadId, onClose }) {
         <div style={{ paddingBottom: 4 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
             <Text style={{ fontSize: 12, fontWeight: isEtapaCambio ? 600 : 400, color: isEtapaCambio ? '#faad14' : undefined }}>
-              {isVisita ? `Visita ${item.tipo}` : isEtapaCambio ? item.descripcion : `${item.tipo?.charAt(0)}${item.tipo?.slice(1).toLowerCase()}`}
+              {isVisita ? `Visita ${item.tipo}` : isEtapaCambio ? item.descripcion : (TIPO_LABEL[item.tipo] || item.tipo)}
             </Text>
             <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0 }}>
               {format(new Date(item.fecha || item.fechaHora), 'd MMM yyyy', { locale: es })}
@@ -665,8 +671,8 @@ function VistaLista({ filtros, onPreview, esGerenciaOJV, vendedores, selectedRow
     },
     {
       title: 'Actividades', dataIndex: '_count', key: 'acciones', width: 80, align: 'center',
-      sorter: (a, b) => (a._count?.interacciones || 0) - (b._count?.interacciones || 0),
-      render: (c) => <Text type="secondary" style={{ fontSize: 13 }}>{c?.interacciones || 0}</Text>
+      sorter: (a, b) => (a._count?.actividades || 0) - (b._count?.actividades || 0),
+      render: (c) => <Text type="secondary" style={{ fontSize: 13 }}>{c?.actividades || 0}</Text>
     },
   ]
 

@@ -18,16 +18,16 @@ function parsearReunionComuro(context) {
 }
 
 async function crearReunionComuro({ leadId, vendedorId, context, reunion, nombreContacto }) {
-  const yaExiste = await prisma.interaccion.findFirst({
-    where: { leadId, tipo: 'REUNION', fecha: reunion.dt }
+  const yaExiste = await prisma.actividad.findFirst({
+    where: { leadId, tipo: 'REUNION_COMERCIAL', fecha: reunion.dt }
   })
   if (yaExiste) return
 
-  await prisma.interaccion.create({
+  await prisma.actividad.create({
     data: {
       leadId,
       usuarioId: vendedorId ?? VENDEDOR_FALLBACK_ID,
-      tipo: 'REUNION',
+      tipo: 'REUNION_COMERCIAL',
       descripcion: limpiarContextComuro(context) || 'Reunión agendada por Comuro.',
       fecha: reunion.dt,
     }

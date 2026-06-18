@@ -1,29 +1,26 @@
 const prisma = require('../lib/prisma')
 
+// Interacciones = NOTAS (comentarios libres). Las acciones con fecha (llamada,
+// email, whatsapp, reunión) viven en el modelo Actividad → actividadesController.
 const listarPorLead = async (req, res) => {
   const { leadId } = req.params
   try {
     const interacciones = await prisma.interaccion.findMany({
-      where: { leadId: Number(leadId) },
+      where: { leadId: Number(leadId), tipo: 'NOTA' },
       include: { usuario: { select: { nombre: true, apellido: true, rol: true } } },
       orderBy: { fecha: 'desc' }
     })
     res.json(interacciones)
   } catch (err) {
-    res.status(500).json({ error: 'Error al obtener interacciones.' })
+    res.status(500).json({ error: 'Error al obtener notas.' })
   }
 }
 
 const crear = async (req, res) => {
-  const { leadId, tipo, descripcion, fecha } = req.body
+  const { leadId, descripcion, fecha } = req.body
 
-  if (!leadId || !tipo || !descripcion) {
-    return res.status(400).json({ error: 'Lead, tipo y descripción son requeridos.' })
-  }
-
-  const tiposValidos = ['LLAMADA', 'EMAIL', 'WHATSAPP', 'REUNION', 'NOTA']
-  if (!tiposValidos.includes(tipo)) {
-    return res.status(400).json({ error: 'Tipo de interacción inválido.' })
+  if (!leadId || !descripcion) {
+    return res.status(400).json({ error: 'Lead y descripción son requeridos.' })
   }
 
   try {
@@ -31,21 +28,21 @@ const crear = async (req, res) => {
       data: {
         leadId: Number(leadId),
         usuarioId: req.usuario.id,
-        tipo,
+        tipo: 'NOTA',
         descripcion,
         ...(fecha && { fecha: new Date(fecha) })
       },
       include: { usuario: { select: { nombre: true, apellido: true } } }
     })
 
-    // Notificar al vendedor si fue otro usuario quien registró la actividad
+    // Notificar al vendedor si fue otro usuario quien dejó la nota
     const lead = await prisma.lead.findUnique({ where: { id: Number(leadId) }, select: { vendedorId: true } })
     if (lead?.vendedorId && lead.vendedorId !== req.usuario.id) {
       await prisma.notificacion.create({
         data: {
           usuarioId: lead.vendedorId,
           tipo: 'ACTIVIDAD_EN_LEAD',
-          mensaje: `${req.usuario.nombre} registró una actividad en tu lead: ${tipo.toLowerCase()} — "${descripcion.substring(0, 80)}"`,
+          mensaje: `${req.usuario.nombre} dejó una nota en tu lead: "${descripcion.substring(0, 80)}"`,
           referenciaId: Number(leadId),
           referenciaTipo: 'lead'
         }
@@ -54,7 +51,7 @@ const crear = async (req, res) => {
 
     res.status(201).json(interaccion)
   } catch (err) {
-    res.status(500).json({ error: 'Error al crear interacción.' })
+    res.status(500).json({ error: 'Error al crear nota.' })
   }
 }
 
@@ -68,6 +65,7 @@ const listarTodas = async (req, res) => {
   try {
     const interacciones = await prisma.interaccion.findMany({
       where: {
+        tipo: 'NOTA',
         ...(desde || hasta ? {
           fecha: {
             ...(desde && { gte: new Date(desde) }),

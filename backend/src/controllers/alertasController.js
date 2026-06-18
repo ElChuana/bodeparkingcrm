@@ -347,6 +347,11 @@ const leadsSinAtencion = async (req, res) => {
       include: {
         contacto: { select: { nombre: true, apellido: true } },
         vendedor: { select: { id: true, nombre: true, apellido: true } },
+        actividades: {
+          orderBy: { creadoEn: 'desc' },
+          take: 1,
+          select: { creadoEn: true }
+        },
         interacciones: {
           orderBy: { creadoEn: 'desc' },
           take: 1,
@@ -358,9 +363,12 @@ const leadsSinAtencion = async (req, res) => {
     const ahora = new Date()
     const resultado = leads
       .map(lead => {
-        const ultimaActividad = lead.interacciones[0]?.creadoEn || lead.actualizadoEn
-        const diasSinActividad = Math.floor((ahora - new Date(ultimaActividad)) / (1000 * 60 * 60 * 24))
-        const { interacciones, ...leadData } = lead
+        // Última vez que se tocó el lead: actividad o nota, lo más reciente
+        const fechas = [lead.actividades[0]?.creadoEn, lead.interacciones[0]?.creadoEn, lead.actualizadoEn]
+          .filter(Boolean).map(f => new Date(f))
+        const ultimaActividad = new Date(Math.max(...fechas))
+        const diasSinActividad = Math.floor((ahora - ultimaActividad) / (1000 * 60 * 60 * 24))
+        const { interacciones, actividades, ...leadData } = lead
         return { ...leadData, diasSinActividad, ultimaActividad }
       })
       .filter(lead => lead.diasSinActividad >= umbral)

@@ -3,6 +3,7 @@ const router = express.Router()
 const { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar, listarCampanas, fusionarDuplicados } = require('../controllers/leadsController')
 const { listarPorLead, listarTodas, crear: crearVisita, actualizarResultado, actualizar: actualizarVisita, eliminar: eliminarVisita } = require('../controllers/visitasController')
 const { listarPorLead: listarInteracciones, crear: crearInteraccion } = require('../controllers/interaccionesController')
+const { listarPorLead: listarActividades, crear: crearActividad, actualizar: actualizarActividad, eliminar: eliminarActividad } = require('../controllers/actividadesController')
 const { autenticar } = require('../middleware/auth')
 
 router.use(autenticar)
@@ -29,5 +30,10 @@ router.delete('/:leadId/visitas/:id', eliminarVisita)
 // Interacciones de un lead
 router.get('/:leadId/interacciones', listarInteracciones)
 router.post('/:leadId/interacciones', crearInteraccion)
+
+router.get('/:leadId/actividades', listarActividades)
+router.post('/:leadId/actividades', crearActividad)
+router.patch('/:leadId/actividades/:id', actualizarActividad)
+router.delete('/:leadId/actividades/:id', eliminarActividad)
 
 module.exports = router
