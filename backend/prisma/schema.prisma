@@ -303,9 +303,9 @@ model Unidad {
   m2             Float?
   techado        Boolean?
   acceso         AccesoUnidad?
-  precioUF       Float
-  precioMinimoUF Float?
-  precioCostoUF  Float?
+  precioUF       Decimal                 @db.Decimal(18, 6)
+  precioMinimoUF Decimal?                @db.Decimal(18, 6)
+  precioCostoUF  Decimal?                @db.Decimal(18, 6)
   estado         EstadoUnidad            @default(DISPONIBLE)
   notas          String?
   creadoEn       DateTime                @default(now())
@@ -335,8 +335,8 @@ model HistorialPrecioUnidad {
   id               Int      @id @default(autoincrement())
   unidadId         Int
   unidad           Unidad   @relation(fields: [unidadId], references: [id])
-  precioAnteriorUF Float?
-  precioNuevoUF    Float
+  precioAnteriorUF Decimal? @db.Decimal(18, 6)
+  precioNuevoUF    Decimal  @db.Decimal(18, 6)
   motivo           String?
   usuarioId        Int?
   usuario          Usuario? @relation(fields: [usuarioId], references: [id])
@@ -501,10 +501,10 @@ model Venta {
   gerenteId          Int?
   cotizacionOrigenId Int  @unique
 
-  precioListaUF       Float
-  descuentoPacksUF    Float @default(0)
-  descuentoAprobadoUF Float @default(0)
-  precioFinalUF       Float
+  precioListaUF       Decimal @default(0) @db.Decimal(18, 6)
+  descuentoPacksUF    Decimal @default(0) @db.Decimal(18, 6)
+  descuentoAprobadoUF Decimal @default(0) @db.Decimal(18, 6)
+  precioFinalUF       Decimal @default(0) @db.Decimal(18, 6)
 
   estado         EstadoVenta @default(RESERVA)
   fechaReserva   DateTime?
@@ -583,7 +583,7 @@ model PlanPago {
   id          Int      @id @default(autoincrement())
   ventaId     Int      @unique
   totalCuotas Int
-  montoUF     Float?
+  montoUF     Decimal? @db.Decimal(18, 6)
   fechaInicio DateTime
   creadoEn    DateTime @default(now())
 
@@ -599,8 +599,8 @@ model Cuota {
   planPagoId        Int
   numeroCuota       Int
   tipo              TipoCuota
-  montoUF           Float?
-  montoCLP          Float?
+  montoUF           Decimal?    @db.Decimal(18, 6)
+  montoCLP          Decimal?    @db.Decimal(18, 2)
   fechaVencimiento  DateTime
   fechaPagoReal     DateTime?
   estado            EstadoPago  @default(PENDIENTE)
@@ -624,10 +624,10 @@ model Comision {
   usuarioId        Int
   concepto         String?
   porcentaje       Float?
-  montoFijo        Float?
-  montoCalculadoUF Float
-  montoPrimera     Float
-  montoSegunda     Float
+  montoFijo        Decimal?   @db.Decimal(18, 6)
+  montoCalculadoUF Decimal    @db.Decimal(18, 6)
+  montoPrimera     Decimal    @db.Decimal(18, 6)
+  montoSegunda     Decimal    @db.Decimal(18, 6)
   estadoPrimera    EstadoPago @default(PENDIENTE)
   estadoSegunda    EstadoPago @default(PENDIENTE)
   fechaPagoPrimera DateTime?
@@ -664,7 +664,7 @@ model Cotizacion {
   creadoPorId         Int
   estado              EstadoCotizacion @default(BORRADOR)
   validezDias         Int              @default(7)
-  descuentoAprobadoUF Float            @default(0)
+  descuentoAprobadoUF Decimal          @default(0) @db.Decimal(18, 6)
   notas               String?
   creadoEn            DateTime         @default(now())
   actualizadoEn       DateTime         @updatedAt
@@ -688,8 +688,8 @@ model CotizacionItem {
   id            Int   @id @default(autoincrement())
   cotizacionId  Int
   unidadId      Int
-  precioListaUF Float
-  descuentoUF   Float @default(0) // descuento por unidad (snapshot) → habilita precio tachado
+  precioListaUF Decimal @db.Decimal(18, 6)
+  descuentoUF   Decimal @default(0) @db.Decimal(18, 6) // descuento por unidad (snapshot) → habilita precio tachado
 
   cotizacion Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   unidad     Unidad     @relation(fields: [unidadId], references: [id])
@@ -704,7 +704,7 @@ model Pack {
   nombre      String
   descripcion String?
   tipo        TipoPack
-  descuentoUF Float
+  descuentoUF Decimal   @db.Decimal(18, 6)
   minUnidades Int       @default(2)
   fechaInicio DateTime?
   fechaFin    DateTime?
@@ -732,7 +732,7 @@ model CotizacionPack {
   id                  Int   @id @default(autoincrement())
   cotizacionId        Int
   packId              Int
-  descuentoAplicadoUF Float
+  descuentoAplicadoUF Decimal @db.Decimal(18, 6)
 
   cotizacion Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   pack       Pack       @relation(fields: [packId], references: [id])
@@ -748,7 +748,7 @@ model Beneficio {
   descripcion    String?
   tipo           TipoBeneficio
   meses          Int?
-  montoMensualUF Float?
+  montoMensualUF Decimal?      @db.Decimal(18, 6)
   detalle        String?
   fechaInicio    DateTime?
   fechaFin       DateTime?
@@ -823,12 +823,12 @@ model Promocion {
   descripcion     String?
   categoria       CategoriaPromocion // DESCUENTO (afecta precio) | BENEFICIO (no afecta)
   tipo            TipoPromocion
-  valorUF         Float? // DESCUENTO_UF / PAQUETE (precio del pack)
+  valorUF         Decimal? @db.Decimal(18, 6) // DESCUENTO_UF / PAQUETE (precio del pack)
   valorPorcentaje Float? // DESCUENTO_PORCENTAJE
-  precioObjetivoPesos Float? // precio final por unidad en $ (el descuento UF se calcula dinámico con la UF vigente → peso exacto)
+  precioObjetivoPesos Decimal? @db.Decimal(18, 2) // precio final por unidad en $ (el descuento UF se calcula dinámico con la UF vigente → peso exacto)
   minUnidades     Int? // mínimo de unidades en la cotización (volumen)
   meses           Int? // ARRIENDO_ASEGURADO / CUOTAS_SIN_INTERES
-  montoMensualUF  Float? // ARRIENDO_ASEGURADO
+  montoMensualUF  Decimal? @db.Decimal(18, 6) // ARRIENDO_ASEGURADO
   detalle         String?
   fechaInicio     DateTime?
   fechaFin        DateTime?
@@ -861,7 +861,7 @@ model CotizacionPromocion {
   id                  Int   @id @default(autoincrement())
   cotizacionId        Int
   promocionId         Int
-  descuentoAplicadoUF Float @default(0) // 0 para beneficios
+  descuentoAplicadoUF Decimal @default(0) @db.Decimal(18, 6) // 0 para beneficios
 
   cotizacion Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   promocion  Promocion  @relation(fields: [promocionId], references: [id])
@@ -876,7 +876,7 @@ model VentaPromocion {
   ventaId             Int
   promocionId         Int
   categoria           CategoriaPromocion
-  descuentoAplicadoUF Float              @default(0)
+  descuentoAplicadoUF Decimal            @default(0) @db.Decimal(18, 6)
   estado              EstadoBeneficio    @default(PENDIENTE) // seguimiento (relevante para beneficios)
   notas               String?
   creadoEn            DateTime           @default(now())
@@ -894,7 +894,7 @@ model Arriendo {
   unidadId       Int
   contactoId     Int
   gestorNombre   String?
-  montoMensualUF Float?
+  montoMensualUF Decimal?       @db.Decimal(18, 6)
   fechaInicio    DateTime
   fechaFin       DateTime?
   estado         EstadoArriendo @default(ACTIVO)
@@ -916,8 +916,8 @@ model PagoArriendo {
   id          Int        @id @default(autoincrement())
   arriendoId  Int
   mes         String
-  montoUF     Float?
-  montoCLP    Float?
+  montoUF     Decimal?   @db.Decimal(18, 6)
+  montoCLP    Decimal?   @db.Decimal(18, 2)
   estado      EstadoPago @default(PENDIENTE)
   fechaPago   DateTime?
   comprobante String?
@@ -1000,7 +1000,7 @@ model ApiKey {
 
 model UFDiaria {
   fecha      DateTime @id
-  valorPesos Float
+  valorPesos Decimal  @db.Decimal(18, 2)
   creadoEn   DateTime @default(now())
 
   @@map("uf_diaria")

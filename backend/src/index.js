@@ -11,6 +11,7 @@ const app = express()
 // por coma). Sin la variable, se mantiene abierto como antes.
 app.use(cors(process.env.CORS_ORIGIN ? { origin: process.env.CORS_ORIGIN.split(',') } : {}))
 app.use(express.json({ limit: '10mb' }))
+app.use(require('./middleware/decimalSerializer'))
 
 // Archivos estáticos (fotos, planos, documentos subidos)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
