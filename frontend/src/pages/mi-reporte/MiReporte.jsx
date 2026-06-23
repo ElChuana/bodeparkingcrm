@@ -6,6 +6,7 @@ import { ThunderboltOutlined, ReloadOutlined, WarningOutlined, BulbOutlined, Che
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -155,9 +156,9 @@ function SeccionCard({ tipo, titulo, badge, children, count }) {
 
 export default function MiReporte() {
   const qc = useQueryClient()
-  const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
-  const esGerente = usuario.rol === 'GERENTE'
-  const puedeVerOtros = usuario.rol === 'GERENTE' || usuario.rol === 'JEFE_VENTAS'
+  const { usuario } = useAuth()
+  const esGerente = usuario?.rol === 'GERENTE'
+  const puedeVerOtros = usuario?.rol === 'GERENTE' || usuario?.rol === 'JEFE_VENTAS'
 
   const [vendedorSeleccionado, setVendedorSeleccionado] = useState(null)
 

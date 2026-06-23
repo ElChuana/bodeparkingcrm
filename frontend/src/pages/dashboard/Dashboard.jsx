@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
 import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Progress, DatePicker, Space, Button, Tooltip, Steps } from 'antd'
@@ -671,7 +671,7 @@ function GraficoIngresosSemana({ datos }) {
   )
 }
 
-function GraficoVentasMes({ datos }) {
+const GraficoVentasMes = memo(function GraficoVentasMes({ datos }) {
   if (!datos?.length) return null
   const mesActual = new Date().getMonth() + 1
   return (
@@ -691,9 +691,9 @@ function GraficoVentasMes({ datos }) {
       </BarChart>
     </ResponsiveContainer>
   )
-}
+})
 
-function GraficoLeadsSemana({ datos }) {
+const GraficoLeadsSemana = memo(function GraficoLeadsSemana({ datos }) {
   if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '20px 0' }}>Sin datos</div>
   const total = datos.reduce((s, d) => s + d.leads, 0)
   return (
@@ -714,7 +714,7 @@ function GraficoLeadsSemana({ datos }) {
       </div>
     </div>
   )
-}
+})
 
 function TablaCampanas({ datos }) {
   if (!datos?.length) return <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>Sin datos de campañas</div>

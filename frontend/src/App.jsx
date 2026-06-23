@@ -1,36 +1,49 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ConfigProvider, App as AntApp } from 'antd'
+import { ConfigProvider, App as AntApp, Spin } from 'antd'
 import esES from 'antd/locale/es_ES'
 import { AuthProvider, useAuth } from './context/AuthContext'
+
+// Shell: eager (se necesita en el primer render)
 import Layout from './components/Layout'
 import Login from './pages/auth/Login'
-import Dashboard from './pages/dashboard/Dashboard'
-import Inventario from './pages/inventario/Inventario'
-import Leads from './pages/leads/Leads'
-import LeadDetalle from './pages/leads/LeadDetalle'
-import Ventas from './pages/ventas/Ventas'
-import VentaDetalle from './pages/ventas/VentaDetalle'
-import Legal from './pages/ventas/Legal'
-import Visitas from './pages/visitas/Visitas'
-import Pagos from './pages/pagos/Pagos'
-import Comisiones from './pages/comisiones/Comisiones'
-import PacksBeneficios from './pages/configuracion/PacksBeneficios'
-import Promociones from './pages/promociones/Promociones'
-import Arriendos from './pages/arriendos/Arriendos'
-import Llaves from './pages/llaves/Llaves'
-import Equipo from './pages/equipo/Equipo'
-import Reportes from './pages/reportes/Reportes'
-import Automatizaciones from './pages/automatizaciones/Automatizaciones'
-import CotizacionEditor from './pages/cotizaciones/CotizacionEditor'
-import Descuentos from './pages/descuentos/Descuentos'
-import ApiKeys from './pages/configuracion/ApiKeys'
-import MiPerfil from './pages/perfil/MiPerfil'
-import CentroAsignacion from './pages/asignacion/CentroAsignacion'
-import PreviewPDF from './pages/cotizaciones/PreviewPDF'
-import Notificaciones from './pages/notificaciones/Notificaciones'
-import MiReporte from './pages/mi-reporte/MiReporte'
-import ReporteSemanal from './pages/reporte-semanal/ReporteSemanal'
+
+// Páginas: lazy → cada una en su propio chunk (Vite hace el split por ruta)
+const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'))
+const Inventario = lazy(() => import('./pages/inventario/Inventario'))
+const Leads = lazy(() => import('./pages/leads/Leads'))
+const LeadDetalle = lazy(() => import('./pages/leads/LeadDetalle'))
+const Ventas = lazy(() => import('./pages/ventas/Ventas'))
+const VentaDetalle = lazy(() => import('./pages/ventas/VentaDetalle'))
+const Legal = lazy(() => import('./pages/ventas/Legal'))
+const Visitas = lazy(() => import('./pages/visitas/Visitas'))
+const Pagos = lazy(() => import('./pages/pagos/Pagos'))
+const Comisiones = lazy(() => import('./pages/comisiones/Comisiones'))
+const PacksBeneficios = lazy(() => import('./pages/configuracion/PacksBeneficios'))
+const Promociones = lazy(() => import('./pages/promociones/Promociones'))
+const Arriendos = lazy(() => import('./pages/arriendos/Arriendos'))
+const Llaves = lazy(() => import('./pages/llaves/Llaves'))
+const Equipo = lazy(() => import('./pages/equipo/Equipo'))
+const Reportes = lazy(() => import('./pages/reportes/Reportes'))
+const Automatizaciones = lazy(() => import('./pages/automatizaciones/Automatizaciones'))
+const CotizacionEditor = lazy(() => import('./pages/cotizaciones/CotizacionEditor'))
+const Descuentos = lazy(() => import('./pages/descuentos/Descuentos'))
+const ApiKeys = lazy(() => import('./pages/configuracion/ApiKeys'))
+const MiPerfil = lazy(() => import('./pages/perfil/MiPerfil'))
+const CentroAsignacion = lazy(() => import('./pages/asignacion/CentroAsignacion'))
+const PreviewPDF = lazy(() => import('./pages/cotizaciones/PreviewPDF'))
+const Notificaciones = lazy(() => import('./pages/notificaciones/Notificaciones'))
+const MiReporte = lazy(() => import('./pages/mi-reporte/MiReporte'))
+const ReporteSemanal = lazy(() => import('./pages/reporte-semanal/ReporteSemanal'))
+
+function PageFallback() {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+      <Spin size="large" />
+    </div>
+  )
+}
 
 const qc = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30000 } }
@@ -81,6 +94,7 @@ export default function App() {
         <QueryClientProvider client={qc}>
           <AuthProvider>
             <BrowserRouter>
+              <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/" element={
@@ -119,6 +133,7 @@ export default function App() {
                 </Route>
                 <Route path="*" element={<Navigate to="/leads" replace />} />
               </Routes>
+              </Suspense>
             </BrowserRouter>
           </AuthProvider>
         </QueryClientProvider>

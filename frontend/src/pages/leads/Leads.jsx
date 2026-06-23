@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -163,11 +163,11 @@ function LeadPreviewDrawer({ leadId, onClose }) {
     enabled: !!leadId
   })
 
-  const timeline = lead ? [
+  const timeline = useMemo(() => lead ? [
     ...(lead.interacciones || []).map(i => ({ ...i, _tipo: 'interaccion' })),
     ...(lead.actividades || []).map(a => ({ ...a, _tipo: 'actividad' })),
     ...(lead.visitas || []).map(v => ({ ...v, _tipo: 'visita', fecha: v.fechaHora }))
-  ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)) : []
+  ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)) : [], [lead])
 
   const esEtapa = (desc) => desc?.startsWith('Etapa cambiada:') || desc?.startsWith('Automatización:')
 
