@@ -325,7 +325,7 @@ model Unidad {
   promociones      UnidadPromocion[]
   historialPrecios HistorialPrecioUnidad[]
 
-  @@index([edificioId])
+  @@unique([edificioId, numero])
   @@index([ventaId])
   @@index([estado])
   @@map("unidades")
@@ -366,7 +366,7 @@ model Contacto {
   id                  Int         @id @default(autoincrement())
   nombre              String
   apellido            String
-  rut                 String?
+  rut                 String?     @unique
   email               String?
   telefono            String?
   empresa             String?
@@ -387,7 +387,6 @@ model Contacto {
   compras   Venta[]    @relation("CompradorVenta")
   arriendos Arriendo[]
 
-  @@index([rut])
   @@index([email])
   @@map("contactos")
 }
@@ -933,7 +932,7 @@ model PagoArriendo {
 model Llave {
   id            Int         @id @default(autoincrement())
   unidadId      Int
-  codigo        String
+  codigo        String      @unique
   estado        EstadoLlave @default(EN_OFICINA)
   notas         String?
   creadoEn      DateTime    @default(now())

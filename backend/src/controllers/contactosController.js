@@ -57,10 +57,11 @@ const crear = async (req, res) => {
   }
   try {
     const contacto = await prisma.contacto.create({
-      data: { nombre, apellido, rut, email, telefono, empresa, tipoPersona, origen, notas }
+      data: { nombre, apellido, rut: rut || null, email, telefono, empresa, tipoPersona, origen, notas }
     })
     res.status(201).json(contacto)
   } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Ya existe un contacto con ese RUT.' })
     res.status(500).json({ error: 'Error al crear contacto.' })
   }
 }
@@ -75,7 +76,7 @@ const actualizar = async (req, res) => {
     const contacto = await prisma.contacto.update({
       where: { id: Number(id) },
       data: {
-        nombre, apellido, rut, email, telefono, empresa, tipoPersona, origen, notas,
+        nombre, apellido, rut: rut === '' ? null : rut, email, telefono, empresa, tipoPersona, origen, notas,
         fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : undefined,
         ciudadNacimiento, estadoCivil, profesion, nacionalidad, regimenMatrimonial, direccionParticular
       }
@@ -83,6 +84,7 @@ const actualizar = async (req, res) => {
     res.json(contacto)
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Contacto no encontrado.' })
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Ya existe un contacto con ese RUT.' })
     res.status(500).json({ error: 'Error al actualizar contacto.' })
   }
 }

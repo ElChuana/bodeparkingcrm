@@ -92,6 +92,7 @@ const crear = async (req, res) => {
     })
     res.status(201).json(unidad)
   } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Ya existe una unidad con ese número en el edificio.' })
     console.error(err)
     res.status(500).json({ error: 'Error al crear unidad.' })
   }
@@ -120,6 +121,7 @@ const actualizar = async (req, res) => {
     res.json(unidad)
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Unidad no encontrada.' })
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Ya existe una unidad con ese número en el edificio.' })
     res.status(500).json({ error: 'Error al actualizar unidad.' })
   }
 }

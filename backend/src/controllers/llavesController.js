@@ -43,6 +43,7 @@ const crear = async (req, res) => {
     })
     res.status(201).json(llave)
   } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Ya existe una llave con ese código.' })
     res.status(500).json({ error: 'Error al crear llave.' })
   }
 }
