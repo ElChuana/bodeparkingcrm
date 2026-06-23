@@ -467,8 +467,12 @@
 4. **Deduplicación**: Centralizada en `lib/deduplication.js` (Levenshtein, similitud ≥ 0.6)
 5. **Notificaciones**: Centralizadas en `lib/notifications.js`
 6. **Schema migrations**: Se usa `prisma db push` (no `migrate dev`) por historial de migraciones con drift.
+7. **Montos en Decimal**: Los campos de dinero (UF/pesos) son `Decimal` (`@db.Decimal(18,6)` UF, `(18,2)` pesos), no Float. El middleware `middleware/decimalSerializer.js` convierte `Prisma.Decimal → number` antes de `res.json`, así el frontend recibe números como siempre. Hacer aritmética en backend coerciona bien; al escribir se aceptan `Number(...)`.
+8. **Integridad referencial**: FKs con `@@index`; `onDelete: Cascade` en hijos efímeros del lead (interaccion/actividad/visita/recordatorio/email) — ventas y cotizaciones quedan protegidas (Restrict). Uniques de negocio: `Unidad(edificioId,numero)`, `Contacto.rut`, `Llave.codigo` (errores P2002 → 409 con mensaje).
+9. **Enums de integridad**: `Visita.tipo` (TipoVisita), `EmailConversacion.direction` (DireccionEmail), `Postventa.prioridad` (PrioridadPostventa), `MovimientoLlave.tipo` (TipoMovimientoLlave). Los nombres de los enums coinciden con los valores históricos para no migrar datos ni tocar el frontend.
+10. **Filtros de acceso por usuario**: `Usuario.edificiosFiltro` / `leadsIndividualesFiltro` / `campanasFiltro` son arrays usados por `leadsController.filtroAcceso` (control de visibilidad de leads, cargados en `auth.js` por request). Se mantienen como arrays a propósito (un ID obsoleto es inofensivo; migrar a tablas puente agregaría overhead por request sin beneficio real).
 
 ---
 
-*Última actualización: 23 Abril 2026 — comisiones con hitos (PlantillaComision, conPromesa, notificación escritura)*
+*Última actualización: 23 Junio 2026 — auditoría BBDD: índices/onDelete, uniques de negocio, montos en Decimal + serializador, enums de integridad*
 *Actualizar este archivo después de cada cambio significativo.*
