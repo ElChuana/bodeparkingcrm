@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { notificarUnaVez } = require('../lib/notifications')
 
 const misNotificaciones = async (req, res) => {
   try {
@@ -27,9 +28,16 @@ const marcarLeida = async (req, res) => {
 }
 
 const marcarTodasLeidas = async (req, res) => {
+  // Opcional: { tipos: [...] } para marcar solo una categoría (ej: solo Alertas
+  // o solo Actividad), sin barrer todo lo no leído del usuario.
+  const { tipos } = req.body || {}
   try {
     await prisma.notificacion.updateMany({
-      where: { usuarioId: req.usuario.id, leida: false },
+      where: {
+        usuarioId: req.usuario.id,
+        leida: false,
+        ...(Array.isArray(tipos) && tipos.length ? { tipo: { in: tipos } } : {})
+      },
       data: { leida: true }
     })
     res.json({ ok: true })
@@ -110,11 +118,9 @@ async function _ejecutarChequeo() {
       for (const lead of leads) {
         const msg = `Lead de ${lead.contacto.nombre} ${lead.contacto.apellido} sin actividad hace más de ${umbral} días.`
 
-        // Notificar al vendedor asignado
+        // Notificar al vendedor asignado (sin duplicar si ya tiene una pendiente)
         if (lead.vendedorId) {
-          await prisma.notificacion.create({
-            data: { usuarioId: lead.vendedorId, tipo: 'LEAD_SIN_ACTIVIDAD', mensaje: msg, referenciaId: lead.id, referenciaTipo: 'lead' }
-          })
+          await notificarUnaVez({ usuarioId: lead.vendedorId, tipo: 'LEAD_SIN_ACTIVIDAD', mensaje: msg, referenciaId: lead.id, referenciaTipo: 'lead' })
         }
 
         // Si accionAutomatica: mover a PERDIDO
@@ -145,9 +151,7 @@ async function _ejecutarChequeo() {
 
         const destinatarios = lead.vendedorId ? [lead.vendedorId, ...gerentes.map(g => g.id)] : gerentes.map(g => g.id)
         for (const uid of [...new Set(destinatarios)]) {
-          await prisma.notificacion.create({
-            data: { usuarioId: uid, tipo: 'LEAD_ESTANCADO', mensaje: msg, referenciaId: lead.id, referenciaTipo: 'lead' }
-          })
+          await notificarUnaVez({ usuarioId: uid, tipo: 'LEAD_ESTANCADO', mensaje: msg, referenciaId: lead.id, referenciaTipo: 'lead' })
         }
         alertasGeneradas.push({ tipo: 'LEAD_ESTANCADO', leadId: lead.id })
       }
@@ -162,9 +166,7 @@ async function _ejecutarChequeo() {
 
       for (const mov of movimientos) {
         if (mov.responsableId) {
-          await prisma.notificacion.create({
-            data: { usuarioId: mov.responsableId, tipo: 'LLAVE_NO_DEVUELTA', mensaje: `Llave #${mov.llaveId} prestada hace más de ${umbral} días sin devolver.`, referenciaId: mov.llaveId, referenciaTipo: 'llave' }
-          })
+          await notificarUnaVez({ usuarioId: mov.responsableId, tipo: 'LLAVE_NO_DEVUELTA', mensaje: `Llave #${mov.llaveId} prestada hace más de ${umbral} días sin devolver.`, referenciaId: mov.llaveId, referenciaTipo: 'llave' })
           alertasGeneradas.push({ tipo: 'LLAVE_NO_DEVUELTA', llaveId: mov.llaveId })
         }
       }
@@ -180,9 +182,7 @@ async function _ejecutarChequeo() {
       for (const cuota of cuotas) {
         const venta = cuota.planPago?.venta
         if (venta?.vendedorId) {
-          await prisma.notificacion.create({
-            data: { usuarioId: venta.vendedorId, tipo: 'CUOTA_VENCIDA', mensaje: `Cuota #${cuota.numeroCuota} de ${venta.comprador?.nombre} ${venta.comprador?.apellido} está vencida.`, referenciaId: venta.id, referenciaTipo: 'venta' }
-          })
+          await notificarUnaVez({ usuarioId: venta.vendedorId, tipo: 'CUOTA_VENCIDA', mensaje: `Cuota #${cuota.numeroCuota} de ${venta.comprador?.nombre} ${venta.comprador?.apellido} está vencida.`, referenciaId: venta.id, referenciaTipo: 'venta' })
           alertasGeneradas.push({ tipo: 'CUOTA_VENCIDA', cuotaId: cuota.id })
         }
       }

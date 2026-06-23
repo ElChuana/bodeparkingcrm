@@ -36,4 +36,26 @@ async function notificarLead({ leadId, mensaje, tipo, excluirUsuarioId, soloAVen
   }
 }
 
-module.exports = { notificarLead }
+// Crea una notificación SOLO si no existe ya una sin leer del mismo tipo
+// para el mismo usuario y referencia. Evita el spam del cron diario, que
+// antes generaba una notificación nueva cada día para el mismo lead/cuota/llave.
+// Devuelve true si la creó, false si ya existía una pendiente.
+async function notificarUnaVez({ usuarioId, tipo, mensaje, referenciaId = null, referenciaTipo = null }) {
+  if (!usuarioId) return false
+  try {
+    const existe = await prisma.notificacion.findFirst({
+      where: { usuarioId, tipo, referenciaId, referenciaTipo, leida: false },
+      select: { id: true }
+    })
+    if (existe) return false
+    await prisma.notificacion.create({
+      data: { usuarioId, tipo, mensaje, referenciaId, referenciaTipo }
+    })
+    return true
+  } catch (err) {
+    console.error(`[notificarUnaVez usuario=${usuarioId} tipo=${tipo}]`, err.message)
+    return false
+  }
+}
+
+module.exports = { notificarLead, notificarUnaVez }

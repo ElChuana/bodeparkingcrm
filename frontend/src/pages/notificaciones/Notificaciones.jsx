@@ -6,33 +6,9 @@ import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { TIPOS_ALERTAS, TIPOS_ACTIVIDAD, cfgTipo, rutaDeNotificacion } from '../../utils/notificaciones'
 
 const { Text, Title } = Typography
-
-const TIPOS_ALERTAS = [
-  'LLAVE_NO_DEVUELTA','CUOTA_VENCIDA','LEAD_SIN_ACTIVIDAD','LEAD_ESTANCADO',
-  'FECHA_LEGAL_PROXIMA','ARRIENDO_POR_VENCER','DESCUENTO_PENDIENTE',
-  'LEAD_ETAPA_CAMBIO','LEAD_NUEVO','RECORDATORIO_LEAD','COMISION_ESCRITURA'
-]
-const TIPOS_ACTIVIDAD = ['EMAIL_RECIBIDO','ACTIVIDAD_EN_LEAD','VISITA_PROXIMA','DESCUENTO_RESUELTO']
-
-const TIPO_CONFIG = {
-  LLAVE_NO_DEVUELTA:   { color: 'red',    label: 'Llave',          emoji: '🔑' },
-  CUOTA_VENCIDA:       { color: 'red',    label: 'Cuota vencida',  emoji: '💳' },
-  LEAD_SIN_ACTIVIDAD:  { color: 'orange', label: 'Sin actividad',  emoji: '⏰' },
-  LEAD_ESTANCADO:      { color: 'orange', label: 'Lead estancado', emoji: '⚠️' },
-  FECHA_LEGAL_PROXIMA: { color: 'blue',   label: 'Legal',          emoji: '⚖️' },
-  ARRIENDO_POR_VENCER: { color: 'orange', label: 'Arriendo',       emoji: '🏠' },
-  DESCUENTO_PENDIENTE: { color: 'purple', label: 'Descuento',      emoji: '💰' },
-  LEAD_ETAPA_CAMBIO:   { color: 'blue',   label: 'Etapa',          emoji: '🔄' },
-  LEAD_NUEVO:          { color: 'green',  label: 'Nuevo lead',     emoji: '✨' },
-  RECORDATORIO_LEAD:   { color: 'green',  label: 'Recordatorio',   emoji: '📅' },
-  COMISION_ESCRITURA:  { color: 'gold',   label: 'Comisión',       emoji: '💵' },
-  EMAIL_RECIBIDO:      { color: 'blue',   label: 'Email recibido', emoji: '✉️' },
-  ACTIVIDAD_EN_LEAD:   { color: 'green',  label: 'Actividad',      emoji: '📝' },
-  VISITA_PROXIMA:      { color: 'blue',   label: 'Visita',         emoji: '📅' },
-  DESCUENTO_RESUELTO:  { color: 'purple', label: 'Descuento',      emoji: '✅' },
-}
 
 const ETAPA_COLOR = {
   SEGUIMIENTO:             'blue',
@@ -102,7 +78,8 @@ export default function Notificaciones() {
   const actividadSinLeer = actividad.filter(n => !n.leida).length
 
   const marcarTodasLeidas = useMutation({
-    mutationFn: () => api.put('/alertas/leer-todas'),
+    // tipos opcional: marca solo esa categoría (Alertas o Actividad), no todo
+    mutationFn: (tipos) => api.put('/alertas/leer-todas', tipos ? { tipos } : {}),
     onSuccess: () => {
       qc.invalidateQueries(['notificaciones-pagina'])
       qc.invalidateQueries(['notificaciones'])
@@ -228,18 +205,19 @@ export default function Notificaciones() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Text type="secondary">{alertas.length} alerta{alertas.length !== 1 ? 's' : ''} sin leer</Text>
         {alertas.length > 0 && (
-          <Button size="small" onClick={() => marcarTodasLeidas.mutate()}>
+          <Button size="small" onClick={() => marcarTodasLeidas.mutate(TIPOS_ALERTAS)}>
             Marcar todas como leídas
           </Button>
         )}
       </div>
       {alertas.length === 0 && <Empty description="Sin alertas" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
       {alertas.map(n => {
-        const cfg = TIPO_CONFIG[n.tipo] || { emoji: '🔔', color: 'blue', label: n.tipo }
+        const cfg = cfgTipo(n.tipo)
         return (
           <CardItem key={n.id} unread onClick={() => {
             marcarLeida.mutate(n.id)
-            if (n.referenciaTipo === 'lead' && n.referenciaId) navigate(`/leads/${n.referenciaId}`)
+            const ruta = rutaDeNotificacion(n)
+            if (ruta) navigate(ruta)
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ flex: 1 }}>
@@ -265,18 +243,19 @@ export default function Notificaciones() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Text type="secondary">{actividad.length} evento{actividad.length !== 1 ? 's' : ''} recientes</Text>
         {actividadSinLeer > 0 && (
-          <Button size="small" onClick={() => marcarTodasLeidas.mutate()}>
+          <Button size="small" onClick={() => marcarTodasLeidas.mutate(TIPOS_ACTIVIDAD)}>
             Marcar todo como leído
           </Button>
         )}
       </div>
       {actividad.length === 0 && <Empty description="Sin actividad reciente" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
       {actividad.map(n => {
-        const cfg = TIPO_CONFIG[n.tipo] || { emoji: '📋', color: 'blue', label: n.tipo }
+        const cfg = cfgTipo(n.tipo)
         return (
           <CardItem key={n.id} unread={!n.leida} onClick={() => {
             if (!n.leida) marcarLeida.mutate(n.id)
-            if (n.referenciaTipo === 'lead' && n.referenciaId) navigate(`/leads/${n.referenciaId}`)
+            const ruta = rutaDeNotificacion(n)
+            if (ruta) navigate(ruta)
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ flex: 1 }}>
