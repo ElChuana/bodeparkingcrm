@@ -403,10 +403,9 @@ const eliminar = async (req, res) => {
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Eliminar en orden para respetar FKs
-      await tx.interaccion.deleteMany({ where: { leadId: Number(id) } })
-      await tx.visita.deleteMany({ where: { leadId: Number(id) } })
-
+      // Hijos efímeros (interacciones, actividades, visitas, recordatorios,
+      // emails) caen por onDelete: Cascade. Las cotizaciones se limpian a mano
+      // porque tienen solicitudes de descuento asociadas.
       const cotizaciones = await tx.cotizacion.findMany({ where: { leadId: Number(id) }, select: { id: true } })
       const cotizacionIds = cotizaciones.map(c => c.id)
 

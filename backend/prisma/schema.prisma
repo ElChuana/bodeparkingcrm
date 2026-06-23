@@ -69,11 +69,8 @@ enum OrigenLead {
   OTRO
 }
 
+// Interaccion quedó solo para Notas tras separar Actividad (jun 2026)
 enum TipoInteraccion {
-  LLAMADA
-  EMAIL
-  WHATSAPP
-  REUNION
   NOTA
 }
 
@@ -328,6 +325,9 @@ model Unidad {
   promociones      UnidadPromocion[]
   historialPrecios HistorialPrecioUnidad[]
 
+  @@index([edificioId])
+  @@index([ventaId])
+  @@index([estado])
   @@map("unidades")
 }
 
@@ -343,6 +343,7 @@ model HistorialPrecioUnidad {
   creadoEn         DateTime @default(now())
 
   @@index([unidadId])
+  @@index([usuarioId])
   @@index([creadoEn])
   @@map("historial_precios_unidad")
 }
@@ -357,6 +358,7 @@ model Archivo {
 
   unidad Unidad @relation(fields: [unidadId], references: [id])
 
+  @@index([unidadId])
   @@map("archivos")
 }
 
@@ -385,6 +387,8 @@ model Contacto {
   compras   Venta[]    @relation("CompradorVenta")
   arriendos Arriendo[]
 
+  @@index([rut])
+  @@index([email])
   @@map("contactos")
 }
 
@@ -422,6 +426,11 @@ model Lead {
   recordatorios       Recordatorio[]
   emailConversaciones EmailConversacion[]
 
+  @@index([contactoId])
+  @@index([unidadInteresId])
+  @@index([vendedorId])
+  @@index([brokerId])
+  @@index([etapa])
   @@map("leads")
 }
 
@@ -437,10 +446,14 @@ model Visita {
   enlace     String? // link de la reunión online (Meet/Zoom) cuando es virtual
   creadoEn   DateTime @default(now())
 
-  lead     Lead      @relation(fields: [leadId], references: [id])
+  lead     Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
   vendedor Usuario?  @relation(fields: [vendedorId], references: [id])
   edificio Edificio? @relation(fields: [edificioId], references: [id])
 
+  @@index([leadId])
+  @@index([vendedorId])
+  @@index([edificioId])
+  @@index([fechaHora])
   @@map("visitas")
 }
 
@@ -452,9 +465,12 @@ model Interaccion {
   descripcion String
   fecha       DateTime        @default(now())
 
-  lead    Lead     @relation(fields: [leadId], references: [id])
+  lead    Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
 
+  @@index([leadId])
+  @@index([usuarioId])
+  @@index([fecha])
   @@map("interacciones")
 }
 
@@ -468,9 +484,12 @@ model Actividad {
   resultado   String?
   creadoEn    DateTime      @default(now())
 
-  lead    Lead     @relation(fields: [leadId], references: [id])
+  lead    Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
 
+  @@index([leadId])
+  @@index([usuarioId])
+  @@index([fecha])
   @@map("actividades")
 }
 
@@ -512,6 +531,12 @@ model Venta {
   promociones      VentaPromocion[]
   postventa        Postventa[]
 
+  @@index([leadId])
+  @@index([compradorId])
+  @@index([vendedorId])
+  @@index([brokerId])
+  @@index([gerenteId])
+  @@index([estado])
   @@map("ventas")
 }
 
@@ -547,9 +572,11 @@ model DocumentoLegal {
   etapa          EstadoLegal
   creadoEn       DateTime    @default(now())
 
-  procesoLegal ProcesoLegal @relation(fields: [procesoLegalId], references: [id])
+  procesoLegal ProcesoLegal @relation(fields: [procesoLegalId], references: [id], onDelete: Cascade)
   subidoPor    Usuario?     @relation(fields: [subioPorId], references: [id])
 
+  @@index([procesoLegalId])
+  @@index([subioPorId])
   @@map("documentos_legales")
 }
 
@@ -566,6 +593,7 @@ model PlanPago {
 
   @@map("planes_pago")
 }
+// (ventaId ya está indexado por @unique)
 
 model Cuota {
   id                Int         @id @default(autoincrement())
@@ -584,8 +612,10 @@ model Cuota {
   creadoEn          DateTime    @default(now())
   actualizadoEn     DateTime    @updatedAt
 
-  planPago PlanPago @relation(fields: [planPagoId], references: [id])
+  planPago PlanPago @relation(fields: [planPagoId], references: [id], onDelete: Cascade)
 
+  @@index([planPagoId])
+  @@index([estado])
   @@map("cuotas")
 }
 
@@ -610,6 +640,8 @@ model Comision {
   venta   Venta   @relation(fields: [ventaId], references: [id])
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
+  @@index([ventaId])
+  @@index([usuarioId])
   @@map("comisiones")
 }
 
@@ -647,6 +679,9 @@ model Cotizacion {
   solicitudesDescuento SolicitudDescuento[]
   ventaOrigen          Venta?
 
+  @@index([leadId])
+  @@index([creadoPorId])
+  @@index([estado])
   @@map("cotizaciones")
 }
 
@@ -661,6 +696,7 @@ model CotizacionItem {
   unidad     Unidad     @relation(fields: [unidadId], references: [id])
 
   @@unique([cotizacionId, unidadId])
+  @@index([unidadId])
   @@map("cotizacion_items")
 }
 
@@ -689,6 +725,7 @@ model UnidadPack {
   pack     Pack   @relation(fields: [packId], references: [id])
 
   @@id([unidadId, packId])
+  @@index([packId])
   @@map("unidades_packs")
 }
 
@@ -702,6 +739,7 @@ model CotizacionPack {
   pack       Pack       @relation(fields: [packId], references: [id])
 
   @@unique([cotizacionId, packId])
+  @@index([packId])
   @@map("cotizacion_packs")
 }
 
@@ -732,6 +770,7 @@ model UnidadBeneficio {
   beneficio   Beneficio @relation(fields: [beneficioId], references: [id])
 
   @@id([unidadId, beneficioId])
+  @@index([beneficioId])
   @@map("unidades_beneficios")
 }
 
@@ -743,6 +782,7 @@ model CotizacionBeneficio {
   beneficio  Beneficio  @relation(fields: [beneficioId], references: [id])
 
   @@id([cotizacionId, beneficioId])
+  @@index([beneficioId])
   @@map("cotizacion_beneficios")
 }
 
@@ -758,6 +798,7 @@ model VentaBeneficio {
   beneficio Beneficio @relation(fields: [beneficioId], references: [id])
 
   @@unique([ventaId, beneficioId])
+  @@index([beneficioId])
   @@map("ventas_beneficios")
 }
 
@@ -813,6 +854,7 @@ model UnidadPromocion {
   promocion   Promocion @relation(fields: [promocionId], references: [id], onDelete: Cascade)
 
   @@id([unidadId, promocionId])
+  @@index([promocionId])
   @@map("unidades_promociones")
 }
 
@@ -826,6 +868,7 @@ model CotizacionPromocion {
   promocion  Promocion  @relation(fields: [promocionId], references: [id])
 
   @@unique([cotizacionId, promocionId])
+  @@index([promocionId])
   @@map("cotizacion_promociones")
 }
 
@@ -843,6 +886,7 @@ model VentaPromocion {
   promocion Promocion @relation(fields: [promocionId], references: [id])
 
   @@unique([ventaId, promocionId])
+  @@index([promocionId])
   @@map("venta_promociones")
 }
 
@@ -864,6 +908,8 @@ model Arriendo {
   contacto Contacto       @relation(fields: [contactoId], references: [id])
   pagos    PagoArriendo[]
 
+  @@index([unidadId])
+  @@index([contactoId])
   @@map("arriendos")
 }
 
@@ -878,7 +924,7 @@ model PagoArriendo {
   comprobante String?
   creadoEn    DateTime   @default(now())
 
-  arriendo Arriendo @relation(fields: [arriendoId], references: [id])
+  arriendo Arriendo @relation(fields: [arriendoId], references: [id], onDelete: Cascade)
 
   @@unique([arriendoId, mes])
   @@map("pagos_arriendo")
@@ -896,6 +942,7 @@ model Llave {
   unidad      Unidad            @relation(fields: [unidadId], references: [id])
   movimientos MovimientoLlave[]
 
+  @@index([unidadId])
   @@map("llaves")
 }
 
@@ -912,9 +959,11 @@ model MovimientoLlave {
   fechaDevolucionReal     DateTime?
   creadoEn                DateTime  @default(now())
 
-  llave       Llave    @relation(fields: [llaveId], references: [id])
+  llave       Llave    @relation(fields: [llaveId], references: [id], onDelete: Cascade)
   responsable Usuario? @relation(fields: [responsableId], references: [id])
 
+  @@index([llaveId])
+  @@index([responsableId])
   @@map("movimientos_llaves")
 }
 
@@ -935,6 +984,8 @@ model Postventa {
   venta       Venta    @relation(fields: [ventaId], references: [id])
   responsable Usuario? @relation(fields: [responsableId], references: [id])
 
+  @@index([ventaId])
+  @@index([responsableId])
   @@map("postventas")
 }
 
@@ -978,8 +1029,10 @@ model Notificacion {
   leida          Boolean    @default(false)
   creadoEn       DateTime   @default(now())
 
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
+  @@index([usuarioId])
+  @@index([leida])
   @@map("notificaciones")
 }
 
@@ -996,10 +1049,14 @@ model SolicitudDescuento {
   creadoEn        DateTime                 @default(now())
   revisadoEn      DateTime?
 
-  cotizacion    Cotizacion @relation(fields: [cotizacionId], references: [id])
+  cotizacion    Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   solicitadoPor Usuario    @relation("SolicitudesHechas", fields: [solicitadoPorId], references: [id])
   revisadoPor   Usuario?   @relation("SolicitudesRevisadas", fields: [revisadoPorId], references: [id])
 
+  @@index([cotizacionId])
+  @@index([solicitadoPorId])
+  @@index([revisadoPorId])
+  @@index([estado])
   @@map("solicitudes_descuento")
 }
 
@@ -1013,9 +1070,11 @@ model Recordatorio {
   notificado  Boolean  @default(false)
   creadoEn    DateTime @default(now())
 
-  lead      Lead    @relation(fields: [leadId], references: [id])
+  lead      Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
   creadoPor Usuario @relation("RecordatoriosCreadosPor", fields: [creadoPorId], references: [id])
 
+  @@index([leadId])
+  @@index([creadoPorId])
   @@map("recordatorios")
 }
 
@@ -1054,6 +1113,8 @@ model EmailConversacion {
   lead    Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   usuario Usuario? @relation(fields: [usuarioId], references: [id])
 
+  @@index([leadId])
+  @@index([usuarioId])
   @@map("email_conversaciones")
 }
 
