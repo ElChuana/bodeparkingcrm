@@ -13,20 +13,27 @@ router.get('/', async (req, res) => {
   const texto = q.trim()
   const modo = 'insensitive'
 
+  // Cada palabra debe matchear algún campo (AND entre palabras, OR entre campos).
+  // Así "Juan Pérez" matchea aunque "Juan" esté en nombre y "Pérez" en apellido.
+  const palabras = texto.split(/\s+/).filter(Boolean)
+  const todasLasPalabras = (campos) => ({
+    AND: palabras.map(palabra => ({
+      OR: campos.map(campo => campo(palabra))
+    }))
+  })
+
   try {
     const [leads, unidades, ventas, contactos] = await Promise.all([
 
       // Leads — busca por nombre/email/teléfono del contacto
       prisma.lead.findMany({
-        where: {
-          OR: [
-            { contacto: { nombre: { contains: texto, mode: modo } } },
-            { contacto: { apellido: { contains: texto, mode: modo } } },
-            { contacto: { email: { contains: texto, mode: modo } } },
-            { contacto: { telefono: { contains: texto, mode: modo } } },
-            { contacto: { rut: { contains: texto, mode: modo } } },
-          ]
-        },
+        where: todasLasPalabras([
+          (p) => ({ contacto: { nombre: { contains: p, mode: modo } } }),
+          (p) => ({ contacto: { apellido: { contains: p, mode: modo } } }),
+          (p) => ({ contacto: { email: { contains: p, mode: modo } } }),
+          (p) => ({ contacto: { telefono: { contains: p, mode: modo } } }),
+          (p) => ({ contacto: { rut: { contains: p, mode: modo } } }),
+        ]),
         select: {
           id: true, etapa: true, creadoEn: true,
           contacto: { select: { nombre: true, apellido: true, email: true, telefono: true } },
@@ -38,12 +45,10 @@ router.get('/', async (req, res) => {
 
       // Unidades — busca por número o nombre de edificio
       prisma.unidad.findMany({
-        where: {
-          OR: [
-            { numero: { contains: texto, mode: modo } },
-            { edificio: { nombre: { contains: texto, mode: modo } } },
-          ]
-        },
+        where: todasLasPalabras([
+          (p) => ({ numero: { contains: p, mode: modo } }),
+          (p) => ({ edificio: { nombre: { contains: p, mode: modo } } }),
+        ]),
         select: {
           id: true, numero: true, tipo: true, estado: true, precioUF: true,
           edificio: { select: { nombre: true, region: true } },
@@ -54,15 +59,13 @@ router.get('/', async (req, res) => {
 
       // Ventas — busca por nombre del comprador o número de unidad
       prisma.venta.findMany({
-        where: {
-          OR: [
-            { comprador: { nombre: { contains: texto, mode: modo } } },
-            { comprador: { apellido: { contains: texto, mode: modo } } },
-            { comprador: { rut: { contains: texto, mode: modo } } },
-            { unidades: { some: { numero: { contains: texto, mode: modo } } } },
-            { unidades: { some: { edificio: { nombre: { contains: texto, mode: modo } } } } },
-          ]
-        },
+        where: todasLasPalabras([
+          (p) => ({ comprador: { nombre: { contains: p, mode: modo } } }),
+          (p) => ({ comprador: { apellido: { contains: p, mode: modo } } }),
+          (p) => ({ comprador: { rut: { contains: p, mode: modo } } }),
+          (p) => ({ unidades: { some: { numero: { contains: p, mode: modo } } } }),
+          (p) => ({ unidades: { some: { edificio: { nombre: { contains: p, mode: modo } } } } }),
+        ]),
         select: {
           id: true, estado: true, precioFinalUF: true,
           comprador: { select: { nombre: true, apellido: true } },
@@ -74,16 +77,14 @@ router.get('/', async (req, res) => {
 
       // Contactos — búsqueda directa
       prisma.contacto.findMany({
-        where: {
-          OR: [
-            { nombre: { contains: texto, mode: modo } },
-            { apellido: { contains: texto, mode: modo } },
-            { email: { contains: texto, mode: modo } },
-            { telefono: { contains: texto, mode: modo } },
-            { rut: { contains: texto, mode: modo } },
-            { empresa: { contains: texto, mode: modo } },
-          ]
-        },
+        where: todasLasPalabras([
+          (p) => ({ nombre: { contains: p, mode: modo } }),
+          (p) => ({ apellido: { contains: p, mode: modo } }),
+          (p) => ({ email: { contains: p, mode: modo } }),
+          (p) => ({ telefono: { contains: p, mode: modo } }),
+          (p) => ({ rut: { contains: p, mode: modo } }),
+          (p) => ({ empresa: { contains: p, mode: modo } }),
+        ]),
         select: {
           id: true, nombre: true, apellido: true, email: true, telefono: true, empresa: true,
           _count: { select: { leads: true } }
