@@ -82,6 +82,30 @@ enum TipoActividad {
   OTRO
 }
 
+// Los nombres coinciden con los valores ya almacenados para no migrar datos
+// ni tocar el frontend (solo se acota a valores válidos).
+enum TipoVisita {
+  presencial
+  virtual
+  reunion_comercial @map("Reunión comercial")
+}
+
+enum DireccionEmail {
+  ENVIADO
+  RECIBIDO
+}
+
+enum PrioridadPostventa {
+  baja
+  media
+  alta
+}
+
+enum TipoMovimientoLlave {
+  prestamo
+  devolucion
+}
+
 enum EstadoVenta {
   RESERVA
   PROMESA
@@ -439,7 +463,7 @@ model Visita {
   vendedorId Int?
   edificioId Int?
   fechaHora  DateTime
-  tipo       String
+  tipo       TipoVisita
   resultado  String?
   notas      String?
   enlace     String? // link de la reunión online (Meet/Zoom) cuando es virtual
@@ -915,7 +939,7 @@ model Arriendo {
 model PagoArriendo {
   id          Int        @id @default(autoincrement())
   arriendoId  Int
-  mes         String
+  mes         DateTime   @db.Date // primer día del mes facturado
   montoUF     Decimal?   @db.Decimal(18, 6)
   montoCLP    Decimal?   @db.Decimal(18, 2)
   estado      EstadoPago @default(PENDIENTE)
@@ -949,7 +973,7 @@ model MovimientoLlave {
   id                      Int       @id @default(autoincrement())
   llaveId                 Int
   responsableId           Int?
-  tipo                    String
+  tipo                    TipoMovimientoLlave
   personaNombre           String?
   personaContacto         String?
   motivo                  String?
@@ -972,8 +996,8 @@ model Postventa {
   responsableId Int?
   tipo          TipoPostventa
   descripcion   String
-  estado        EstadoPostventa @default(ABIERTO)
-  prioridad     String          @default("media")
+  estado        EstadoPostventa    @default(ABIERTO)
+  prioridad     PrioridadPostventa @default(media)
   fechaApertura DateTime        @default(now())
   fechaCierre   DateTime?
   resolucion    String?
@@ -1096,7 +1120,7 @@ model EmailConversacion {
   leadId    Int
   messageId String?   @unique
   inReplyTo String?
-  direction String // ENVIADO | RECIBIDO
+  direction DireccionEmail
   asunto    String
   cuerpo    String    @db.Text
   de        String

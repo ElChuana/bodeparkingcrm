@@ -160,9 +160,13 @@ const registrarPagoArriendo = async (req, res) => {
 
   if (!mes) return res.status(400).json({ error: 'El mes es requerido (formato: YYYY-MM).' })
 
+  // Acepta "YYYY-MM" o "YYYY-MM-DD"; se guarda como primer día del mes (Date)
+  const mesDate = new Date(/^\d{4}-\d{2}$/.test(mes) ? `${mes}-01` : mes)
+  if (isNaN(mesDate.getTime())) return res.status(400).json({ error: 'Mes inválido (formato: YYYY-MM).' })
+
   try {
     const pago = await prisma.pagoArriendo.upsert({
-      where: { arriendoId_mes: { arriendoId: Number(arriendoId), mes } },
+      where: { arriendoId_mes: { arriendoId: Number(arriendoId), mes: mesDate } },
       update: {
         estado: 'PAGADO',
         montoUF: montoUF ? Number(montoUF) : undefined,
@@ -172,7 +176,7 @@ const registrarPagoArriendo = async (req, res) => {
       },
       create: {
         arriendoId: Number(arriendoId),
-        mes,
+        mes: mesDate,
         montoUF: montoUF ? Number(montoUF) : null,
         montoCLP: montoCLP ? Number(montoCLP) : null,
         estado: 'PAGADO',
