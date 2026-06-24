@@ -18,8 +18,9 @@ import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
   EditOutlined, ArrowRightOutlined, ShoppingOutlined, UserOutlined,
   FileTextOutlined, PlusOutlined, DeleteOutlined, RobotOutlined,
-  ExpandOutlined, ClockCircleOutlined
+  ExpandOutlined, ClockCircleOutlined, WhatsAppOutlined
 } from '@ant-design/icons'
+import { linkWhatsApp } from '../../utils/whatsapp'
 
 const { Title, Text } = Typography
 
@@ -935,9 +936,23 @@ export default function LeadDetalle() {
             >
               <Space direction="vertical" size={4} style={{ width: '100%' }}>
                 {lead.contacto.telefono && (
-                  <a href={`tel:${lead.contacto.telefono}`}>
-                    <Space><PhoneOutlined /><Text style={{ fontSize: 13 }}>{lead.contacto.telefono}</Text></Space>
-                  </a>
+                  <Space size={4}>
+                    {linkWhatsApp(lead.contacto.telefono, `Hola ${lead.contacto.nombre}, te contacto de BodeParking.`) ? (
+                      <a
+                        href={linkWhatsApp(lead.contacto.telefono, `Hola ${lead.contacto.nombre}, te contacto de BodeParking.`)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Abrir WhatsApp con mensaje"
+                      >
+                        <Space size={6}><WhatsAppOutlined style={{ color: '#25D366' }} /><Text style={{ fontSize: 13 }}>{lead.contacto.telefono}</Text></Space>
+                      </a>
+                    ) : (
+                      <Space size={6}><PhoneOutlined /><Text style={{ fontSize: 13 }}>{lead.contacto.telefono}</Text></Space>
+                    )}
+                    <a href={`tel:${lead.contacto.telefono}`} title="Llamar">
+                      <PhoneOutlined style={{ color: '#8c8c8c' }} />
+                    </a>
+                  </Space>
                 )}
                 {lead.contacto.email && (
                   <Space>
