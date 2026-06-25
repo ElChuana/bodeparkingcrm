@@ -151,6 +151,7 @@ const listar = async (req, res) => {
         creadoPor: { select: { nombre: true, apellido: true } },
         items: { select: { precioListaUF: true } },
         packs: { select: { descuentoAplicadoUF: true } },
+        ventaOrigen: { select: { id: true, estado: true } }, // venta generada (si se convirtió)
         _count: { select: { items: true, packs: true, beneficios: true } }
       },
       orderBy: { creadoEn: 'desc' }

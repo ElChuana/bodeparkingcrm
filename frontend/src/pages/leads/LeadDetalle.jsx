@@ -513,6 +513,8 @@ function NotaRapida({ leadId }) {
 // ─── Cotizaciones del lead ─────────────────────────────────────────
 const ESTADO_COT_COLOR = { BORRADOR: 'default', ENVIADA: 'blue', ACEPTADA: 'green', RECHAZADA: 'red' }
 const ESTADO_COT_LABEL = { BORRADOR: 'Borrador', ENVIADA: 'Enviada', ACEPTADA: 'Aceptada', RECHAZADA: 'Rechazada' }
+const ESTADO_VENTA_COLOR = { RESERVA: 'cyan', PROMESA: 'gold', ESCRITURA: 'purple', ENTREGADO: 'green', ANULADO: 'red' }
+const ESTADO_VENTA_LABEL = { RESERVA: 'Reserva', PROMESA: 'Promesa', ESCRITURA: 'Escritura', ENTREGADO: 'Entregado', ANULADO: 'Caída' }
 
 function CotizacionesLead({ leadId }) {
   const navigate = useNavigate()
@@ -556,6 +558,11 @@ function CotizacionesLead({ leadId }) {
                 <Space size={8}>
                   <Text strong style={{ fontSize: 13 }}>Cotización #{c.id}</Text>
                   <Tag color={ESTADO_COT_COLOR[c.estado]} style={{ fontSize: 11 }}>{ESTADO_COT_LABEL[c.estado]}</Tag>
+                  {c.ventaOrigen && (
+                    <Tag color={ESTADO_VENTA_COLOR[c.ventaOrigen.estado] || 'default'} style={{ fontSize: 11 }}>
+                      Venta: {ESTADO_VENTA_LABEL[c.ventaOrigen.estado] || c.ventaOrigen.estado}
+                    </Tag>
+                  )}
                 </Space>
                 <div>
                   <Text type="secondary" style={{ fontSize: 12 }}>
