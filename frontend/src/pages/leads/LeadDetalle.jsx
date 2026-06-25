@@ -366,6 +366,30 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
 }
 
 
+// Renderiza el texto de una nota resaltando las @menciones (nombre completo) en azul.
+function TextoConMenciones({ texto, usuarios = [], style }) {
+  if (!texto) return null
+  const nombres = usuarios
+    .map(u => `${u.nombre} ${u.apellido || ''}`.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length) // más largos primero, evita matches parciales
+  if (!nombres.length) return <Text style={style}>{texto}</Text>
+
+  const escapar = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const patron = new RegExp(`@(${nombres.map(escapar).join('|')})`, 'g')
+  const partes = []
+  let last = 0, m, i = 0
+  while ((m = patron.exec(texto)) !== null) {
+    if (m.index > last) partes.push(texto.slice(last, m.index))
+    partes.push(
+      <span key={`m${i++}`} style={{ color: '#1677ff', fontWeight: 600 }}>@{m[1]}</span>
+    )
+    last = m.index + m[0].length
+  }
+  if (last < texto.length) partes.push(texto.slice(last))
+  return <Text style={style}>{partes}</Text>
+}
+
 // ─── Nota rápida inline ───────────────────────────────────────────
 function NotaRapida({ leadId }) {
   const qc = useQueryClient()
@@ -390,30 +414,26 @@ function NotaRapida({ leadId }) {
     staleTime: 300000,
   })
 
-  // Handles únicos sin espacios/acentos para el autocomplete (@JuanV → userId)
-  const { opciones, handleAId } = useMemo(() => {
-    const limpiar = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '')
-    const usados = new Set()
+  // Opciones de mención: el valor es el nombre completo (nombre + apellido)
+  const { opciones, nombreAId } = useMemo(() => {
     const map = {}
     const opts = []
     for (const u of equipo) {
-      let h = limpiar(u.nombre) || `u${u.id}`
-      if (usados.has(h)) h = limpiar(u.nombre) + limpiar(u.apellido).slice(0, 1)   // colisión → + inicial apellido
-      while (usados.has(h)) h += u.id
-      usados.add(h)
-      map[h] = u.id
-      opts.push({ value: h, label: `${u.nombre} ${u.apellido || ''}`.trim() })
+      const full = `${u.nombre} ${u.apellido || ''}`.trim()
+      map[full] = u.id
+      opts.push({ value: full, label: full })
     }
-    return { opciones: opts, handleAId: map }
+    return { opciones: opts, nombreAId: map }
   }, [equipo])
 
   const handleSubmit = async () => {
     if (!descripcion.trim()) return
     setLoading(true)
     try {
-      // Extraer @menciones del texto → ids de usuario
-      const tokens = (descripcion.match(/@([A-Za-z0-9]+)/g) || []).map(t => t.slice(1))
-      const mencionados = [...new Set(tokens.map(t => handleAId[t]).filter(Boolean))]
+      // Extraer @menciones del texto → ids de usuario (match por nombre completo)
+      const mencionados = Object.entries(nombreAId)
+        .filter(([full]) => descripcion.includes(`@${full}`))
+        .map(([, id]) => id)
 
       // Construir descripción con contexto de interés
       let texto = descripcion.trim()
@@ -807,6 +827,13 @@ export default function LeadDetalle() {
     queryFn: () => api.get(`/leads/${id}`).then(r => r.data)
   })
 
+  // Equipo (para resaltar @menciones en azul dentro de las notas)
+  const { data: equipoMenciones = [] } = useQuery({
+    queryKey: ['usuarios-mencionables'],
+    queryFn: () => api.get('/usuarios/mencionables').then(r => r.data),
+    staleTime: 300000,
+  })
+
   if (isLoading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
   if (!lead) return <Text type="secondary" style={{ padding: 24, display: 'block' }}>Lead no encontrado.</Text>
 
@@ -877,7 +904,7 @@ export default function LeadDetalle() {
               </Text>
             </div>
             {item.usuario && <div><Text type="secondary" style={{ fontSize: 12 }}>{item.usuario.nombre} {item.usuario.apellido}</Text></div>}
-            <Text style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 1 }}>{item.descripcion}</Text>
+            <TextoConMenciones texto={item.descripcion} usuarios={equipoMenciones} style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 1 }} />
           </div>
         )}
       </div>
@@ -1128,9 +1155,7 @@ export default function LeadDetalle() {
                                     {formatDistanceToNow(new Date(n.fecha), { addSuffix: true, locale: es })}
                                   </Text>
                                 </div>
-                                <Text style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 2 }}>
-                                  {n.descripcion}
-                                </Text>
+                                <TextoConMenciones texto={n.descripcion} usuarios={equipoMenciones} style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 2 }} />
                               </div>
                             </div>
                           ))}

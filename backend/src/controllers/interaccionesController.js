@@ -41,7 +41,7 @@ const crear = async (req, res) => {
       select: { vendedorId: true, contacto: { select: { nombre: true, apellido: true } } }
     })
     const nombreLead = `${lead?.contacto?.nombre || ''} ${lead?.contacto?.apellido || ''}`.trim() || 'un lead'
-    const autor = req.usuario.nombre
+    const autor = `${req.usuario.nombre} ${req.usuario.apellido || ''}`.trim()
     const yaNotificados = new Set([req.usuario.id]) // nunca notificar al autor
 
     // 1) Usuarios etiquetados con @ en la nota → notificación + email
