@@ -19,6 +19,20 @@ const listar = async (req, res) => {
   }
 }
 
+// GET /api/usuarios/mencionables — cualquier usuario autenticado (para @menciones en notas)
+const listarMencionables = async (req, res) => {
+  try {
+    const usuarios = await prisma.usuario.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true, apellido: true, rol: true },
+      orderBy: { nombre: 'asc' }
+    })
+    res.json(usuarios)
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener usuarios.' })
+  }
+}
+
 // GET /api/usuarios/:id
 const obtener = async (req, res) => {
   const { id } = req.params
@@ -126,4 +140,4 @@ const desactivar = async (req, res) => {
   }
 }
 
-module.exports = { listar, obtener, crear, actualizar, desactivar }
+module.exports = { listar, listarMencionables, obtener, crear, actualizar, desactivar }

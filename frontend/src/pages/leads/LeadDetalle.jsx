@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import dayjs from 'dayjs'
 import EmailCard from '../../components/EmailCard'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -12,7 +12,7 @@ import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components
 import ModalPerdido from '../../components/ModalPerdido'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
-  Space, Spin, Row, Col, Descriptions, App, DatePicker, Alert, Tabs, Avatar
+  Space, Spin, Row, Col, Descriptions, App, DatePicker, Alert, Tabs, Avatar, Mentions
 } from 'antd'
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
@@ -384,11 +384,37 @@ function NotaRapida({ leadId }) {
     queryFn: () => api.get('/unidades', { params: { edificioId } }).then(r => r.data),
     enabled: !!edificioId
   })
+  const { data: equipo = [] } = useQuery({
+    queryKey: ['usuarios-mencionables'],
+    queryFn: () => api.get('/usuarios/mencionables').then(r => r.data),
+    staleTime: 300000,
+  })
+
+  // Handles únicos sin espacios/acentos para el autocomplete (@JuanV → userId)
+  const { opciones, handleAId } = useMemo(() => {
+    const limpiar = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '')
+    const usados = new Set()
+    const map = {}
+    const opts = []
+    for (const u of equipo) {
+      let h = limpiar(u.nombre) || `u${u.id}`
+      if (usados.has(h)) h = limpiar(u.nombre) + limpiar(u.apellido).slice(0, 1)   // colisión → + inicial apellido
+      while (usados.has(h)) h += u.id
+      usados.add(h)
+      map[h] = u.id
+      opts.push({ value: h, label: `${u.nombre} ${u.apellido || ''}`.trim() })
+    }
+    return { opciones: opts, handleAId: map }
+  }, [equipo])
 
   const handleSubmit = async () => {
     if (!descripcion.trim()) return
     setLoading(true)
     try {
+      // Extraer @menciones del texto → ids de usuario
+      const tokens = (descripcion.match(/@([A-Za-z0-9]+)/g) || []).map(t => t.slice(1))
+      const mencionados = [...new Set(tokens.map(t => handleAId[t]).filter(Boolean))]
+
       // Construir descripción con contexto de interés
       let texto = descripcion.trim()
       const partes = []
@@ -402,8 +428,8 @@ function NotaRapida({ leadId }) {
       }
       if (partes.length) texto = `${texto}\n${partes.join(' · ')}`
 
-      await api.post(`/leads/${leadId}/interacciones`, { leadId, tipo: 'NOTA', descripcion: texto })
-      message.success('Nota guardada')
+      await api.post(`/leads/${leadId}/interacciones`, { leadId, tipo: 'NOTA', descripcion: texto, mencionados })
+      message.success(mencionados.length ? `Nota guardada · ${mencionados.length} persona(s) notificada(s)` : 'Nota guardada')
       qc.invalidateQueries(['lead', leadId])
       setDescripcion('')
       setEdificioId(undefined)
@@ -417,12 +443,14 @@ function NotaRapida({ leadId }) {
 
   return (
     <div style={{ padding: '12px 0 16px', borderBottom: '1px solid #f0f0f0', marginBottom: 12 }}>
-      <Input.TextArea
+      <Mentions
         rows={2}
         value={descripcion}
-        onChange={e => setDescripcion(e.target.value)}
-        placeholder="Agregar nota..."
-        style={{ marginBottom: 8, resize: 'none' }}
+        onChange={setDescripcion}
+        options={opciones}
+        prefix="@"
+        placeholder="Agregar nota... (escribí @ para etiquetar a alguien)"
+        style={{ marginBottom: 8, width: '100%' }}
         onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit() }}
       />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

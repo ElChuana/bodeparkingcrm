@@ -2,13 +2,14 @@
 
 // Categorías: "alertas" = cosas que requieren acción; "actividad" = informativo.
 export const TIPOS_ALERTAS = [
-  'LLAVE_NO_DEVUELTA', 'CUOTA_VENCIDA', 'LEAD_SIN_ACTIVIDAD', 'LEAD_ESTANCADO',
+  'MENCION_NOTA', 'LLAVE_NO_DEVUELTA', 'CUOTA_VENCIDA', 'LEAD_SIN_ACTIVIDAD', 'LEAD_ESTANCADO',
   'FECHA_LEGAL_PROXIMA', 'ARRIENDO_POR_VENCER', 'DESCUENTO_PENDIENTE',
   'LEAD_ETAPA_CAMBIO', 'LEAD_NUEVO', 'RECORDATORIO_LEAD', 'COMISION_ESCRITURA',
 ]
 export const TIPOS_ACTIVIDAD = ['EMAIL_RECIBIDO', 'ACTIVIDAD_EN_LEAD', 'VISITA_PROXIMA', 'DESCUENTO_RESUELTO']
 
 export const TIPO_CONFIG = {
+  MENCION_NOTA:        { color: 'magenta', label: 'Te mencionaron', emoji: '💬' },
   LLAVE_NO_DEVUELTA:   { color: 'red',    label: 'Llave',          emoji: '🔑' },
   CUOTA_VENCIDA:       { color: 'red',    label: 'Cuota vencida',  emoji: '💳' },
   LEAD_SIN_ACTIVIDAD:  { color: 'orange', label: 'Sin actividad',  emoji: '⏰' },

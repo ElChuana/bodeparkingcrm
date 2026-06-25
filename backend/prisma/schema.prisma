@@ -206,6 +206,7 @@ enum TipoAlerta {
   ACTIVIDAD_EN_LEAD
   VISITA_PROXIMA
   DESCUENTO_RESUELTO
+  MENCION_NOTA
 }
 
 enum TipoPack {
@@ -265,6 +266,7 @@ model Usuario {
   comisionFijo            Float?
   activo                  Boolean  @default(true)
   notificacionesActivas   Boolean  @default(true)
+  notificacionesEmail     Boolean  @default(true)
   modulosVisibles         String[] @default([])
   campanasFiltro          String[] @default([])
   edificiosFiltro         Int[]    @default([])

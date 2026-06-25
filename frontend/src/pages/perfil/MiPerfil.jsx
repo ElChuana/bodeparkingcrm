@@ -44,7 +44,9 @@ export default function MiPerfil() {
   const [guardando, setGuardando] = useState(false)
   const [emailConfigurado, setEmailConfigurado] = useState(null)
   const [notificacionesActivas, setNotificacionesActivas] = useState(true)
+  const [notificacionesEmail, setNotificacionesEmail] = useState(true)
   const [guardandoNotif, setGuardandoNotif] = useState(false)
+  const [guardandoEmail, setGuardandoEmail] = useState(false)
   const [firmaHtml, setFirmaHtml] = useState('')
   const [guardandoFirma, setGuardandoFirma] = useState(false)
   const [firmaTab, setFirmaTab] = useState('editor')
@@ -62,6 +64,7 @@ export default function MiPerfil() {
 
     api.get('/alertas/preferencias').then(r => {
       setNotificacionesActivas(r.data.notificacionesActivas)
+      setNotificacionesEmail(r.data.notificacionesEmail)
     }).catch(() => {})
 
     api.get('/email/firma').then(r => {
@@ -107,6 +110,19 @@ export default function MiPerfil() {
       message.error('No se pudo actualizar')
     } finally {
       setGuardandoNotif(false)
+    }
+  }
+
+  const handleToggleEmail = async (valor) => {
+    setGuardandoEmail(true)
+    try {
+      await api.put('/alertas/preferencias', { notificacionesEmail: valor })
+      setNotificacionesEmail(valor)
+      message.success(valor ? 'Correos activados' : 'Correos desactivados')
+    } catch {
+      message.error('No se pudo actualizar')
+    } finally {
+      setGuardandoEmail(false)
     }
   }
 
@@ -272,6 +288,20 @@ export default function MiPerfil() {
             checked={notificacionesActivas}
             onChange={handleToggleNotif}
             loading={guardandoNotif}
+          />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>Avisos por correo</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+              Recibe un email cuando te mencionen, te asignen un lead, dejen una nota en tu lead o tengas una cuota vencida
+            </div>
+          </div>
+          <Switch
+            checked={notificacionesEmail}
+            onChange={handleToggleEmail}
+            loading={guardandoEmail}
+            disabled={!notificacionesActivas}
           />
         </div>
       </Card>

@@ -251,25 +251,36 @@ const obtenerPreferencias = async (req, res) => {
   try {
     const usuario = await prisma.usuario.findUnique({
       where: { id: req.usuario.id },
-      select: { notificacionesActivas: true }
+      select: { notificacionesActivas: true, notificacionesEmail: true }
     })
-    res.json({ notificacionesActivas: usuario.notificacionesActivas })
+    res.json({
+      notificacionesActivas: usuario.notificacionesActivas,
+      notificacionesEmail: usuario.notificacionesEmail
+    })
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener preferencias.' })
   }
 }
 
 const actualizarPreferencias = async (req, res) => {
-  const { notificacionesActivas } = req.body
-  if (typeof notificacionesActivas !== 'boolean') {
+  const { notificacionesActivas, notificacionesEmail } = req.body
+  if (notificacionesActivas !== undefined && typeof notificacionesActivas !== 'boolean') {
     return res.status(400).json({ error: 'notificacionesActivas debe ser true o false.' })
   }
+  if (notificacionesEmail !== undefined && typeof notificacionesEmail !== 'boolean') {
+    return res.status(400).json({ error: 'notificacionesEmail debe ser true o false.' })
+  }
   try {
-    await prisma.usuario.update({
+    const data = {
+      ...(notificacionesActivas !== undefined && { notificacionesActivas }),
+      ...(notificacionesEmail !== undefined && { notificacionesEmail }),
+    }
+    const usuario = await prisma.usuario.update({
       where: { id: req.usuario.id },
-      data: { notificacionesActivas }
+      data,
+      select: { notificacionesActivas: true, notificacionesEmail: true }
     })
-    res.json({ ok: true, notificacionesActivas })
+    res.json({ ok: true, ...usuario })
   } catch (err) {
     res.status(500).json({ error: 'Error al actualizar preferencias.' })
   }

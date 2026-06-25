@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { notificarUsuario } = require('../lib/notifications')
 
 // Interacciones = NOTAS (comentarios libres). Las acciones con fecha (llamada,
 // email, whatsapp, reunión) viven en el modelo Actividad → actividadesController.
@@ -17,7 +18,7 @@ const listarPorLead = async (req, res) => {
 }
 
 const crear = async (req, res) => {
-  const { leadId, descripcion, fecha } = req.body
+  const { leadId, descripcion, fecha, mencionados } = req.body
 
   if (!leadId || !descripcion) {
     return res.status(400).json({ error: 'Lead y descripción son requeridos.' })
@@ -35,18 +36,42 @@ const crear = async (req, res) => {
       include: { usuario: { select: { nombre: true, apellido: true } } }
     })
 
-    // Notificar al vendedor si fue otro usuario quien dejó la nota
-    const lead = await prisma.lead.findUnique({ where: { id: Number(leadId) }, select: { vendedorId: true } })
-    if (lead?.vendedorId && lead.vendedorId !== req.usuario.id) {
-      await prisma.notificacion.create({
-        data: {
-          usuarioId: lead.vendedorId,
-          tipo: 'ACTIVIDAD_EN_LEAD',
-          mensaje: `${req.usuario.nombre} dejó una nota en tu lead: "${descripcion.substring(0, 80)}"`,
+    const lead = await prisma.lead.findUnique({
+      where: { id: Number(leadId) },
+      select: { vendedorId: true, contacto: { select: { nombre: true, apellido: true } } }
+    })
+    const nombreLead = `${lead?.contacto?.nombre || ''} ${lead?.contacto?.apellido || ''}`.trim() || 'un lead'
+    const autor = req.usuario.nombre
+    const yaNotificados = new Set([req.usuario.id]) // nunca notificar al autor
+
+    // 1) Usuarios etiquetados con @ en la nota → notificación + email
+    const ids = Array.isArray(mencionados)
+      ? [...new Set(mencionados.map(Number).filter(n => n && !yaNotificados.has(n)))]
+      : []
+    if (ids.length) {
+      // Validar que sean usuarios activos reales
+      const validos = await prisma.usuario.findMany({ where: { id: { in: ids }, activo: true }, select: { id: true } })
+      for (const u of validos) {
+        yaNotificados.add(u.id)
+        await notificarUsuario({
+          usuarioId: u.id,
+          tipo: 'MENCION_NOTA',
+          mensaje: `${autor} te mencionó en una nota de ${nombreLead}: "${descripcion.substring(0, 80)}"`,
           referenciaId: Number(leadId),
           referenciaTipo: 'lead'
-        }
-      }).catch(() => {})
+        })
+      }
+    }
+
+    // 2) Notificar al vendedor asignado si no es el autor ni ya fue mencionado
+    if (lead?.vendedorId && !yaNotificados.has(lead.vendedorId)) {
+      await notificarUsuario({
+        usuarioId: lead.vendedorId,
+        tipo: 'ACTIVIDAD_EN_LEAD',
+        mensaje: `${autor} dejó una nota en tu lead ${nombreLead}: "${descripcion.substring(0, 80)}"`,
+        referenciaId: Number(leadId),
+        referenciaTipo: 'lead'
+      })
     }
 
     res.status(201).json(interaccion)
