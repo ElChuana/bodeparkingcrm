@@ -12,7 +12,7 @@ import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components
 import ModalPerdido from '../../components/ModalPerdido'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
-  Space, Spin, Row, Col, Descriptions, App, DatePicker, Alert, Tabs, Avatar, Mentions
+  Space, Spin, Row, Col, Descriptions, App, DatePicker, Alert, Tabs, Avatar, Mentions, Tooltip, Popover
 } from 'antd'
 import {
   PhoneOutlined, MailOutlined, MessageOutlined, CalendarOutlined,
@@ -506,6 +506,183 @@ function NotaRapida({ leadId }) {
         </Button>
       </div>
       <div style={{ fontSize: 11, color: '#bbb', marginTop: 4 }}>Cmd+Enter para guardar rápido · Edificio y unidades son opcionales</div>
+    </div>
+  )
+}
+
+// ─── Nota individual: texto + reacciones + respuestas ──────────────
+const EMOJIS_REACCION = ['👍', '❤️', '😂', '🎉', '👀', '✅', '🔥', '🙏']
+
+function NotaItem({ nota, leadId, equipo, usuarioActual }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [mostrarResponder, setMostrarResponder] = useState(false)
+  const [respuesta, setRespuesta] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [popoverAbierto, setPopoverAbierto] = useState(false)
+
+  // Opciones de @mención (valor = nombre completo)
+  const { opciones, nombreAId } = useMemo(() => {
+    const map = {}; const opts = []
+    for (const u of equipo) {
+      const full = `${u.nombre} ${u.apellido || ''}`.trim()
+      map[full] = u.id; opts.push({ value: full, label: full })
+    }
+    return { opciones: opts, nombreAId: map }
+  }, [equipo])
+
+  // Agrupar reacciones por emoji
+  const grupos = useMemo(() => {
+    const g = {}
+    for (const r of (nota.reacciones || [])) {
+      if (!g[r.emoji]) g[r.emoji] = []
+      g[r.emoji].push(r.usuario)
+    }
+    return g
+  }, [nota.reacciones])
+
+  const toggleReaccion = async (emoji) => {
+    setPopoverAbierto(false)
+    try {
+      await api.post(`/interacciones/${nota.id}/reacciones`, { emoji })
+      qc.invalidateQueries(['lead', leadId])
+    } catch {
+      message.error('No se pudo reaccionar')
+    }
+  }
+
+  const enviarRespuesta = async () => {
+    if (!respuesta.trim()) return
+    setEnviando(true)
+    try {
+      const mencionados = Object.entries(nombreAId)
+        .filter(([full]) => respuesta.includes(`@${full}`))
+        .map(([, id]) => id)
+      await api.post(`/interacciones/${nota.id}/respuestas`, { descripcion: respuesta.trim(), mencionados })
+      qc.invalidateQueries(['lead', leadId])
+      setRespuesta(''); setMostrarResponder(false)
+    } catch {
+      message.error('No se pudo responder')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  const paletaEmojis = (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {EMOJIS_REACCION.map(e => (
+        <span
+          key={e}
+          onClick={() => toggleReaccion(e)}
+          style={{ cursor: 'pointer', fontSize: 20, padding: '2px 4px', borderRadius: 6, lineHeight: 1 }}
+          onMouseEnter={ev => ev.currentTarget.style.background = '#f0f0f0'}
+          onMouseLeave={ev => ev.currentTarget.style.background = 'transparent'}
+        >{e}</span>
+      ))}
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', gap: 12, padding: '12px 0' }}>
+      <Avatar
+        shape="square"
+        style={{ background: colorAvatar(nota.usuario?.id), flex: 'none', borderRadius: 9, fontSize: 12, fontWeight: 600 }}
+        size={34}
+      >
+        {inicialesDe(nota.usuario)}
+      </Avatar>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <Text strong style={{ fontSize: 13 }}>
+            {nota.usuario ? `${nota.usuario.nombre} ${nota.usuario.apellido || ''}` : 'Sistema'}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 11.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {formatDistanceToNow(new Date(nota.fecha), { addSuffix: true, locale: es })}
+          </Text>
+        </div>
+        <TextoConMenciones texto={nota.descripcion} usuarios={equipo} style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 2 }} />
+
+        {/* Barra de reacciones + acciones */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+          {Object.entries(grupos).map(([emoji, usuarios]) => {
+            const yoReaccione = usuarios.some(u => u.id === usuarioActual?.id)
+            const nombres = usuarios.map(u => `${u.nombre} ${u.apellido || ''}`.trim()).join(', ')
+            return (
+              <Tooltip key={emoji} title={nombres}>
+                <span
+                  onClick={() => toggleReaccion(emoji)}
+                  style={{
+                    cursor: 'pointer', fontSize: 12.5, lineHeight: 1, padding: '3px 8px', borderRadius: 12,
+                    border: `1px solid ${yoReaccione ? '#1496c9' : '#e8e8e8'}`,
+                    background: yoReaccione ? '#e6f4fb' : '#fafafa',
+                    color: yoReaccione ? '#0e6a91' : '#555', fontWeight: 500,
+                    display: 'inline-flex', alignItems: 'center', gap: 4
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{emoji}</span>{usuarios.length}
+                </span>
+              </Tooltip>
+            )
+          })}
+          <Popover
+            open={popoverAbierto}
+            onOpenChange={setPopoverAbierto}
+            trigger="click"
+            content={paletaEmojis}
+            placement="topLeft"
+          >
+            <span style={{ cursor: 'pointer', fontSize: 12.5, color: '#999', padding: '3px 8px', borderRadius: 12, border: '1px dashed #e0e0e0' }}>
+              😊 +
+            </span>
+          </Popover>
+          <span
+            onClick={() => setMostrarResponder(v => !v)}
+            style={{ cursor: 'pointer', fontSize: 12, color: '#1496c9', fontWeight: 500, marginLeft: 2 }}
+          >
+            Responder
+          </span>
+        </div>
+
+        {/* Respuestas existentes */}
+        {(nota.respuestas || []).length > 0 && (
+          <div style={{ marginTop: 8, paddingLeft: 12, borderLeft: '2px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {nota.respuestas.map(r => (
+              <div key={`r-${r.id}`} style={{ display: 'flex', gap: 8 }}>
+                <Avatar shape="square" size={24} style={{ background: colorAvatar(r.usuario?.id), flex: 'none', borderRadius: 7, fontSize: 10, fontWeight: 600 }}>
+                  {inicialesDe(r.usuario)}
+                </Avatar>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                    <Text strong style={{ fontSize: 12 }}>{r.usuario ? `${r.usuario.nombre} ${r.usuario.apellido || ''}` : 'Sistema'}</Text>
+                    <Text type="secondary" style={{ fontSize: 11 }}>{formatDistanceToNow(new Date(r.fecha), { addSuffix: true, locale: es })}</Text>
+                  </div>
+                  <TextoConMenciones texto={r.descripcion} usuarios={equipo} style={{ fontSize: 12.5, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 1 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Input de respuesta */}
+        {mostrarResponder && (
+          <div style={{ marginTop: 8, paddingLeft: 12 }}>
+            <Mentions
+              rows={2}
+              value={respuesta}
+              onChange={setRespuesta}
+              options={opciones}
+              prefix="@"
+              placeholder="Escribí una respuesta... (@ para etiquetar)"
+              style={{ width: '100%', marginBottom: 6 }}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) enviarRespuesta() }}
+            />
+            <Space>
+              <Button type="primary" size="small" loading={enviando} disabled={!respuesta.trim()} onClick={enviarRespuesta}>Responder</Button>
+              <Button size="small" onClick={() => { setMostrarResponder(false); setRespuesta('') }}>Cancelar</Button>
+            </Space>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -1139,31 +1316,8 @@ export default function LeadDetalle() {
                       ) : (
                         <div style={{ marginTop: 4 }}>
                           {notas.map((n, i) => (
-                            <div
-                              key={`n-${n.id}`}
-                              style={{
-                                display: 'flex', gap: 12, padding: '12px 0',
-                                borderTop: i === 0 ? 'none' : '1px solid #f0f0f0'
-                              }}
-                            >
-                              <Avatar
-                                shape="square"
-                                style={{ background: colorAvatar(n.usuario?.id), flex: 'none', borderRadius: 9, fontSize: 12, fontWeight: 600 }}
-                                size={34}
-                              >
-                                {inicialesDe(n.usuario)}
-                              </Avatar>
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                                  <Text strong style={{ fontSize: 13 }}>
-                                    {n.usuario ? `${n.usuario.nombre} ${n.usuario.apellido || ''}` : 'Sistema'}
-                                  </Text>
-                                  <Text type="secondary" style={{ fontSize: 11.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                    {formatDistanceToNow(new Date(n.fecha), { addSuffix: true, locale: es })}
-                                  </Text>
-                                </div>
-                                <TextoConMenciones texto={n.descripcion} usuarios={equipoMenciones} style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 2 }} />
-                              </div>
+                            <div key={`n-${n.id}`} style={{ borderTop: i === 0 ? 'none' : '1px solid #f0f0f0' }}>
+                              <NotaItem nota={n} leadId={id} equipo={equipoMenciones} usuarioActual={usuario} />
                             </div>
                           ))}
                         </div>

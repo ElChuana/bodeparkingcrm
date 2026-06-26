@@ -207,6 +207,8 @@ enum TipoAlerta {
   VISITA_PROXIMA
   DESCUENTO_RESUELTO
   MENCION_NOTA
+  RESPUESTA_NOTA
+  REACCION_NOTA
 }
 
 enum TipoPack {
@@ -279,6 +281,8 @@ model Usuario {
   visitasRealizadas       Visita[]
   interacciones           Interaccion[]
   actividades             Actividad[]
+  reaccionesNota          ReaccionNota[]
+  respuestasNota          RespuestaNota[]
   ventasComoVendedor      Venta[]                 @relation("VendedorVenta")
   ventasComoBroker        Venta[]                 @relation("BrokerVenta")
   ventasComoGerente       Venta[]                 @relation("GerenteVenta")
@@ -490,13 +494,47 @@ model Interaccion {
   descripcion String
   fecha       DateTime        @default(now())
 
-  lead    Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+  lead       Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  usuario    Usuario?        @relation(fields: [usuarioId], references: [id])
+  reacciones ReaccionNota[]
+  respuestas RespuestaNota[]
 
   @@index([leadId])
   @@index([usuarioId])
   @@index([fecha])
   @@map("interacciones")
+}
+
+// Reacción (emoji) a una nota. Un usuario puede reaccionar con varios emojis
+// distintos, pero no repetir el mismo emoji en la misma nota.
+model ReaccionNota {
+  id            Int      @id @default(autoincrement())
+  interaccionId Int
+  usuarioId     Int
+  emoji         String
+  creadoEn      DateTime @default(now())
+
+  interaccion Interaccion @relation(fields: [interaccionId], references: [id], onDelete: Cascade)
+  usuario     Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([interaccionId, usuarioId, emoji])
+  @@index([interaccionId])
+  @@map("reacciones_nota")
+}
+
+// Respuesta a una nota (comentario anidado). Soporta @menciones igual que las notas.
+model RespuestaNota {
+  id            Int      @id @default(autoincrement())
+  interaccionId Int
+  usuarioId     Int?
+  descripcion   String
+  fecha         DateTime @default(now())
+
+  interaccion Interaccion @relation(fields: [interaccionId], references: [id], onDelete: Cascade)
+  usuario     Usuario?    @relation(fields: [usuarioId], references: [id])
+
+  @@index([interaccionId])
+  @@map("respuestas_nota")
 }
 
 model Actividad {

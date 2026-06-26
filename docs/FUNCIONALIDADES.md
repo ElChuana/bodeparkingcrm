@@ -134,6 +134,10 @@
 - Las notas **no** aparecen en el calendario
 - Logs de sistema que quedan como NOTA: cambios de etapa, reingresos/altas vía API, automatizaciones, `PAGÓ reserva Webinar` (lo usan los reportes), resúmenes `📋`
 - **Nota rápida inline** en LeadDetalle: cuadro dentro del cuadro "Notas", sin modal. Crea NOTA con descripción + contexto de edificio/unidades (opcionales). Cmd+Enter para guardar rápido.
+- **@menciones**: escribir `@` etiqueta a un usuario (notificación `MENCION_NOTA` + email). Opciones desde `GET /usuarios/mencionables`.
+- **Reacciones (emoji)**: `POST /api/interacciones/:id/reacciones` `{ emoji }` — toggle (agrega/quita). Modelo `ReaccionNota` (tabla `reacciones_nota`), único por (nota, usuario, emoji). Notifica al autor de la nota (`REACCION_NOTA`, solo in-app). UI: chips agrupados por emoji con tooltip de quién reaccionó + paleta `😊 +`.
+- **Respuestas (comentarios anidados)**: `POST /api/interacciones/:id/respuestas` `{ descripcion, mencionados }` · `DELETE /api/interacciones/respuestas/:respuestaId` (autor o gerencia). Modelo `RespuestaNota` (tabla `respuestas_nota`), soporta @menciones. Notifica al autor de la nota (`RESPUESTA_NOTA` + email) y a mencionados. UI: hilo indentado bajo la nota con botón "Responder".
+- Reacciones y respuestas vienen incluidas en el detalle del lead (`GET /api/leads/:id`).
 - En LeadDetalle, tab "Actividades": cuadro **💬 Notas** (comentarios) separado del cuadro **📋 Actividades** (timeline con fecha).
 
 ### RECORDATORIOS — `/api/leads/:id/recordatorios` y `/api/recordatorios`

@@ -207,7 +207,11 @@ const obtener = async (req, res) => {
         interacciones: {
           where: { tipo: 'NOTA' },
           orderBy: { fecha: 'desc' },
-          include: { usuario: { select: { id: true, nombre: true, apellido: true } } }
+          include: {
+            usuario: { select: { id: true, nombre: true, apellido: true } },
+            reacciones: { include: { usuario: { select: { id: true, nombre: true, apellido: true } } }, orderBy: { creadoEn: 'asc' } },
+            respuestas: { include: { usuario: { select: { id: true, nombre: true, apellido: true } } }, orderBy: { fecha: 'asc' } }
+          }
         },
         actividades: {
           orderBy: { fecha: 'desc' },
