@@ -231,6 +231,11 @@ const crearLead = async (req, res) => {
     })
 
     if (leadExistente) {
+      // Un lead frío (dado por perdido o que nunca contestó) que vuelve a dejar
+      // sus datos = REACTIVADO: mostró interés de nuevo y ventas debe retomarlo.
+      const ETAPAS_FRIAS = ['PERDIDO', 'NO_CONTESTA']
+      const reactivar = ETAPAS_FRIAS.includes(leadExistente.etapa)
+
       // Actualizar el lead existente con datos nuevos no nulos
       const actualizarLead = {}
       const presupuestoNum = numOrNull(presupuestoAprox)
@@ -240,27 +245,43 @@ const crearLead = async (req, res) => {
       if (notas)                                             actualizarLead.notas            = [leadExistente.notas, notas.trim()].filter(Boolean).join('\n---\n')
       if (unidadInteresId && !leadExistente.unidadInteresId) actualizarLead.unidadInteresId  = unidadInteresId
       if (vendedorNum    && !leadExistente.vendedorId)       actualizarLead.vendedorId       = vendedorNum
+      if (reactivar)                                         actualizarLead.etapa            = 'REACTIVADO'
 
       if (Object.keys(actualizarLead).length > 0) {
         await prisma.lead.update({ where: { id: leadExistente.id }, data: actualizarLead })
       }
 
-      // Siempre dejar registro del intento de reingreso para visibilidad
+      // Registro en el timeline del lead
       await prisma.interaccion.create({
         data: {
           leadId:      leadExistente.id,
           tipo:        'NOTA',
-          descripcion: `Reingreso vía API (${req.apiKey.nombre}) — etapa actual: ${leadExistente.etapa}${campana ? ` · Campaña nueva: ${campana}` : ''}. No se creó lead duplicado.`,
+          descripcion: reactivar
+            ? `🔥 Lead REACTIVADO — volvió a dejar sus datos vía ${req.apiKey.nombre} (estaba en ${leadExistente.etapa})${campana ? ` · Campaña: ${campana}` : ''}.`
+            : `Reingreso vía API (${req.apiKey.nombre}) — etapa actual: ${leadExistente.etapa}${campana ? ` · Campaña nueva: ${campana}` : ''}. No se creó lead duplicado.`,
         }
+      })
+
+      // Avisar a ventas (vendedor asignado + gerencia/JV; email al vendedor)
+      const nombreLead = `${contacto.nombre || ''} ${contacto.apellido || ''}`.trim() || 'Un lead'
+      await notificarLead({
+        leadId: leadExistente.id,
+        tipo:   'LEAD_NUEVO',
+        mensaje: reactivar
+          ? `🔥 ${nombreLead} respondió la campaña — REACTIVAR (estaba ${leadExistente.etapa})`
+          : `${nombreLead} volvió a dejar sus datos${campana ? ` (${campana})` : ''}`,
       })
 
       return res.status(200).json({
         ok: true,
         duplicado: true,
-        mensaje: `El contacto ya tiene un lead en el sistema (etapa: ${leadExistente.etapa}). No se creó duplicado.`,
+        reactivado: reactivar,
+        mensaje: reactivar
+          ? `Lead reactivado (estaba en ${leadExistente.etapa}).`
+          : `El contacto ya tiene un lead en el sistema (etapa: ${leadExistente.etapa}). No se creó duplicado.`,
         leadId:    leadExistente.id,
         contactoId: contacto.id,
-        etapaActual: leadExistente.etapa,
+        etapaActual: reactivar ? 'REACTIVADO' : leadExistente.etapa,
       })
     }
 

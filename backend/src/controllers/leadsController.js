@@ -16,13 +16,13 @@ const buscarContactoIds = async (search) => {
 
 // Etapas en orden para el pipeline
 const ORDEN_ETAPAS = [
-  'NUEVO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO',
+  'NUEVO', 'REACTIVADO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO',
   'VISITA_AGENDADA', 'VISITA_REALIZADA', 'SEGUIMIENTO_POST_VISITA',
   'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA', 'PERDIDO'
 ]
 
 const ETAPA_LABEL = {
-  NUEVO: 'Nuevo', NO_CONTESTA: 'No contesta', SEGUIMIENTO: 'Seguimiento',
+  NUEVO: 'Nuevo', REACTIVADO: 'Reactivado', NO_CONTESTA: 'No contesta', SEGUIMIENTO: 'Seguimiento',
   COTIZACION_ENVIADA: 'Cotización enviada', INTERESADO: 'Interesado',
   VISITA_AGENDADA: 'Visita agendada',
   VISITA_REALIZADA: 'Visita realizada', SEGUIMIENTO_POST_VISITA: 'Seguimiento post visita',

@@ -41,6 +41,7 @@ enum EstadoUnidad {
 
 enum EtapaLead {
   NUEVO
+  REACTIVADO
   NO_CONTESTA
   SEGUIMIENTO
   COTIZACION_ENVIADA

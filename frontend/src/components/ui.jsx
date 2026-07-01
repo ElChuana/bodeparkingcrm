@@ -2,6 +2,7 @@
 
 export const ETAPA_LABEL = {
   NUEVO: 'Nuevo',
+  REACTIVADO: 'Reactivado',
   NO_CONTESTA: 'No contesta',
   SEGUIMIENTO: 'Seguimiento',
   COTIZACION_ENVIADA: 'Cotización enviada',
@@ -20,6 +21,7 @@ export const ETAPA_LABEL = {
 
 export const ETAPA_COLOR = {
   NUEVO: 'default',
+  REACTIVADO: 'magenta',
   NO_CONTESTA: 'orange',
   SEGUIMIENTO: 'blue',
   COTIZACION_ENVIADA: 'cyan',
