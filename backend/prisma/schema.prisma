@@ -1053,11 +1053,12 @@ model Postventa {
 }
 
 model ApiKey {
-  id       Int      @id @default(autoincrement())
-  nombre   String
-  key      String   @unique
-  activa   Boolean  @default(true)
-  creadoEn DateTime @default(now())
+  id            Int      @id @default(autoincrement())
+  nombre        String
+  key           String   @unique
+  activa        Boolean  @default(true)
+  soloEscritura Boolean  @default(false) // si true, la key no puede usar endpoints de lectura (GET). Default false = comportamiento previo.
+  creadoEn      DateTime @default(now())
 
   @@map("api_keys")
 }

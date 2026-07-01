@@ -486,11 +486,13 @@ const listarKeys = async (req, res) => {
 }
 
 const crearKey = async (req, res) => {
-  const { nombre } = req.body
+  const { nombre, soloEscritura } = req.body
   if (!nombre) return res.status(400).json({ error: 'Nombre requerido.' })
 
   const key = 'bp_' + crypto.randomBytes(24).toString('hex')
-  const apiKey = await prisma.apiKey.create({ data: { nombre, key } })
+  const apiKey = await prisma.apiKey.create({
+    data: { nombre, key, soloEscritura: soloEscritura === true },
+  })
   res.status(201).json(apiKey)
 }
 

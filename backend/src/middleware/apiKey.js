@@ -18,4 +18,14 @@ const autenticarApiKey = async (req, res, next) => {
   next()
 }
 
-module.exports = { autenticarApiKey }
+// Guard para endpoints de LECTURA: rechaza keys marcadas soloEscritura.
+// Las keys existentes tienen soloEscritura=false (default) → pasan igual que siempre.
+// Debe ir DESPUÉS de autenticarApiKey en la cadena de la ruta.
+const bloquearSoloEscritura = (req, res, next) => {
+  if (req.apiKey?.soloEscritura) {
+    return res.status(403).json({ error: 'Esta API Key es de solo escritura; no puede consultar datos.' })
+  }
+  next()
+}
+
+module.exports = { autenticarApiKey, bloquearSoloEscritura }
