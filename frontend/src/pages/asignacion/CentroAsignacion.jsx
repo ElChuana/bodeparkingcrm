@@ -13,6 +13,7 @@ const { RangePicker } = DatePicker
 
 const ETAPA_CONFIG = {
   NUEVO:              { label: 'Nuevo',             color: 'blue' },
+  REACTIVADO:         { label: 'Reactivado',        color: 'magenta' },
   NO_CONTESTA:        { label: 'No contesta',        color: 'orange' },
   SEGUIMIENTO:        { label: 'Seguimiento',        color: 'cyan' },
   COTIZACION_ENVIADA: { label: 'Cotización enviada', color: 'purple' },
