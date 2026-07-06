@@ -3,13 +3,14 @@ const router = express.Router()
 const { autenticarApiKey, bloquearSoloEscritura } = require('../middleware/apiKey')
 const { autenticar, autorizar } = require('../middleware/auth')
 const {
-  crearLead, obtenerLead, webhookWebinar,
+  crearLead, obtenerLead, disponibilidad, webhookWebinar,
   listarKeys, crearKey, desactivarKey, eliminarKey,
 } = require('../controllers/publicController')
 
 // API pública para integraciones externas (autenticación por API Key)
 router.post('/leads',            autenticarApiKey, crearLead)
 router.get('/leads/:id',         autenticarApiKey, bloquearSoloEscritura, obtenerLead)
+router.get('/disponibilidad',    autenticarApiKey, disponibilidad)
 router.post('/webhooks/webinar', autenticarApiKey, webhookWebinar)
 
 // Gestión de API Keys (requiere JWT normal, solo gerencia)

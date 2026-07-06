@@ -500,6 +500,90 @@ const webhookWebinar = async (req, res) => {
   }
 }
 
+// ─── GET /api/public/disponibilidad ───────────────────────────────
+// Devuelve RANGOS AGREGADOS de unidades disponibles (para el bot de WhatsApp).
+// NO expone unidades individuales, ni número de unidad, ni precioCostoUF/precioMinimoUF.
+// Solo: por edificio+tipo → cantidad disponible + rango de m2 + rango de precioUF de venta.
+// Accesible por cualquier API Key válida (incl. soloEscritura): no hay datos sensibles.
+// Filtros opcionales: ?tipo=BODEGA|ESTACIONAMIENTO  ?comuna=<texto>  ?edificio=<texto>
+const disponibilidad = async (req, res) => {
+  try {
+    const { tipo, comuna, edificio } = req.query
+    const tipoNorm = typeof tipo === 'string' ? tipo.toUpperCase().trim() : null
+    const tipoFiltro = ['BODEGA', 'ESTACIONAMIENTO'].includes(tipoNorm) ? tipoNorm : null
+
+    const grupos = await prisma.unidad.groupBy({
+      by: ['edificioId', 'tipo'],
+      where: {
+        estado: 'DISPONIBLE',
+        ...(tipoFiltro && { tipo: tipoFiltro }),
+        edificio: {
+          activo: true,
+          ...(comuna   && { comuna: { contains: String(comuna),   mode: 'insensitive' } }),
+          ...(edificio && { nombre: { contains: String(edificio), mode: 'insensitive' } }),
+        },
+      },
+      _count: { _all: true },
+      _min: { m2: true, precioUF: true },
+      _max: { m2: true, precioUF: true },
+    })
+
+    // Nombres/comunas de los edificios involucrados
+    const ids = [...new Set(grupos.map(g => g.edificioId))]
+    const edifs = await prisma.edificio.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, nombre: true, comuna: true },
+    })
+    const edifById = Object.fromEntries(edifs.map(e => [e.id, e]))
+
+    // helpers de rango (redondeo hacia afuera; toleran null)
+    const rango = (min, max, roundOut) => {
+      if (min == null && max == null) return null
+      const lo = min == null ? null : (roundOut ? Math.floor(Number(min)) : Math.round(Number(min)))
+      const hi = max == null ? null : (roundOut ? Math.ceil(Number(max))  : Math.round(Number(max)))
+      return { min: lo, max: hi }
+    }
+
+    // Agrupar por edificio
+    const porEdificio = {}
+    for (const g of grupos) {
+      const e = edifById[g.edificioId]
+      if (!e) continue
+      if (!porEdificio[e.id]) porEdificio[e.id] = { edificio: e.nombre, comuna: e.comuna, unidades: [] }
+      porEdificio[e.id].unidades.push({
+        tipo: g.tipo,
+        disponibles: g._count._all,
+        m2: rango(g._min.m2, g._max.m2, false),
+        precioUF: rango(g._min.precioUF, g._max.precioUF, true),
+      })
+    }
+
+    // Resumen global por tipo (agregando entre edificios)
+    const resumenMap = {}
+    for (const g of grupos) {
+      const r = resumenMap[g.tipo] || { tipo: g.tipo, disponibles: 0, m2Min: null, m2Max: null, pMin: null, pMax: null }
+      r.disponibles += g._count._all
+      const upd = (cur, val, fn) => (val == null ? cur : (cur == null ? Number(val) : fn(cur, Number(val))))
+      r.m2Min = upd(r.m2Min, g._min.m2, Math.min)
+      r.m2Max = upd(r.m2Max, g._max.m2, Math.max)
+      r.pMin  = upd(r.pMin,  g._min.precioUF, Math.min)
+      r.pMax  = upd(r.pMax,  g._max.precioUF, Math.max)
+      resumenMap[g.tipo] = r
+    }
+    const resumen = Object.values(resumenMap).map(r => ({
+      tipo: r.tipo,
+      disponibles: r.disponibles,
+      m2: rango(r.m2Min, r.m2Max, false),
+      precioUF: rango(r.pMin, r.pMax, true),
+    }))
+
+    res.json({ ok: true, resumen, edificios: Object.values(porEdificio) })
+  } catch (err) {
+    console.error('[API Pública disponibilidad]', err)
+    res.status(500).json({ error: 'Error al consultar disponibilidad.' })
+  }
+}
+
 // ─── Gestión de API Keys (requiere JWT normal) ────────────────────
 const listarKeys = async (req, res) => {
   const keys = await prisma.apiKey.findMany({ orderBy: { creadoEn: 'desc' } })
@@ -538,4 +622,4 @@ const eliminarKey = async (req, res) => {
   }
 }
 
-module.exports = { crearLead, obtenerLead, webhookWebinar, listarKeys, crearKey, desactivarKey, eliminarKey }
+module.exports = { crearLead, obtenerLead, disponibilidad, webhookWebinar, listarKeys, crearKey, desactivarKey, eliminarKey }
