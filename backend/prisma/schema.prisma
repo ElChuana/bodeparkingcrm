@@ -302,6 +302,7 @@ model Usuario {
   emailsFavoritos         EmailFavorito[]
   cambiosPrecio           HistorialPrecioUnidad[]
   reglasComision          ReglaComision[]
+  arriendosComoVendedor   Arriendo[]              @relation("VendedorArriendo")
 
   @@map("usuarios")
 }
@@ -686,7 +687,8 @@ model Cuota {
 
 model Comision {
   id               Int        @id @default(autoincrement())
-  ventaId          Int
+  ventaId          Int? // comisión de venta…
+  arriendoId       Int? // …o de arriendo (canon 1er mes); una de las dos
   usuarioId        Int
   concepto         String?
   porcentaje       Float?
@@ -702,10 +704,12 @@ model Comision {
   creadoEn         DateTime   @default(now())
   actualizadoEn    DateTime   @updatedAt
 
-  venta   Venta   @relation(fields: [ventaId], references: [id])
-  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  venta    Venta?    @relation(fields: [ventaId], references: [id])
+  arriendo Arriendo? @relation(fields: [arriendoId], references: [id])
+  usuario  Usuario   @relation(fields: [usuarioId], references: [id])
 
   @@index([ventaId])
+  @@index([arriendoId])
   @@index([usuarioId])
   @@map("comisiones")
 }
@@ -993,6 +997,7 @@ model Arriendo {
   id             Int            @id @default(autoincrement())
   unidadId       Int
   contactoId     Int
+  vendedorId     Int? // quien cerró el arriendo — comisiona el canon del 1er mes
   gestorNombre   String?
   montoMensualUF Decimal?       @db.Decimal(18, 6)
   fechaInicio    DateTime
@@ -1003,12 +1008,15 @@ model Arriendo {
   creadoEn       DateTime       @default(now())
   actualizadoEn  DateTime       @updatedAt
 
-  unidad   Unidad         @relation(fields: [unidadId], references: [id])
-  contacto Contacto       @relation(fields: [contactoId], references: [id])
-  pagos    PagoArriendo[]
+  unidad     Unidad         @relation(fields: [unidadId], references: [id])
+  contacto   Contacto       @relation(fields: [contactoId], references: [id])
+  vendedor   Usuario?       @relation("VendedorArriendo", fields: [vendedorId], references: [id])
+  pagos      PagoArriendo[]
+  comisiones Comision[]
 
   @@index([unidadId])
   @@index([contactoId])
+  @@index([vendedorId])
   @@map("arriendos")
 }
 

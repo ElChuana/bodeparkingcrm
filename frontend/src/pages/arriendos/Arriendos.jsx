@@ -26,6 +26,12 @@ function ModalArriendo({ open, onClose, arriendo }) {
     enabled: open
   })
 
+  const { data: vendedores = [] } = useQuery({
+    queryKey: ['usuarios-comisionables'],
+    queryFn: () => api.get('/usuarios').then(r => r.data.filter(u => u.rol !== 'ABOGADO' && u.activo)),
+    enabled: open
+  })
+
   const guardar = useMutation({
     mutationFn: (d) => arriendo ? api.put(`/arriendos/${arriendo.id}`, d) : api.post('/arriendos', d),
     onSuccess: () => {
@@ -52,10 +58,22 @@ function ModalArriendo({ open, onClose, arriendo }) {
             }))}
           />
         </Form.Item>
-        <Form.Item name="arrendatarioId" label="Arrendatario" rules={[{ required: true }]}>
+        <Form.Item name="contactoId" label="Arrendatario" rules={[{ required: true }]}>
           <Select
             placeholder="Seleccionar contacto..."
             options={contactos.map(c => ({ value: c.id, label: `${c.nombre} ${c.apellido}` }))}
+            showSearch
+            filterOption={(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())}
+          />
+        </Form.Item>
+        <Form.Item
+          name="vendedorId" label="Vendedor (comisiona el canon del 1er mes)"
+          extra="Al guardar con vendedor y monto, se genera la comisión automáticamente."
+        >
+          <Select
+            placeholder="Sin vendedor"
+            allowClear
+            options={vendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))}
             showSearch
             filterOption={(input, opt) => opt.label.toLowerCase().includes(input.toLowerCase())}
           />
@@ -105,10 +123,14 @@ export default function Arriendos() {
       title: 'Arrendatario', key: 'arrendatario',
       render: (_, a) => (
         <div>
-          <Text strong>{a.arrendatario?.nombre} {a.arrendatario?.apellido}</Text>
-          <div><Text type="secondary" style={{ fontSize: 12 }}>{a.arrendatario?.telefono || a.arrendatario?.email || ''}</Text></div>
+          <Text strong>{a.contacto?.nombre} {a.contacto?.apellido}</Text>
+          <div><Text type="secondary" style={{ fontSize: 12 }}>{a.contacto?.telefono || a.contacto?.email || ''}</Text></div>
         </div>
       )
+    },
+    {
+      title: 'Vendedor', key: 'vendedor',
+      render: (_, a) => a.vendedor ? `${a.vendedor.nombre} ${a.vendedor.apellido}` : <Text type="secondary">—</Text>
     },
     {
       title: 'Unidad', key: 'unidad',

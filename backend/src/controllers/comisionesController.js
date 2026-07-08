@@ -28,6 +28,13 @@ const listar = async (req, res) => {
             unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
             comprador: { select: { nombre: true, apellido: true } }
           }
+        },
+        arriendo: {
+          select: {
+            id: true, estado: true, montoMensualUF: true, fechaInicio: true,
+            unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
+            contacto: { select: { nombre: true, apellido: true } }
+          }
         }
       },
       orderBy: { creadoEn: 'desc' }
@@ -276,7 +283,10 @@ const filasDelMes = async (anio, mes, filtroUsuario) => {
   const comisiones = await prisma.comision.findMany({
     where: {
       ...filtroUsuario,
-      venta: { estado: { not: 'ANULADO' } }
+      OR: [
+        { venta: { estado: { not: 'ANULADO' } } },
+        { arriendoId: { not: null } },
+      ]
     },
     include: {
       usuario: { select: { id: true, nombre: true, apellido: true, rol: true } },
@@ -287,6 +297,13 @@ const filasDelMes = async (anio, mes, filtroUsuario) => {
           unidades: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
           comprador: { select: { nombre: true, apellido: true } }
         }
+      },
+      arriendo: {
+        select: {
+          id: true, estado: true, montoMensualUF: true, fechaInicio: true, creadoEn: true,
+          unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
+          contacto: { select: { nombre: true, apellido: true } }
+        }
       }
     },
     orderBy: { creadoEn: 'asc' }
@@ -294,6 +311,30 @@ const filasDelMes = async (anio, mes, filtroUsuario) => {
 
   const filas = []
   for (const c of comisiones) {
+    // Comisión de arriendo: un solo tramo, devengado en el mes de inicio del arriendo
+    if (c.arriendo) {
+      const a = c.arriendo
+      const monto = Number(c.montoPrimera)
+      if (monto <= 0 || !mismoMes(a.fechaInicio, anio, mes)) continue
+      filas.push({
+        comisionId: c.id,
+        tramo: 'ARRIENDO',
+        usuario: c.usuario,
+        concepto: c.concepto,
+        porcentaje: c.porcentaje,
+        arriendoId: a.id,
+        estadoVenta: a.estado,
+        comprador: `${a.contacto?.nombre || ''} ${a.contacto?.apellido || ''}`.trim(),
+        unidades: `${a.unidad?.edificio?.nombre || ''} ${a.unidad?.numero || ''}`.trim(),
+        precioVentaUF: Number(a.montoMensualUF || 0),
+        montoUF: monto,
+        estadoPago: c.estadoPrimera,
+        fechaDevengo: a.fechaInicio,
+        fechaPago: c.fechaPagoPrimera,
+      })
+      continue
+    }
+    if (!c.venta) continue
     const tramos = [
       { tramo: 'PROMESA', monto: Number(c.montoPrimera), estadoPago: c.estadoPrimera, fechaPago: c.fechaPagoPrimera, fechaDevengo: fechaDevengoPrimera(c.venta) },
       { tramo: 'ESCRITURA', monto: Number(c.montoSegunda), estadoPago: c.estadoSegunda, fechaPago: c.fechaPagoSegunda, fechaDevengo: fechaDevengoSegunda(c.venta) },
@@ -334,7 +375,9 @@ const mensual = async (req, res) => {
   if (!parsed) return res.status(400).json({ error: 'Parámetro mes requerido (formato YYYY-MM).' })
 
   const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
-  const filtroUsuario = esGerenciaOJV ? {} : { usuarioId: req.usuario.id }
+  const filtroUsuario = esGerenciaOJV
+    ? (req.query.usuarioId ? { usuarioId: Number(req.query.usuarioId) } : {})
+    : { usuarioId: req.usuario.id }
 
   try {
     const filas = await filasDelMes(parsed.anio, parsed.mes, filtroUsuario)
@@ -366,7 +409,8 @@ const exportar = async (req, res) => {
   if (!parsed) return res.status(400).json({ error: 'Parámetro mes requerido (formato YYYY-MM).' })
 
   try {
-    const filas = await filasDelMes(parsed.anio, parsed.mes, {})
+    const filtroUsuario = req.query.usuarioId ? { usuarioId: Number(req.query.usuarioId) } : {}
+    const filas = await filasDelMes(parsed.anio, parsed.mes, filtroUsuario)
 
     const esc = (v) => {
       const s = v == null ? '' : String(v)
@@ -374,14 +418,14 @@ const exportar = async (req, res) => {
     }
     const fmtFecha = (f) => f ? new Date(f).toISOString().slice(0, 10) : ''
 
-    const header = ['Usuario', 'Rol', 'Concepto', '%', 'Tramo', 'Venta ID', 'Estado venta', 'Comprador', 'Unidades', 'Precio venta UF', 'Monto UF', 'Estado pago', 'Fecha devengo', 'Fecha pago']
+    const header = ['Usuario', 'Rol', 'Concepto', '%', 'Tramo', 'Operación', 'Estado', 'Cliente', 'Unidades', 'Precio/Canon UF', 'Monto UF', 'Estado pago', 'Fecha devengo', 'Fecha pago']
     const lineas = filas.map(f => [
       `${f.usuario.nombre} ${f.usuario.apellido}`,
       f.usuario.rol,
       f.concepto || '',
       f.porcentaje != null ? f.porcentaje : '',
       f.tramo,
-      f.ventaId,
+      f.ventaId ? `Venta #${f.ventaId}` : `Arriendo #${f.arriendoId}`,
       f.estadoVenta,
       f.comprador,
       f.unidades,

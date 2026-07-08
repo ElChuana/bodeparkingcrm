@@ -190,8 +190,8 @@
 - Archivos: `routes/comisiones.js`, `controllers/comisionesController.js`
 - `GET /` — listar (propias si VENDEDOR, todas si GERENTE/JV)
 - `GET /resumen` — KPIs de comisiones (GERENTE, JEFE_VENTAS); devuelve `{totalPendienteUF, totalPagadoUF, porUsuario[]}`
-- `GET /mensual?mes=YYYY-MM` — tramos devengados del mes + resumen por usuario (vendedor ve solo lo suyo)
-- `GET /export?mes=YYYY-MM` — CSV del mes (GERENTE, JEFE_VENTAS; separador `;` + BOM para Excel)
+- `GET /mensual?mes=YYYY-MM&usuarioId=` — tramos devengados del mes + resumen por usuario (vendedor ve solo lo suyo; usuarioId filtra para gerencia)
+- `GET /export?mes=YYYY-MM&usuarioId=` — CSV del mes (GERENTE, JEFE_VENTAS; separador `;` + BOM para Excel)
 - `POST /` — crear (solo GERENTE)
 - `PUT /:id` — editar (solo GERENTE)
 - `DELETE /:id` — eliminar (solo GERENTE)
@@ -199,7 +199,10 @@
 - `PUT /:id/segunda` — marcar segunda cuota pagada (GERENTE, JEFE_VENTAS)
 - Cálculo automático al convertir cotización en venta vía **reglas de comisión** (`lib/comisiones.js` → `aplicarReglasComision`)
 - Modelo: montoPrimera (promesa) + montoSegunda (escritura); si conPromesa=false → montoPrimera=0, montoSegunda=total
-- Devengo: tramo promesa se devenga en el mes de `venta.fechaPromesa`; tramo escritura en el mes de `venta.fechaEscritura` (fallback `creadoEn` si la venta ya está en ese estado sin fecha)
+- `Comision.ventaId` es opcional: una comisión puede ser de venta O de arriendo (`arriendoId`)
+- **Comisión de arriendo**: al crear/editar un arriendo con `vendedorId` + `montoMensualUF`, se genera automáticamente una comisión "Arriendo 1er mes" = canon del primer mes (tramo único, devengado en el mes de `fechaInicio`); ver `arrendosController`
+- Devengo: tramo promesa se devenga en el mes de `venta.fechaPromesa`; tramo escritura en el mes de `venta.fechaEscritura` (fallback `creadoEn` si la venta ya está en ese estado sin fecha); tramo ARRIENDO en el mes de `arriendo.fechaInicio`
+- Script `scripts/regenerar-comisiones-ventas.js <ids>` — borra y regenera comisiones de ventas según reglas vigentes (aborta si hay tramos PAGADOS)
 - Frontend: `pages/comisiones/Comisiones.jsx` (vista mensual con export + tabla completa + reglas + plantillas)
 
 ### REGLAS DE COMISIÓN — `/api/reglas-comision`
@@ -266,6 +269,7 @@
 - `POST /` — crear arriendo
 - `PUT /:id` — editar
 - Estados: ACTIVO, TERMINADO
+- Campo `vendedorId` (opcional): quien cerró el arriendo — al guardar con vendedor + canon se crea la comisión "Arriendo 1er mes" (100% del canon, si no existe ya para ese arriendo)
 - Frontend: `pages/arriendos/Arriendos.jsx`
 
 ### LLAVES — `/api/llaves`

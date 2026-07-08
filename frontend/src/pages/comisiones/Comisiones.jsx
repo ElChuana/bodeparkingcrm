@@ -248,6 +248,7 @@ export default function Comisiones() {
   const [vendedorFiltro, setVendedorFiltro] = useState(undefined)
   const [estadoFiltro, setEstadoFiltro] = useState(undefined)
   const [mes, setMes] = useState(dayjs())
+  const [mesUsuarioFiltro, setMesUsuarioFiltro] = useState(undefined)
   const [modalPlantilla, setModalPlantilla] = useState(false)
   const [plantillaEditando, setPlantillaEditando] = useState(null)
   const [modalRegla, setModalRegla] = useState(false)
@@ -270,14 +271,14 @@ export default function Comisiones() {
   })
 
   const { data: mensual, isLoading: cargandoMensual } = useQuery({
-    queryKey: ['comisiones-mensual', mesStr],
-    queryFn: () => api.get('/comisiones/mensual', { params: { mes: mesStr } }).then(r => r.data)
+    queryKey: ['comisiones-mensual', mesStr, mesUsuarioFiltro],
+    queryFn: () => api.get('/comisiones/mensual', { params: { mes: mesStr, usuarioId: mesUsuarioFiltro } }).then(r => r.data)
   })
 
   const { data: vendedores = [] } = useQuery({
     queryKey: ['usuarios-vendedores'],
     queryFn: () => api.get('/usuarios').then(r => r.data.filter(u =>
-      ['VENDEDOR', 'BROKER_EXTERNO', 'JEFE_VENTAS'].includes(u.rol)
+      ['VENDEDOR', 'BROKER_EXTERNO', 'JEFE_VENTAS', 'GERENTE'].includes(u.rol)
     )),
     enabled: esGerenciaOJV
   })
@@ -350,7 +351,7 @@ export default function Comisiones() {
 
   const exportarMes = async () => {
     try {
-      const r = await api.get('/comisiones/export', { params: { mes: mesStr }, responseType: 'blob' })
+      const r = await api.get('/comisiones/export', { params: { mes: mesStr, usuarioId: mesUsuarioFiltro }, responseType: 'blob' })
       const url = URL.createObjectURL(r.data)
       const a = document.createElement('a')
       a.href = url
@@ -369,8 +370,17 @@ export default function Comisiones() {
     },
     { title: 'Concepto', dataIndex: 'concepto', render: v => v ? <Tag>{v}</Tag> : '—' },
     {
-      title: 'Venta', key: 'venta',
-      render: (_, c) => (
+      title: 'Operación', key: 'venta',
+      render: (_, c) => c.arriendo ? (
+        <div>
+          <Text style={{ fontSize: 13 }}>
+            {c.arriendo.contacto?.nombre} {c.arriendo.contacto?.apellido} <Tag color="gold">arriendo</Tag>
+          </Text>
+          <div><Text type="secondary" style={{ fontSize: 12 }}>
+            {`${c.arriendo.unidad?.edificio?.nombre || ''} ${c.arriendo.unidad?.numero || ''}`.trim()}
+          </Text></div>
+        </div>
+      ) : (
         <div>
           <Text style={{ fontSize: 13 }}>
             {c.venta?.comprador?.nombre} {c.venta?.comprador?.apellido}
@@ -432,7 +442,7 @@ export default function Comisiones() {
     { title: '%', dataIndex: 'porcentaje', render: v => v != null ? `${v}%` : '—' },
     {
       title: 'Tramo', dataIndex: 'tramo',
-      render: v => <Tag color={v === 'PROMESA' ? 'blue' : 'purple'}>{v.toLowerCase()}</Tag>
+      render: v => <Tag color={v === 'PROMESA' ? 'blue' : v === 'ARRIENDO' ? 'gold' : 'purple'}>{v.toLowerCase()}</Tag>
     },
     {
       title: 'Venta', key: 'venta',
@@ -452,7 +462,7 @@ export default function Comisiones() {
           {esGerenciaOJV && f.estadoPago === 'PENDIENTE' && (
             <Button
               type="link" size="small"
-              onClick={() => marcar.mutate({ id: f.comisionId, tramo: f.tramo === 'PROMESA' ? 'primera' : 'segunda' })}
+              onClick={() => marcar.mutate({ id: f.comisionId, tramo: f.tramo === 'ESCRITURA' ? 'segunda' : 'primera' })}
             >
               Marcar pagada
             </Button>
@@ -535,6 +545,18 @@ export default function Comisiones() {
         title="Comisiones del mes"
         extra={
           <Space>
+            {esGerenciaOJV && (
+              <Select
+                placeholder="Todos"
+                value={mesUsuarioFiltro}
+                onChange={setMesUsuarioFiltro}
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                style={{ width: 180 }}
+                options={vendedores.map(v => ({ value: v.id, label: `${v.nombre} ${v.apellido}` }))}
+              />
+            )}
             <DatePicker
               picker="month"
               value={mes}
