@@ -301,6 +301,7 @@ model Usuario {
   reportesSemanales       ReporteSemanal[]
   emailsFavoritos         EmailFavorito[]
   cambiosPrecio           HistorialPrecioUnidad[]
+  reglasComision          ReglaComision[]
 
   @@map("usuarios")
 }
@@ -721,6 +722,40 @@ model PlantillaComision {
   creadoEn     DateTime @default(now())
 
   @@map("plantillas_comision")
+}
+
+enum AmbitoComision {
+  VENDE // aplica cuando el usuario/rol es el vendedor de la venta
+  VENTAS_DE_OTROS // aplica a ventas donde el usuario NO es el vendedor (ej: jefe 1%)
+  TODAS // aplica a toda venta que cumpla el filtro de origen (ej: comisión webinar)
+}
+
+enum OrigenComision {
+  CUALQUIERA
+  SOLO_WEBINAR
+  NO_WEBINAR
+}
+
+// Reglas de comisión automáticas: al convertir cotización en venta se evalúan
+// y generan las Comision. Regla por usuarioId tiene prioridad sobre regla por rol.
+model ReglaComision {
+  id            Int            @id @default(autoincrement())
+  nombre        String
+  usuarioId     Int? // regla específica de un usuario (prioridad sobre rol)
+  rol           Rol? // regla genérica por rol
+  ambito        AmbitoComision
+  origen        OrigenComision @default(CUALQUIERA)
+  porcentaje    Float
+  pctPromesa    Float          @default(50)
+  pctEscritura  Float          @default(50)
+  activa        Boolean        @default(true)
+  creadoEn      DateTime       @default(now())
+  actualizadoEn DateTime       @updatedAt
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+  @@map("reglas_comision")
 }
 
 model Cotizacion {

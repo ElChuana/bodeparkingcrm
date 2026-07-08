@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { aplicarReglasComision } = require('../lib/comisiones')
 
 const INCLUDE_COMPLETO = {
   lead: {
@@ -620,7 +621,7 @@ const convertir = async (req, res) => {
       return nuevaVenta
     })
 
-    await calcularComisiones(venta.id, precioFinalUF, cotizacion.lead)
+    await aplicarReglasComision(venta.id)
 
     const ventaCompleta = await prisma.venta.findUnique({
       where: { id: venta.id },
@@ -637,52 +638,6 @@ const convertir = async (req, res) => {
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al convertir cotización.' })
-  }
-}
-
-async function calcularComisiones(ventaId, precioFinalUF, lead) {
-  const venta = await prisma.venta.findUnique({
-    where: { id: ventaId },
-    select: { vendedorId: true, brokerId: true, gerenteId: true, conPromesa: true }
-  })
-
-  const conPromesa = venta.conPromesa
-
-  const splitMontos = (total) => {
-    if (!conPromesa) return { montoPrimera: 0, montoSegunda: total }
-    return { montoPrimera: total / 2, montoSegunda: total / 2 }
-  }
-
-  const comisionesACrear = []
-
-  if (venta.vendedorId) {
-    const vendedor = await prisma.usuario.findUnique({ where: { id: venta.vendedorId }, select: { comisionPorcentaje: true } })
-    if (vendedor?.comisionPorcentaje) {
-      const total = (precioFinalUF * vendedor.comisionPorcentaje) / 100
-      const { montoPrimera, montoSegunda } = splitMontos(total)
-      comisionesACrear.push({ ventaId, usuarioId: venta.vendedorId, concepto: 'Vendedor', porcentaje: vendedor.comisionPorcentaje, montoCalculadoUF: total, montoPrimera, montoSegunda })
-    }
-  }
-
-  if (venta.brokerId) {
-    const broker = await prisma.usuario.findUnique({ where: { id: venta.brokerId }, select: { comisionPorcentaje: true } })
-    if (broker?.comisionPorcentaje) {
-      const total = (precioFinalUF * broker.comisionPorcentaje) / 100
-      const { montoPrimera, montoSegunda } = splitMontos(total)
-      comisionesACrear.push({ ventaId, usuarioId: venta.brokerId, concepto: 'Broker', porcentaje: broker.comisionPorcentaje, montoCalculadoUF: total, montoPrimera, montoSegunda })
-    }
-  }
-
-  const jefes = await prisma.usuario.findMany({ where: { rol: 'JEFE_VENTAS', activo: true }, select: { id: true, comisionPorcentaje: true } })
-  for (const jefe of jefes) {
-    const pct = jefe.id === venta.vendedorId ? (jefe.comisionPorcentaje || 4) : 1
-    const total = (precioFinalUF * pct) / 100
-    const { montoPrimera, montoSegunda } = splitMontos(total)
-    comisionesACrear.push({ ventaId, usuarioId: jefe.id, concepto: 'Jefe de Ventas', porcentaje: pct, montoCalculadoUF: total, montoPrimera, montoSegunda })
-  }
-
-  if (comisionesACrear.length > 0) {
-    await prisma.comision.createMany({ data: comisionesACrear })
   }
 }
 

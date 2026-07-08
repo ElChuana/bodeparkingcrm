@@ -189,15 +189,31 @@
 ### COMISIONES — `/api/comisiones`
 - Archivos: `routes/comisiones.js`, `controllers/comisionesController.js`
 - `GET /` — listar (propias si VENDEDOR, todas si GERENTE/JV)
-- `GET /resumen` — KPIs de comisiones (GERENTE, JEFE_VENTAS)
+- `GET /resumen` — KPIs de comisiones (GERENTE, JEFE_VENTAS); devuelve `{totalPendienteUF, totalPagadoUF, porUsuario[]}`
+- `GET /mensual?mes=YYYY-MM` — tramos devengados del mes + resumen por usuario (vendedor ve solo lo suyo)
+- `GET /export?mes=YYYY-MM` — CSV del mes (GERENTE, JEFE_VENTAS; separador `;` + BOM para Excel)
 - `POST /` — crear (solo GERENTE)
 - `PUT /:id` — editar (solo GERENTE)
 - `DELETE /:id` — eliminar (solo GERENTE)
 - `PUT /:id/primera` — marcar primera cuota pagada (GERENTE, JEFE_VENTAS)
 - `PUT /:id/segunda` — marcar segunda cuota pagada (GERENTE, JEFE_VENTAS)
-- Cálculo automático al convertir cotización en venta (respeta conPromesa de la venta)
+- Cálculo automático al convertir cotización en venta vía **reglas de comisión** (`lib/comisiones.js` → `aplicarReglasComision`)
 - Modelo: montoPrimera (promesa) + montoSegunda (escritura); si conPromesa=false → montoPrimera=0, montoSegunda=total
-- Frontend: `pages/comisiones/Comisiones.jsx`
+- Devengo: tramo promesa se devenga en el mes de `venta.fechaPromesa`; tramo escritura en el mes de `venta.fechaEscritura` (fallback `creadoEn` si la venta ya está en ese estado sin fecha)
+- Frontend: `pages/comisiones/Comisiones.jsx` (vista mensual con export + tabla completa + reglas + plantillas)
+
+### REGLAS DE COMISIÓN — `/api/reglas-comision`
+- Archivos: `routes/reglasComision.js`, `controllers/reglasComisionController.js`, motor en `lib/comisiones.js`
+- `GET /` — listar (GERENTE, JEFE_VENTAS); `POST /`, `PUT /:id`, `DELETE /:id` — solo GERENTE
+- Modelo `ReglaComision`: nombre, usuarioId? XOR rol?, ambito (VENDE | VENTAS_DE_OTROS | TODAS), origen (CUALQUIERA | SOLO_WEBINAR | NO_WEBINAR), porcentaje, pctPromesa+pctEscritura (suman 100), activa
+- Motor (`aplicarReglasComision`, se ejecuta al convertir cotización en venta):
+  - Venta "webinar" = `lead.campana` contiene "webinar" (case-insensitive)
+  - Ámbito VENDE: se aplica UNA regla al vendedor — regla por usuario > regla por rol; origen específico > CUALQUIERA
+  - Ámbito VENTAS_DE_OTROS: aplica a todos los usuarios del rol/usuario cuando NO son el vendedor (ej: jefe de ventas 1%)
+  - Ámbito TODAS: se suma siempre que el origen calce (ej: ChileParadise 4% en ventas webinar)
+  - Broker asignado a la venta: comportamiento histórico (su `comisionPorcentaje` personal, split 50/50)
+- Reglas vigentes (seed `scripts/seed-reglas-comision.js`): Vendedor 4% (100% promesa) · Christian Godoy 8% no-webinar / 4% webinar (100% promesa) · JV vende 4% (100% promesa) · JV 1% ventas del equipo (50/50) · ChileParadise (usuario 18, agencia webinar sin acceso) 4% ventas webinar (50/50)
+- Frontend: sección "Reglas de comisión automáticas" en `pages/comisiones/Comisiones.jsx` (ver GERENTE/JV, editar solo GERENTE)
 
 ### PLANTILLAS DE COMISIÓN — `/api/plantillas-comision`
 - Archivos: `routes/plantillasComision.js`, `controllers/plantillasComisionController.js`
