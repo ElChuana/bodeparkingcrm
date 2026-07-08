@@ -610,11 +610,19 @@ const convertir = async (req, res) => {
       await tx.cotizacion.update({ where: { id: cotizacion.id }, data: { estado: 'ACEPTADA' } })
       await tx.lead.update({ where: { id: cotizacion.lead.id }, data: { etapa: 'RESERVA' } })
 
-      await tx.procesoLegal.create({
+      const procesoLegal = await tx.procesoLegal.create({
         data: {
           ventaId: nuevaVenta.id,
           tienePromesa: Boolean(conPromesa),
           estadoActual: conPromesa ? 'CONFECCION_PROMESA' : 'CONFECCION_ESCRITURA',
+        }
+      })
+
+      await tx.historialLegal.create({
+        data: {
+          procesoLegalId: procesoLegal.id,
+          paso: procesoLegal.estadoActual,
+          usuarioId: req.usuario?.id || null
         }
       })
 

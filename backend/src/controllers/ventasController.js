@@ -84,7 +84,15 @@ const obtener = async (req, res) => {
           }
         },
         planPago: { include: { cuotas: { orderBy: { numeroCuota: 'asc' } } } },
-        procesoLegal: { include: { documentos: { orderBy: { creadoEn: 'desc' } } } },
+        procesoLegal: {
+          include: {
+            documentos: { orderBy: { creadoEn: 'desc' } },
+            historial: {
+              include: { usuario: { select: { nombre: true, apellido: true } } },
+              orderBy: { creadoEn: 'desc' }
+            }
+          }
+        },
         comisiones: { include: { usuario: { select: { nombre: true, apellido: true, rol: true } } } },
         beneficios: { include: { beneficio: true } },
         postventa: { orderBy: { fechaApertura: 'desc' } }
@@ -107,13 +115,26 @@ const actualizarEstado = async (req, res) => {
   }
 
   try {
+    const actual = await prisma.venta.findUnique({
+      where: { id: Number(id) },
+      select: { fechaPromesa: true, fechaEscritura: true, fechaEntrega: true }
+    })
+    if (!actual) return res.status(404).json({ error: 'Venta no encontrada.' })
+
+    // Si no viene fecha manual, se guarda la fecha del cambio de estado
     const venta = await prisma.venta.update({
       where: { id: Number(id) },
       data: {
         estado,
-        ...(fechaPromesa && { fechaPromesa: new Date(fechaPromesa) }),
-        ...(fechaEscritura && { fechaEscritura: new Date(fechaEscritura) }),
-        ...(fechaEntrega && { fechaEntrega: new Date(fechaEntrega) }),
+        ...(fechaPromesa
+          ? { fechaPromesa: new Date(fechaPromesa) }
+          : (estado === 'PROMESA' && !actual.fechaPromesa ? { fechaPromesa: new Date() } : {})),
+        ...(fechaEscritura
+          ? { fechaEscritura: new Date(fechaEscritura) }
+          : (estado === 'ESCRITURA' && !actual.fechaEscritura ? { fechaEscritura: new Date() } : {})),
+        ...(fechaEntrega
+          ? { fechaEntrega: new Date(fechaEntrega) }
+          : (estado === 'ENTREGADO' && !actual.fechaEntrega ? { fechaEntrega: new Date() } : {})),
         ...(notas && { notas })
       }
     })

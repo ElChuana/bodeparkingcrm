@@ -303,6 +303,7 @@ model Usuario {
   cambiosPrecio           HistorialPrecioUnidad[]
   reglasComision          ReglaComision[]
   arriendosComoVendedor   Arriendo[]              @relation("VendedorArriendo")
+  cambiosLegales          HistorialLegal[]
 
   @@map("usuarios")
 }
@@ -625,8 +626,24 @@ model ProcesoLegal {
 
   venta      Venta            @relation(fields: [ventaId], references: [id])
   documentos DocumentoLegal[]
+  historial  HistorialLegal[]
 
   @@map("procesos_legales")
+}
+
+// Registro automático de cada cambio de paso legal (fecha real + quién lo movió)
+model HistorialLegal {
+  id             Int         @id @default(autoincrement())
+  procesoLegalId Int
+  paso           EstadoLegal
+  usuarioId      Int?
+  creadoEn       DateTime    @default(now())
+
+  procesoLegal ProcesoLegal @relation(fields: [procesoLegalId], references: [id])
+  usuario      Usuario?     @relation(fields: [usuarioId], references: [id])
+
+  @@index([procesoLegalId])
+  @@map("historial_legal")
 }
 
 model DocumentoLegal {

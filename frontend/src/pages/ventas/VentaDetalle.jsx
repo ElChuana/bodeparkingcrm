@@ -420,19 +420,34 @@ function ProcesoLegal({ ventaId, venta }) {
   const faltantes    = calcFaltantes(proceso)
   const tieneErrores = faltantes.some(f => f.tipo === 'error')
 
+  const historial = proceso.historial || []
+
   const stepsItems = pasos.map((paso, i) => {
     const campo     = FECHA_POR_PASO[paso]
     const fecha     = campo && proceso[campo]
     const vencido   = fecha && i === indiceActual && isPast(new Date(fecha)) && paso !== 'ENTREGADO'
+    // Fecha real en que el proceso llegó a este paso (historial viene ordenado desc)
+    const cambio    = historial.find(h => h.paso === paso)
     return {
       title: LEGAL_LABEL[paso],
-      description: fecha
-        ? <span style={{ fontSize: 11, color: vencido ? '#ff4d4f' : '#8c8c8c' }}>
-            {vencido ? '⚠ ' : ''}Límite: {format(new Date(fecha), 'd MMM yyyy', { locale: es })}
-          </span>
-        : (i >= indiceActual
-            ? <span style={{ fontSize: 11, color: '#faad14' }}>Sin fecha límite</span>
-            : null),
+      description: (
+        <span style={{ fontSize: 11 }}>
+          {cambio && (
+            <span style={{ color: '#52c41a', display: 'block' }}>
+              {i < indiceActual ? '✓ ' : 'Desde '}
+              {format(new Date(cambio.creadoEn), 'd MMM yyyy', { locale: es })}
+              {cambio.usuario ? ` · ${cambio.usuario.nombre} ${cambio.usuario.apellido}` : ''}
+            </span>
+          )}
+          {fecha
+            ? <span style={{ color: vencido ? '#ff4d4f' : '#8c8c8c' }}>
+                {vencido ? '⚠ ' : ''}Límite: {format(new Date(fecha), 'd MMM yyyy', { locale: es })}
+              </span>
+            : (!cambio && i >= indiceActual
+                ? <span style={{ color: '#faad14' }}>Sin fecha límite</span>
+                : null)}
+        </span>
+      ),
       status: i < indiceActual ? 'finish' : i === indiceActual ? (vencido ? 'error' : 'process') : 'wait',
     }
   })

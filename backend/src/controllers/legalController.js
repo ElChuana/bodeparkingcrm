@@ -40,6 +40,10 @@ const obtener = async (req, res) => {
         documentos: {
           include: { subidoPor: { select: { nombre: true, apellido: true } } },
           orderBy: { creadoEn: 'desc' }
+        },
+        historial: {
+          include: { usuario: { select: { nombre: true, apellido: true } } },
+          orderBy: { creadoEn: 'desc' }
         }
       }
     })
@@ -100,6 +104,11 @@ const actualizar = async (req, res) => {
   }
 
   try {
+    const previo = await prisma.procesoLegal.findUnique({
+      where: { ventaId: Number(ventaId) },
+      select: { estadoActual: true }
+    })
+
     // Upsert por si la venta no tiene proceso legal aún
     const proceso = await prisma.procesoLegal.upsert({
       where:  { ventaId: Number(ventaId) },
@@ -107,13 +116,24 @@ const actualizar = async (req, res) => {
       update: data,
     })
 
+    // Historial: registrar fecha real de cada cambio de paso y quién lo movió
+    if (estadoActual && estadoActual !== previo?.estadoActual) {
+      await prisma.historialLegal.create({
+        data: {
+          procesoLegalId: proceso.id,
+          paso: estadoActual,
+          usuarioId: req.usuario?.id || null
+        }
+      })
+    }
+
     // Auto-sincronizar estado de venta según paso legal
     if (estadoActual) {
       const nuevoEstadoVenta = ESTADO_POR_PASO[estadoActual]
       if (nuevoEstadoVenta) {
         const venta = await prisma.venta.findUnique({
           where: { id: Number(ventaId) },
-          select: { id: true, estado: true, leadId: true, fechaPromesa: true, fechaEscritura: true }
+          select: { id: true, estado: true, leadId: true, fechaPromesa: true, fechaEscritura: true, fechaEntrega: true }
         })
 
         if (venta && venta.estado !== nuevoEstadoVenta && venta.estado !== 'ANULADO') {
@@ -121,6 +141,7 @@ const actualizar = async (req, res) => {
           // La firma fija la fecha real de promesa/escritura (mes de devengo de comisiones)
           if (nuevoEstadoVenta === 'PROMESA' && !venta.fechaPromesa) dataVenta.fechaPromesa = new Date()
           if (nuevoEstadoVenta === 'ESCRITURA' && !venta.fechaEscritura) dataVenta.fechaEscritura = new Date()
+          if (nuevoEstadoVenta === 'ENTREGADO' && !venta.fechaEntrega) dataVenta.fechaEntrega = new Date()
           await prisma.venta.update({
             where: { id: Number(ventaId) },
             data: dataVenta
