@@ -191,7 +191,7 @@
 - `GET /` — listar (propias si VENDEDOR, todas si GERENTE/JV)
 - `GET /resumen` — KPIs de comisiones (GERENTE, JEFE_VENTAS); devuelve `{totalPendienteUF, totalPagadoUF, porUsuario[]}`
 - `GET /mensual?mes=YYYY-MM&usuarioId=` — tramos devengados del mes + resumen por usuario (vendedor ve solo lo suyo; usuarioId filtra para gerencia)
-- `GET /export?mes=YYYY-MM&usuarioId=` — CSV del mes (GERENTE, JEFE_VENTAS; separador `;` + BOM para Excel)
+- `GET /export?mes=YYYY-MM&usuarioId=` — Excel .xlsx del mes (GERENTE, JEFE_VENTAS; hoja Resumen por usuario con fila TOTAL + hoja Detalle; librería `xlsx`)
 - `POST /` — crear (solo GERENTE)
 - `PUT /:id` — editar (solo GERENTE)
 - `DELETE /:id` — eliminar (solo GERENTE)

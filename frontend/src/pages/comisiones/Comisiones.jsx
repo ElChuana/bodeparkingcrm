@@ -355,7 +355,7 @@ export default function Comisiones() {
       const url = URL.createObjectURL(r.data)
       const a = document.createElement('a')
       a.href = url
-      a.download = `comisiones-${mesStr}.csv`
+      a.download = `comisiones-${mesStr}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -566,7 +566,7 @@ export default function Comisiones() {
             />
             {esGerenciaOJV && (
               <Button icon={<DownloadOutlined />} onClick={exportarMes}>
-                Exportar CSV
+                Exportar Excel
               </Button>
             )}
           </Space>

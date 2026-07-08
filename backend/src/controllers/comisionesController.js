@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const XLSX = require('xlsx')
 
 const listar = async (req, res) => {
   const { usuarioId, estado, desde, hasta } = req.query
@@ -403,7 +404,7 @@ const mensual = async (req, res) => {
   }
 }
 
-// GET /comisiones/export?mes=YYYY-MM — CSV del mes (Excel-friendly: ; y BOM)
+// GET /comisiones/export?mes=YYYY-MM — Excel (.xlsx) del mes: hoja Resumen + hoja Detalle
 const exportar = async (req, res) => {
   const parsed = parseMes(req.query.mes)
   if (!parsed) return res.status(400).json({ error: 'Parámetro mes requerido (formato YYYY-MM).' })
@@ -412,34 +413,73 @@ const exportar = async (req, res) => {
     const filtroUsuario = req.query.usuarioId ? { usuarioId: Number(req.query.usuarioId) } : {}
     const filas = await filasDelMes(parsed.anio, parsed.mes, filtroUsuario)
 
-    const esc = (v) => {
-      const s = v == null ? '' : String(v)
-      return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
-    }
     const fmtFecha = (f) => f ? new Date(f).toISOString().slice(0, 10) : ''
+    const redondear = (n) => Math.round(n * 100) / 100
 
-    const header = ['Usuario', 'Rol', 'Concepto', '%', 'Tramo', 'Operación', 'Estado', 'Cliente', 'Unidades', 'Precio/Canon UF', 'Monto UF', 'Estado pago', 'Fecha devengo', 'Fecha pago']
-    const lineas = filas.map(f => [
-      `${f.usuario.nombre} ${f.usuario.apellido}`,
-      f.usuario.rol,
-      f.concepto || '',
-      f.porcentaje != null ? f.porcentaje : '',
-      f.tramo,
-      f.ventaId ? `Venta #${f.ventaId}` : `Arriendo #${f.arriendoId}`,
-      f.estadoVenta,
-      f.comprador,
-      f.unidades,
-      f.precioVentaUF.toFixed(2).replace('.', ','),
-      f.montoUF.toFixed(2).replace('.', ','),
-      f.estadoPago,
-      fmtFecha(f.fechaDevengo),
-      fmtFecha(f.fechaPago),
-    ].map(esc).join(';'))
+    // Hoja Resumen: totales por usuario + fila TOTAL
+    const porUsuario = {}
+    for (const f of filas) {
+      const uid = f.usuario.id
+      if (!porUsuario[uid]) porUsuario[uid] = { usuario: f.usuario, totalUF: 0, pagadoUF: 0, pendienteUF: 0, tramos: 0 }
+      porUsuario[uid].totalUF += f.montoUF
+      porUsuario[uid].tramos += 1
+      if (f.estadoPago === 'PAGADO') porUsuario[uid].pagadoUF += f.montoUF
+      else porUsuario[uid].pendienteUF += f.montoUF
+    }
+    const resumenRows = Object.values(porUsuario).map(r => ({
+      'Usuario': `${r.usuario.nombre} ${r.usuario.apellido}`,
+      'Rol': r.usuario.rol,
+      'Tramos': r.tramos,
+      'Total UF': redondear(r.totalUF),
+      'Pagado UF': redondear(r.pagadoUF),
+      'Pendiente UF': redondear(r.pendienteUF),
+    }))
+    resumenRows.push({
+      'Usuario': 'TOTAL',
+      'Rol': '',
+      'Tramos': filas.length,
+      'Total UF': redondear(filas.reduce((s, f) => s + f.montoUF, 0)),
+      'Pagado UF': redondear(filas.filter(f => f.estadoPago === 'PAGADO').reduce((s, f) => s + f.montoUF, 0)),
+      'Pendiente UF': redondear(filas.filter(f => f.estadoPago !== 'PAGADO').reduce((s, f) => s + f.montoUF, 0)),
+    })
 
-    const csv = '\ufeff' + [header.join(';'), ...lineas].join('\n')
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
-    res.setHeader('Content-Disposition', `attachment; filename="comisiones-${req.query.mes}.csv"`)
-    res.send(csv)
+    // Hoja Detalle: cada tramo devengado del mes
+    const detalleRows = filas.map(f => ({
+      'Usuario': `${f.usuario.nombre} ${f.usuario.apellido}`,
+      'Rol': f.usuario.rol,
+      'Concepto': f.concepto || '',
+      '%': f.porcentaje != null ? f.porcentaje : '',
+      'Tramo': f.tramo,
+      'Operación': f.ventaId ? `Venta #${f.ventaId}` : `Arriendo #${f.arriendoId}`,
+      'Estado': f.estadoVenta,
+      'Cliente': f.comprador,
+      'Unidades': f.unidades,
+      'Precio/Canon UF': redondear(f.precioVentaUF),
+      'Monto UF': redondear(f.montoUF),
+      'Estado pago': f.estadoPago,
+      'Fecha devengo': fmtFecha(f.fechaDevengo),
+      'Fecha pago': fmtFecha(f.fechaPago),
+    }))
+
+    const anchos = (rows) => {
+      if (!rows.length) return []
+      return Object.keys(rows[0]).map(k => ({
+        wch: Math.min(40, Math.max(k.length, ...rows.map(r => String(r[k] ?? '').length)) + 2)
+      }))
+    }
+
+    const wb = XLSX.utils.book_new()
+    const wsResumen = XLSX.utils.json_to_sheet(resumenRows)
+    wsResumen['!cols'] = anchos(resumenRows)
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen')
+    const wsDetalle = XLSX.utils.json_to_sheet(detalleRows)
+    wsDetalle['!cols'] = anchos(detalleRows)
+    XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle')
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="comisiones-${req.query.mes}.xlsx"`)
+    res.send(buffer)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al exportar comisiones.' })
