@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma')
 const { mismoNombre } = require('../lib/deduplication')
 const { notificarLead } = require('../lib/notifications')
+const { vincularCampana } = require('../lib/campanas')
 const { VENDEDOR_FALLBACK_ID } = require('../config')
 
 function limpiarContextComuro(context) {
@@ -47,6 +48,7 @@ const upsert = async (req, res) => {
 
   try {
     let lead = null
+    let contactoExistente = null // para reutilizarlo si el contacto existe pero no tiene lead vigente
 
     // 1. Buscar por internal_uuid (comuroUuid)
     if (internal_uuid) {
@@ -67,6 +69,7 @@ const upsert = async (req, res) => {
       ) || null
 
       if (contacto) {
+        contactoExistente = contacto
         // Intentar coincidir por campaña primero
         if (project) {
           lead = await prisma.lead.findFirst({
@@ -89,6 +92,7 @@ const upsert = async (req, res) => {
         where: { email: { equals: body.email, mode: 'insensitive' } }
       })
       if (contactoPorEmail) {
+        contactoExistente = contactoPorEmail
         lead = await prisma.lead.findFirst({
           where: { contactoId: contactoPorEmail.id, etapa: { notIn: ['PERDIDO'] } },
           orderBy: { creadoEn: 'desc' }
@@ -152,7 +156,8 @@ const upsert = async (req, res) => {
       : (proyectoLower.includes('instagram') || proyectoLower.includes('meta') || proyectoLower.includes('facebook')) ? 'INSTAGRAM'
       : 'OTRO'
 
-    const contactoNuevo = await prisma.contacto.create({
+    // Reutilizar el contacto si ya existe (aunque su lead esté PERDIDO) — evita duplicados
+    const contactoNuevo = contactoExistente || await prisma.contacto.create({
       data: {
         nombre: nombreContacto,
         apellido: apellidoContacto,
@@ -166,6 +171,7 @@ const upsert = async (req, res) => {
       data: {
         contactoId: contactoNuevo.id,
         campana: project || null,
+        campanaId: await vincularCampana(project),
         etapa: 'NUEVO',
         comuroData: comuroDataFinal,
         ...(internal_uuid && { comuroUuid: internal_uuid }),

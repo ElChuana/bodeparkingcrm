@@ -27,10 +27,11 @@ const obtener = async (req, res) => {
 }
 
 function construirData(body) {
-  const { nombre, descripcion, fechaInicio, fechaFin } = body
+  const { nombre, descripcion, fechaInicio, fechaFin, esWebinar } = body
   return {
     nombre,
     descripcion: descripcion ?? null,
+    ...(esWebinar !== undefined && { esWebinar: Boolean(esWebinar) }),
     fechaInicio: fechaInicio ? new Date(fechaInicio) : null,
     fechaFin: fechaFin ? new Date(fechaFin) : null,
   }

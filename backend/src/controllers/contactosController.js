@@ -56,6 +56,24 @@ const crear = async (req, res) => {
     return res.status(400).json({ error: 'Nombre y apellido son requeridos.' })
   }
   try {
+    // Anti-duplicados: mismo email o mismo teléfono → devolver el existente
+    const emailLimpio = (email || '').trim()
+    const telLimpio = (telefono || '').replace(/\D/g, '')
+    const existente = await prisma.contacto.findFirst({
+      where: {
+        OR: [
+          ...(emailLimpio ? [{ email: { equals: emailLimpio, mode: 'insensitive' } }] : []),
+          ...(telLimpio.length >= 8 ? [{ telefono: { contains: telLimpio.slice(-8) } }] : []),
+        ],
+      },
+    })
+    if (existente) {
+      return res.status(409).json({
+        error: `Ya existe un contacto con ese ${emailLimpio && existente.email?.toLowerCase() === emailLimpio.toLowerCase() ? 'email' : 'teléfono'}: ${existente.nombre} ${existente.apellido} (#${existente.id}).`,
+        contactoExistente: existente,
+      })
+    }
+
     const contacto = await prisma.contacto.create({
       data: { nombre, apellido, rut: rut || null, email, telefono, empresa, tipoPersona, origen, notas }
     })

@@ -1,7 +1,11 @@
 const prisma = require('./prisma')
 
-// Una venta es "de webinar" si la campaña del lead contiene "webinar"
-const esVentaWebinar = (lead) => (lead?.campana || '').toLowerCase().includes('webinar')
+// Una venta es "de webinar" según el flag del catálogo de campañas;
+// si el lead no está vinculado al catálogo, fallback: el texto contiene "webinar"
+const esVentaWebinar = (lead) =>
+  lead?.campanaRef
+    ? lead.campanaRef.esWebinar
+    : (lead?.campana || '').toLowerCase().includes('webinar')
 
 const matchOrigen = (regla, webinar) => {
   if (regla.origen === 'SOLO_WEBINAR') return webinar
@@ -18,7 +22,7 @@ async function aplicarReglasComision(ventaId) {
     select: {
       id: true, vendedorId: true, brokerId: true, conPromesa: true,
       precioFinalUF: true, estado: true,
-      lead: { select: { campana: true } },
+      lead: { select: { campana: true, campanaRef: { select: { esWebinar: true } } } },
     },
   })
   if (!venta || venta.estado === 'ANULADO') return []

@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma')
 const { notificarLead } = require('../lib/notifications')
+const { vincularCampana } = require('../lib/campanas')
 
 // Búsqueda por nombre, apellido, email o teléfono (case-insensitive)
 const buscarContactoIds = async (search) => {
@@ -255,6 +256,7 @@ const crear = async (req, res) => {
         presupuestoAprox: presupuestoAprox ? Number(presupuestoAprox) : null,
         notas,
         campana: campana || null,
+        campanaId: await vincularCampana(campana),
         etapa: 'NUEVO'
       },
       include: {
@@ -293,6 +295,7 @@ const actualizar = async (req, res) => {
         presupuestoAprox: presupuestoAprox ? Number(presupuestoAprox) : undefined,
         notas,
         campana: campana !== undefined ? (campana || null) : undefined,
+        campanaId: campana !== undefined ? await vincularCampana(campana) : undefined,
       }
     })
     res.json(lead)

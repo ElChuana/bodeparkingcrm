@@ -1,6 +1,7 @@
 const crypto = require('crypto')
 const prisma = require('../lib/prisma')
 const { mismoNombre: _mismoNombre } = require('../lib/deduplication')
+const { vincularCampana } = require('../lib/campanas')
 const { notificarLead } = require('../lib/notifications')
 const { VENDEDOR_FALLBACK_ID } = require('../config')
 
@@ -240,7 +241,10 @@ const crearLead = async (req, res) => {
       const actualizarLead = {}
       const presupuestoNum = numOrNull(presupuestoAprox)
       const vendedorNum = numOrNull(vendedorId)
-      if (campana       && !leadExistente.campana)          actualizarLead.campana          = campana.trim()
+      if (campana       && !leadExistente.campana) {
+        actualizarLead.campana   = campana.trim()
+        actualizarLead.campanaId = await vincularCampana(campana)
+      }
       if (presupuestoNum && !leadExistente.presupuestoAprox) actualizarLead.presupuestoAprox = presupuestoNum
       if (notas)                                             actualizarLead.notas            = [leadExistente.notas, notas.trim()].filter(Boolean).join('\n---\n')
       if (unidadInteresId && !leadExistente.unidadInteresId) actualizarLead.unidadInteresId  = unidadInteresId
@@ -292,6 +296,7 @@ const crearLead = async (req, res) => {
         unidadInteresId: unidadInteresId,
         vendedorId:      numOrNull(vendedorId),
         campana:         campana?.trim() || null,
+        campanaId:       await vincularCampana(campana),
         presupuestoAprox: numOrNull(presupuestoAprox),
         notas:           notas?.trim()   || null,
         etapa:           'NUEVO',
@@ -402,6 +407,7 @@ const webhookWebinar = async (req, res) => {
           vendedorId: numOrNull(body.vendedorId),
           etapa: esAgenda ? 'VISITA_AGENDADA' : 'NUEVO',
           campana,
+          campanaId: await vincularCampana(campana),
           notas: body.notas?.trim() || null,
         },
       })

@@ -117,16 +117,16 @@ const revisar = async (req, res) => {
     let descuentoAplicadoUF = null
     if (decision === 'APROBADA') {
       if (solicitud.tipo === 'UF') {
-        descuentoAplicadoUF = solicitud.valor
+        descuentoAplicadoUF = Number(solicitud.valor)
       } else {
         // Porcentaje → calcular sobre la suma de precios de lista
-        const base = solicitud.cotizacion.items.reduce((s, i) => s + i.precioListaUF, 0)
-        descuentoAplicadoUF = +(base * (solicitud.valor / 100)).toFixed(2)
+        const base = solicitud.cotizacion.items.reduce((s, i) => s + Number(i.precioListaUF), 0)
+        descuentoAplicadoUF = +(base * (Number(solicitud.valor) / 100)).toFixed(2)
       }
 
       await prisma.cotizacion.update({
         where: { id: solicitud.cotizacionId },
-        data: { descuentoAprobadoUF: (solicitud.cotizacion.descuentoAprobadoUF || 0) + descuentoAplicadoUF },
+        data: { descuentoAprobadoUF: Number(solicitud.cotizacion.descuentoAprobadoUF || 0) + descuentoAplicadoUF },
       })
     }
 

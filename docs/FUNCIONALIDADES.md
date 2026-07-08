@@ -54,6 +54,7 @@
 - `POST /` — crear contacto
 - `PUT /:id` — editar contacto (incluye campos extendidos)
 - Campos extendidos (agregados abr 2026): fechaNacimiento, ciudadNacimiento, estadoCivil, profesion, nacionalidad, regimenMatrimonial, direccionParticular
+- **Anti-duplicados (jul 2026)**: `POST /` rechaza con 409 si ya existe un contacto con el mismo email o teléfono (devuelve `contactoExistente`); Comuro reutiliza el contacto existente aunque su lead esté PERDIDO. Fusión histórica: `scripts/fusionar-contactos-duplicados.js` (dry-run por defecto, `--ejecutar` respalda en ~/backups/bodeparking/)
 - **No tiene página dedicada** — se edita desde LeadDetalle
 
 ### EDIFICIOS — `/api/edificios`
@@ -91,6 +92,7 @@
 - `PUT /:id/etapa` — cambiar etapa (con motivo si es PERDIDO)
 - `DELETE /:id` — eliminar (solo GERENTE)
 - Etapas: NUEVO, NO_CONTESTA, SEGUIMIENTO, COTIZACION_ENVIADA, VISITA_AGENDADA, VISITA_REALIZADA, SEGUIMIENTO_POST_VISITA, NEGOCIACION, RESERVA, PROMESA, ESCRITURA, ENTREGA, POSTVENTA, PERDIDO
+- **Campañas (jul 2026)**: `lead.campana` (texto legacy) ahora se vincula automáticamente al catálogo `campanas` vía `lead.campanaId` (`lib/campanas.js: vincularCampana`, usado en leads/public/comuro). `Campana.esWebinar` define si las ventas comisionan como webinar — el motor de comisiones usa el flag del catálogo (fallback: el texto contiene "webinar"). Backfill: `scripts/backfill-campanas.js`
 - Orígenes: INSTAGRAM, GOOGLE, REFERIDO, BROKER, VISITA_DIRECTA, WEB, META, ORIGEN, OTRO
 - Acceso filtrado por rol: VENDEDOR/BROKER solo ven sus leads asignados o en sus filtros
 - **Auto-asignación a JEFE_VENTAS** cuando ingresan por API sin vendedor asignado
