@@ -173,6 +173,7 @@
 - Auto-sincronización paso legal → estado de venta: la CONFECCIÓN **no** cambia el estado (la venta sigue en RESERVA/PROMESA); la promesa/escritura existe recién con la FIRMA_CLIENTE. Mapeo: FIRMA_CLIENTE_PROMESA y FIRMA_INMOBILIARIA_PROMESA → PROMESA; FIRMA_CLIENTE_ESCRITURA, FIRMA_INMOBILIARIA_ESCRITURA e INSCRIPCION_CBR → ESCRITURA; ENTREGADO → ENTREGADO
 - Al pasar a PROMESA/ESCRITURA/ENTREGADO por firma, se setea automáticamente `venta.fechaPromesa`/`venta.fechaEscritura`/`venta.fechaEntrega` (si estaban vacías) — esa fecha define el mes de devengo de comisiones. Lo mismo aplica al cambiar el estado a mano en la venta sin pasar fecha
 - **Historial legal** (`historial_legal`): cada cambio de paso queda registrado automáticamente con fecha y usuario que lo movió (también el paso inicial al convertir cotización). Se muestra en el timeline de VentaDetalle ("✓ fecha · usuario") y viene incluido en `GET /legal/:ventaId` y `GET /ventas/:id`
+- **Chequeo de consistencia** (frontend, `Legal.jsx`): la página Legal muestra una alerta con las ventas donde el estado no calza con el paso legal (ej: venta en ESCRITURA con escritura recién en confección), con link a cada venta
 - ProcesoLegal tiene 8 campos de fecha límite por paso (incluyendo fechaLimiteConfeccionPromesa y fechaLimiteFirmaInmobEscritura)
 - Acceso: GERENTE, JEFE_VENTAS, ABOGADO
 - Frontend: `pages/ventas/Legal.jsx`

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Table, Tag, Button, Typography, Space, Steps, Descriptions, Divider } from 'antd'
+import { Table, Tag, Button, Typography, Space, Steps, Descriptions, Divider, Alert } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { WarningOutlined, EyeOutlined } from '@ant-design/icons'
 import api from '../../services/api'
@@ -40,6 +40,19 @@ const PASOS_SIN_PROMESA = [
   'INSCRIPCION_CBR',
   'ENTREGADO'
 ]
+
+// Estado de venta que corresponde a cada paso legal (la promesa/escritura
+// existe con la firma del cliente, no con la confección)
+const ESTADO_ESPERADO_POR_PASO = {
+  CONFECCION_PROMESA:           ['RESERVA'],
+  FIRMA_CLIENTE_PROMESA:        ['PROMESA'],
+  FIRMA_INMOBILIARIA_PROMESA:   ['PROMESA'],
+  CONFECCION_ESCRITURA:         ['PROMESA', 'RESERVA'], // RESERVA si es venta sin promesa
+  FIRMA_CLIENTE_ESCRITURA:      ['ESCRITURA'],
+  FIRMA_INMOBILIARIA_ESCRITURA: ['ESCRITURA'],
+  INSCRIPCION_CBR:              ['ESCRITURA'],
+  ENTREGADO:                    ['ENTREGADO'],
+}
 
 const FECHA_POR_PASO = {
   CONFECCION_PROMESA:           'fechaLimiteConfeccionPromesa',
@@ -162,14 +175,19 @@ export default function Legal() {
   const navigate = useNavigate()
   const [mostrarTodo, setMostrarTodo] = useState(false)
 
-  const { data: ventasRaw = [], isLoading } = useQuery({
+  const { data: todas = [], isLoading } = useQuery({
     queryKey: ['ventas-legal'],
-    queryFn: () => api.get('/ventas').then(r =>
-      r.data.filter(v => ['PROMESA', 'ESCRITURA', 'ENTREGADO'].includes(v.estado))
-    )
+    queryFn: () => api.get('/ventas').then(r => r.data)
   })
 
+  const ventasRaw = todas.filter(v => ['PROMESA', 'ESCRITURA', 'ENTREGADO'].includes(v.estado))
   const ventas = mostrarTodo ? ventasRaw : ventasRaw.filter(v => v.procesoLegal?.estadoActual !== 'ENTREGADO')
+
+  // Ventas donde el estado no calza con el paso legal (datos desincronizados)
+  const inconsistentes = todas.filter(v =>
+    v.estado !== 'ANULADO' && v.procesoLegal?.estadoActual &&
+    !(ESTADO_ESPERADO_POR_PASO[v.procesoLegal.estadoActual] || []).includes(v.estado)
+  )
 
   const columns = [
     {
@@ -260,6 +278,28 @@ export default function Legal() {
           </Button>
         )}
       </div>
+      {inconsistentes.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          style={{ marginBottom: 16 }}
+          message={<Text strong>{inconsistentes.length} venta{inconsistentes.length > 1 ? 's' : ''} con estado que no calza con el paso legal</Text>}
+          description={
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              {inconsistentes.map(v => (
+                <li key={v.id} style={{ fontSize: 12 }}>
+                  <a onClick={() => navigate(`/ventas/${v.id}`)}>
+                    V{v.id} — {v.comprador?.nombre} {v.comprador?.apellido}
+                  </a>
+                  : estado <Tag color={ESTADO_VENTA_COLOR[v.estado]} style={{ marginRight: 0 }}>{ESTADO_LABEL[v.estado] || v.estado}</Tag> pero
+                  el paso legal es «{LEGAL_LABEL[v.procesoLegal.estadoActual]}»
+                </li>
+              ))}
+            </ul>
+          }
+        />
+      )}
       <Table
         dataSource={ventas}
         columns={columns}
