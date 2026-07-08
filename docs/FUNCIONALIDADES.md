@@ -170,6 +170,8 @@
 - Pasos con promesa (8): CONFECCION_PROMESA → FIRMA_CLIENTE_PROMESA → FIRMA_INMOBILIARIA_PROMESA → CONFECCION_ESCRITURA → FIRMA_CLIENTE_ESCRITURA → FIRMA_INMOBILIARIA_ESCRITURA → INSCRIPCION_CBR → ENTREGADO
 - Pasos sin promesa (5): CONFECCION_ESCRITURA → FIRMA_CLIENTE_ESCRITURA → FIRMA_INMOBILIARIA_ESCRITURA → INSCRIPCION_CBR → ENTREGADO
 - Al crear venta con promesa → estadoActual = CONFECCION_PROMESA; sin promesa → CONFECCION_ESCRITURA
+- Auto-sincronización paso legal → estado de venta: la CONFECCIÓN **no** cambia el estado (la venta sigue en RESERVA/PROMESA); la promesa/escritura existe recién con la FIRMA_CLIENTE. Mapeo: FIRMA_CLIENTE_PROMESA y FIRMA_INMOBILIARIA_PROMESA → PROMESA; FIRMA_CLIENTE_ESCRITURA, FIRMA_INMOBILIARIA_ESCRITURA e INSCRIPCION_CBR → ESCRITURA; ENTREGADO → ENTREGADO
+- Al pasar a PROMESA/ESCRITURA por firma, se setea automáticamente `venta.fechaPromesa`/`venta.fechaEscritura` (si estaban vacías) — esa fecha define el mes de devengo de comisiones
 - ProcesoLegal tiene 8 campos de fecha límite por paso (incluyendo fechaLimiteConfeccionPromesa y fechaLimiteFirmaInmobEscritura)
 - Acceso: GERENTE, JEFE_VENTAS, ABOGADO
 - Frontend: `pages/ventas/Legal.jsx`

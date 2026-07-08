@@ -1,11 +1,11 @@
 const prisma = require('../lib/prisma')
 
-// Mapeo paso legal → estado de venta (auto-sincronización)
+// Mapeo paso legal → estado de venta (auto-sincronización).
+// La confección NO cambia el estado: la promesa/escritura existe recién
+// cuando firma el cliente (eso gatilla el devengo de comisiones).
 const ESTADO_POR_PASO = {
-  CONFECCION_PROMESA:           'PROMESA',
   FIRMA_CLIENTE_PROMESA:        'PROMESA',
   FIRMA_INMOBILIARIA_PROMESA:   'PROMESA',
-  CONFECCION_ESCRITURA:         'ESCRITURA',
   FIRMA_CLIENTE_ESCRITURA:      'ESCRITURA',
   FIRMA_INMOBILIARIA_ESCRITURA: 'ESCRITURA',
   INSCRIPCION_CBR:              'ESCRITURA',
@@ -113,18 +113,22 @@ const actualizar = async (req, res) => {
       if (nuevoEstadoVenta) {
         const venta = await prisma.venta.findUnique({
           where: { id: Number(ventaId) },
-          select: { id: true, estado: true, leadId: true }
+          select: { id: true, estado: true, leadId: true, fechaPromesa: true, fechaEscritura: true }
         })
 
         if (venta && venta.estado !== nuevoEstadoVenta && venta.estado !== 'ANULADO') {
+          const dataVenta = { estado: nuevoEstadoVenta }
+          // La firma fija la fecha real de promesa/escritura (mes de devengo de comisiones)
+          if (nuevoEstadoVenta === 'PROMESA' && !venta.fechaPromesa) dataVenta.fechaPromesa = new Date()
+          if (nuevoEstadoVenta === 'ESCRITURA' && !venta.fechaEscritura) dataVenta.fechaEscritura = new Date()
           await prisma.venta.update({
             where: { id: Number(ventaId) },
-            data: { estado: nuevoEstadoVenta }
+            data: dataVenta
           })
 
           if (nuevoEstadoVenta === 'PROMESA') {
             await prisma.comision.updateMany({
-              where: { ventaId: Number(ventaId) },
+              where: { ventaId: Number(ventaId), estadoPrimera: { not: 'PAGADO' } },
               data: { estadoPrimera: 'PENDIENTE' }
             })
             if (venta.leadId) {
