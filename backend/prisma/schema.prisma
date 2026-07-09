@@ -1171,8 +1171,9 @@ model SolicitudDescuento {
   cotizacionId    Int
   solicitadoPorId Int
   revisadoPorId   Int?
-  tipo            String
+  tipo            String // UF | PESOS | PORCENTAJE | TOTAL_UF | TOTAL_PESOS
   valor           Decimal @db.Decimal(18, 6)
+  descuentoAplicadoUF Decimal? @db.Decimal(18, 6) // UF efectivamente descontadas al aprobar
   motivo          String
   estado          EstadoSolicitudDescuento @default(PENDIENTE)
   comentario      String?

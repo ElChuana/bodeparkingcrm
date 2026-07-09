@@ -10,6 +10,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import { useUF } from '../../hooks/useUF'
 
 const { Title, Text } = Typography
 
@@ -21,7 +22,40 @@ function fmt(date) {
   return date ? format(new Date(date), "d MMM yyyy HH:mm", { locale: es }) : '—'
 }
 function fmtDescuento(s) {
-  return s.tipo === 'UF' ? `${s.valor} UF` : `${s.valor}%`
+  const pesos = v => `$${Number(v).toLocaleString('es-CL')}`
+  switch (s.tipo) {
+    case 'UF':          return `−${s.valor} UF`
+    case 'PESOS':       return `−${pesos(s.valor)}`
+    case 'PORCENTAJE':  return `−${s.valor}%`
+    case 'TOTAL_UF':    return `dejar en ${s.valor} UF`
+    case 'TOTAL_PESOS': return `dejar en ${pesos(s.valor)}`
+    default:            return `${s.valor}`
+  }
+}
+
+// Total vigente de la cotización (base − packs − promos − descuentos ya aprobados)
+function totalesCotizacion(cot) {
+  const base = (cot?.items || []).reduce((s, i) => s + (i.precioListaUF || 0), 0)
+  const previos = (cot?.packs || []).reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
+    + (cot?.promociones || []).reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
+    + (cot?.descuentoAprobadoUF || 0)
+  return { base, totalActual: Math.max(base - previos, 0) }
+}
+
+// Descuento en UF que implica la solicitud. Si ya fue aprobada usa el monto
+// aplicado (auditado); si está pendiente, estima con la UF de hoy.
+function montoUFSolicitud(s, valorUF) {
+  if (s.descuentoAplicadoUF != null) return Number(s.descuentoAplicadoUF)
+  const { base, totalActual } = totalesCotizacion(s.cotizacion)
+  const v = Number(s.valor)
+  switch (s.tipo) {
+    case 'UF':          return v
+    case 'PORCENTAJE':  return +(base * v / 100).toFixed(2)
+    case 'PESOS':       return valorUF ? +(v / valorUF).toFixed(2) : null
+    case 'TOTAL_UF':    return +(totalActual - v).toFixed(2)
+    case 'TOTAL_PESOS': return valorUF ? +(totalActual - v / valorUF).toFixed(2) : null
+    default:            return null
+  }
 }
 
 // ─── Modal revisar ────────────────────────────────────────────────────
@@ -41,13 +75,14 @@ function ModalRevisar({ solicitud, onClose }) {
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
+  const { valorUF, ufAPesos, formatPesos } = useUF()
   const items = solicitud?.cotizacion?.items || []
-  const base = items.reduce((s, i) => s + i.precioListaUF, 0)
-  const montoUF = solicitud?.tipo === 'UF'
-    ? solicitud.valor
-    : +(base * (solicitud?.valor / 100)).toFixed(2)
-  const finalConDescuento = Math.max(base - montoUF, 0)
-  const pctAhorro = base > 0 ? ((montoUF / base) * 100).toFixed(1) : 0
+  const { base, totalActual } = totalesCotizacion(solicitud?.cotizacion)
+  const montoUF = solicitud ? (montoUFSolicitud(solicitud, valorUF) ?? 0) : 0
+  const finalConDescuento = Math.max(totalActual - montoUF, 0)
+  const pctAhorro = totalActual > 0 ? ((montoUF / totalActual) * 100).toFixed(1) : 0
+  // PESOS y TOTAL_PESOS se convierten con la UF vigente al momento de aprobar
+  const usaUFDelDia = ['PESOS', 'TOTAL_PESOS'].includes(solicitud?.tipo)
 
   const TIPO_UNIDAD_COLOR = { BODEGA: 'blue', ESTACIONAMIENTO: 'purple' }
 
@@ -110,10 +145,17 @@ function ModalRevisar({ solicitud, onClose }) {
               <Text type="secondary">Precio base ({items.length} unidad{items.length !== 1 ? 'es' : ''})</Text>
               <Text strong>{base.toFixed(2)} UF</Text>
             </div>
+            {/* Promos/descuentos ya aplicados */}
+            {totalActual < base && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#fafafa', borderTop: '1px solid #f0f0f0' }}>
+                <Text type="secondary">Total actual (con promos/descuentos previos)</Text>
+                <Text strong>{totalActual.toFixed(2)} UF</Text>
+              </div>
+            )}
             {/* Descuento */}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#fff7e6', borderTop: '1px solid #ffe58f' }}>
               <Text style={{ color: '#d46b08' }}>
-                Descuento solicitado ({fmtDescuento(solicitud)})
+                Pedido: {fmtDescuento(solicitud)}
               </Text>
               <Text strong style={{ color: '#d46b08' }}>− {montoUF.toFixed(2)} UF</Text>
             </div>
@@ -127,9 +169,20 @@ function ModalRevisar({ solicitud, onClose }) {
                   </Text>
                 </div>
               </div>
-              <Text strong style={{ fontSize: 20, color: '#389e0d' }}>{finalConDescuento.toFixed(2)} UF</Text>
+              <div style={{ textAlign: 'right' }}>
+                <Text strong style={{ fontSize: 20, color: '#389e0d' }}>{finalConDescuento.toFixed(2)} UF</Text>
+                {valorUF && (
+                  <div><Text type="secondary" style={{ fontSize: 11 }}>{formatPesos(ufAPesos(finalConDescuento))}</Text></div>
+                )}
+              </div>
             </div>
           </div>
+
+          {usaUFDelDia && solicitud.estado === 'PENDIENTE' && (
+            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: -8, marginBottom: 14 }}>
+              Monto estimado con la UF de hoy{valorUF ? ` (${formatPesos(valorUF)})` : ''}; se recalcula con la UF vigente al aprobar.
+            </Text>
+          )}
 
           {/* Motivo */}
           <div style={{ marginBottom: 14 }}>
@@ -173,6 +226,7 @@ function ModalRevisar({ solicitud, onClose }) {
 function TablaSolicitudes({ data, isLoading, soloGerente }) {
   const navigate = useNavigate()
   const [revisando, setRevisando] = useState(null)
+  const { valorUF } = useUF()
 
   const columns = [
     {
@@ -200,14 +254,20 @@ function TablaSolicitudes({ data, isLoading, soloGerente }) {
       )
     },
     {
-      title: 'Descuento pedido', key: 'desc', width: 140,
+      title: 'Descuento pedido', key: 'desc', width: 160,
       render: (_, s) => {
-        const base = s.cotizacion.items.reduce((sum, i) => sum + i.precioListaUF, 0)
-        const uf = s.tipo === 'UF' ? s.valor : +(base * s.valor / 100).toFixed(2)
+        const uf = montoUFSolicitud(s, valorUF)
+        const mostrarUF = s.tipo !== 'UF' && uf != null && uf > 0
         return (
           <div>
             <Text strong style={{ color: '#d46b08' }}>{fmtDescuento(s)}</Text>
-            {s.tipo === 'PORCENTAJE' && <div><Text type="secondary" style={{ fontSize: 11 }}>≈ {uf} UF</Text></div>}
+            {mostrarUF && (
+              <div>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {s.descuentoAplicadoUF != null ? '=' : '≈'} −{uf.toFixed(2)} UF
+                </Text>
+              </div>
+            )}
           </div>
         )
       }

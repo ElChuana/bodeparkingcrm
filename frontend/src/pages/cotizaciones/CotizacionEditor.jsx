@@ -232,12 +232,26 @@ function ResumenPrecio({ cotizacion }) {
 }
 
 // ── Panel solicitud de descuento ────────────────────────────────
+// Etiqueta legible de una solicitud según su tipo
+export function fmtSolicitudDescuento(s) {
+  const pesos = v => `$${Number(v).toLocaleString('es-CL')}`
+  switch (s.tipo) {
+    case 'UF':          return `−${s.valor} UF`
+    case 'PESOS':       return `−${pesos(s.valor)}`
+    case 'PORCENTAJE':  return `−${s.valor}%`
+    case 'TOTAL_UF':    return `dejar en ${s.valor} UF`
+    case 'TOTAL_PESOS': return `dejar en ${pesos(s.valor)}`
+    default:            return `${s.valor}`
+  }
+}
+
 function PanelDescuento({ cotizacionId, esGerente, soloLectura }) {
   const qc = useQueryClient()
   const { message } = App.useApp()
   const [modalOpen, setModalOpen] = useState(false)
   const [form] = Form.useForm()
-  const tipo = Form.useWatch('tipo', form)
+  const modo = Form.useWatch('modo', form)       // DESCUENTO | TOTAL
+  const moneda = Form.useWatch('moneda', form)   // UF | PESOS | PORCENTAJE
   const valor = Form.useWatch('valor', form)
   const { valorUF, ufAPesos, formatPesos } = useUF()
 
@@ -257,16 +271,28 @@ function PanelDescuento({ cotizacionId, esGerente, soloLectura }) {
 
   const cotItems = cotData?.items || []
   const base = cotItems.reduce((s, i) => s + (i.precioListaUF || 0), 0)
+  const descPacksPromos = (cotData?.packs || []).reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
+    + (cotData?.promociones || []).reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
+  // Total vigente de la cotización (con promos y descuentos ya aprobados)
+  const totalActual = Math.max(base - descPacksPromos - (cotData?.descuentoAprobadoUF || 0), 0)
+
+  // Tipo que entiende el backend, compuesto desde modo + moneda
+  const tipoCompuesto = modo === 'TOTAL'
+    ? (moneda === 'PESOS' ? 'TOTAL_PESOS' : 'TOTAL_UF')
+    : moneda === 'PESOS' ? 'PESOS' : moneda === 'PORCENTAJE' ? 'PORCENTAJE' : 'UF'
 
   const calcDescuentoUF = () => {
     if (!valor || !base) return 0
-    if (tipo === 'UF') return Number(valor)
-    if (tipo === 'PORCENTAJE') return +(base * Number(valor) / 100).toFixed(2)
-    if (tipo === 'PESOS') return valorUF ? +(Number(valor) / valorUF).toFixed(2) : 0
-    return 0
+    const v = Number(valor)
+    if (tipoCompuesto === 'UF') return v
+    if (tipoCompuesto === 'PORCENTAJE') return +(base * v / 100).toFixed(2)
+    if (!valorUF) return 0
+    if (tipoCompuesto === 'PESOS') return +(v / valorUF).toFixed(2)
+    const totalPedidoUF = tipoCompuesto === 'TOTAL_UF' ? v : +(v / valorUF).toFixed(2)
+    return +(totalActual - totalPedidoUF).toFixed(2)
   }
   const descuentoUF = calcDescuentoUF()
-  const finalUF = Math.max(base - descuentoUF, 0)
+  const finalUF = Math.max(totalActual - descuentoUF, 0)
 
   const solicitar = useMutation({
     mutationFn: (d) => api.post('/descuentos', { ...d, cotizacionId }),
@@ -293,10 +319,7 @@ function PanelDescuento({ cotizacionId, esGerente, soloLectura }) {
 
   const handleSubmit = () => {
     form.validateFields().then(v => {
-      let data = { ...v }
-      if (v.tipo === 'PESOS') {
-        data = { ...v, tipo: 'UF', valor: +(Number(v.valor) / valorUF).toFixed(2) }
-      }
+      const data = { tipo: tipoCompuesto, valor: v.valor, motivo: v.motivo }
       esGerente ? aplicarDirecto.mutate(data) : solicitar.mutate(data)
     })
   }
@@ -308,9 +331,12 @@ function PanelDescuento({ cotizacionId, esGerente, soloLectura }) {
 
   const puedeAgregarDescuento = !soloLectura && (esGerente || (!pendiente && !aprobada))
 
-  const labelValor = tipo === 'PORCENTAJE' ? 'Porcentaje' : tipo === 'PESOS' ? 'Monto en pesos' : 'Monto en UF'
-  const addonValor = tipo === 'PORCENTAJE' ? '%' : tipo === 'PESOS' ? 'CLP' : 'UF'
-  const stepValor  = tipo === 'PESOS' ? 10000 : 0.5
+  const esPesos = moneda === 'PESOS'
+  const labelValor = modo === 'TOTAL'
+    ? (esPesos ? 'Precio final en pesos' : 'Precio final en UF')
+    : moneda === 'PORCENTAJE' ? 'Porcentaje de descuento' : esPesos ? 'Descuento en pesos' : 'Descuento en UF'
+  const addonValor = moneda === 'PORCENTAJE' ? '%' : esPesos ? 'CLP' : 'UF'
+  const stepValor  = esPesos ? 10000 : 0.5
 
   return (
     <Card
@@ -339,8 +365,13 @@ function PanelDescuento({ cotizacionId, esGerente, soloLectura }) {
                 <Space size={4}>
                   <Tag color={ESTADO_COLOR[s.estado]} style={{ fontSize: 11 }}>{ESTADO_LABEL[s.estado]}</Tag>
                   <Text strong style={{ fontSize: 13 }}>
-                    {s.tipo === 'UF' ? `${s.valor} UF` : `${s.valor}%`}
+                    {fmtSolicitudDescuento(s)}
                   </Text>
+                  {s.estado === 'APROBADA' && s.descuentoAplicadoUF != null && (
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      (−{Number(s.descuentoAplicadoUF).toFixed(2)} UF)
+                    </Text>
+                  )}
                 </Space>
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   {s.solicitadoPor.nombre} {s.solicitadoPor.apellido}
@@ -373,52 +404,78 @@ function PanelDescuento({ cotizacionId, esGerente, soloLectura }) {
           />
         )}
 
-        {/* Precio base de la cotización */}
+        {/* Total vigente de la cotización */}
         {base > 0 && (
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '8px 12px', borderRadius: 6, background: '#f0f5ff',
             marginBottom: 16, marginTop: esGerente ? 12 : 0
           }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>Precio total cotización</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Total actual cotización{totalActual < base ? ' (con promos/descuentos)' : ''}
+            </Text>
             <div style={{ textAlign: 'right' }}>
-              <Text strong>{base.toFixed(2)} UF</Text>
+              <Text strong>{totalActual.toFixed(2)} UF</Text>
               {valorUF && (
                 <div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>{formatPesos(ufAPesos(base))}</Text>
+                  <Text type="secondary" style={{ fontSize: 11 }}>{formatPesos(ufAPesos(totalActual))}</Text>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        <Form form={form} layout="vertical" initialValues={{ tipo: 'UF' }} style={{ marginTop: (!esGerente || base > 0) ? 0 : 12 }}>
-          <Form.Item name="tipo" label="Tipo de descuento" rules={[{ required: true }]}>
-            <Select options={[
-              { value: 'UF',         label: 'Monto fijo en UF' },
-              { value: 'PESOS',      label: 'Monto en pesos ($)' },
-              { value: 'PORCENTAJE', label: 'Porcentaje (%)' },
-            ]} />
+        <Form form={form} layout="vertical" initialValues={{ modo: 'DESCUENTO', moneda: 'UF' }} style={{ marginTop: (!esGerente || base > 0) ? 0 : 12 }}>
+          <Form.Item name="modo" label="¿Qué vas a ingresar?" rules={[{ required: true }]}>
+            <Radio.Group
+              optionType="button" buttonStyle="solid"
+              onChange={e => {
+                if (e.target.value === 'TOTAL' && form.getFieldValue('moneda') === 'PORCENTAJE') {
+                  form.setFieldValue('moneda', 'UF')
+                }
+              }}
+              options={[
+                { value: 'DESCUENTO', label: 'Monto del descuento' },
+                { value: 'TOTAL',     label: 'Precio final (total)' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="moneda" label="Moneda" rules={[{ required: true }]}>
+            <Radio.Group
+              optionType="button"
+              options={[
+                { value: 'UF',    label: 'UF' },
+                { value: 'PESOS', label: 'Pesos ($)' },
+                ...(modo !== 'TOTAL' ? [{ value: 'PORCENTAJE', label: '%' }] : []),
+              ]}
+            />
           </Form.Item>
           <Form.Item name="valor" label={labelValor} rules={[{ required: true }]}>
             <InputNumber
-              min={tipo === 'PESOS' ? 1000 : 0.1}
+              min={esPesos ? 1000 : 0.1}
               step={stepValor}
               style={{ width: '100%' }}
               addonAfter={addonValor}
-              formatter={tipo === 'PESOS' ? v => v && Number(v).toLocaleString('es-CL') : undefined}
-              parser={tipo === 'PESOS' ? v => v.replace(/\D/g, '') : undefined}
+              formatter={esPesos ? v => v && Number(v).toLocaleString('es-CL') : undefined}
+              parser={esPesos ? v => v.replace(/\D/g, '') : undefined}
             />
           </Form.Item>
+
+          {modo === 'TOTAL' && descuentoUF <= 0 && valor > 0 && (
+            <Alert
+              type="warning" showIcon style={{ marginBottom: 16 }}
+              message={`El precio final debe ser menor al total actual (${totalActual.toFixed(2)} UF${valorUF ? ` ≈ ${formatPesos(ufAPesos(totalActual))}` : ''}).`}
+            />
+          )}
 
           {/* Preview del resultado */}
           {descuentoUF > 0 && base > 0 && (
             <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e8e8e8', marginBottom: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 12px', background: '#fafafa' }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>Precio base</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>Total actual</Text>
                 <div style={{ textAlign: 'right' }}>
-                  <Text style={{ fontSize: 12 }}>{base.toFixed(2)} UF</Text>
-                  {valorUF && <div><Text type="secondary" style={{ fontSize: 11 }}>{formatPesos(ufAPesos(base))}</Text></div>}
+                  <Text style={{ fontSize: 12 }}>{totalActual.toFixed(2)} UF</Text>
+                  {valorUF && <div><Text type="secondary" style={{ fontSize: 11 }}>{formatPesos(ufAPesos(totalActual))}</Text></div>}
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 12px', background: '#fff7e6', borderTop: '1px solid #ffe58f' }}>

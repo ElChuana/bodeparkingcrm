@@ -1,5 +1,10 @@
 const prisma = require('../lib/prisma')
 
+// El vendedor puede pedir: un monto de descuento (UF, pesos o %) o un precio
+// final (UF o pesos). Los pesos se convierten con la UF vigente al momento de
+// aprobar; el precio final se compara contra el total actual de la cotización.
+const TIPOS_SOLICITUD = ['UF', 'PESOS', 'PORCENTAJE', 'TOTAL_UF', 'TOTAL_PESOS']
+
 const INCLUDE_SOLICITUD = {
   cotizacion: {
     select: {
@@ -16,11 +21,65 @@ const INCLUDE_SOLICITUD = {
           }
         }
       },
+      packs:       { select: { descuentoAplicadoUF: true } },
+      promociones: { select: { descuentoAplicadoUF: true } },
     }
   },
   solicitadoPor: { select: { id: true, nombre: true, apellido: true, rol: true } },
   revisadoPor:   { select: { id: true, nombre: true, apellido: true } },
 }
+
+const INCLUDE_COTIZACION_CALC = { items: true, packs: true, promociones: true }
+
+async function ufVigente() {
+  const row = await prisma.uFDiaria.findFirst({ orderBy: { fecha: 'desc' } })
+  return row ? Number(row.valorPesos) : null
+}
+
+// Totales de la cotización: base (suma de lista) y total actual
+// (descontando packs, promociones y descuentos ya aprobados)
+function totalesCotizacion(cot) {
+  const base = cot.items.reduce((s, i) => s + Number(i.precioListaUF), 0)
+  const packs = (cot.packs || []).reduce((s, p) => s + Number(p.descuentoAplicadoUF || 0), 0)
+  const promos = (cot.promociones || []).reduce((s, p) => s + Number(p.descuentoAplicadoUF || 0), 0)
+  const totalActual = Math.max(base - packs - promos - Number(cot.descuentoAprobadoUF || 0), 0)
+  return { base, totalActual }
+}
+
+// Convierte una solicitud (tipo + valor) al descuento en UF que corresponde.
+// Lanza { status, mensaje } si la solicitud no procede.
+async function calcularDescuentoUF(tipo, valor, cot) {
+  const { base, totalActual } = totalesCotizacion(cot)
+  const v = Number(valor)
+  if (!(v > 0)) throw { status: 400, mensaje: 'El valor debe ser mayor que 0.' }
+
+  if (tipo === 'UF') return +v.toFixed(2)
+  if (tipo === 'PORCENTAJE') return +(base * v / 100).toFixed(2)
+
+  const uf = await ufVigente()
+  if (!uf) throw { status: 500, mensaje: 'No hay valor UF del día para convertir pesos.' }
+
+  if (tipo === 'PESOS') return +(v / uf).toFixed(2)
+
+  // TOTAL_UF / TOTAL_PESOS: el valor es el precio final deseado
+  const totalPedidoUF = tipo === 'TOTAL_UF' ? v : v / uf
+  const descuento = +(totalActual - totalPedidoUF).toFixed(2)
+  if (descuento <= 0) {
+    throw {
+      status: 400,
+      mensaje: `El precio final pedido (${totalPedidoUF.toFixed(2)} UF) no es menor que el total actual de la cotización (${totalActual.toFixed(2)} UF).`
+    }
+  }
+  return descuento
+}
+
+const fmtSolicitud = (tipo, valor) => ({
+  UF: `${valor} UF de descuento`,
+  PESOS: `$${Number(valor).toLocaleString('es-CL')} de descuento`,
+  PORCENTAJE: `${valor}% de descuento`,
+  TOTAL_UF: `precio final ${valor} UF`,
+  TOTAL_PESOS: `precio final $${Number(valor).toLocaleString('es-CL')}`,
+}[tipo] || `${valor}`)
 
 // GET /api/descuentos
 // Gerente: ve todas las pendientes (o con filtro)
@@ -66,8 +125,8 @@ const crear = async (req, res) => {
   const { cotizacionId, tipo, valor, motivo } = req.body
   if (!cotizacionId || !tipo || valor == null || !motivo)
     return res.status(400).json({ error: 'cotizacionId, tipo, valor y motivo son requeridos.' })
-  if (!['UF', 'PORCENTAJE'].includes(tipo))
-    return res.status(400).json({ error: 'tipo debe ser UF o PORCENTAJE.' })
+  if (!TIPOS_SOLICITUD.includes(tipo))
+    return res.status(400).json({ error: `tipo debe ser uno de: ${TIPOS_SOLICITUD.join(', ')}.` })
 
   try {
     // Solo puede haber una solicitud PENDIENTE por cotización
@@ -76,6 +135,19 @@ const crear = async (req, res) => {
     })
     if (pendiente)
       return res.status(400).json({ error: 'Ya existe una solicitud pendiente para esta cotización.' })
+
+    // Validar de inmediato que la solicitud tenga sentido (ej: precio final < total actual)
+    const cotizacion = await prisma.cotizacion.findUnique({
+      where: { id: Number(cotizacionId) },
+      include: INCLUDE_COTIZACION_CALC,
+    })
+    if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada.' })
+    try {
+      await calcularDescuentoUF(tipo, valor, cotizacion)
+    } catch (e) {
+      if (e.status) return res.status(e.status).json({ error: e.mensaje })
+      throw e
+    }
 
     const solicitud = await prisma.solicitudDescuento.create({
       data: {
@@ -107,21 +179,20 @@ const revisar = async (req, res) => {
   try {
     const solicitud = await prisma.solicitudDescuento.findUnique({
       where: { id: Number(req.params.id) },
-      include: { cotizacion: { include: { items: true } } }
+      include: { cotizacion: { include: INCLUDE_COTIZACION_CALC } }
     })
     if (!solicitud) return res.status(404).json({ error: 'Solicitud no encontrada.' })
     if (solicitud.estado !== 'PENDIENTE')
       return res.status(400).json({ error: 'La solicitud ya fue revisada.' })
 
-    // Si se aprueba, calcular y aplicar el descuento a la cotización
+    // Si se aprueba, calcular (con la UF vigente hoy) y aplicar a la cotización
     let descuentoAplicadoUF = null
     if (decision === 'APROBADA') {
-      if (solicitud.tipo === 'UF') {
-        descuentoAplicadoUF = Number(solicitud.valor)
-      } else {
-        // Porcentaje → calcular sobre la suma de precios de lista
-        const base = solicitud.cotizacion.items.reduce((s, i) => s + Number(i.precioListaUF), 0)
-        descuentoAplicadoUF = +(base * (Number(solicitud.valor) / 100)).toFixed(2)
+      try {
+        descuentoAplicadoUF = await calcularDescuentoUF(solicitud.tipo, solicitud.valor, solicitud.cotizacion)
+      } catch (e) {
+        if (e.status) return res.status(e.status).json({ error: e.mensaje })
+        throw e
       }
 
       await prisma.cotizacion.update({
@@ -135,6 +206,7 @@ const revisar = async (req, res) => {
       data: {
         estado: decision,
         comentario: comentario || null,
+        descuentoAplicadoUF,
         revisadoPorId: req.usuario.id,
         revisadoEn: new Date(),
       },
@@ -149,7 +221,7 @@ const revisar = async (req, res) => {
         usuarioId: solicitud.solicitadoPorId,
         tipo: 'DESCUENTO_RESUELTO',
         mensaje: decision === 'APROBADA'
-          ? `Descuento aprobado${descuentoAplicadoUF ? ` (${descuentoAplicadoUF} UF)` : ''} — cotización #${solicitud.cotizacionId}`
+          ? `Aprobado: ${fmtSolicitud(solicitud.tipo, solicitud.valor)} → ${descuentoAplicadoUF} UF de descuento — cotización #${solicitud.cotizacionId}`
           : `Descuento rechazado — cotización #${solicitud.cotizacionId}${comentario ? `: ${comentario}` : ''}`,
         referenciaId: solicitud.cotizacionId,
         referenciaTipo: 'cotizacion'
@@ -168,22 +240,22 @@ const aplicarDirecto = async (req, res) => {
     return res.status(403).json({ error: 'Solo el gerente puede aplicar descuentos directos.' })
 
   const { tipo, valor, motivo } = req.body
-  if (!['UF', 'PORCENTAJE'].includes(tipo) || valor == null)
-    return res.status(400).json({ error: 'tipo (UF|PORCENTAJE) y valor son requeridos.' })
+  if (!TIPOS_SOLICITUD.includes(tipo) || valor == null)
+    return res.status(400).json({ error: `tipo (${TIPOS_SOLICITUD.join('|')}) y valor son requeridos.` })
 
   try {
     const cotizacion = await prisma.cotizacion.findUnique({
       where: { id: Number(req.params.cotizacionId) },
-      include: { items: true }
+      include: INCLUDE_COTIZACION_CALC
     })
     if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada.' })
 
     let descuentoUF
-    if (tipo === 'UF') {
-      descuentoUF = Number(valor)
-    } else {
-      const base = cotizacion.items.reduce((s, i) => s + i.precioListaUF, 0)
-      descuentoUF = +(base * (Number(valor) / 100)).toFixed(2)
+    try {
+      descuentoUF = await calcularDescuentoUF(tipo, valor, cotizacion)
+    } catch (e) {
+      if (e.status) return res.status(e.status).json({ error: e.mensaje })
+      throw e
     }
 
     // Crear solicitud auto-aprobada para tener historial
@@ -194,6 +266,7 @@ const aplicarDirecto = async (req, res) => {
         revisadoPorId: req.usuario.id,
         tipo,
         valor: Number(valor),
+        descuentoAplicadoUF: descuentoUF,
         motivo: motivo || 'Descuento directo aplicado por gerente',
         estado: 'APROBADA',
         revisadoEn: new Date(),
@@ -204,7 +277,7 @@ const aplicarDirecto = async (req, res) => {
     // Sumar al descuento existente (no reemplazar)
     const actualizada = await prisma.cotizacion.update({
       where: { id: cotizacion.id },
-      data: { descuentoAprobadoUF: (cotizacion.descuentoAprobadoUF || 0) + descuentoUF },
+      data: { descuentoAprobadoUF: Number(cotizacion.descuentoAprobadoUF || 0) + descuentoUF },
     })
 
     res.json({ solicitud, descuentoAprobadoUF: actualizada.descuentoAprobadoUF })

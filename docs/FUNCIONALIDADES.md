@@ -365,7 +365,10 @@
 - `PUT /:id/revisar` — aprobar/rechazar
 - `PUT /cotizacion/:id/directo` — descuento directo
 - Estados: PENDIENTE, APROBADA, RECHAZADA
-- Frontend: `pages/descuentos/Descuentos.jsx`
+- **Tipos de solicitud** (`SolicitudDescuento.tipo`): `UF`, `PESOS`, `PORCENTAJE` (monto de descuento) y `TOTAL_UF`, `TOTAL_PESOS` (precio final deseado). El vendedor elige modo (descuento o total) y moneda (UF o pesos) en el formulario.
+- Conversión centralizada en `calcularDescuentoUF(tipo, valor, cotizacion)`: pesos se convierten con la **UF vigente al momento de aprobar** (tabla `uf_diaria`); los tipos TOTAL_* se comparan contra el **total actual** de la cotización (base − packs − promos − descuentos previos) y se rechazan si el precio pedido no es menor.
+- `SolicitudDescuento.descuentoAplicadoUF`: monto en UF efectivamente aplicado al aprobar (auditoría — el valor pedido en pesos/% queda separado del resultado en UF). Se valida al crear (rechazo temprano de solicitudes imposibles) y se recalcula al aprobar.
+- Frontend: `pages/descuentos/Descuentos.jsx` (revisión gerente: total actual, equivalencias en pesos con `useUF`, nota "estimado con UF de hoy" para pesos) y `PanelDescuento` en `pages/cotizaciones/CotizacionEditor.jsx` (radio modo/moneda, preview del total con descuento, `fmtSolicitudDescuento`)
 
 ### API PÚBLICA — `/api/public`
 - Archivo: `routes/public.js`
