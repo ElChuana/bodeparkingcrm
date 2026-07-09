@@ -390,6 +390,7 @@
 - Auto-asigna a JEFE_VENTAS si no se especifica vendedor
 - Usa `lib/deduplication.js`
 - Gestión de API Keys: `pages/configuracion/ApiKeys.jsx`
+- **Log de integraciones** (`middleware/logIntegraciones.js` → tabla `logs_integraciones`): registra cada request a `/api/leads/upsert` y `/api/public/*` con status, key usada, IP, payload y error devuelto. Va antes de `autenticarApiKey` para capturar también los 401. Diagnóstico de caídas del flujo de leads (agregado 2026-07-09 tras el corte del 7 jul).
 
 ### BÚSQUEDA UNIVERSAL — `/api/buscar`
 - Archivo: `routes/buscar.js`

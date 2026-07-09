@@ -1129,6 +1129,24 @@ model ApiKey {
   @@map("api_keys")
 }
 
+// Registro de requests a los endpoints de integración externa (Comuro,
+// formulario web, webinar) — diagnóstico de caídas del flujo de leads
+model LogIntegracion {
+  id         Int      @id @default(autoincrement())
+  endpoint   String
+  metodo     String
+  status     Int
+  apiKey     String? // nombre de la ApiKey usada (null si 401)
+  ip         String?
+  error      String? // body de respuesta cuando status >= 400
+  payload    Json?
+  duracionMs Int?
+  creadoEn   DateTime @default(now())
+
+  @@index([creadoEn])
+  @@map("logs_integraciones")
+}
+
 model UFDiaria {
   fecha      DateTime @id
   valorPesos Decimal  @db.Decimal(18, 2)
