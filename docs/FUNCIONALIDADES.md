@@ -374,6 +374,7 @@
 - Archivo: `routes/public.js`
 - Auth: API Key (header `X-Api-Key`)
 - `POST /leads` — crear lead desde sistema externo (formato nombre+apellido, legacy/Comuro)
+  - Si el contacto ya tiene lead y estaba frío (PERDIDO/NO_CONTESTA), reingreso lo pasa a etapa `REACTIVADO` (magenta en Kanban). La notificación de reactivación/reingreso va **solo al vendedor asignado** (`soloAVendedor` — gerencia pidió no recibirla, 2026-07-10); la señal para el resto es la etapa en el Kanban.
 - `POST /webhooks/webinar` — **Webhook único del lanzamiento (tipo Calendly)** ⭐ enruta por `estado`
   - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `estado` (`formulario-rellenado` | `agenda`), `inicio`/`fechaHora` (ISO 8601) o `fecha` "DD/MM/YYYY" + `hora` "HH:MM" (solo agenda), opcionales `vendedorId`, `campana`, `notas`
   - `estado: formulario-rellenado` → un lead **nuevo normal** (etapa NUEVO, campaña "Webinar"), notifica LEAD_NUEVO. Dedup.

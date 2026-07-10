@@ -266,11 +266,14 @@ const crearLead = async (req, res) => {
         }
       })
 
-      // Avisar a ventas (vendedor asignado + gerencia/JV; email al vendedor)
+      // Avisar solo al vendedor asignado (gerencia pidió no recibir estas
+      // notificaciones de reactivación/reingreso; el estado REACTIVADO del
+      // Kanban queda como señal visible para todos)
       const nombreLead = `${contacto.nombre || ''} ${contacto.apellido || ''}`.trim() || 'Un lead'
       await notificarLead({
         leadId: leadExistente.id,
         tipo:   'LEAD_NUEVO',
+        soloAVendedor: true,
         mensaje: reactivar
           ? `🔥 ${nombreLead} respondió la campaña — REACTIVAR (estaba ${leadExistente.etapa})`
           : `${nombreLead} volvió a dejar sus datos${campana ? ` (${campana})` : ''}`,
