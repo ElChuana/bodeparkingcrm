@@ -228,4 +228,106 @@ const subirDocumento = async (req, res) => {
   }
 }
 
-module.exports = { obtener, actualizar, subirDocumento }
+// ─── Integración externa (bot de emails legales) ──────────────────────────────
+
+// Estados de venta que se consideran "en proceso legal / activos"
+const ESTADOS_ACTIVOS = ['RESERVA', 'PROMESA', 'ESCRITURA']
+const SEMAFOROS_VALIDOS = ['AL_DIA', 'ATENCION', 'ATRASADO']
+
+// GET /api/legal/ventas-activas — lista para que el proceso externo mapee cada correo a su venta
+const listarVentasActivas = async (req, res) => {
+  try {
+    const ventas = await prisma.venta.findMany({
+      where: { estado: { in: ESTADOS_ACTIVOS } },
+      select: {
+        id: true,
+        estado: true,
+        comprador: { select: { nombre: true, apellido: true, rut: true, email: true } },
+        unidades: { select: { numero: true, edificio: { select: { nombre: true } } } },
+        procesoLegal: { select: { estadoActual: true, tienePromesa: true } },
+        resumenesLegales: {
+          orderBy: { creadoEn: 'desc' },
+          take: 1,
+          select: { resumen: true, semaforo: true, proximaAccion: true, creadoEn: true }
+        }
+      },
+      orderBy: { id: 'asc' }
+    })
+
+    res.json(ventas.map(v => ({
+      ventaId: v.id,
+      estadoVenta: v.estado,
+      comprador: `${v.comprador.nombre} ${v.comprador.apellido || ''}`.trim(),
+      rut: v.comprador.rut || null,
+      email: v.comprador.email || null,
+      unidades: v.unidades.map(u => `${u.numero}${u.edificio ? ` (${u.edificio.nombre})` : ''}`),
+      estadoLegal: v.procesoLegal?.estadoActual || null,
+      ultimoResumen: v.resumenesLegales[0] || null
+    })))
+  } catch (err) {
+    console.error('[Legal/ventas-activas]', err)
+    res.status(500).json({ error: 'Error al listar ventas activas.' })
+  }
+}
+
+// POST /api/legal/resumenes — recibe uno o varios resúmenes legales desde el proceso externo
+// Body: { resumenes: [{ ventaId, resumen, semaforo?, proximaAccion?, fuente? }] }  (o un array directo)
+const recibirResumenes = async (req, res) => {
+  const items = Array.isArray(req.body) ? req.body : req.body?.resumenes
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Se espera un array de resúmenes (o { resumenes: [...] }).' })
+  }
+
+  const creados = []
+  const noEncontrados = []
+  const errores = []
+
+  for (const item of items) {
+    const ventaId = Number(item?.ventaId)
+    const resumen = typeof item?.resumen === 'string' ? item.resumen.trim() : ''
+    if (!ventaId || !resumen) {
+      errores.push({ ventaId: item?.ventaId ?? null, error: 'ventaId y resumen son obligatorios.' })
+      continue
+    }
+
+    let semaforo = null
+    if (item.semaforo != null) {
+      const s = String(item.semaforo).toUpperCase()
+      if (!SEMAFOROS_VALIDOS.includes(s)) {
+        errores.push({ ventaId, error: `semaforo inválido: ${item.semaforo} (usar AL_DIA | ATENCION | ATRASADO).` })
+        continue
+      }
+      semaforo = s
+    }
+
+    try {
+      const venta = await prisma.venta.findUnique({ where: { id: ventaId }, select: { id: true } })
+      if (!venta) { noEncontrados.push(ventaId); continue }
+
+      const r = await prisma.resumenLegal.create({
+        data: {
+          ventaId,
+          resumen,
+          semaforo,
+          proximaAccion: item.proximaAccion ? String(item.proximaAccion) : null,
+          fuente: item.fuente ? String(item.fuente) : (req.apiKey?.nombre || 'externo')
+        },
+        select: { id: true, ventaId: true, creadoEn: true }
+      })
+      creados.push(r)
+    } catch (err) {
+      console.error('[Legal/resumenes] venta', ventaId, err.message)
+      errores.push({ ventaId, error: 'Error al guardar.' })
+    }
+  }
+
+  res.status(creados.length ? 201 : 400).json({
+    recibidos: items.length,
+    creados: creados.length,
+    detalleCreados: creados,
+    noEncontrados,
+    errores
+  })
+}
+
+module.exports = { obtener, actualizar, subirDocumento, listarVentasActivas, recibirResumenes }

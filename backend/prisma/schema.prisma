@@ -132,6 +132,13 @@ enum TipoPersona {
   SOCIEDAD
 }
 
+// Semáforo del resumen legal recibido desde el proceso externo (bot de emails)
+enum SemaforoLegal {
+  AL_DIA
+  ATENCION
+  ATRASADO
+}
+
 enum EstadoPago {
   PENDIENTE
   PAGADO
@@ -600,6 +607,7 @@ model Venta {
   beneficios       VentaBeneficio[]
   promociones      VentaPromocion[]
   postventa        Postventa[]
+  resumenesLegales ResumenLegal[]
 
   @@index([leadId])
   @@index([compradorId])
@@ -608,6 +616,25 @@ model Venta {
   @@index([gerenteId])
   @@index([estado])
   @@map("ventas")
+}
+
+// Resumen de la situación legal de una venta, generado por un proceso EXTERNO
+// (lee correos de notaría/inmobiliaria/CBR y resume). El CRM solo recibe y guarda.
+// Historial: una fila por cada resumen recibido → se ve la evolución en el tiempo.
+model ResumenLegal {
+  id            Int            @id @default(autoincrement())
+  ventaId       Int
+  resumen       String         @db.Text
+  semaforo      SemaforoLegal?
+  proximaAccion String?
+  fuente        String? // origen del resumen (ej: "email-bot")
+  creadoEn      DateTime       @default(now())
+
+  venta Venta @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+
+  @@index([ventaId])
+  @@index([creadoEn])
+  @@map("resumenes_legales")
 }
 
 model ProcesoLegal {

@@ -180,6 +180,14 @@
 - Acceso: GERENTE, JEFE_VENTAS, ABOGADO
 - Frontend: `pages/ventas/Legal.jsx`
 
+### LEGAL — Integración externa (bot de emails) — `/api/legal` (API Key)
+- Archivos: `routes/legalIntegracion.js`, `controllers/legalController.js` (montado ANTES del router JWT en `index.js`)
+- Un proceso EXTERNO lee correos de notaría/inmobiliaria/CBR y envía resúmenes; el CRM solo recibe y guarda
+- `GET /ventas-activas` — lista ventas en RESERVA/PROMESA/ESCRITURA (ventaId, comprador, unidades, estado legal, último resumen) para que el bot mapee cada correo a su venta. Auth: API Key de **lectura** (rechaza `soloEscritura`)
+- `POST /resumenes` — recibe `[{ ventaId, resumen, semaforo?, proximaAccion?, fuente? }]` (o `{ resumenes: [...] }`). Crea una fila por resumen. Auth: API Key (acepta `soloEscritura`). Responde `{ recibidos, creados, noEncontrados, errores }`
+- Modelo `ResumenLegal` (`resumenes_legales`): historial completo, una fila por resumen recibido (relación a Venta, `onDelete: Cascade`). `semaforo` enum `SemaforoLegal` = AL_DIA | ATENCION | ATRASADO
+- El último resumen por venta se obtiene con `orderBy creadoEn desc take 1` (viene en `GET /ventas-activas`)
+
 ### PAGOS — `/api/pagos`
 - Archivos: `routes/pagos.js`, `controllers/pagosController.js`
 - `POST /plan` — crear plan de pago
