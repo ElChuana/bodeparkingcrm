@@ -352,6 +352,7 @@ function VistaLista({ edificios, onNuevaUnidad }) {
       ...(esGerenciaOJV ? {
         'Precio venta UF': u.precioVentaUF ? Number(u.precioVentaUF) : '',
         'Precio compra UF': u.precioCostoUF ? Number(u.precioCostoUF) : '',
+        'Múltiplo': u.precioCostoUF ? Number((Number(u.precioVentaUF) / Number(u.precioCostoUF)).toFixed(2)) : '',
       } : {}),
       Notas: u.notas || '',
     }))
@@ -449,6 +450,21 @@ function VistaLista({ edificios, onNuevaUnidad }) {
       key: 'precioCostoUF',
       sorter: (a, b) => (a.precioCostoUF || 0) - (b.precioCostoUF || 0),
       render: v => v ? <Text type="secondary" style={{ fontSize: 12 }}>{formatUF(v)}</Text> : <Text type="secondary">—</Text>
+    }] : []),
+    ...(esGerenciaOJV ? [{
+      title: 'Múlt.',
+      key: 'multiplo',
+      sorter: (a, b) => {
+        const ma = a.precioCostoUF > 0 ? (a.precioVentaUF || 0) / a.precioCostoUF : 0
+        const mb = b.precioCostoUF > 0 ? (b.precioVentaUF || 0) / b.precioCostoUF : 0
+        return ma - mb
+      },
+      render: (_, u) => {
+        const costo = Number(u.precioCostoUF) || 0
+        const venta = Number(u.precioVentaUF) || 0
+        if (!costo) return <Text type="secondary">—</Text>
+        return <Text strong style={{ fontSize: 12 }}>{(venta / costo).toFixed(2)}×</Text>
+      }
     }] : []),
     ...(esGerenciaOJV ? [{
       title: '',
