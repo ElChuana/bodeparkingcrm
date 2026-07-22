@@ -308,34 +308,34 @@ function VistaLista({ edificios, onNuevaUnidad }) {
   const [unidadEditar, setUnidadEditar] = useState(null)
   const [modalUnidad, setModalUnidad] = useState(false)
 
-  const [filtroEdificio, setFiltroEdificio] = useState(undefined)
-  const [filtroTipo, setFiltroTipo] = useState(undefined)
-  const [filtroEstado, setFiltroEstado] = useState(undefined)
+  // Filtros múltiples (arrays). El filtrado es client-side: el inventario es chico.
+  const [filtroEdificio, setFiltroEdificio] = useState([])
+  const [filtroTipo, setFiltroTipo] = useState([])
+  const [filtroEstado, setFiltroEstado] = useState([])
   const [filtroPrecioMin, setFiltroPrecioMin] = useState(undefined)
   const [filtroPrecioMax, setFiltroPrecioMax] = useState(undefined)
   const [busqueda, setBusqueda] = useState('')
 
-  const params = {
-    ...(filtroEdificio && { edificioId: filtroEdificio }),
-    ...(filtroTipo && { tipo: filtroTipo }),
-    ...(filtroEstado && { estado: filtroEstado }),
-    ...(filtroPrecioMin && { precioMin: filtroPrecioMin }),
-    ...(filtroPrecioMax && { precioMax: filtroPrecioMax }),
-  }
-
   const { data: unidades = [], isLoading } = useQuery({
-    queryKey: ['unidades-lista', params],
-    queryFn: () => api.get('/unidades', { params }).then(r => r.data)
+    queryKey: ['unidades-lista'],
+    queryFn: () => api.get('/unidades').then(r => r.data)
   })
 
-  const hayFiltros = filtroEdificio || filtroTipo || filtroEstado || filtroPrecioMin || filtroPrecioMax || busqueda
+  const hayFiltros = filtroEdificio.length || filtroTipo.length || filtroEstado.length ||
+    filtroPrecioMin || filtroPrecioMax || busqueda
 
-  const datos = busqueda
-    ? unidades.filter(u =>
-        u.numero.toLowerCase().includes(busqueda.toLowerCase()) ||
-        u.edificio?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
-      )
-    : unidades
+  const datos = unidades.filter(u => {
+    if (filtroEdificio.length && !filtroEdificio.includes(u.edificio?.id)) return false
+    if (filtroTipo.length && !filtroTipo.includes(u.tipo)) return false
+    if (filtroEstado.length && !filtroEstado.includes(u.estado)) return false
+    if (filtroPrecioMin && (u.precioUF || 0) < filtroPrecioMin) return false
+    if (filtroPrecioMax && (u.precioUF || 0) > filtroPrecioMax) return false
+    if (busqueda) {
+      const q = busqueda.toLowerCase()
+      if (!u.numero.toLowerCase().includes(q) && !u.edificio?.nombre?.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
 
   const exportarExcel = () => {
     const filas = datos.map(u => ({
@@ -349,7 +349,10 @@ function VistaLista({ edificios, onNuevaUnidad }) {
       'm²': u.m2 ? Number(u.m2) : '',
       Estado: ESTADO_LABEL[u.estado] || u.estado,
       'Precio UF': u.precioUF ? Number(u.precioUF) : '',
-      'Precio mín UF': u.precioMinimoUF ? Number(u.precioMinimoUF) : '',
+      ...(esGerenciaOJV ? {
+        'Precio mín UF': u.precioMinimoUF ? Number(u.precioMinimoUF) : '',
+        'Precio compra UF': u.precioCostoUF ? Number(u.precioCostoUF) : '',
+      } : {}),
       Notas: u.notas || '',
     }))
     const ws = XLSX.utils.json_to_sheet(filas)
@@ -431,6 +434,13 @@ function VistaLista({ edificios, onNuevaUnidad }) {
       render: v => v ? <Text type="secondary" style={{ fontSize: 12 }}>{formatUF(v)}</Text> : <Text type="secondary">—</Text>
     }] : []),
     ...(esGerenciaOJV ? [{
+      title: 'P. compra UF',
+      dataIndex: 'precioCostoUF',
+      key: 'precioCostoUF',
+      sorter: (a, b) => (a.precioCostoUF || 0) - (b.precioCostoUF || 0),
+      render: v => v ? <Text type="secondary" style={{ fontSize: 12 }}>{formatUF(v)}</Text> : <Text type="secondary">—</Text>
+    }] : []),
+    ...(esGerenciaOJV ? [{
       title: '',
       key: 'acciones',
       render: (_, u) => (
@@ -459,26 +469,32 @@ function VistaLista({ edificios, onNuevaUnidad }) {
           size="small"
         />
         <Select
+          mode="multiple"
           placeholder="Edificio"
           value={filtroEdificio}
           onChange={setFiltroEdificio}
-          allowClear size="small" style={{ width: 180 }}
+          allowClear size="small" style={{ minWidth: 180, maxWidth: 340 }}
+          maxTagCount="responsive"
           showSearch
           filterOption={(v, o) => o.label.toLowerCase().includes(v.toLowerCase())}
           options={edificios.map(e => ({ value: e.id, label: e.nombre }))}
         />
         <Select
+          mode="multiple"
           placeholder="Tipo"
           value={filtroTipo}
           onChange={setFiltroTipo}
-          allowClear size="small" style={{ width: 160 }}
+          allowClear size="small" style={{ minWidth: 160, maxWidth: 300 }}
+          maxTagCount="responsive"
           options={[{ value: 'BODEGA', label: '📦 Bodega' }, { value: 'ESTACIONAMIENTO', label: '🚗 Estacionamiento' }]}
         />
         <Select
+          mode="multiple"
           placeholder="Estado"
           value={filtroEstado}
           onChange={setFiltroEstado}
-          allowClear size="small" style={{ width: 140 }}
+          allowClear size="small" style={{ minWidth: 140, maxWidth: 300 }}
+          maxTagCount="responsive"
           options={Object.entries(ESTADO_LABEL).map(([k, v]) => ({ value: k, label: v }))}
         />
         <InputNumber
@@ -495,7 +511,7 @@ function VistaLista({ edificios, onNuevaUnidad }) {
         />
         {hayFiltros && (
           <Button size="small" onClick={() => {
-            setFiltroEdificio(undefined); setFiltroTipo(undefined); setFiltroEstado(undefined)
+            setFiltroEdificio([]); setFiltroTipo([]); setFiltroEstado([])
             setFiltroPrecioMin(undefined); setFiltroPrecioMax(undefined); setBusqueda('')
           }}>Limpiar</Button>
         )}
