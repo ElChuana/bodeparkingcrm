@@ -544,6 +544,8 @@ function VistaLista({ edificios, onNuevaUnidad }) {
         const totVenta = datos.reduce((s, u) => s + (Number(u.precioVentaUF) || 0), 0)
         const totCompra = datos.reduce((s, u) => s + (Number(u.precioCostoUF) || 0), 0)
         const mult = totCompra > 0 ? totVenta / totCompra : null
+        const margen = totVenta - totCompra
+        const margenPct = totCompra > 0 ? (margen / totCompra) * 100 : null
         const card = (label, main, sub) => (
           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>{label}</div>
@@ -552,10 +554,11 @@ function VistaLista({ edificios, onNuevaUnidad }) {
           </div>
         )
         return (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 14 }}>
             {card('Unidades', datos.length)}
             {card('Venta total', formatUF(totVenta), ufAPesos(totVenta) ? formatPesos(ufAPesos(totVenta)) : null)}
             {card('Compra total', formatUF(totCompra), ufAPesos(totCompra) ? formatPesos(ufAPesos(totCompra)) : null)}
+            {card('Margen', formatUF(margen), margenPct != null ? `+${margenPct.toFixed(0)}% s/ compra` : null)}
             {card('Múltiplo', mult ? `${mult.toFixed(2)}×` : '—', 'venta ÷ compra')}
           </div>
         )
