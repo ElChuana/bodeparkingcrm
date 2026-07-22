@@ -187,6 +187,7 @@
 - `POST /resumenes` — recibe `[{ ventaId, resumen, semaforo?, proximaAccion?, fuente? }]` (o `{ resumenes: [...] }`). Crea una fila por resumen. Auth: API Key (acepta `soloEscritura`). Responde `{ recibidos, creados, noEncontrados, errores }`
 - Modelo `ResumenLegal` (`resumenes_legales`): historial completo, una fila por resumen recibido (relación a Venta, `onDelete: Cascade`). `semaforo` enum `SemaforoLegal` = AL_DIA | ATENCION | ATRASADO
 - El último resumen por venta se obtiene con `orderBy creadoEn desc take 1` (viene en `GET /ventas-activas`)
+- **Frontend**: el resumen se muestra en 2 lugares (componente compartido `components/ResumenLegal.jsx`, semáforo en `components/ui.jsx:SEMAFORO_LEGAL`): (1) página **Legal** — columna "Situación (IA)" con badge de semáforo + resumen (tooltip) y el detalle en la fila expandida; (2) **VentaDetalle** — bloque "Resumen de la situación (IA)" dentro de la card Proceso Legal, con último resumen + historial colapsable. Los datos llegan en `GET /ventas` (último, `resumenesLegales take 1`) y `GET /ventas/:id` (historial completo)
 
 ### PAGOS — `/api/pagos`
 - Archivos: `routes/pagos.js`, `controllers/pagosController.js`

@@ -58,6 +58,13 @@ export const ESTADO_VENTA_COLOR = {
   ANULADO: 'red',
 }
 
+// Semáforo del resumen legal (IA) recibido desde el proceso externo de correos
+export const SEMAFORO_LEGAL = {
+  AL_DIA:   { label: 'Al día',    color: 'green',  dot: '#52c41a' },
+  ATENCION: { label: 'Atención',  color: 'gold',   dot: '#faad14' },
+  ATRASADO: { label: 'Atrasado',  color: 'red',    dot: '#ff4d4f' },
+}
+
 export const ROL_LABEL = {
   GERENTE: 'Gerente',
   JEFE_VENTAS: 'Jefe de Ventas',

@@ -47,6 +47,11 @@ const listar = async (req, res) => {
             fechaLimiteCBR: true, fechaLimiteEntrega: true,
           }
         },
+        // Último resumen legal (IA) para el semáforo de la lista Legal
+        resumenesLegales: {
+          take: 1, orderBy: { creadoEn: 'desc' },
+          select: { resumen: true, semaforo: true, proximaAccion: true, creadoEn: true }
+        },
         _count: { select: { comisiones: true } }
       },
       orderBy: { creadoEn: 'desc' }
@@ -93,6 +98,8 @@ const obtener = async (req, res) => {
             }
           }
         },
+        // Historial completo de resúmenes legales (IA), más reciente primero
+        resumenesLegales: { orderBy: { creadoEn: 'desc' } },
         comisiones: { include: { usuario: { select: { nombre: true, apellido: true, rol: true } } } },
         beneficios: { include: { beneficio: true } },
         postventa: { orderBy: { fechaApertura: 'desc' } }

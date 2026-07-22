@@ -8,6 +8,7 @@ import { useUF } from '../../hooks/useUF'
 import { useUFPorFecha } from '../../hooks/useUFPorFecha'
 import { useAuth } from '../../context/AuthContext'
 import { ESTADO_VENTA_COLOR } from '../../components/ui'
+import ResumenLegal from '../../components/ResumenLegal'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
   Space, Spin, Row, Col, Steps, Table, App, Alert, Divider, Tooltip, Popconfirm,
@@ -478,6 +479,12 @@ function ProcesoLegal({ ventaId, venta }) {
         <Alert type="success" showIcon icon={<CheckCircleOutlined />}
           message="Proceso legal completado" style={{ marginBottom: 16 }} />
       )}
+
+      {/* Resumen de la situación (IA) — llega desde el proceso externo de correos */}
+      <div style={{ marginBottom: 16, padding: 12, background: '#fafcff', border: '1px solid #eef2f7', borderRadius: 8 }}>
+        <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>Resumen de la situación (IA)</Text>
+        <ResumenLegal resumenes={venta.resumenesLegales} />
+      </div>
 
       {/* Timeline */}
       <Steps items={stepsItems} direction="vertical" size="small" current={indiceActual} />

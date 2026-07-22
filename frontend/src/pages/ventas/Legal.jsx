@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Table, Tag, Button, Typography, Space, Steps, Descriptions, Divider, Alert } from 'antd'
+import { Table, Tag, Button, Typography, Space, Steps, Descriptions, Divider, Alert, Tooltip } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { WarningOutlined, EyeOutlined } from '@ant-design/icons'
 import api from '../../services/api'
-import { ESTADO_VENTA_COLOR } from '../../components/ui'
+import { ESTADO_VENTA_COLOR, SEMAFORO_LEGAL } from '../../components/ui'
+import ResumenLegal from '../../components/ResumenLegal'
 import { format, isPast } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -116,6 +117,10 @@ function ResumenVenta({ v, proceso }) {
         </Descriptions>
         <Divider style={{ margin: '4px 0' }} />
         <TimelineExpandida proceso={proceso} />
+        <div style={{ padding: '0 24px 4px' }}>
+          <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 6 }}>Resumen de la situación (IA)</Text>
+          <ResumenLegal resumenes={v.resumenesLegales} />
+        </div>
         <div style={{ textAlign: 'right' }}>
           <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/ventas/${v.id}`)}>
             Ver venta completa
@@ -261,6 +266,34 @@ export default function Legal() {
             </div>
             <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 3 }}>{idx + 1}/{pasos.length} pasos</div>
           </div>
+        )
+      }
+    },
+    {
+      title: 'Situación (IA)', key: 'ia', width: 230,
+      render: (_, v) => {
+        const r = v.resumenesLegales?.[0]
+        if (!r) return <Text type="secondary" style={{ fontSize: 11 }}>—</Text>
+        const s = SEMAFORO_LEGAL[r.semaforo]
+        return (
+          <Tooltip
+            title={
+              <div style={{ maxWidth: 320 }}>
+                {r.resumen}
+                {r.proximaAccion && <div style={{ marginTop: 6 }}><b>Próxima acción:</b> {r.proximaAccion}</div>}
+              </div>
+            }
+          >
+            <div>
+              {s && <Tag color={s.color} style={{ marginBottom: 2 }}>{s.label}</Tag>}
+              <div style={{
+                fontSize: 11, color: '#475569',
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+              }}>
+                {r.resumen}
+              </div>
+            </div>
+          </Tooltip>
         )
       }
     },
