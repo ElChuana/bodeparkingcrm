@@ -18,18 +18,29 @@ const listar = async (req, res) => {
         edificio: { select: { id: true, nombre: true, region: true, comuna: true } },
         packs: { include: { pack: { select: { nombre: true, descuentoUF: true } } } },
         beneficios: { include: { beneficio: { select: { nombre: true, tipo: true } } } },
+        // Venta asociada (para calcular el precio de venta real por unidad)
+        venta: { select: { estado: true, precioFinalUF: true, unidades: { select: { precioUF: true } } } },
         _count: { select: { llaves: true } }
       },
       orderBy: [{ edificioId: 'asc' }, { tipo: 'asc' }, { numero: 'asc' }]
     })
 
-    // Ocultar precio mínimo y precio de costo para roles sin acceso
     const resultado = unidades.map(u => {
-      if (!esGerenciaOJV) {
-        const { precioMinimoUF, precioCostoUF, ...resto } = u
-        return resto
+      const { venta, ...rest } = u
+      // Precio de venta real: si está vendida, el precio final de la venta se reparte
+      // proporcional al precio de lista de cada unidad (mismo % de descuento a cada una).
+      // Si no está vendida, es el precio de lista.
+      let precioVentaUF = Number(u.precioUF)
+      if (venta && venta.estado !== 'ANULADO') {
+        const sumaLista = venta.unidades.reduce((s, x) => s + Number(x.precioUF || 0), 0)
+        if (sumaLista > 0) precioVentaUF = Number(u.precioUF) * (Number(venta.precioFinalUF) / sumaLista)
       }
-      return u
+      // Ocultar precio mínimo, costo y venta real para roles sin acceso
+      if (!esGerenciaOJV) {
+        const { precioMinimoUF, precioCostoUF, ...pub } = rest
+        return pub
+      }
+      return { ...rest, precioVentaUF }
     })
 
     res.json(resultado)

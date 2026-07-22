@@ -350,7 +350,7 @@ function VistaLista({ edificios, onNuevaUnidad }) {
       Estado: ESTADO_LABEL[u.estado] || u.estado,
       'Precio UF': u.precioUF ? Number(u.precioUF) : '',
       ...(esGerenciaOJV ? {
-        'Precio mín UF': u.precioMinimoUF ? Number(u.precioMinimoUF) : '',
+        'Precio venta UF': u.precioVentaUF ? Number(u.precioVentaUF) : '',
         'Precio compra UF': u.precioCostoUF ? Number(u.precioCostoUF) : '',
       } : {}),
       Notas: u.notas || '',
@@ -427,11 +427,21 @@ function VistaLista({ edificios, onNuevaUnidad }) {
       )
     },
     ...(esGerenciaOJV ? [{
-      title: 'P. mín UF',
-      dataIndex: 'precioMinimoUF',
-      key: 'precioMinimoUF',
-      sorter: (a, b) => (a.precioMinimoUF || 0) - (b.precioMinimoUF || 0),
-      render: v => v ? <Text type="secondary" style={{ fontSize: 12 }}>{formatUF(v)}</Text> : <Text type="secondary">—</Text>
+      title: 'P. venta UF',
+      dataIndex: 'precioVentaUF',
+      key: 'precioVentaUF',
+      sorter: (a, b) => (a.precioVentaUF || 0) - (b.precioVentaUF || 0),
+      render: (v, u) => {
+        if (v == null) return <Text type="secondary">—</Text>
+        const lista = Number(u.precioUF) || 0
+        const desc = lista > 0 ? Math.round((1 - v / lista) * 100) : 0
+        return (
+          <div>
+            <Text strong style={{ color: '#16a34a' }}>{formatUF(v)}</Text>
+            {desc > 0 && <div><Text type="secondary" style={{ fontSize: 11 }}>-{desc}% vs lista</Text></div>}
+          </div>
+        )
+      }
     }] : []),
     ...(esGerenciaOJV ? [{
       title: 'P. compra UF',
