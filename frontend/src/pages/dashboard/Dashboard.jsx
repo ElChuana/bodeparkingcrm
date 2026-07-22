@@ -6,7 +6,7 @@ import { TeamOutlined, BellOutlined, WarningOutlined, CheckCircleOutlined } from
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import { useUF } from '../../hooks/useUF'
-import { ESTADO_VENTA_COLOR } from '../../components/ui'
+import { ESTADO_VENTA_COLOR, SEMAFORO_LEGAL } from '../../components/ui'
 import { format } from 'date-fns'
 import { isPast } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -903,6 +903,90 @@ function CuotasPendientes({ datos }) {
   )
 }
 
+// Tabla de todas las ventas activas con su resumen legal (IA)
+function TablaSituacionLegal({ ventas }) {
+  const navigate = useNavigate()
+  const activas = (ventas || []).filter(v => ['RESERVA', 'PROMESA', 'ESCRITURA'].includes(v.estado))
+
+  const columns = [
+    {
+      title: 'Comprador / Unidades', key: 'info',
+      render: (_, v) => {
+        const us = v.unidades || []
+        return (
+          <div>
+            <Text strong style={{ fontSize: 12 }}>{v.comprador?.nombre} {v.comprador?.apellido}</Text>
+            <div><Text type="secondary" style={{ fontSize: 10 }}>
+              {us.length > 0 ? us.map(u => `${u.tipo === 'BODEGA' ? 'Bodega' : 'Est.'} ${u.numero}`).join(', ') : '—'}
+              {us[0]?.edificio?.nombre ? ` — ${us[0].edificio.nombre}` : ''}
+            </Text></div>
+          </div>
+        )
+      }
+    },
+    {
+      title: 'Estado', key: 'estado', width: 90,
+      render: (_, v) => <Tag color={ESTADO_VENTA_COLOR[v.estado]} style={{ fontSize: 11 }}>{ESTADO_LABEL[v.estado]}</Tag>
+    },
+    {
+      title: 'Paso legal', key: 'paso', width: 150,
+      render: (_, v) => v.procesoLegal
+        ? <Text style={{ fontSize: 11 }}>{LEGAL_LABEL[v.procesoLegal.estadoActual]}</Text>
+        : <Text type="secondary" style={{ fontSize: 11 }}>No iniciado</Text>
+    },
+    {
+      title: 'Situación (IA)', key: 'ia',
+      render: (_, v) => {
+        const r = v.resumenesLegales?.[0]
+        if (!r) return <Text type="secondary" style={{ fontSize: 11 }}>Sin resumen aún</Text>
+        const s = SEMAFORO_LEGAL[r.semaforo]
+        return (
+          <Tooltip title={
+            <div style={{ maxWidth: 340 }}>
+              {r.resumen}
+              {r.proximaAccion && <div style={{ marginTop: 6 }}><b>Próxima acción:</b> {r.proximaAccion}</div>}
+            </div>
+          }>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+              {s && <Tag color={s.color} style={{ fontSize: 10, margin: 0, flexShrink: 0 }}>{s.label}</Tag>}
+              <span style={{
+                fontSize: 11, color: '#475569',
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+              }}>{r.resumen}</span>
+            </div>
+          </Tooltip>
+        )
+      }
+    },
+  ]
+
+  const conAlerta = activas.filter(v => v.resumenesLegales?.[0]?.semaforo === 'ATRASADO').length
+
+  return (
+    <Card
+      size="small"
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Ventas activas — situación legal</span>
+          <Tag style={{ fontSize: 10 }}>{activas.length}</Tag>
+          {conAlerta > 0 && <Tag color="red" style={{ fontSize: 10 }}>{conAlerta} atrasada{conAlerta > 1 ? 's' : ''}</Tag>}
+        </div>
+      }
+      extra={<span onClick={() => navigate('/legal')} style={{ fontSize: 11, color: '#3b82f6', cursor: 'pointer' }}>Ver legal →</span>}
+    >
+      <Table
+        dataSource={activas}
+        columns={columns}
+        rowKey="id"
+        size="small"
+        pagination={false}
+        locale={{ emptyText: 'Sin ventas activas' }}
+        onRow={(v) => ({ onClick: () => navigate(`/ventas/${v.id}`), style: { cursor: 'pointer' } })}
+      />
+    </Card>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [presetActivo, setPresetActivo] = useState('mes')
@@ -1096,6 +1180,11 @@ export default function Dashboard() {
           Leads por campaña — período seleccionado
         </div>
         <ResumenCampanas datos={leadsPorCampana} />
+      </div>
+
+      {/* Ventas activas — situación legal (IA) */}
+      <div style={{ marginBottom: 16 }}>
+        <TablaSituacionLegal ventas={ventasActivas} />
       </div>
     </div>
   )

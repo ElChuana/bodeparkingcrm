@@ -181,6 +181,11 @@ const obtener = async (req, res) => {
               fechaLimiteCBR: true, fechaLimiteEntrega: true,
             }
           },
+          // Último resumen legal (IA) para la tabla del dashboard
+          resumenesLegales: {
+            take: 1, orderBy: { creadoEn: 'desc' },
+            select: { resumen: true, semaforo: true, proximaAccion: true, creadoEn: true }
+          },
           planPago: {
             include: { cuotas: { orderBy: { numeroCuota: 'asc' } } }
           }
