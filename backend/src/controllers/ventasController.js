@@ -102,6 +102,8 @@ const obtener = async (req, res) => {
         resumenesLegales: { orderBy: { creadoEn: 'desc' } },
         comisiones: { include: { usuario: { select: { nombre: true, apellido: true, rol: true } } } },
         beneficios: { include: { beneficio: true } },
+        // Promociones aplicadas (vienen de la cotización); las de categoría BENEFICIO se muestran como beneficios
+        promociones: { include: { promocion: true } },
         postventa: { orderBy: { fechaApertura: 'desc' } }
       }
     })

@@ -1655,29 +1655,45 @@ export default function VentaDetalle() {
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <ProcesoLegal ventaId={id} venta={venta} />
             <PlanDePagos venta={venta} />
-            {venta.beneficios?.length > 0 && (
-              <Card title="Beneficios" size="small">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {venta.beneficios.map(vb => (
-                    <div key={vb.id} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '8px 12px', borderRadius: 8, background: '#f6ffed', border: '1px solid #b7eb8f'
-                    }}>
-                      <div>
-                        <Tag color="green">{vb.beneficio.tipo}</Tag>
-                        <Text strong style={{ fontSize: 13 }}>{vb.beneficio.nombre}</Text>
-                        {vb.beneficio.descripcion && <div><Text type="secondary" style={{ fontSize: 12 }}>{vb.beneficio.descripcion}</Text></div>}
-                      </div>
-                      <Tag color={
-                        vb.estado === 'COMPLETADO' ? 'green' :
-                        vb.estado === 'EN_CURSO' ? 'blue' :
-                        vb.estado === 'CANCELADO' ? 'red' : 'orange'
-                      }>{vb.estado}</Tag>
-                    </div>
-                  ))}
+            {(() => {
+              const estadoColor = (e) => e === 'COMPLETADO' ? 'green' : e === 'EN_CURSO' ? 'blue' : e === 'CANCELADO' ? 'red' : 'orange'
+              const beneficiosPromo = (venta.promociones || []).filter(p => p.categoria === 'BENEFICIO')
+              const total = (venta.beneficios?.length || 0) + beneficiosPromo.length
+              if (total === 0) return null
+              const fila = (key, tipo, nombre, desc, estado) => (
+                <div key={key} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 12px', borderRadius: 8, background: '#f6ffed', border: '1px solid #b7eb8f'
+                }}>
+                  <div>
+                    {tipo && <Tag color="green">{tipo}</Tag>}
+                    <Text strong style={{ fontSize: 13 }}>{nombre}</Text>
+                    {desc && <div><Text type="secondary" style={{ fontSize: 12 }}>{desc}</Text></div>}
+                  </div>
+                  {estado && <Tag color={estadoColor(estado)}>{estado}</Tag>}
                 </div>
-              </Card>
-            )}
+              )
+              return (
+                <Card title={`Beneficios (${total})`} size="small">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {beneficiosPromo.map(vp => fila(
+                      `p${vp.id}`,
+                      vp.promocion.tipo,
+                      vp.promocion.nombre,
+                      vp.promocion.detalle || vp.promocion.descripcion,
+                      vp.estado
+                    ))}
+                    {(venta.beneficios || []).map(vb => fila(
+                      `b${vb.id}`,
+                      vb.beneficio.tipo,
+                      vb.beneficio.nombre,
+                      vb.beneficio.descripcion,
+                      vb.estado
+                    ))}
+                  </div>
+                </Card>
+              )
+            })()}
             <Comisiones venta={venta} />
 
             {venta.postventa?.length > 0 && (
