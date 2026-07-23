@@ -1656,21 +1656,16 @@ export default function VentaDetalle() {
             <ProcesoLegal ventaId={id} venta={venta} />
             <PlanDePagos venta={venta} />
             {(() => {
-              const estadoColor = (e) => e === 'COMPLETADO' ? 'green' : e === 'EN_CURSO' ? 'blue' : e === 'CANCELADO' ? 'red' : 'orange'
               const beneficiosPromo = (venta.promociones || []).filter(p => p.categoria === 'BENEFICIO')
               const total = (venta.beneficios?.length || 0) + beneficiosPromo.length
               if (total === 0) return null
-              const fila = (key, tipo, nombre, desc, estado) => (
+              const fila = (key, tipo, nombre, desc) => (
                 <div key={key} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '8px 12px', borderRadius: 8, background: '#f6ffed', border: '1px solid #b7eb8f'
                 }}>
-                  <div>
-                    {tipo && <Tag color="green">{tipo}</Tag>}
-                    <Text strong style={{ fontSize: 13 }}>{nombre}</Text>
-                    {desc && <div><Text type="secondary" style={{ fontSize: 12 }}>{desc}</Text></div>}
-                  </div>
-                  {estado && <Tag color={estadoColor(estado)}>{estado}</Tag>}
+                  {tipo && <Tag color="green">{tipo}</Tag>}
+                  <Text strong style={{ fontSize: 13 }}>{nombre}</Text>
+                  {desc && <div><Text type="secondary" style={{ fontSize: 12 }}>{desc}</Text></div>}
                 </div>
               )
               return (
@@ -1680,15 +1675,13 @@ export default function VentaDetalle() {
                       `p${vp.id}`,
                       vp.promocion.tipo,
                       vp.promocion.nombre,
-                      vp.promocion.detalle || vp.promocion.descripcion,
-                      vp.estado
+                      vp.promocion.detalle || vp.promocion.descripcion
                     ))}
                     {(venta.beneficios || []).map(vb => fila(
                       `b${vb.id}`,
                       vb.beneficio.tipo,
                       vb.beneficio.nombre,
-                      vb.beneficio.descripcion,
-                      vb.estado
+                      vb.beneficio.descripcion
                     ))}
                   </div>
                 </Card>
