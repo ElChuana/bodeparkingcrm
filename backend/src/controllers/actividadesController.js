@@ -18,7 +18,7 @@ const listarPorLead = async (req, res) => {
 }
 
 const crear = async (req, res) => {
-  const { leadId, tipo, descripcion, fecha } = req.body
+  const { leadId, tipo, descripcion, fecha, resultado } = req.body
 
   if (!leadId || !tipo || !descripcion) {
     return res.status(400).json({ error: 'Lead, tipo y descripción son requeridos.' })
@@ -34,6 +34,7 @@ const crear = async (req, res) => {
         usuarioId: req.usuario.id,
         tipo,
         descripcion,
+        ...(resultado !== undefined && { resultado }),
         ...(fecha && { fecha: new Date(fecha) })
       },
       include: { usuario: { select: { nombre: true, apellido: true } } }

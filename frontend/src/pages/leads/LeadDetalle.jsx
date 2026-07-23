@@ -160,6 +160,94 @@ function ModalInteraccion({ open, onClose, leadId }) {
   )
 }
 
+// ─── Acciones rápidas: WhatsApp + Llamada ─────────────────────────
+function AccionesRapidas({ lead }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [popLlamada, setPopLlamada] = useState(false)
+  const [queDijo, setQueDijo] = useState('')
+  const leadId = lead.id
+  const tel = lead.contacto?.telefono
+  const waHref = tel ? linkWhatsApp(tel, `Hola ${lead.contacto.nombre}, te contacto de BodeParking.`) : null
+
+  const crear = useMutation({
+    mutationFn: (d) => api.post(`/leads/${leadId}/actividades`, { leadId, ...d }),
+    onSuccess: () => {
+      qc.invalidateQueries(['lead', leadId])
+      qc.invalidateQueries(['actividades-cal'])
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
+  const registrarWhatsApp = () => {
+    if (waHref) window.open(waHref, '_blank', 'noopener,noreferrer')
+    crear.mutate({ tipo: 'WHATSAPP', descripcion: 'WhatsApp enviado' }, {
+      onSuccess: () => message.success('WhatsApp registrado')
+    })
+  }
+
+  const registrarLlamada = (contesto) => {
+    const dijo = queDijo.trim()
+    crear.mutate({
+      tipo: 'LLAMADA',
+      resultado: contesto ? 'CONTESTO' : 'NO_CONTESTO',
+      descripcion: contesto ? (dijo || 'Contestó') : (dijo || 'No contestó')
+    }, {
+      onSuccess: () => {
+        message.success(contesto ? 'Llamada registrada' : 'Marcado: no contestó')
+        setQueDijo(''); setPopLlamada(false)
+      }
+    })
+  }
+
+  const contenidoLlamada = (
+    <div style={{ width: 260 }}>
+      {tel && (
+        <a href={`tel:${tel}`} style={{ display: 'inline-block', marginBottom: 8, fontSize: 13 }}>
+          <PhoneOutlined /> Llamar a {tel}
+        </a>
+      )}
+      <Input.TextArea
+        rows={2}
+        value={queDijo}
+        onChange={e => setQueDijo(e.target.value)}
+        placeholder="¿Qué dijo? (opcional)"
+        style={{ marginBottom: 8 }}
+        autoFocus
+      />
+      <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+        <Button danger size="small" onClick={() => registrarLlamada(false)} loading={crear.isPending}>No contestó</Button>
+        <Button type="primary" size="small" onClick={() => registrarLlamada(true)} loading={crear.isPending}>✓ Contestó</Button>
+      </Space>
+    </div>
+  )
+
+  return (
+    <Space size={4}>
+      <Button
+        size="small"
+        icon={<WhatsAppOutlined />}
+        style={{ color: '#25D366', borderColor: '#25D366' }}
+        onClick={registrarWhatsApp}
+        loading={crear.isPending}
+      >
+        WhatsApp
+      </Button>
+      <Popover
+        open={popLlamada}
+        onOpenChange={setPopLlamada}
+        trigger="click"
+        title="Registrar llamada"
+        content={contenidoLlamada}
+        placement="bottomRight"
+        destroyTooltipOnHide
+      >
+        <Button size="small" icon={<PhoneOutlined />}>Llamar</Button>
+      </Popover>
+    </Space>
+  )
+}
+
 // ─── Modal agendar visita ─────────────────────────────────────────
 function ModalVisita({ open, onClose, leadId }) {
   const qc = useQueryClient()
@@ -1082,7 +1170,11 @@ export default function LeadDetalle() {
         ) : (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-              <Text strong style={{ fontSize: 13.5 }}>{TIPO_LABEL[item.tipo] || item.tipo}</Text>
+              <Space size={6} wrap>
+                <Text strong style={{ fontSize: 13.5 }}>{TIPO_LABEL[item.tipo] || item.tipo}</Text>
+                {item.tipo === 'LLAMADA' && item.resultado === 'CONTESTO' && <Tag color="green" style={{ marginInlineEnd: 0 }}>Contestó</Tag>}
+                {item.tipo === 'LLAMADA' && item.resultado === 'NO_CONTESTO' && <Tag color="red" style={{ marginInlineEnd: 0 }}>No contestó</Tag>}
+              </Space>
               <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {formatDistanceToNow(new Date(item.fecha), { addSuffix: true, locale: es })}
               </Text>
@@ -1114,6 +1206,7 @@ export default function LeadDetalle() {
           </Space>
         </div>
         <Space wrap>
+          <AccionesRapidas lead={lead} />
           <Button size="small" onClick={() => setModalInteraccion(true)}>+ Actividad</Button>
           <Button size="small" icon={<CalendarOutlined />} onClick={() => setModalVisita(true)}>Agendar visita</Button>
           <Button size="small" icon={<FileTextOutlined />} onClick={() => navigate(`/cotizaciones/nueva?leadId=${id}`)}>
