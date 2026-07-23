@@ -223,26 +223,42 @@ function AccionesRapidas({ lead }) {
   )
 
   return (
-    <Space size={4}>
-      <Button
-        size="small"
-        icon={<WhatsAppOutlined />}
-        style={{ color: '#25D366', borderColor: '#25D366' }}
-        onClick={registrarWhatsApp}
-        loading={crear.isPending}
-      >
-        WhatsApp
-      </Button>
+    <Space size={10}>
+      <Tooltip title="Enviar WhatsApp y registrar">
+        <Button
+          shape="circle"
+          size="large"
+          icon={<WhatsAppOutlined style={{ fontSize: 22 }} />}
+          onClick={registrarWhatsApp}
+          loading={crear.isPending}
+          style={{
+            width: 48, height: 48,
+            background: '#25D366', borderColor: '#25D366', color: '#fff',
+            boxShadow: '0 4px 12px -2px #25D36688'
+          }}
+        />
+      </Tooltip>
       <Popover
         open={popLlamada}
         onOpenChange={setPopLlamada}
         trigger="click"
         title="Registrar llamada"
         content={contenidoLlamada}
-        placement="bottomRight"
+        placement="bottomLeft"
         destroyTooltipOnHide
       >
-        <Button size="small" icon={<PhoneOutlined />}>Llamar</Button>
+        <Tooltip title="Registrar llamada">
+          <Button
+            shape="circle"
+            size="large"
+            icon={<PhoneOutlined style={{ fontSize: 22 }} />}
+            style={{
+              width: 48, height: 48,
+              background: '#1677ff', borderColor: '#1677ff', color: '#fff',
+              boxShadow: '0 4px 12px -2px #1677ff88'
+            }}
+          />
+        </Tooltip>
       </Popover>
     </Space>
   )
@@ -1198,15 +1214,17 @@ export default function LeadDetalle() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
-        <div>
-          <Title level={4} style={{ margin: 0 }}>{lead.contacto.nombre} {lead.contacto.apellido}</Title>
-          <Space style={{ marginTop: 6 }}>
-            <Tag color={ETAPA_COLOR[lead.etapa]}>{ETAPA_LABEL[lead.etapa]}</Tag>
-            {lead.contacto.origen && <Tag>{lead.contacto.origen.toLowerCase().replace('_', ' ')}</Tag>}
-          </Space>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <AccionesRapidas lead={lead} />
+          <div>
+            <Title level={4} style={{ margin: 0 }}>{lead.contacto.nombre} {lead.contacto.apellido}</Title>
+            <Space style={{ marginTop: 6 }}>
+              <Tag color={ETAPA_COLOR[lead.etapa]}>{ETAPA_LABEL[lead.etapa]}</Tag>
+              {lead.contacto.origen && <Tag>{lead.contacto.origen.toLowerCase().replace('_', ' ')}</Tag>}
+            </Space>
+          </div>
         </div>
         <Space wrap>
-          <AccionesRapidas lead={lead} />
           <Button size="small" onClick={() => setModalInteraccion(true)}>+ Actividad</Button>
           <Button size="small" icon={<CalendarOutlined />} onClick={() => setModalVisita(true)}>Agendar visita</Button>
           <Button size="small" icon={<FileTextOutlined />} onClick={() => navigate(`/cotizaciones/nueva?leadId=${id}`)}>
