@@ -1687,6 +1687,39 @@ export default function VentaDetalle() {
                 </Card>
               )
             })()}
+            {(() => {
+              const descuentos = (venta.promociones || []).filter(p => p.categoria === 'DESCUENTO')
+              if (descuentos.length === 0) return null
+              const totalDesc = descuentos.reduce((s, vp) => s + Number(vp.descuentoAplicadoUF || 0), 0)
+              return (
+                <Card
+                  title={`Promociones (${descuentos.length})`}
+                  size="small"
+                  extra={totalDesc > 0 && <Text strong style={{ color: '#cf1322' }}>−{totalDesc.toLocaleString('es-CL', { maximumFractionDigits: 2 })} UF</Text>}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {descuentos.map(vp => {
+                      const desc = Number(vp.descuentoAplicadoUF || 0)
+                      return (
+                        <div key={`d${vp.id}`} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '8px 12px', borderRadius: 8, background: '#fff1f0', border: '1px solid #ffccc7'
+                        }}>
+                          <div>
+                            {vp.promocion.tipo && <Tag color="red">{vp.promocion.tipo}</Tag>}
+                            <Text strong style={{ fontSize: 13 }}>{vp.promocion.nombre}</Text>
+                            {(vp.promocion.detalle || vp.promocion.descripcion) && (
+                              <div><Text type="secondary" style={{ fontSize: 12 }}>{vp.promocion.detalle || vp.promocion.descripcion}</Text></div>
+                            )}
+                          </div>
+                          {desc > 0 && <Text strong style={{ color: '#cf1322', whiteSpace: 'nowrap' }}>−{desc.toLocaleString('es-CL', { maximumFractionDigits: 2 })} UF</Text>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </Card>
+              )
+            })()}
             <Comisiones venta={venta} />
 
             {venta.postventa?.length > 0 && (
