@@ -1067,6 +1067,17 @@ export default function LeadDetalle() {
     onError: err => message.error(err.response?.data?.error || 'Error al cambiar etapa')
   })
 
+  // Registrar actividad de WhatsApp (usado al tocar el número de teléfono)
+  const registrarWhatsApp = useMutation({
+    mutationFn: () => api.post(`/leads/${id}/actividades`, { leadId: Number(id), tipo: 'WHATSAPP', descripcion: 'WhatsApp enviado' }),
+    onSuccess: () => {
+      message.success('WhatsApp registrado')
+      qc.invalidateQueries(['lead', Number(id)])
+      qc.invalidateQueries(['actividades-cal'])
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error')
+  })
+
   const handleConfirmarPerdido = (values) => {
     cambiarEtapa.mutate(
       { etapa: 'PERDIDO', ...values },
@@ -1292,7 +1303,8 @@ export default function LeadDetalle() {
                         href={linkWhatsApp(lead.contacto.telefono, `Hola ${lead.contacto.nombre}, te contacto de BodeParking.`)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Abrir WhatsApp con mensaje"
+                        title="Abrir WhatsApp y registrar"
+                        onClick={() => registrarWhatsApp.mutate()}
                       >
                         <Space size={6}><WhatsAppOutlined style={{ color: '#25D366' }} /><Text style={{ fontSize: 13 }}>{lead.contacto.telefono}</Text></Space>
                       </a>
