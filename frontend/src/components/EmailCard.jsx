@@ -247,6 +247,15 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
   const qc = useQueryClient()
   const { valorUF } = useUF()
 
+  // Plantillas personales del usuario; si no tiene ninguna, se usan las de ejemplo
+  const { data: misPlantillas = [] } = useQuery({
+    queryKey: ['plantillas-email-compositor'],
+    queryFn: () => api.get('/plantillas-email').then(r => r.data)
+  })
+  const plantillasUI = misPlantillas.length > 0
+    ? misPlantillas.map(p => ({ key: `db${p.id}`, label: p.nombre, asunto: p.asunto, cuerpo: p.cuerpo }))
+    : PLANTILLAS
+
   const { data: emails = [], isLoading: cargandoEmails } = useQuery({
     queryKey: ['email-conversacion', leadId],
     queryFn: () => api.get(`/email/conversacion/${leadId}`).then(r => r.data),
@@ -310,11 +319,10 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
     }
   }, [leadId, noLeidos])
 
-  const aplicarPlantilla = (key) => {
-    const p = PLANTILLAS.find(x => x.key === key)
+  const aplicarPlantilla = (p) => {
     if (!p) return
-    setAsunto(p.asunto)
-    setCuerpo(p.cuerpo.replace(/\{nombre\}/g, nombreLead || ''))
+    setAsunto((p.asunto || '').replace(/\{nombre\}/g, nombreLead || ''))
+    setCuerpo((p.cuerpo || '').replace(/\{nombre\}/g, nombreLead || ''))
     setMostrarComposer(true)
     setTimeout(() => textareaRef.current?.focus(), 80)
   }
@@ -515,10 +523,10 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
           flexWrap: 'wrap',
           alignItems: 'center',
         }}>
-          {PLANTILLAS.map(p => (
+          {plantillasUI.map(p => (
             <button
               key={p.key}
-              onClick={() => aplicarPlantilla(p.key)}
+              onClick={() => aplicarPlantilla(p)}
               style={{
                 background: '#f9fafb',
                 border: '1px solid #e5e7eb',

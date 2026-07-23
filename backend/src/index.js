@@ -54,6 +54,7 @@ app.use('/api/public',      require('./routes/public'))
 app.use('/api/buscar',      require('./routes/buscar'))
 app.use('/api/descuentos',  require('./routes/descuentos'))
 app.use('/api/email',       require('./routes/email'))
+app.use('/api/plantillas-email', require('./routes/plantillasEmail'))
 app.use('/api/leads/:id/recordatorios', require('./routes/recordatorios'))
 app.use('/api/recordatorios',           require('./routes/recordatorios-completar'))
 

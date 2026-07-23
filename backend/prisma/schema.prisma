@@ -311,8 +311,27 @@ model Usuario {
   reglasComision          ReglaComision[]
   arriendosComoVendedor   Arriendo[]              @relation("VendedorArriendo")
   cambiosLegales          HistorialLegal[]
+  plantillasEmail         PlantillaEmail[]
 
   @@map("usuarios")
+}
+
+// Plantillas de email personales — cada usuario crea/edita las suyas.
+// Se usan como plantillas rápidas en el compositor de emails (EmailCard).
+model PlantillaEmail {
+  id            Int      @id @default(autoincrement())
+  usuarioId     Int
+  nombre        String
+  asunto        String
+  cuerpo        String   @db.Text
+  orden         Int      @default(0)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("plantillas_email")
 }
 
 model Edificio {

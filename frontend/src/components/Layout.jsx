@@ -8,7 +8,7 @@ import {
   DollarOutlined, TagOutlined, CarOutlined, KeyOutlined,
   BarChartOutlined, UserSwitchOutlined, ThunderboltOutlined,
   MenuOutlined, LogoutOutlined, CalendarOutlined, PercentageOutlined, ApiOutlined, SettingOutlined,
-  BellOutlined, FileTextOutlined
+  BellOutlined, FileTextOutlined, MailOutlined
 } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
@@ -42,6 +42,7 @@ function SidebarContent({ selectedKey, onNavigate }) {
         { key: '/leads',          label: 'Leads',          icon: <TeamOutlined />,   roles: null,                     modulo: 'leads' },
         { key: '/notificaciones', label: 'Notificaciones', icon: <BellOutlined />,   roles: null,                     modulo: null },
         { key: '/mi-reporte',     label: 'Mi reporte IA',  icon: <FileTextOutlined />, roles: null,                   modulo: 'mi-reporte' },
+        { key: '/plantillas-email', label: 'Plantillas email', icon: <MailOutlined />, roles: null,                  modulo: null },
         { key: '/asignacion', label: 'Asignación',  icon: <UserSwitchOutlined />, roles: ['GERENTE','JEFE_VENTAS'],         modulo: 'asignacion' },
         { key: '/visitas',    label: 'Visitas',     icon: <CalendarOutlined />,  roles: null,                              modulo: 'visitas' },
       ]

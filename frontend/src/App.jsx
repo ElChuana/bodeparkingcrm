@@ -31,6 +31,7 @@ const CotizacionEditor = lazy(() => import('./pages/cotizaciones/CotizacionEdito
 const Descuentos = lazy(() => import('./pages/descuentos/Descuentos'))
 const ApiKeys = lazy(() => import('./pages/configuracion/ApiKeys'))
 const MiPerfil = lazy(() => import('./pages/perfil/MiPerfil'))
+const PlantillasEmail = lazy(() => import('./pages/plantillas/PlantillasEmail'))
 const CentroAsignacion = lazy(() => import('./pages/asignacion/CentroAsignacion'))
 const PreviewPDF = lazy(() => import('./pages/cotizaciones/PreviewPDF'))
 const Notificaciones = lazy(() => import('./pages/notificaciones/Notificaciones'))
@@ -126,6 +127,7 @@ export default function App() {
                   <Route path="descuentos"  element={<RutaProtegida modulo="descuentos"><Descuentos /></RutaProtegida>} />
                   <Route path="configuracion/api-keys" element={<RutaProtegida roles={['GERENTE']} modulo="api-keys"><ApiKeys /></RutaProtegida>} />
                   <Route path="perfil"      element={<RutaProtegida><MiPerfil /></RutaProtegida>} />
+                  <Route path="plantillas-email" element={<RutaProtegida><PlantillasEmail /></RutaProtegida>} />
                   <Route path="notificaciones" element={<RutaProtegida><Notificaciones /></RutaProtegida>} />
                   <Route path="mi-reporte" element={<RutaProtegida modulo="mi-reporte"><MiReporte /></RutaProtegida>} />
                   <Route path="reporte-semanal" element={<RutaProtegida roles={['GERENTE']} modulo="reporte-semanal"><ReporteSemanal /></RutaProtegida>} />

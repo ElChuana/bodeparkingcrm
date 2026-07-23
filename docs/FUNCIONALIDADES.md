@@ -419,6 +419,13 @@
 - Componente: `components/ModalEmail.jsx` (muestra preview de firma, carga plantilla del usuario)
 - Configuración en `pages/perfil/MiPerfil.jsx`: email, plantillas (2 tabs), firma (editor HTML + preview)
 
+### PLANTILLAS DE EMAIL PERSONALES — `/api/plantillas-email`
+- Archivos: `routes/plantillasEmail.js`, `controllers/plantillasEmailController.js`
+- Modelo `PlantillaEmail` (tabla `plantillas_email`): id, usuarioId, nombre, asunto, cuerpo, orden. **Personales** — cada usuario solo ve/edita las suyas.
+- `GET /` — mis plantillas · `POST /` — crear · `PUT /:id` — editar · `DELETE /:id` — eliminar · `POST /sembrar-base` — cargar 5 plantillas de ejemplo (solo si no tiene ninguna)
+- Frontend: página `pages/plantillas/PlantillasEmail.jsx` (ruta `/plantillas-email`, menú General). Variable `{nombre}` = nombre del lead.
+- **Compositor** (`EmailCard.jsx`): las plantillas rápidas ahora salen de las del usuario; si no tiene ninguna, usa las 5 de ejemplo hardcodeadas como fallback.
+
 ### CENTRO DE ASIGNACIÓN — `/asignacion`
 - Archivo: `pages/asignacion/CentroAsignacion.jsx`
 - Acceso: GERENTE y JEFE_VENTAS únicamente
