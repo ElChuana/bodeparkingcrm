@@ -75,8 +75,13 @@
 - `DELETE /:id/archivos/:archivoId` — eliminar archivo
 - Tipos: BODEGA, ESTACIONAMIENTO
 - Estados: DISPONIBLE, RESERVADO, VENDIDO, ARRENDADO
-- Campos: precioUF, precioMinimoUF, precioCostoUF, m2, piso, techado, acceso
+- Campos: precioUF, precioVentaUF, precioMinimoUF, precioCostoUF, m2, piso, techado, acceso
 - Frontend: `pages/inventario/Inventario.jsx`
+- **Precio catálogo vs precio venta** (jul 2026): `precioUF` = precio de catálogo; `precioVentaUF` = precio pactado en la venta (con descuento), **congelado** al convertir la cotización (prorrateo del `precioFinalUF` proporcional al lista de cada unidad). Son independientes.
+  - El catálogo (`precioUF`) se **bloquea** cuando la unidad está RESERVADO/VENDIDO (backend rechaza el cambio; input deshabilitado en el modal). Los descuentos van a la venta, nunca bajando el catálogo.
+  - Al **anular** una venta las unidades vuelven a DISPONIBLE con `precioVentaUF = null`.
+  - `GET /unidades` devuelve `precioVentaUF` (el congelado; para disponibles cae al catálogo). Oculto a roles fuera de GERENTE/JEFE_VENTAS.
+  - Resuelve el descuadre cabecera↔suma-unidades (antes el precio de venta se calculaba al vuelo y se editaba el catálogo para descontar). Datos históricos migrados 2026-07-27.
 
 ### LEADS — `/api/leads`
 - Archivos: `routes/leads.js`, `controllers/leadsController.js`

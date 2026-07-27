@@ -141,7 +141,14 @@ function ModalUnidad({ open, onClose, edificioId, unidad, onSuccess }) {
         )}
         <Row gutter={12}>
           <Col span={12}>
-            <Form.Item name="precioUF" label="Precio UF" rules={[{ required: true }]}><Input type="number" step="0.01" /></Form.Item>
+            <Form.Item
+              name="precioUF"
+              label="Precio UF (catálogo)"
+              rules={[{ required: true }]}
+              extra={['RESERVADO', 'VENDIDO'].includes(unidad?.estado) ? 'Bloqueado: la unidad está vendida. El precio pactado se ajusta desde la venta.' : undefined}
+            >
+              <Input type="number" step="0.01" disabled={['RESERVADO', 'VENDIDO'].includes(unidad?.estado)} />
+            </Form.Item>
           </Col>
           {esGerenciaOJV && (
             <Col span={12}>

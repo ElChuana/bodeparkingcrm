@@ -152,7 +152,7 @@ const actualizarEstado = async (req, res) => {
       await prisma.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'VENDIDO' } })
       await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'ENTREGA' } })
     } else if (estado === 'ANULADO') {
-      await prisma.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'DISPONIBLE', ventaId: null } })
+      await prisma.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'DISPONIBLE', ventaId: null, precioVentaUF: null } })
       await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'PERDIDO', motivoPerdida: 'Venta anulada' } })
     } else if (estado === 'PROMESA') {
       await prisma.comision.updateMany({ where: { ventaId: Number(id) }, data: { estadoPrimera: 'PENDIENTE' } })

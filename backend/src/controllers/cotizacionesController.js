@@ -583,10 +583,17 @@ const convertir = async (req, res) => {
         }
       })
 
+      // Congelar el precio pactado por unidad: se reparte el precio final de la
+      // venta proporcional al precio de lista de cada unidad (mismo % de descuento).
+      // Queda independiente del catálogo (unidad.precioUF), que se bloquea al vender.
+      const sumaListaItems = cotizacion.items.reduce((s, i) => s + Number(i.precioListaUF || 0), 0)
       for (const item of cotizacion.items) {
+        const precioVentaUF = sumaListaItems > 0
+          ? +(Number(item.precioListaUF) * (precioFinalUF / sumaListaItems)).toFixed(6)
+          : Number(item.precioListaUF)
         await tx.unidad.update({
           where: { id: item.unidadId },
-          data: { ventaId: nuevaVenta.id, estado: 'RESERVADO' }
+          data: { ventaId: nuevaVenta.id, estado: 'RESERVADO', precioVentaUF }
         })
       }
 

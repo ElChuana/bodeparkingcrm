@@ -363,7 +363,8 @@ model Unidad {
   m2             Float?
   techado        Boolean?
   acceso         AccesoUnidad?
-  precioUF       Decimal                 @db.Decimal(18, 6)
+  precioUF       Decimal                 @db.Decimal(18, 6) // precio de catálogo; se bloquea al vender
+  precioVentaUF  Decimal?                @db.Decimal(18, 6) // precio pactado en la venta (con descuento); congelado al vender, null si disponible
   precioMinimoUF Decimal?                @db.Decimal(18, 6)
   precioCostoUF  Decimal?                @db.Decimal(18, 6)
   estado         EstadoUnidad            @default(DISPONIBLE)

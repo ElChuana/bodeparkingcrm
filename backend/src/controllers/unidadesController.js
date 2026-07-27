@@ -18,29 +18,21 @@ const listar = async (req, res) => {
         edificio: { select: { id: true, nombre: true, region: true, comuna: true } },
         packs: { include: { pack: { select: { nombre: true, descuentoUF: true } } } },
         beneficios: { include: { beneficio: { select: { nombre: true, tipo: true } } } },
-        // Venta asociada (para calcular el precio de venta real por unidad)
-        venta: { select: { estado: true, precioFinalUF: true, unidades: { select: { precioUF: true } } } },
         _count: { select: { llaves: true } }
       },
       orderBy: [{ edificioId: 'asc' }, { tipo: 'asc' }, { numero: 'asc' }]
     })
 
     const resultado = unidades.map(u => {
-      const { venta, ...rest } = u
-      // Precio de venta real: si está vendida, el precio final de la venta se reparte
-      // proporcional al precio de lista de cada unidad (mismo % de descuento a cada una).
-      // Si no está vendida, es el precio de lista.
-      let precioVentaUF = Number(u.precioUF)
-      if (venta && venta.estado !== 'ANULADO') {
-        const sumaLista = venta.unidades.reduce((s, x) => s + Number(x.precioUF || 0), 0)
-        if (sumaLista > 0) precioVentaUF = Number(u.precioUF) * (Number(venta.precioFinalUF) / sumaLista)
-      }
+      // Precio de venta: el pactado congelado en la venta (unidad.precioVentaUF).
+      // Si la unidad está disponible (aún no pactada), se muestra el de catálogo.
+      const precioVentaUF = u.precioVentaUF != null ? Number(u.precioVentaUF) : Number(u.precioUF)
       // Ocultar precio mínimo, costo y venta real para roles sin acceso
       if (!esGerenciaOJV) {
-        const { precioMinimoUF, precioCostoUF, ...pub } = rest
+        const { precioMinimoUF, precioCostoUF, precioVentaUF: _oculto, ...pub } = u
         return pub
       }
-      return { ...rest, precioVentaUF }
+      return { ...u, precioVentaUF }
     })
 
     res.json(resultado)
@@ -117,13 +109,23 @@ const actualizar = async (req, res) => {
   } = req.body
 
   try {
+    const actual = await prisma.unidad.findUnique({ where: { id: Number(id) }, select: { estado: true, precioUF: true } })
+    if (!actual) return res.status(404).json({ error: 'Unidad no encontrada.' })
+
+    // El precio de catálogo se bloquea cuando la unidad está reservada o vendida:
+    // el precio pactado vive en la venta (precioVentaUF), no en el catálogo.
+    const vendida = ['RESERVADO', 'VENDIDO'].includes(actual.estado)
+    if (vendida && precioUF !== undefined && Number(precioUF) !== Number(actual.precioUF)) {
+      return res.status(400).json({ error: 'No se puede cambiar el precio de catálogo de una unidad reservada o vendida. El precio pactado se ajusta desde la venta.' })
+    }
+
     const unidad = await prisma.unidad.update({
       where: { id: Number(id) },
       data: {
         tipo, subtipo, numero, piso,
         m2: m2 ? Number(m2) : undefined,
         techado, acceso,
-        precioUF: precioUF ? Number(precioUF) : undefined,
+        precioUF: (precioUF && !vendida) ? Number(precioUF) : undefined,
         precioMinimoUF: precioMinimoUF !== undefined ? Number(precioMinimoUF) : undefined,
         precioCostoUF: precioCostoUF !== undefined ? Number(precioCostoUF) : undefined,
         estado, notas
