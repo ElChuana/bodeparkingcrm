@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Row, Col, Spin, Empty,
-  Typography, Space, App, InputNumber, Table, Segmented, Tooltip
+  Typography, Space, App, InputNumber, Table, Segmented, Tooltip, DatePicker
 } from 'antd'
+import dayjs from 'dayjs'
 import {
   PlusOutlined, HomeOutlined, AppstoreOutlined, BarsOutlined, SearchOutlined, FileExcelOutlined
 } from '@ant-design/icons'
@@ -42,7 +43,12 @@ function ModalEdificio({ open, onClose, edificio }) {
       cancelText="Cancelar"
       confirmLoading={guardar.isPending}
     >
-      <Form form={form} layout="vertical" initialValues={edificio || {}} style={{ marginTop: 16 }}>
+      <Form
+        form={form}
+        layout="vertical"
+        initialValues={edificio ? { ...edificio, fechaEscritura: edificio.fechaEscritura ? dayjs(edificio.fechaEscritura) : null } : {}}
+        style={{ marginTop: 16 }}
+      >
         <Form.Item name="nombre" label="Nombre" rules={[{ required: true }]}>
           <Input />
         </Form.Item>
@@ -66,6 +72,9 @@ function ModalEdificio({ open, onClose, edificio }) {
         </Form.Item>
         <Form.Item name="contactoInmobiliaria" label="Contacto inmobiliaria">
           <Input />
+        </Form.Item>
+        <Form.Item name="fechaEscritura" label="Fecha de compra / escritura">
+          <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} placeholder="Seleccionar fecha" />
         </Form.Item>
       </Form>
     </Modal>
@@ -202,6 +211,11 @@ function DetalleEdificio({ edificioId, onBack }) {
         <Button type="link" onClick={onBack} style={{ padding: 0 }}>← Volver</Button>
         <Title level={4} style={{ margin: 0 }}>{edificio?.nombre}</Title>
         <Tag>{edificio?.region}, {edificio?.comuna}</Tag>
+        {edificio?.fechaEscritura && (
+          <Tooltip title="Fecha de compra / escritura del proyecto">
+            <Tag color="blue">Escriturado {dayjs(edificio.fechaEscritura).format('DD/MM/YYYY')}</Tag>
+          </Tooltip>
+        )}
       </div>
 
       {edificio?.inmobiliaria && (
@@ -672,8 +686,13 @@ export default function Inventario() {
                     {e.inmobiliaria && <div><Text type="secondary" style={{ fontSize: 12 }}>{e.inmobiliaria}</Text></div>}
                   </div>
                 </div>
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                   <Text type="secondary" style={{ fontSize: 13 }}>{e._count?.unidades || 0} unidades</Text>
+                  {e.fechaEscritura && (
+                    <Tooltip title="Fecha de compra / escritura">
+                      <Text type="secondary" style={{ fontSize: 12 }}>📄 {dayjs(e.fechaEscritura).format('DD/MM/YYYY')}</Text>
+                    </Tooltip>
+                  )}
                 </div>
               </Card>
             </Col>

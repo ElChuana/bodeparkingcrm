@@ -1,5 +1,12 @@
 const prisma = require('../lib/prisma')
 
+// Acepta null/'' → null, y cualquier fecha parseable (ISO o Date) → Date.
+const fechaOrNull = (v) => {
+  if (v === null || v === undefined || v === '') return null
+  const d = new Date(v)
+  return isNaN(d.getTime()) ? null : d
+}
+
 const listar = async (req, res) => {
   try {
     const edificios = await prisma.edificio.findMany({
@@ -35,13 +42,13 @@ const obtener = async (req, res) => {
 }
 
 const crear = async (req, res) => {
-  const { nombre, direccion, region, comuna, inmobiliaria, contactoInmobiliaria, descripcion } = req.body
+  const { nombre, direccion, region, comuna, inmobiliaria, contactoInmobiliaria, descripcion, fechaEscritura } = req.body
   if (!nombre || !direccion || !region || !comuna) {
     return res.status(400).json({ error: 'Nombre, dirección, región y comuna son requeridos.' })
   }
   try {
     const edificio = await prisma.edificio.create({
-      data: { nombre, direccion, region, comuna, inmobiliaria, contactoInmobiliaria, descripcion }
+      data: { nombre, direccion, region, comuna, inmobiliaria, contactoInmobiliaria, descripcion, fechaEscritura: fechaOrNull(fechaEscritura) }
     })
     res.status(201).json(edificio)
   } catch (err) {
@@ -51,11 +58,11 @@ const crear = async (req, res) => {
 
 const actualizar = async (req, res) => {
   const { id } = req.params
-  const { nombre, direccion, region, comuna, inmobiliaria, contactoInmobiliaria, descripcion, activo } = req.body
+  const { nombre, direccion, region, comuna, inmobiliaria, contactoInmobiliaria, descripcion, activo, fechaEscritura } = req.body
   try {
     const edificio = await prisma.edificio.update({
       where: { id: Number(id) },
-      data: { nombre, direccion, region, comuna, inmobiliaria, contactoInmobiliaria, descripcion, activo }
+      data: { nombre, direccion, region, comuna, inmobiliaria, contactoInmobiliaria, descripcion, activo, fechaEscritura: fechaOrNull(fechaEscritura) }
     })
     res.json(edificio)
   } catch (err) {

@@ -59,6 +59,7 @@
 
 ### EDIFICIOS — `/api/edificios`
 - Archivos: `routes/edificios.js`, `controllers/edificiosController.js`
+- Campos: nombre, dirección, región, comuna, inmobiliaria, contactoInmobiliaria, descripción, `fechaEscritura` (fecha de compra/escritura del proyecto), activo
 - `GET /` — listar todos
 - `GET /:id` — detalle
 - `POST /` — crear (GERENTE, JEFE_VENTAS)

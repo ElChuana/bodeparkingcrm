@@ -343,6 +343,7 @@ model Edificio {
   inmobiliaria         String?
   contactoInmobiliaria String?
   descripcion          String?
+  fechaEscritura       DateTime? // fecha de compra/escritura del proyecto
   activo               Boolean  @default(true)
   creadoEn             DateTime @default(now())
   actualizadoEn        DateTime @updatedAt
