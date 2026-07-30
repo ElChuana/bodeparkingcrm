@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma')
 const { aplicarReglasComision } = require('../lib/comisiones')
+const { calcularTotalesVenta, prorratearPrecioVenta } = require('../lib/precios')
 
 const INCLUDE_COMPLETO = {
   lead: {
@@ -553,13 +554,13 @@ const convertir = async (req, res) => {
       return res.status(400).json({ error: `Las siguientes unidades ya no están disponibles: ${nums}` })
     }
 
-    const precioListaUF = cotizacion.items.reduce((s, i) => s + i.precioListaUF, 0)
-    const descuentoPacksLegacyUF = cotizacion.packs.reduce((s, p) => s + p.descuentoAplicadoUF, 0)
-    const descuentoPromosUF = cotizacion.promociones.reduce((s, p) => s + p.descuentoAplicadoUF, 0)
-    // En la venta los descuentos de packs y promociones se consolidan en descuentoPacksUF
-    const descuentoPacksUF = descuentoPacksLegacyUF + descuentoPromosUF
-    const descuentoAprobadoUF = cotizacion.descuentoAprobadoUF || 0
-    const precioFinalUF = Math.max(precioListaUF - descuentoPacksUF - descuentoAprobadoUF, 0)
+    // Totales de la cabecera (packs y promociones se consolidan en descuentoPacksUF)
+    const { precioListaUF, descuentoPacksUF, descuentoAprobadoUF, precioFinalUF } = calcularTotalesVenta({
+      items: cotizacion.items,
+      packs: cotizacion.packs,
+      promociones: cotizacion.promociones,
+      descuentoAprobadoUF: cotizacion.descuentoAprobadoUF,
+    })
 
     const gerentes = await prisma.usuario.findMany({ where: { rol: 'GERENTE', activo: true }, select: { id: true } })
     const gerenteId = gerentes[0]?.id || null
@@ -586,13 +587,9 @@ const convertir = async (req, res) => {
       // Congelar el precio pactado por unidad: se reparte el precio final de la
       // venta proporcional al precio de lista de cada unidad (mismo % de descuento).
       // Queda independiente del catálogo (unidad.precioUF), que se bloquea al vender.
-      const sumaListaItems = cotizacion.items.reduce((s, i) => s + Number(i.precioListaUF || 0), 0)
-      for (const item of cotizacion.items) {
-        const precioVentaUF = sumaListaItems > 0
-          ? +(Number(item.precioListaUF) * (precioFinalUF / sumaListaItems)).toFixed(6)
-          : Number(item.precioListaUF)
+      for (const { unidadId, precioVentaUF } of prorratearPrecioVenta(cotizacion.items, precioFinalUF)) {
         await tx.unidad.update({
-          where: { id: item.unidadId },
+          where: { id: unidadId },
           data: { ventaId: nuevaVenta.id, estado: 'RESERVADO', precioVentaUF }
         })
       }
