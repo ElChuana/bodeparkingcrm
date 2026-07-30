@@ -339,24 +339,16 @@ const crearLead = async (req, res) => {
   }
 }
 
-// ─── GET /api/public/leads/:id ────────────────────────────────────
-// Consultar estado de un lead creado vía API
-const obtenerLead = async (req, res) => {
-  try {
-    const lead = await prisma.lead.findUnique({
-      where: { id: Number(req.params.id) },
-      select: {
-        id: true, etapa: true, campana: true, creadoEn: true,
-        contacto: { select: { nombre: true, apellido: true, email: true } },
-        venta:    { select: { id: true, estado: true } },
-      }
-    })
-    if (!lead) return res.status(404).json({ error: 'Lead no encontrado.' })
-    res.json(lead)
-  } catch {
-    res.status(500).json({ error: 'Error al consultar lead.' })
-  }
-}
+// ─── GET /api/public/leads/:id — ELIMINADO (2026-07-30) ───────────
+//
+// Se quitó por IDOR: cualquier API Key de lectura podía recorrer id=1..N y
+// extraer nombre, apellido, email y estado de venta de TODA la base de leads.
+// No había forma de acotar la consulta al dueño de la key (no existe vínculo
+// Lead↔ApiKey en el schema), y el endpoint registraba 0 llamadas en 90 días.
+//
+// Si alguna integración necesita consultar el estado de un lead, NO restaurar
+// esto tal cual: agregar primero `creadoPorApiKeyId` en Lead y filtrar por esa
+// key en el where, para que cada integración solo vea lo que ella creó.
 
 // ─── POST /api/public/webhooks/webinar ────────────────────────────
 // Webhook único del lanzamiento (tipo Calendly). Enruta según `estado`:
@@ -631,4 +623,4 @@ const eliminarKey = async (req, res) => {
   }
 }
 
-module.exports = { crearLead, obtenerLead, disponibilidad, webhookWebinar, listarKeys, crearKey, desactivarKey, eliminarKey }
+module.exports = { crearLead, disponibilidad, webhookWebinar, listarKeys, crearKey, desactivarKey, eliminarKey }

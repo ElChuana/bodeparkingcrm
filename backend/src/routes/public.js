@@ -4,13 +4,13 @@ const { autenticarApiKey, bloquearSoloEscritura } = require('../middleware/apiKe
 const { logIntegracion } = require('../middleware/logIntegraciones')
 const { autenticar, autorizar } = require('../middleware/auth')
 const {
-  crearLead, obtenerLead, disponibilidad, webhookWebinar,
+  crearLead, disponibilidad, webhookWebinar,
   listarKeys, crearKey, desactivarKey, eliminarKey,
 } = require('../controllers/publicController')
 
 // API pública para integraciones externas (autenticación por API Key)
 router.post('/leads',            logIntegracion, autenticarApiKey, crearLead)
-router.get('/leads/:id',         logIntegracion, autenticarApiKey, bloquearSoloEscritura, obtenerLead)
+// GET /leads/:id eliminado por IDOR (2026-07-30) — ver nota en publicController.js
 router.get('/disponibilidad',    logIntegracion, autenticarApiKey, disponibilidad)
 router.post('/webhooks/webinar', logIntegracion, autenticarApiKey, webhookWebinar)
 
