@@ -16,7 +16,14 @@ CREATE TABLE IF NOT EXISTS "recordatorios" (
 );
 
 -- AddForeignKey
-ALTER TABLE "recordatorios" ADD CONSTRAINT IF NOT EXISTS "recordatorios_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "leads"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Postgres no soporta ADD CONSTRAINT IF NOT EXISTS; se usa un bloque DO idempotente.
+DO $$ BEGIN
+  ALTER TABLE "recordatorios" ADD CONSTRAINT "recordatorios_leadId_fkey" FOREIGN KEY ("leadId") REFERENCES "leads"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "recordatorios" ADD CONSTRAINT IF NOT EXISTS "recordatorios_creadoPorId_fkey" FOREIGN KEY ("creadoPorId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "recordatorios" ADD CONSTRAINT "recordatorios_creadoPorId_fkey" FOREIGN KEY ("creadoPorId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
