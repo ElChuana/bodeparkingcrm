@@ -1,11 +1,15 @@
 const prisma = require('../lib/prisma')
 const { notificarLead } = require('../lib/notifications')
+const { puedeAccederLead } = require('../lib/acceso')
 
 const TIPOS_VALIDOS = ['REUNION_COMERCIAL', 'LLAMADA', 'WHATSAPP', 'EMAIL', 'OTRO']
 
 const listarPorLead = async (req, res) => {
   const { leadId } = req.params
   try {
+    if (!(await puedeAccederLead(req.usuario, leadId))) {
+      return res.status(404).json({ error: 'Lead no encontrado.' })
+    }
     const actividades = await prisma.actividad.findMany({
       where: { leadId: Number(leadId) },
       include: { usuario: { select: { nombre: true, apellido: true, rol: true } } },
@@ -28,6 +32,9 @@ const crear = async (req, res) => {
   }
 
   try {
+    if (!(await puedeAccederLead(req.usuario, leadId))) {
+      return res.status(404).json({ error: 'Lead no encontrado.' })
+    }
     const actividad = await prisma.actividad.create({
       data: {
         leadId: Number(leadId),
@@ -65,6 +72,10 @@ const actualizar = async (req, res) => {
     return res.status(400).json({ error: 'Tipo de actividad inválido.' })
   }
   try {
+    const existente = await prisma.actividad.findUnique({ where: { id: Number(id) }, select: { leadId: true } })
+    if (!existente || !(await puedeAccederLead(req.usuario, existente.leadId))) {
+      return res.status(404).json({ error: 'Actividad no encontrada.' })
+    }
     const actividad = await prisma.actividad.update({
       where: { id: Number(id) },
       data: {
@@ -84,6 +95,10 @@ const actualizar = async (req, res) => {
 const eliminar = async (req, res) => {
   const { id } = req.params
   try {
+    const existente = await prisma.actividad.findUnique({ where: { id: Number(id) }, select: { leadId: true } })
+    if (!existente || !(await puedeAccederLead(req.usuario, existente.leadId))) {
+      return res.status(404).json({ error: 'Actividad no encontrada.' })
+    }
     await prisma.actividad.delete({ where: { id: Number(id) } })
     res.json({ ok: true })
   } catch (err) {

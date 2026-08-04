@@ -1,10 +1,17 @@
 const prisma = require('../lib/prisma')
+const { filtroAcceso, ROLES_ACCESO_TOTAL } = require('../lib/acceso')
+
+// Gerencia/JV/Abogado ven todos los contactos; el resto solo los que tienen
+// algún lead accesible por ellos (evita exponer toda la base de clientes).
+const filtroContactoPorRol = (usuario) =>
+  ROLES_ACCESO_TOTAL.includes(usuario.rol) ? {} : { leads: { some: filtroAcceso(usuario) } }
 
 const listar = async (req, res) => {
   const { search, origen, tipoPersona } = req.query
   try {
     const contactos = await prisma.contacto.findMany({
       where: {
+        ...filtroContactoPorRol(req.usuario),
         ...(origen && { origen }),
         ...(tipoPersona && { tipoPersona }),
         ...(search && {
@@ -30,8 +37,8 @@ const listar = async (req, res) => {
 const obtener = async (req, res) => {
   const { id } = req.params
   try {
-    const contacto = await prisma.contacto.findUnique({
-      where: { id: Number(id) },
+    const contacto = await prisma.contacto.findFirst({
+      where: { id: Number(id), ...filtroContactoPorRol(req.usuario) },
       include: {
         leads: {
           include: {

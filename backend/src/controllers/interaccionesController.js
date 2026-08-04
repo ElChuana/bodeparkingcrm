@@ -1,11 +1,15 @@
 const prisma = require('../lib/prisma')
 const { notificarUsuario } = require('../lib/notifications')
+const { puedeAccederLead } = require('../lib/acceso')
 
 // Interacciones = NOTAS (comentarios libres). Las acciones con fecha (llamada,
 // email, whatsapp, reunión) viven en el modelo Actividad → actividadesController.
 const listarPorLead = async (req, res) => {
   const { leadId } = req.params
   try {
+    if (!(await puedeAccederLead(req.usuario, leadId))) {
+      return res.status(404).json({ error: 'Lead no encontrado.' })
+    }
     const interacciones = await prisma.interaccion.findMany({
       where: { leadId: Number(leadId), tipo: 'NOTA' },
       include: { usuario: { select: { nombre: true, apellido: true, rol: true } } },
@@ -25,6 +29,9 @@ const crear = async (req, res) => {
   }
 
   try {
+    if (!(await puedeAccederLead(req.usuario, leadId))) {
+      return res.status(404).json({ error: 'Lead no encontrado.' })
+    }
     const interaccion = await prisma.interaccion.create({
       data: {
         leadId: Number(leadId),
@@ -128,7 +135,9 @@ const toggleReaccion = async (req, res) => {
       where: { id: Number(id) },
       select: { id: true, leadId: true, usuarioId: true, descripcion: true }
     })
-    if (!nota) return res.status(404).json({ error: 'Nota no encontrada.' })
+    if (!nota || !(await puedeAccederLead(req.usuario, nota.leadId))) {
+      return res.status(404).json({ error: 'Nota no encontrada.' })
+    }
 
     const existente = await prisma.reaccionNota.findUnique({
       where: { interaccionId_usuarioId_emoji: { interaccionId: nota.id, usuarioId: req.usuario.id, emoji } }
@@ -175,7 +184,9 @@ const crearRespuesta = async (req, res) => {
       where: { id: Number(id) },
       select: { id: true, leadId: true, usuarioId: true }
     })
-    if (!nota) return res.status(404).json({ error: 'Nota no encontrada.' })
+    if (!nota || !(await puedeAccederLead(req.usuario, nota.leadId))) {
+      return res.status(404).json({ error: 'Nota no encontrada.' })
+    }
 
     const respuesta = await prisma.respuestaNota.create({
       data: { interaccionId: nota.id, usuarioId: req.usuario.id, descripcion },

@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma')
 const { notificarLead } = require('../lib/notifications')
 const { vincularCampana } = require('../lib/campanas')
+const { filtroAcceso } = require('../lib/acceso')
 
 // Búsqueda por nombre, apellido, email o teléfono (case-insensitive)
 const buscarContactoIds = async (search) => {
@@ -32,25 +33,6 @@ const ETAPA_LABEL = {
 }
 
 // Filtro de acceso según rol
-const filtroAcceso = (usuario) => {
-  if (['GERENTE', 'JEFE_VENTAS', 'ABOGADO'].includes(usuario.rol)) return {}
-
-  const condiciones = [
-    { vendedorId: usuario.id },
-  ]
-
-  if (usuario.campanasFiltro?.length > 0)
-    condiciones.push({ campana: { in: usuario.campanasFiltro } })
-
-  if (usuario.edificiosFiltro?.length > 0)
-    condiciones.push({ unidadInteres: { edificioId: { in: usuario.edificiosFiltro } } })
-
-  if (usuario.leadsIndividualesFiltro?.length > 0)
-    condiciones.push({ id: { in: usuario.leadsIndividualesFiltro } })
-
-  return { OR: condiciones }
-}
-
 const listar = async (req, res) => {
   const { etapa, vendedorId, edificioId, origen, tipoUnidad, search, desde, hasta, sinActividad, campana, sinAsignar } = req.query
   try {
@@ -285,13 +267,22 @@ const crear = async (req, res) => {
 const actualizar = async (req, res) => {
   const { id } = req.params
   const { unidadInteresId, vendedorId, presupuestoAprox, notas, campana } = req.body
+  const puedeReasignar = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
 
   try {
+    // Verificar acceso al lead antes de editar (evita IDOR de escritura)
+    const existente = await prisma.lead.findFirst({
+      where: { id: Number(id), ...filtroAcceso(req.usuario) },
+      select: { id: true }
+    })
+    if (!existente) return res.status(404).json({ error: 'Lead no encontrado.' })
+
     const lead = await prisma.lead.update({
       where: { id: Number(id) },
       data: {
         unidadInteresId: unidadInteresId ? Number(unidadInteresId) : undefined,
-        vendedorId: vendedorId !== undefined ? (vendedorId ? Number(vendedorId) : null) : undefined,
+        // Solo gerencia/JV puede reasignar el vendedor (evita que un vendedor se robe leads)
+        vendedorId: (puedeReasignar && vendedorId !== undefined) ? (vendedorId ? Number(vendedorId) : null) : undefined,
         presupuestoAprox: presupuestoAprox ? Number(presupuestoAprox) : undefined,
         notas,
         campana: campana !== undefined ? (campana || null) : undefined,

@@ -60,7 +60,7 @@ const obtener = async (req, res) => {
     if (!unidad) return res.status(404).json({ error: 'Unidad no encontrada.' })
 
     if (!esGerenciaOJV) {
-      const { precioMinimoUF, precioCostoUF, ...resto } = unidad
+      const { precioMinimoUF, precioCostoUF, precioVentaUF, ...resto } = unidad
       return res.json(resto)
     }
 

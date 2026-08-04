@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
 const { autenticar } = require('../middleware/auth')
+const { filtroAcceso, ROLES_ACCESO_TOTAL } = require('../lib/acceso')
 
 router.use(autenticar)
 
@@ -22,18 +23,27 @@ router.get('/', async (req, res) => {
     }))
   })
 
+  // Acota los resultados a lo que el usuario puede ver (mismo criterio que el resto del CRM)
+  const { rol, id: usuarioId } = req.usuario
+  const accesoTotal = ROLES_ACCESO_TOTAL.includes(rol)
+  const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(rol)
+  const filtroLead = accesoTotal ? {} : filtroAcceso(req.usuario)
+  const filtroVenta = !esGerenciaOJV && rol !== 'ABOGADO' ? { OR: [{ vendedorId: usuarioId }, { brokerId: usuarioId }] } : {}
+  const filtroContacto = accesoTotal ? {} : { leads: { some: filtroAcceso(req.usuario) } }
+  const conAcceso = (base, extra) => Object.keys(extra).length ? { AND: [base, extra] } : base
+
   try {
     const [leads, unidades, ventas, contactos] = await Promise.all([
 
       // Leads — busca por nombre/email/teléfono del contacto
       prisma.lead.findMany({
-        where: todasLasPalabras([
+        where: conAcceso(todasLasPalabras([
           (p) => ({ contacto: { nombre: { contains: p, mode: modo } } }),
           (p) => ({ contacto: { apellido: { contains: p, mode: modo } } }),
           (p) => ({ contacto: { email: { contains: p, mode: modo } } }),
           (p) => ({ contacto: { telefono: { contains: p, mode: modo } } }),
           (p) => ({ contacto: { rut: { contains: p, mode: modo } } }),
-        ]),
+        ]), filtroLead),
         select: {
           id: true, etapa: true, creadoEn: true,
           contacto: { select: { nombre: true, apellido: true, email: true, telefono: true } },
@@ -59,13 +69,13 @@ router.get('/', async (req, res) => {
 
       // Ventas — busca por nombre del comprador o número de unidad
       prisma.venta.findMany({
-        where: todasLasPalabras([
+        where: conAcceso(todasLasPalabras([
           (p) => ({ comprador: { nombre: { contains: p, mode: modo } } }),
           (p) => ({ comprador: { apellido: { contains: p, mode: modo } } }),
           (p) => ({ comprador: { rut: { contains: p, mode: modo } } }),
           (p) => ({ unidades: { some: { numero: { contains: p, mode: modo } } } }),
           (p) => ({ unidades: { some: { edificio: { nombre: { contains: p, mode: modo } } } } }),
-        ]),
+        ]), filtroVenta),
         select: {
           id: true, estado: true, precioFinalUF: true,
           comprador: { select: { nombre: true, apellido: true } },
@@ -77,14 +87,14 @@ router.get('/', async (req, res) => {
 
       // Contactos — búsqueda directa
       prisma.contacto.findMany({
-        where: todasLasPalabras([
+        where: conAcceso(todasLasPalabras([
           (p) => ({ nombre: { contains: p, mode: modo } }),
           (p) => ({ apellido: { contains: p, mode: modo } }),
           (p) => ({ email: { contains: p, mode: modo } }),
           (p) => ({ telefono: { contains: p, mode: modo } }),
           (p) => ({ rut: { contains: p, mode: modo } }),
           (p) => ({ empresa: { contains: p, mode: modo } }),
-        ]),
+        ]), filtroContacto),
         select: {
           id: true, nombre: true, apellido: true, email: true, telefono: true, empresa: true,
           _count: { select: { leads: true } }

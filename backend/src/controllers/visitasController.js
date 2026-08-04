@@ -1,8 +1,12 @@
 const prisma = require('../lib/prisma')
+const { puedeAccederLead } = require('../lib/acceso')
 
 const listarPorLead = async (req, res) => {
   const { leadId } = req.params
   try {
+    if (!(await puedeAccederLead(req.usuario, leadId))) {
+      return res.status(404).json({ error: 'Lead no encontrado.' })
+    }
     const visitas = await prisma.visita.findMany({
       where: { leadId: Number(leadId) },
       include: {
@@ -65,6 +69,9 @@ const crear = async (req, res) => {
   }
 
   try {
+    if (!(await puedeAccederLead(req.usuario, leadId))) {
+      return res.status(404).json({ error: 'Lead no encontrado.' })
+    }
     const visita = await prisma.visita.create({
       data: {
         leadId: Number(leadId),
@@ -105,6 +112,10 @@ const actualizarResultado = async (req, res) => {
   const { resultado, notas } = req.body
 
   try {
+    const actual = await prisma.visita.findUnique({ where: { id: Number(id) }, select: { leadId: true } })
+    if (!actual || !(await puedeAccederLead(req.usuario, actual.leadId))) {
+      return res.status(404).json({ error: 'Visita no encontrada.' })
+    }
     const visita = await prisma.visita.update({
       where: { id: Number(id) },
       data: { resultado, notas }
@@ -139,6 +150,10 @@ const actualizar = async (req, res) => {
   const { fechaHora, tipo, notas, edificioId, vendedorId, enlace } = req.body
 
   try {
+    const actual = await prisma.visita.findUnique({ where: { id: Number(id) }, select: { leadId: true } })
+    if (!actual || !(await puedeAccederLead(req.usuario, actual.leadId))) {
+      return res.status(404).json({ error: 'Visita no encontrada.' })
+    }
     const visita = await prisma.visita.update({
       where: { id: Number(id) },
       data: {

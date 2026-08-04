@@ -3,6 +3,7 @@ const router = express.Router()
 const { body, validationResult } = require('express-validator')
 const { enviarEmail } = require('../lib/mailer')
 const { autenticar } = require('../middleware/auth')
+const { puedeAccederLead } = require('../lib/acceso')
 const prisma = require('../lib/prisma')
 const { Resend } = require('resend')
 
@@ -255,12 +256,20 @@ router.put('/firma', autenticar, async (req, res) => {
 // El payload de Resend solo trae metadatos (sin body). Se llama al API para obtener HTML.
 // Evento: { type: "email.received", data: { email_id, from, to, subject, ... } }
 router.post('/respuesta', async (req, res) => {
+  // Protección opt-in contra spoofing: si se configura INBOUND_WEBHOOK_TOKEN,
+  // se exige que la URL del webhook en Resend incluya ?token=<valor>.
+  // (Ideal a futuro: verificar la firma svix de Resend con su signing secret.)
+  const tokenEsperado = process.env.INBOUND_WEBHOOK_TOKEN
+  if (tokenEsperado && req.query.token !== tokenEsperado) {
+    return res.status(401).json({ error: 'No autorizado.' })
+  }
+
   // Responder 200 rápido — Resend reintenta si no recibe 2xx en tiempo
   res.json({ ok: true })
 
   try {
     const { type, data } = req.body
-    console.log('[Inbound] payload recibido:', JSON.stringify({ type, data }))
+    console.log('[Inbound] payload recibido:', JSON.stringify({ type: type, data: { ...data, html: undefined } }))
 
     // ── Tracking de apertura ──────────────────────────────────────
     if (type === 'email.opened' && data?.email_id) {
@@ -350,6 +359,9 @@ router.post('/respuesta', async (req, res) => {
 router.get('/conversacion/:leadId', autenticar, async (req, res) => {
   const { leadId } = req.params
   try {
+    if (!(await puedeAccederLead(req.usuario, leadId))) {
+      return res.status(404).json({ error: 'Lead no encontrado.' })
+    }
     const emails = await prisma.emailConversacion.findMany({
       where: { leadId: parseInt(leadId) },
       include: { usuario: { select: { nombre: true, apellido: true } } },
@@ -365,6 +377,9 @@ router.get('/conversacion/:leadId', autenticar, async (req, res) => {
 router.patch('/conversacion/:leadId/leer', autenticar, async (req, res) => {
   const { leadId } = req.params
   try {
+    if (!(await puedeAccederLead(req.usuario, leadId))) {
+      return res.status(404).json({ error: 'Lead no encontrado.' })
+    }
     await prisma.emailConversacion.updateMany({
       where: { leadId: parseInt(leadId), direction: 'RECIBIDO', leido: false },
       data: { leido: true },

@@ -106,6 +106,14 @@ const listar = async (req, res) => {
 // GET /api/descuentos/cotizacion/:cotizacionId
 const porCotizacion = async (req, res) => {
   try {
+    // El vendedor solo ve solicitudes de cotizaciones que creó (evita IDOR)
+    const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
+    const cot = await prisma.cotizacion.findFirst({
+      where: { id: Number(req.params.cotizacionId), ...(!esGerenciaOJV && { creadoPorId: req.usuario.id }) },
+      select: { id: true },
+    })
+    if (!cot) return res.status(404).json({ error: 'Cotización no encontrada.' })
+
     const solicitudes = await prisma.solicitudDescuento.findMany({
       where: { cotizacionId: Number(req.params.cotizacionId) },
       include: INCLUDE_SOLICITUD,
@@ -136,9 +144,11 @@ const crear = async (req, res) => {
     if (pendiente)
       return res.status(400).json({ error: 'Ya existe una solicitud pendiente para esta cotización.' })
 
-    // Validar de inmediato que la solicitud tenga sentido (ej: precio final < total actual)
-    const cotizacion = await prisma.cotizacion.findUnique({
-      where: { id: Number(cotizacionId) },
+    // Validar de inmediato que la solicitud tenga sentido (ej: precio final < total actual).
+    // Solo el creador de la cotización (o JV) puede solicitar descuento sobre ella.
+    const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
+    const cotizacion = await prisma.cotizacion.findFirst({
+      where: { id: Number(cotizacionId), ...(!esGerenciaOJV && { creadoPorId: req.usuario.id }) },
       include: INCLUDE_COTIZACION_CALC,
     })
     if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada.' })

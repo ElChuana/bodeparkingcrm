@@ -67,7 +67,7 @@ const ventas = async (req, res) => {
       orderBy: { creadoEn: 'desc' }
     })
 
-    const totalUF = data.reduce((s, v) => s + (v.precioUF - (v.descuentoUF || 0)), 0)
+    const totalUF = data.reduce((s, v) => s + Number(v.precioFinalUF || 0), 0)
     const porEstado = {}
     data.forEach(v => { porEstado[v.estado] = (porEstado[v.estado] || 0) + 1 })
 

@@ -65,9 +65,15 @@ const listar = async (req, res) => {
 
 const obtener = async (req, res) => {
   const { id } = req.params
+  const { rol, id: usuarioId } = req.usuario
+  const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(rol)
+  // Vendedor/broker solo acceden a sus propias ventas (evita IDOR)
+  const filtroRol = !esGerenciaOJV && rol !== 'ABOGADO'
+    ? { OR: [{ vendedorId: usuarioId }, { brokerId: usuarioId }] }
+    : {}
   try {
-    const venta = await prisma.venta.findUnique({
-      where: { id: Number(id) },
+    const venta = await prisma.venta.findFirst({
+      where: { id: Number(id), ...filtroRol },
       include: {
         comprador: true,
         vendedor: { select: { id: true, nombre: true, apellido: true } },
@@ -108,6 +114,15 @@ const obtener = async (req, res) => {
       }
     })
     if (!venta) return res.status(404).json({ error: 'Venta no encontrada.' })
+
+    // Ocultar precios sensibles de las unidades a roles sin permiso
+    if (!esGerenciaOJV && venta.unidades) {
+      venta.unidades = venta.unidades.map(({ precioMinimoUF, precioCostoUF, precioVentaUF, ...u }) => u)
+    }
+    // Vendedor/broker solo ven sus propias comisiones, no las de terceros
+    if (!esGerenciaOJV && rol !== 'ABOGADO' && venta.comisiones) {
+      venta.comisiones = venta.comisiones.filter(c => c.usuarioId === usuarioId)
+    }
     res.json(venta)
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener venta.' })

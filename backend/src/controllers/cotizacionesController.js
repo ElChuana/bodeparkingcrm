@@ -135,6 +135,29 @@ async function recalcularPromociones(cotizacionId) {
   }
 }
 
+// Middleware: verifica que el usuario pueda acceder a la cotización :id.
+// Gerencia/JV acceden a todas; el resto solo a las que crearon (evita IDOR).
+const verificarAccesoCotizacion = async (req, res, next) => {
+  if (['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)) return next()
+  const cot = await prisma.cotizacion.findFirst({
+    where: { id: Number(req.params.id), creadoPorId: req.usuario.id },
+    select: { id: true },
+  })
+  if (!cot) return res.status(404).json({ error: 'Cotización no encontrada.' })
+  next()
+}
+
+// Quita los precios sensibles de las unidades de una cotización para roles sin permiso.
+const ocultarPreciosCotizacion = (cotizacion, esGerenciaOJV) => {
+  if (esGerenciaOJV || !cotizacion?.items) return cotizacion
+  cotizacion.items = cotizacion.items.map(it =>
+    it.unidad
+      ? { ...it, unidad: (({ precioMinimoUF, precioCostoUF, precioVentaUF, ...u }) => u)(it.unidad) }
+      : it
+  )
+  return cotizacion
+}
+
 const listar = async (req, res) => {
   const { leadId, estado } = req.query
   const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
@@ -174,7 +197,9 @@ const obtener = async (req, res) => {
       include: INCLUDE_COMPLETO
     })
     if (!cotizacion) return res.status(404).json({ error: 'Cotización no encontrada.' })
-    res.json({ ...cotizacion, ...calcularTotales(cotizacion) })
+    const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
+    const cot = ocultarPreciosCotizacion(cotizacion, esGerenciaOJV)
+    res.json({ ...cot, ...calcularTotales(cotizacion) })
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener cotización.' })
   }
@@ -203,7 +228,9 @@ const crear = async (req, res) => {
       },
       include: INCLUDE_COMPLETO
     })
-    res.status(201).json({ ...cotizacion, ...calcularTotales(cotizacion) })
+    const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
+    const cot = ocultarPreciosCotizacion(cotizacion, esGerenciaOJV)
+    res.status(201).json({ ...cot, ...calcularTotales(cotizacion) })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al crear cotización.' })
@@ -255,7 +282,9 @@ const actualizar = async (req, res) => {
       await recalcularPromociones(Number(id))
     }
     const refrescada = await prisma.cotizacion.findUnique({ where: { id: Number(id) }, include: INCLUDE_COMPLETO })
-    res.json({ ...refrescada, ...calcularTotales(refrescada) })
+    const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
+    const cotVisible = ocultarPreciosCotizacion(refrescada, esGerenciaOJV)
+    res.json({ ...cotVisible, ...calcularTotales(refrescada) })
   } catch (err) {
     console.error(err)
     if (err.code === 'P2025') return res.status(404).json({ error: 'Cotización no encontrada.' })
@@ -653,4 +682,4 @@ const convertir = async (req, res) => {
   }
 }
 
-module.exports = { listar, obtener, crear, actualizar, cambiarEstado, eliminar, unidadesDisponibles, agregarPack, quitarPack, agregarBeneficio, quitarBeneficio, agregarPromocion, quitarPromocion, convertir, recalcularPromociones, calcularTotales }
+module.exports = { listar, obtener, crear, actualizar, cambiarEstado, eliminar, unidadesDisponibles, agregarPack, quitarPack, agregarBeneficio, quitarBeneficio, agregarPromocion, quitarPromocion, convertir, recalcularPromociones, calcularTotales, verificarAccesoCotizacion }
