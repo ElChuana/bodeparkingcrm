@@ -659,10 +659,12 @@ const convertir = async (req, res) => {
         }
       })
 
+      // Comisiones dentro de la misma transacción: si algo falla, no queda una
+      // venta a medio crear sin comisiones y con la cotización ya marcada ACEPTADA.
+      await aplicarReglasComision(nuevaVenta.id, tx)
+
       return nuevaVenta
     })
-
-    await aplicarReglasComision(venta.id)
 
     const ventaCompleta = await prisma.venta.findUnique({
       where: { id: venta.id },

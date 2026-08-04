@@ -1,4 +1,6 @@
 const prisma = require('../lib/prisma')
+const { prorratearPrecioVenta } = require('../lib/precios')
+const { aplicarReglasComision } = require('../lib/comisiones')
 
 const listar = async (req, res) => {
   const { estado, vendedorId, edificioId, tipoUnidad, precioMin, precioMax, search, desde, hasta } = req.query
@@ -145,37 +147,46 @@ const actualizarEstado = async (req, res) => {
     })
     if (!actual) return res.status(404).json({ error: 'Venta no encontrada.' })
 
-    // Si no viene fecha manual, se guarda la fecha del cambio de estado
-    const venta = await prisma.venta.update({
-      where: { id: Number(id) },
-      data: {
-        estado,
-        ...(fechaPromesa
-          ? { fechaPromesa: new Date(fechaPromesa) }
-          : (estado === 'PROMESA' && !actual.fechaPromesa ? { fechaPromesa: new Date() } : {})),
-        ...(fechaEscritura
-          ? { fechaEscritura: new Date(fechaEscritura) }
-          : (estado === 'ESCRITURA' && !actual.fechaEscritura ? { fechaEscritura: new Date() } : {})),
-        ...(fechaEntrega
-          ? { fechaEntrega: new Date(fechaEntrega) }
-          : (estado === 'ENTREGADO' && !actual.fechaEntrega ? { fechaEntrega: new Date() } : {})),
-        ...(notas && { notas })
+    // Todos los cambios de estado (venta + unidades + lead + comisiones) van en
+    // una transacción para no dejar estados parciales si algo falla.
+    const venta = await prisma.$transaction(async (tx) => {
+      const v = await tx.venta.update({
+        where: { id: Number(id) },
+        data: {
+          estado,
+          ...(fechaPromesa
+            ? { fechaPromesa: new Date(fechaPromesa) }
+            : (estado === 'PROMESA' && !actual.fechaPromesa ? { fechaPromesa: new Date() } : {})),
+          ...(fechaEscritura
+            ? { fechaEscritura: new Date(fechaEscritura) }
+            : (estado === 'ESCRITURA' && !actual.fechaEscritura ? { fechaEscritura: new Date() } : {})),
+          ...(fechaEntrega
+            ? { fechaEntrega: new Date(fechaEntrega) }
+            : (estado === 'ENTREGADO' && !actual.fechaEntrega ? { fechaEntrega: new Date() } : {})),
+          ...(notas && { notas })
+        }
+      })
+
+      if (estado === 'ENTREGADO') {
+        await tx.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'VENDIDO' } })
+        await tx.lead.update({ where: { id: v.leadId }, data: { etapa: 'ENTREGA' } })
+      } else if (estado === 'ANULADO') {
+        await tx.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'DISPONIBLE', ventaId: null, precioVentaUF: null } })
+        // Una venta anulada no genera comisiones → eliminarlas (evita comisiones fantasma)
+        await tx.comision.deleteMany({ where: { ventaId: Number(id) } })
+        await tx.lead.update({ where: { id: v.leadId }, data: { etapa: 'PERDIDO', motivoPerdida: 'Venta anulada' } })
+      } else if (estado === 'PROMESA') {
+        // No pisar tramos ya PAGADOS al volver/entrar a PROMESA
+        await tx.comision.updateMany({ where: { ventaId: Number(id), estadoPrimera: { not: 'PAGADO' } }, data: { estadoPrimera: 'PENDIENTE' } })
+        await tx.lead.update({ where: { id: v.leadId }, data: { etapa: 'PROMESA' } })
+      } else if (estado === 'ESCRITURA') {
+        await tx.lead.update({ where: { id: v.leadId }, data: { etapa: 'ESCRITURA' } })
       }
+      return v
     })
 
-    if (estado === 'ENTREGADO') {
-      await prisma.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'VENDIDO' } })
-      await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'ENTREGA' } })
-    } else if (estado === 'ANULADO') {
-      await prisma.unidad.updateMany({ where: { ventaId: Number(id) }, data: { estado: 'DISPONIBLE', ventaId: null, precioVentaUF: null } })
-      await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'PERDIDO', motivoPerdida: 'Venta anulada' } })
-    } else if (estado === 'PROMESA') {
-      await prisma.comision.updateMany({ where: { ventaId: Number(id) }, data: { estadoPrimera: 'PENDIENTE' } })
-      await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'PROMESA' } })
-    } else if (estado === 'ESCRITURA') {
-      await prisma.lead.update({ where: { id: venta.leadId }, data: { etapa: 'ESCRITURA' } })
-
-      // Notificar comisiones pendientes de escritura
+    if (estado === 'ESCRITURA') {
+      // Notificar comisiones pendientes de escritura (efecto secundario, fuera de la transacción)
       const comisionesPendientes = await prisma.comision.findMany({
         where: { ventaId: Number(id), estadoSegunda: { not: 'PAGADO' } },
         select: { id: true }
@@ -232,6 +243,26 @@ const editar = async (req, res) => {
         ...(notas !== undefined && { notas }),
       }
     })
+
+    // Si cambió el precio final, mantener la cuadratura: re-prorratear el precio
+    // pactado de cada unidad y recalcular comisiones (salvo que ya haya pagos).
+    if (precioFinalUF !== undefined) {
+      const unidades = await prisma.unidad.findMany({ where: { ventaId: Number(id) }, select: { id: true, precioUF: true } })
+      if (unidades.length > 0) {
+        const reparto = prorratearPrecioVenta(unidades.map(u => ({ unidadId: u.id, precioListaUF: u.precioUF })), Number(precioFinalUF))
+        await prisma.$transaction(reparto.map(r =>
+          prisma.unidad.update({ where: { id: r.unidadId }, data: { precioVentaUF: r.precioVentaUF } })
+        ))
+      }
+      // No pisar comisiones si algún tramo ya fue pagado
+      const pagadas = await prisma.comision.count({
+        where: { ventaId: Number(id), OR: [{ estadoPrimera: 'PAGADO' }, { estadoSegunda: 'PAGADO' }] }
+      })
+      if (pagadas === 0) {
+        await prisma.comision.deleteMany({ where: { ventaId: Number(id) } })
+        await aplicarReglasComision(Number(id))
+      }
+    }
     res.json(actualizada)
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Venta no encontrada.' })

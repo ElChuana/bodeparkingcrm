@@ -14,6 +14,7 @@ const listar = async (req, res) => {
     const comisiones = await prisma.comision.findMany({
       where: {
         ...filtroUsuario,
+        venta: { estado: { not: 'ANULADO' } }, // no contar comisiones de ventas anuladas
         ...(desde || hasta ? {
           creadoEn: {
             ...(desde && { gte: new Date(desde) }),
@@ -213,6 +214,7 @@ const resumen = async (req, res) => {
   try {
     const comisiones = await prisma.comision.findMany({
       where: {
+        venta: { estado: { not: 'ANULADO' } }, // excluir comisiones de ventas anuladas
         ...(desde || hasta ? {
           creadoEn: {
             ...(desde && { gte: new Date(desde) }),

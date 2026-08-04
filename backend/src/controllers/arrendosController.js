@@ -54,45 +54,51 @@ const crear = async (req, res) => {
   }
 
   try {
-    // Verificar que la unidad esté disponible o en estado válido para arrendar
-    const unidad = await prisma.unidad.findUnique({ where: { id: Number(unidadId) } })
+    // Solo se puede arrendar una unidad disponible (no pisar una venta o arriendo en curso)
+    const unidad = await prisma.unidad.findUnique({ where: { id: Number(unidadId) }, select: { id: true, estado: true } })
     if (!unidad) return res.status(404).json({ error: 'Unidad no encontrada.' })
-
-    const arriendo = await prisma.arriendo.create({
-      data: {
-        unidadId: Number(unidadId),
-        contactoId: Number(contactoId),
-        vendedorId: vendedorId ? Number(vendedorId) : null,
-        gestorNombre,
-        montoMensualUF: montoMensualUF ? Number(montoMensualUF) : null,
-        fechaInicio: new Date(fechaInicio),
-        fechaFin: fechaFin ? new Date(fechaFin) : null,
-        notas,
-        ...(req.file && { contratoUrl: `/uploads/${req.file.filename}` })
-      },
-      include: {
-        unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
-        contacto: { select: { nombre: true, apellido: true } }
-      }
-    })
-
-    // Comisión del arriendo: el vendedor se lleva el canon del primer mes
-    if (arriendo.vendedorId && arriendo.montoMensualUF) {
-      const canon = Number(arriendo.montoMensualUF)
-      await prisma.comision.create({
-        data: {
-          arriendoId: arriendo.id,
-          usuarioId: arriendo.vendedorId,
-          concepto: 'Arriendo 1er mes',
-          montoCalculadoUF: canon,
-          montoPrimera: canon,
-          montoSegunda: 0,
-        }
-      })
+    if (unidad.estado !== 'DISPONIBLE') {
+      return res.status(400).json({ error: `La unidad no está disponible para arrendar (estado actual: ${unidad.estado}).` })
     }
 
-    // Actualizar estado de la unidad
-    await prisma.unidad.update({ where: { id: Number(unidadId) }, data: { estado: 'ARRENDADO' } })
+    // Arriendo + comisión + cambio de estado de la unidad, de forma atómica
+    const arriendo = await prisma.$transaction(async (tx) => {
+      const a = await tx.arriendo.create({
+        data: {
+          unidadId: Number(unidadId),
+          contactoId: Number(contactoId),
+          vendedorId: vendedorId ? Number(vendedorId) : null,
+          gestorNombre,
+          montoMensualUF: montoMensualUF ? Number(montoMensualUF) : null,
+          fechaInicio: new Date(fechaInicio),
+          fechaFin: fechaFin ? new Date(fechaFin) : null,
+          notas,
+          ...(req.file && { contratoUrl: `/uploads/${req.file.filename}` })
+        },
+        include: {
+          unidad: { select: { numero: true, tipo: true, edificio: { select: { nombre: true } } } },
+          contacto: { select: { nombre: true, apellido: true } }
+        }
+      })
+
+      // Comisión del arriendo: el vendedor se lleva el canon del primer mes
+      if (a.vendedorId && a.montoMensualUF) {
+        const canon = Number(a.montoMensualUF)
+        await tx.comision.create({
+          data: {
+            arriendoId: a.id,
+            usuarioId: a.vendedorId,
+            concepto: 'Arriendo 1er mes',
+            montoCalculadoUF: canon,
+            montoPrimera: canon,
+            montoSegunda: 0,
+          }
+        })
+      }
+
+      await tx.unidad.update({ where: { id: Number(unidadId) }, data: { estado: 'ARRENDADO' } })
+      return a
+    })
 
     res.status(201).json(arriendo)
   } catch (err) {

@@ -2,6 +2,7 @@ const prisma = require('../lib/prisma')
 const { mismoNombre } = require('../lib/deduplication')
 const { notificarLead } = require('../lib/notifications')
 const { vincularCampana } = require('../lib/campanas')
+const { desdeHoraChile } = require('../lib/fechaChile')
 const { VENDEDOR_FALLBACK_ID } = require('../config')
 
 function limpiarContextComuro(context) {
@@ -14,7 +15,9 @@ function parsearReunionComuro(context) {
   if (!match) return null
   const [, fecha, hora] = match
   const [dia, mes, anio] = fecha.split('/')
-  const dt = new Date(`${anio}-${mes}-${dia}T${hora}:00`)
+  const [hh, mm] = hora.split(':')
+  // La hora viene en horario de Chile → interpretarla como tal (no como hora del servidor)
+  const dt = desdeHoraChile(+anio, +mes, +dia, +hh, +mm)
   return isNaN(dt.getTime()) ? null : { dt, fecha, hora }
 }
 
@@ -37,7 +40,7 @@ async function crearReunionComuro({ leadId, vendedorId, context, reunion, nombre
   await notificarLead({
     leadId,
     mensaje: `Comuro agendó reunión con ${nombreContacto} el ${reunion.fecha} a las ${reunion.hora}`,
-    tipo: 'ACTIVIDAD',
+    tipo: 'ACTIVIDAD_EN_LEAD',
   })
 }
 

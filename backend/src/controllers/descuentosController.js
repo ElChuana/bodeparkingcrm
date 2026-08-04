@@ -53,13 +53,28 @@ async function calcularDescuentoUF(tipo, valor, cot) {
   const v = Number(valor)
   if (!(v > 0)) throw { status: 400, mensaje: 'El valor debe ser mayor que 0.' }
 
-  if (tipo === 'UF') return +v.toFixed(2)
-  if (tipo === 'PORCENTAJE') return +(base * v / 100).toFixed(2)
+  if (tipo === 'PORCENTAJE' && v > 100) {
+    throw { status: 400, mensaje: 'El porcentaje de descuento no puede superar el 100%.' }
+  }
+
+  // Descuentos directos (UF / PORCENTAJE / PESOS): no pueden superar el total actual
+  let descuentoDirecto = null
+  if (tipo === 'UF') descuentoDirecto = +v.toFixed(2)
+  else if (tipo === 'PORCENTAJE') descuentoDirecto = +(base * v / 100).toFixed(2)
+  else if (tipo === 'PESOS') {
+    const uf = await ufVigente()
+    if (!uf) throw { status: 500, mensaje: 'No hay valor UF del día para convertir pesos.' }
+    descuentoDirecto = +(v / uf).toFixed(2)
+  }
+  if (descuentoDirecto !== null) {
+    if (descuentoDirecto > totalActual) {
+      throw { status: 400, mensaje: `El descuento (${descuentoDirecto.toFixed(2)} UF) supera el total actual de la cotización (${totalActual.toFixed(2)} UF).` }
+    }
+    return descuentoDirecto
+  }
 
   const uf = await ufVigente()
   if (!uf) throw { status: 500, mensaje: 'No hay valor UF del día para convertir pesos.' }
-
-  if (tipo === 'PESOS') return +(v / uf).toFixed(2)
 
   // TOTAL_UF / TOTAL_PESOS: el valor es el precio final deseado
   const totalPedidoUF = tipo === 'TOTAL_UF' ? v : v / uf

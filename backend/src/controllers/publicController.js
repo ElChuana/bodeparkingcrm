@@ -3,6 +3,7 @@ const prisma = require('../lib/prisma')
 const { mismoNombre: _mismoNombre } = require('../lib/deduplication')
 const { vincularCampana } = require('../lib/campanas')
 const { notificarLead } = require('../lib/notifications')
+const { desdeHoraChile } = require('../lib/fechaChile')
 const { VENDEDOR_FALLBACK_ID } = require('../config')
 
 // Wrapper para compatibilidad: aquí se llama con (nombre, apellido, nombre2, apellido2)
@@ -23,23 +24,7 @@ function splitNombre(completo) {
   return { nombre: partes[0], apellido: partes.slice(1).join(' ') }
 }
 
-// Offset de America/Santiago (en minutos) para una fecha UTC dada — maneja horario de verano.
-function offsetSantiagoMin(utcDate) {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Santiago', hourCycle: 'h23',
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
-  })
-  const p = dtf.formatToParts(utcDate).reduce((a, x) => (a[x.type] = x.value, a), {})
-  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second)
-  return (asUTC - utcDate.getTime()) / 60000
-}
-
-// Interpreta componentes de hora LOCAL de Chile → Date (UTC correcto, con DST)
-function desdeHoraChile(y, mo, d, h, mi) {
-  const guess = Date.UTC(y, mo - 1, d, h, mi)
-  const off = offsetSantiagoMin(new Date(guess))
-  return new Date(guess - off * 60000)
-}
+// offsetSantiagoMin y desdeHoraChile viven en lib/fechaChile (reutilizados por comuroController)
 
 // Fecha/hora de la cita. El proveedor (Calendly) envía la hora YA en horario chileno
 // (el número que ve el cliente), aunque la marque con "Z" o un offset. Por eso se toman

@@ -16,8 +16,8 @@ const matchOrigen = (regla, webinar) => {
 // Evalúa las reglas de comisión activas para una venta y crea las Comision.
 // Precedencia en ámbito VENDE: regla por usuario > regla por rol; dentro de eso,
 // origen específico (SOLO_WEBINAR/NO_WEBINAR) > CUALQUIERA.
-async function aplicarReglasComision(ventaId) {
-  const venta = await prisma.venta.findUnique({
+async function aplicarReglasComision(ventaId, client = prisma) {
+  const venta = await client.venta.findUnique({
     where: { id: Number(ventaId) },
     select: {
       id: true, vendedorId: true, brokerId: true, conPromesa: true,
@@ -30,7 +30,7 @@ async function aplicarReglasComision(ventaId) {
   const precio = Number(venta.precioFinalUF)
   const webinar = esVentaWebinar(venta.lead)
 
-  const reglas = await prisma.reglaComision.findMany({ where: { activa: true } })
+  const reglas = await client.reglaComision.findMany({ where: { activa: true } })
 
   const aCrear = []
   const agregar = (usuarioId, regla) => {
@@ -50,11 +50,11 @@ async function aplicarReglasComision(ventaId) {
   }
 
   const expandirRol = async (rol) =>
-    prisma.usuario.findMany({ where: { rol, activo: true }, select: { id: true } })
+    client.usuario.findMany({ where: { rol, activo: true }, select: { id: true } })
 
   // 1) Comisión del vendedor (ámbito VENDE) — se aplica UNA sola regla
   if (venta.vendedorId) {
-    const vendedor = await prisma.usuario.findUnique({
+    const vendedor = await client.usuario.findUnique({
       where: { id: venta.vendedorId }, select: { rol: true },
     })
     const deUsuario = reglas.filter(r => r.ambito === 'VENDE' && r.usuarioId === venta.vendedorId && matchOrigen(r, webinar))
@@ -86,7 +86,7 @@ async function aplicarReglasComision(ventaId) {
 
   // 4) Broker externo asignado a la venta (comportamiento histórico: su % personal)
   if (venta.brokerId) {
-    const broker = await prisma.usuario.findUnique({
+    const broker = await client.usuario.findUnique({
       where: { id: venta.brokerId }, select: { comisionPorcentaje: true },
     })
     if (broker?.comisionPorcentaje) {
@@ -106,7 +106,7 @@ async function aplicarReglasComision(ventaId) {
   }
 
   if (aCrear.length > 0) {
-    await prisma.comision.createMany({ data: aCrear })
+    await client.comision.createMany({ data: aCrear })
   }
   return aCrear
 }
