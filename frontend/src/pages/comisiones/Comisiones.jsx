@@ -244,7 +244,7 @@ function ModalRegla({ open, onClose, reglaEditando, usuarios, onGuardar }) {
 }
 
 export default function Comisiones() {
-  const { usuario, esGerenciaOJV, esGerente } = useAuth()
+  const { esGerenciaOJV, esGerente } = useAuth()
   const [vendedorFiltro, setVendedorFiltro] = useState(undefined)
   const [estadoFiltro, setEstadoFiltro] = useState(undefined)
   const [mes, setMes] = useState(dayjs())

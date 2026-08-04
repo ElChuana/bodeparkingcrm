@@ -323,7 +323,7 @@ function DetalleEdificio({ edificioId, onBack }) {
   )
 }
 
-function VistaLista({ edificios, onNuevaUnidad }) {
+function VistaLista({ edificios }) {
   const { formatUF, ufAPesos, formatPesos } = useUF()
   const { esGerenciaOJV } = useAuth()
   const [unidadEditar, setUnidadEditar] = useState(null)
@@ -441,7 +441,7 @@ function VistaLista({ edificios, onNuevaUnidad }) {
       dataIndex: 'precioUF',
       key: 'precioUF',
       sorter: (a, b) => (a.precioUF || 0) - (b.precioUF || 0),
-      render: (v, u) => (
+      render: (v) => (
         <div>
           <Text strong style={{ color: '#1677ff' }}>{formatUF(v)}</Text>
           {ufAPesos(v) && <div><Text type="secondary" style={{ fontSize: 11 }}>{formatPesos(ufAPesos(v))}</Text></div>}

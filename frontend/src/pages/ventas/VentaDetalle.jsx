@@ -742,7 +742,6 @@ function BtnRecibo({ cuota, venta }) {
 
 // ─── Sección Plan de Pagos ────────────────────────────────────────
 function PlanDePagos({ venta }) {
-  const qc = useQueryClient()
   const [modalPlan, setModalPlan]       = useState(false)
   const [modalAgregar, setModalAgregar] = useState(false)
   const [cuotaPagar, setCuotaPagar]     = useState(null)
@@ -1372,8 +1371,8 @@ function ModalEditarVenta({ open, onClose, venta }) {
 export default function VentaDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { esGerenciaOJV, usuario } = useAuth()
-  const { formatUF, formatPesos, ufAPesos } = useUF()
+  const { usuario } = useAuth()
+  const { formatPesos, ufAPesos } = useUF()
   const [modalEditar, setModalEditar] = useState(false)
   const anular = useAnularVenta(Number(id))
 

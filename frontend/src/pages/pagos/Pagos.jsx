@@ -9,7 +9,7 @@ import { useUF } from '../../hooks/useUF'
 const { Title, Text } = Typography
 
 export default function Pagos() {
-  const { formatUF, formatPesos, ufAPesos } = useUF()
+  const { formatUF, formatPesos } = useUF()
   const qc = useQueryClient()
   const { message } = App.useApp()
 

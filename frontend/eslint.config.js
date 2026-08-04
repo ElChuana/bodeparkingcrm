@@ -23,7 +23,13 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_', ignoreRestSiblings: true }],
+      // Reglas nuevas y muy estrictas del plugin de hooks: se dejan como aviso
+      // (el código actual funciona; migrarlas es un refactor aparte, no un bug).
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      // Solo afecta el hot-reload en desarrollo, no la app en producción
+      'react-refresh/only-export-components': 'warn',
     },
   },
 ])

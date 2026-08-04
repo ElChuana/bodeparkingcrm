@@ -252,9 +252,6 @@ export default function MiReporte() {
   const fechaReporte = format(new Date(reporte.fecha), "EEEE d 'de' MMMM 'de' yyyy", { locale: es })
 
   // Estilo de fila completada (tachado tenue)
-  const rowClass = (record, leadIdKey = 'leadId') =>
-    estaCompleto(record[leadIdKey]) ? 'row-completado' : ''
-
   const colEstado = (leadIdKey = 'leadId') => ({
     title: 'Estado',
     key: 'estado',

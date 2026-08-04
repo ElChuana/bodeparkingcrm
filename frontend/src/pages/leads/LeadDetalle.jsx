@@ -558,7 +558,7 @@ function NotaRapida({ leadId }) {
       setDescripcion('')
       setEdificioId(undefined)
       setUnidadesIds([])
-    } catch (err) {
+    } catch {
       message.error('Error al guardar nota')
     } finally {
       setLoading(false)

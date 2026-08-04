@@ -474,7 +474,6 @@ function KanbanLegal({ ventasActivas }) {
     if (porPaso[paso]) porPaso[paso].push(v)
   }
 
-  const entregados = porPaso['ENTREGADO'] || []
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -1021,7 +1020,7 @@ export default function Dashboard() {
 
   if (isLoading) return <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
 
-  const { resumen, embudo, unidadesPorEstado, ventasActivas } = data || {}
+  const { embudo, ventasActivas } = data || {}
   const { kpis, ventasPorMes, leadsPorSemana,
           inventarioPorEdificio, visitasDelPeriodo, visitasProximas,
           ventasRecientes: ventasPeriodo, leadsPorCampana } = data || {}
@@ -1031,16 +1030,6 @@ export default function Dashboard() {
     if (actual == null || !anterior) return null
     return Math.round(((actual - anterior) / anterior) * 100)
   }
-  const totalUnidades = unidadesPorEstado?.reduce((s, u) => s + u._count.id, 0) || 1
-  const unidadesOcupadas = unidadesPorEstado?.filter(u => u.estado !== 'DISPONIBLE').reduce((s, u) => s + u._count.id, 0) || 0
-  const ocupacionPct = totalUnidades > 0 ? Math.round((unidadesOcupadas / totalUnidades) * 100) : 0
-  const ventasEnLegal = (ventasActivas || []).filter(v => ['PROMESA', 'ESCRITURA'].includes(v.estado)).length
-  const alertasLegal = (ventasActivas || []).filter(v => {
-    const pl = v.procesoLegal
-    if (!pl) return false
-    const campo = FECHA_POR_PASO[pl.estadoActual]
-    return campo && pl[campo] && isPast(new Date(pl[campo])) && pl.estadoActual !== 'ENTREGADO'
-  }).length
 
   const hoy = format(new Date(), "EEEE d 'de' MMMM, yyyy", { locale: es })
 

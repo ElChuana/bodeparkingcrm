@@ -8,7 +8,6 @@ import * as XLSX from 'xlsx'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
-import { useUF } from '../../hooks/useUF'
 import { ETAPA_LABEL, ESTADO_VENTA_COLOR } from '../../components/ui'
 import { PDFVentas, PDFLeads, PDFInventario, PDFComisiones, PDFPagosAtrasados } from './ReportesPDF'
 
@@ -60,7 +59,6 @@ function BtnPDF({ documento, nombre }) {
 
 // ─── VENTAS ──────────────────────────────────────────────────────────
 function ReporteVentas() {
-  const { formatUF } = useUF()
   const [rango, setRango] = useState(null)
 
   const params = {}
@@ -249,7 +247,7 @@ function ReporteInventario() {
     queryFn: () => api.get('/reportes/inventario').then(r => r.data)
   })
 
-  const { total = 0, porEstado = {}, porTipo = {}, detalle = [] } = raw || {}
+  const { total = 0, porEstado = {}, detalle = [] } = raw || {}
   const ESTADO_COLOR = { DISPONIBLE: '#52c41a', RESERVADO: '#faad14', VENDIDO: '#ff4d4f', ARRENDADO: '#1677ff' }
 
   const chartEstado = Object.entries(porEstado).map(([estado, count]) => ({

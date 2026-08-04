@@ -66,27 +66,6 @@ const FECHA_POR_PASO = {
   ENTREGADO:                    'fechaLimiteEntrega',
 }
 
-function calcFaltantes(proceso) {
-  if (!proceso) return [{ tipo: 'warning', texto: 'Proceso legal no iniciado' }]
-  const pasos = proceso.tienePromesa === false ? PASOS_SIN_PROMESA : PASOS_CON_PROMESA
-  const idx   = pasos.indexOf(proceso.estadoActual)
-  const items = []
-
-  const campoActual = FECHA_POR_PASO[proceso.estadoActual]
-  if (campoActual && proceso[campoActual] && proceso.estadoActual !== 'ENTREGADO') {
-    if (isPast(new Date(proceso[campoActual]))) {
-      items.push({ tipo: 'error', texto: `Vencido: ${LEGAL_LABEL[proceso.estadoActual]}` })
-    }
-  }
-  for (let i = Math.max(idx, 0); i < pasos.length; i++) {
-    const campo = FECHA_POR_PASO[pasos[i]]
-    if (campo && !proceso[campo]) {
-      items.push({ tipo: 'warning', texto: `Sin fecha: ${LEGAL_LABEL[pasos[i]]}` })
-    }
-  }
-  return items
-}
-
 function ResumenVenta({ v, proceso }) {
   const navigate = useNavigate()
   const unidades = v.unidades || []

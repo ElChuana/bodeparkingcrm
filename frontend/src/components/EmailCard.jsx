@@ -324,7 +324,7 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
         })
         .catch(() => {})
     }
-  }, [leadId, noLeidos])
+  }, [leadId, noLeidos, qc])
 
   const aplicarPlantilla = (p) => {
     if (!p) return
@@ -418,7 +418,6 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
     setTimeout(() => textareaRef.current?.focus(), 80)
   }
 
-  const totalAdjuntos = cotSeleccionadas.length + archivos.length
   const leadIniciales = iniciales(nombreLead || emailPara || '?')
 
   return (

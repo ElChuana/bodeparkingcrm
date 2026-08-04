@@ -11,7 +11,7 @@ import {
   CheckCircleOutlined, ArrowLeftOutlined,
   FilePdfOutlined, ShoppingOutlined
 } from '@ant-design/icons'
-import { PDFDownloadLink, pdf } from '@react-pdf/renderer'
+import { PDFDownloadLink } from '@react-pdf/renderer'
 import { CotizacionDocumento } from './CotizacionPDF'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
@@ -737,10 +737,6 @@ export default function CotizacionEditor() {
     setItems(prev => prev.filter(i => i.unidadId !== unidadId))
   }
 
-  const cambiarPrecio = (unidadId, precio) => {
-    setItems(prev => prev.map(i => i.unidadId === unidadId ? { ...i, precioListaUF: precio } : i))
-  }
-
   const buildPayload = () => ({
     leadId,
     notas,
@@ -759,28 +755,6 @@ export default function CotizacionEditor() {
       if (esNueva) navigate(`/cotizaciones/${res.data.id}`)
     },
     onError: err => message.error(err.response?.data?.error || 'Error al guardar')
-  })
-
-  const enviar = useMutation({
-    mutationFn: async () => {
-      if (esNueva || cotizacion?.estado === 'BORRADOR') {
-        // Primero guardar si hay cambios
-        const payload = buildPayload()
-        if (esNueva) {
-          const res = await api.post('/cotizaciones', payload)
-          await api.put(`/cotizaciones/${res.data.id}/estado`, { estado: 'ENVIADA' })
-          return res
-        }
-        await api.put(`/cotizaciones/${id}`, payload)
-      }
-      return api.put(`/cotizaciones/${id}/estado`, { estado: 'ENVIADA' })
-    },
-    onSuccess: () => {
-      message.success('Cotización enviada')
-      qc.invalidateQueries({ queryKey: ['cotizaciones'] })
-      if (leadId) navigate(`/leads/${leadId}`)
-    },
-    onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
   const convertir = useMutation({

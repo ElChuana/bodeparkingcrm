@@ -815,7 +815,7 @@ export default function Leads() {
   const [filtros, setFiltros] = useState({})
   const [previewId, setPreviewId] = useState(null)
   const [selectedRowKeys, setSelectedRowKeys] = useState([])
-  const { esGerenciaOJV, usuario } = useAuth()
+  const { esGerenciaOJV } = useAuth()
 
   const { data: vendedores = [] } = useQuery({
     queryKey: ['usuarios-vendedores'],
