@@ -13,6 +13,19 @@ const matchOrigen = (regla, webinar) => {
   return true
 }
 
+// Calcula el monto de una comisión y su reparto en los dos tramos (promesa/escritura).
+// Sin promesa (venta directa a escritura) todo el monto va al segundo tramo.
+// Por defecto el reparto es 50/50 (usado por el broker externo).
+function montoComision(precio, porcentaje, conPromesa, pctPromesa = 50, pctEscritura = 50) {
+  const total = (Number(precio) * Number(porcentaje)) / 100
+  if (!conPromesa) return { total, primera: 0, segunda: total }
+  return {
+    total,
+    primera: (total * pctPromesa) / 100,
+    segunda: (total * pctEscritura) / 100,
+  }
+}
+
 // Evalúa las reglas de comisión activas para una venta y crea las Comision.
 // Precedencia en ámbito VENDE: regla por usuario > regla por rol; dentro de eso,
 // origen específico (SOLO_WEBINAR/NO_WEBINAR) > CUALQUIERA.
@@ -34,10 +47,7 @@ async function aplicarReglasComision(ventaId, client = prisma) {
 
   const aCrear = []
   const agregar = (usuarioId, regla) => {
-    const total = (precio * regla.porcentaje) / 100
-    let primera = (total * regla.pctPromesa) / 100
-    let segunda = (total * regla.pctEscritura) / 100
-    if (!venta.conPromesa) { primera = 0; segunda = total } // directo a escritura
+    const { total, primera, segunda } = montoComision(precio, regla.porcentaje, venta.conPromesa, regla.pctPromesa, regla.pctEscritura)
     aCrear.push({
       ventaId: venta.id,
       usuarioId,
@@ -90,9 +100,7 @@ async function aplicarReglasComision(ventaId, client = prisma) {
       where: { id: venta.brokerId }, select: { comisionPorcentaje: true },
     })
     if (broker?.comisionPorcentaje) {
-      const total = (precio * broker.comisionPorcentaje) / 100
-      const primera = venta.conPromesa ? total / 2 : 0
-      const segunda = venta.conPromesa ? total / 2 : total
+      const { total, primera, segunda } = montoComision(precio, broker.comisionPorcentaje, venta.conPromesa)
       aCrear.push({
         ventaId: venta.id,
         usuarioId: venta.brokerId,
@@ -111,4 +119,4 @@ async function aplicarReglasComision(ventaId, client = prisma) {
   return aCrear
 }
 
-module.exports = { aplicarReglasComision, esVentaWebinar }
+module.exports = { aplicarReglasComision, esVentaWebinar, montoComision }

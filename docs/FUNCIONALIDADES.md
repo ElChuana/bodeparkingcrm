@@ -481,6 +481,15 @@
 | `groq.js` | Wrapper REST a Groq API — Llama 3.3 70B (`GROQ_API_KEY`) — usado por reportes IA |
 | `reportes.js` | Generador de reportes diarios con IA (agrega datos + llama a Groq) |
 | `reportesSemanal.js` | Generador de reporte semanal del gerente (lunes a domingo, agrega datos por vendedor + IA) |
+| `precios.js` | `calcularTotalesVenta`, `prorratearPrecioVenta`, `verificarCuadratura` — lógica de precios/cuadratura (con tests) |
+| `comisiones.js` | `aplicarReglasComision` (acepta `tx`), `esVentaWebinar`, `montoComision` (cálculo por tramos, con tests) |
+| `acceso.js` | `filtroAcceso` + `puedeAccederLead` — control de acceso por rol reutilizable; base para cerrar IDOR (con tests) |
+| `fechaChile.js` | `desdeHoraChile` / `offsetSantiagoMin` — interpreta hora local de Chile con DST (con tests) |
+
+## Calidad (tests + lint)
+- **Tests**: `cd backend && npm test` (node:test). Cubren precios/prorrateo/cuadratura, dedup, acceso por rol, fecha Chile y cálculo de comisiones. También un e2e cotización→venta (`tests/e2e/`).
+- **Lint**: `npm run lint` en `backend/` y `frontend/` (ESLint 9 flat config). Frontend sin errores; reglas nuevas de hooks (`set-state-in-effect`, `refs`) y `react-refresh` quedan como *warning*.
+- **Acceso/seguridad**: los endpoints con `:id` o subrecursos de lead verifican pertenencia vía `lib/acceso`. Roles GERENTE/JEFE_VENTAS ven precios de costo/mínimo/venta; el resto no (backend los quita y la UI los oculta).
 
 ---
 
