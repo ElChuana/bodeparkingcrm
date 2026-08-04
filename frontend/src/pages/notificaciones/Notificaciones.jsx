@@ -81,22 +81,22 @@ export default function Notificaciones() {
     // tipos opcional: marca solo esa categoría (Alertas o Actividad), no todo
     mutationFn: (tipos) => api.put('/alertas/leer-todas', tipos ? { tipos } : {}),
     onSuccess: () => {
-      qc.invalidateQueries(['notificaciones-pagina'])
-      qc.invalidateQueries(['notificaciones'])
+      qc.invalidateQueries({ queryKey: ['notificaciones-pagina'] })
+      qc.invalidateQueries({ queryKey: ['notificaciones'] })
     }
   })
 
   const marcarLeida = useMutation({
     mutationFn: (id) => api.put(`/alertas/${id}/leer`),
     onSuccess: () => {
-      qc.invalidateQueries(['notificaciones-pagina'])
-      qc.invalidateQueries(['notificaciones'])
+      qc.invalidateQueries({ queryKey: ['notificaciones-pagina'] })
+      qc.invalidateQueries({ queryKey: ['notificaciones'] })
     }
   })
 
   const marcarEmailLeido = useMutation({
     mutationFn: (leadId) => api.patch(`/email/conversacion/${leadId}/leer`),
-    onSuccess: () => qc.invalidateQueries(['emails-sin-responder'])
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['emails-sin-responder'] })
   })
 
   const tiempoRelativo = (fecha) =>
@@ -127,7 +127,7 @@ export default function Notificaciones() {
               <Text strong>{email.lead?.contacto?.nombre} {email.lead?.contacto?.apellido}</Text>
               <div style={{ fontSize: 13, color: '#444', margin: '3px 0' }}>{email.asunto}</div>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                De: {email.de.split('<')[0].trim()}
+                De: {(email.de || '').split('<')[0].trim()}
                 {esGerente && email.lead?.vendedor && ` · ${email.lead.vendedor.nombre} ${email.lead.vendedor.apellido}`}
               </Text>
             </div>

@@ -6,6 +6,7 @@ import { TeamOutlined, BellOutlined, WarningOutlined, CheckCircleOutlined } from
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import { useUF } from '../../hooks/useUF'
+import { useAuth } from '../../context/AuthContext'
 import { ESTADO_VENTA_COLOR, SEMAFORO_LEGAL } from '../../components/ui'
 import { format } from 'date-fns'
 import { isPast } from 'date-fns'
@@ -106,6 +107,7 @@ function EmbudoVisual({ datos }) {
 // ─── Tabla de ventas (reservas) del período ───────────────────────
 function TablaVentas({ ventas }) {
   const navigate = useNavigate()
+  const { esGerenciaOJV } = useAuth()
   const { ufAPesos, formatPesos } = useUF()
 
   const totalUF     = ventas.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
@@ -233,7 +235,7 @@ function TablaVentas({ ventas }) {
     >
       <Table
         dataSource={ventas}
-        columns={columns}
+        columns={esGerenciaOJV ? columns : columns.filter(c => !['costo', 'multiplo'].includes(c.key))}
         rowKey="id"
         pagination={false}
         size="small"
@@ -252,14 +254,14 @@ function TablaVentas({ ventas }) {
             <Table.Summary.Cell index={5} align="right">
               <Text style={{ fontSize: 12 }}>{ufAPesos(totalUF) ? formatPesos(ufAPesos(totalUF)) : '—'}</Text>
             </Table.Summary.Cell>
-            <Table.Summary.Cell index={6} align="right">
+            {esGerenciaOJV && <Table.Summary.Cell index={6} align="right">
               <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{totalCosto > 0 ? `${totalCosto.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF` : '—'}</Text>
-            </Table.Summary.Cell>
-            <Table.Summary.Cell index={7} align="center">
+            </Table.Summary.Cell>}
+            {esGerenciaOJV && <Table.Summary.Cell index={7} align="center">
               {totalMultiplo != null
                 ? <Text strong style={{ fontSize: 13, color: totalMultiplo >= 2 ? '#52c41a' : totalMultiplo >= 1.5 ? '#1677ff' : '#faad14' }}>{totalMultiplo.toFixed(2)}x</Text>
                 : '—'}
-            </Table.Summary.Cell>
+            </Table.Summary.Cell>}
             <Table.Summary.Cell index={8} colSpan={3} />
           </Table.Summary.Row>
         )}

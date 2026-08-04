@@ -22,6 +22,7 @@ const { Title, Text } = Typography
 
 // ── Panel selector de unidades ──────────────────────────────────
 function SelectorUnidades({ items, onAdd, onRemove }) {
+  const { esGerenciaOJV } = useAuth()
   const [search, setSearch] = useState('')
   const [edificioFiltro, setEdificioFiltro] = useState(undefined)
   const [tipoFiltro, setTipoFiltro] = useState(undefined)
@@ -86,7 +87,7 @@ function SelectorUnidades({ items, onAdd, onRemove }) {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>{u.precioUF} UF</Text>
                     {u.tipo === 'BODEGA' && u.m2 && <Text type="secondary" style={{ fontSize: 12 }}>{u.m2} m²</Text>}
-                    {u.precioMinimoUF && <Text type="secondary" style={{ fontSize: 11 }}>mín. {u.precioMinimoUF} UF</Text>}
+                    {esGerenciaOJV && u.precioMinimoUF && <Text type="secondary" style={{ fontSize: 11 }}>mín. {u.precioMinimoUF} UF</Text>}
                   </div>
                 </div>
                 <Button
@@ -562,13 +563,13 @@ function PanelPromociones({ cotizacionId, promociones, items = [], soloLectura }
 
   const agregar = useMutation({
     mutationFn: (promocionId) => api.post(`/cotizaciones/${cotizacionId}/promociones`, { promocionId }),
-    onSuccess: () => { message.success('Promoción agregada'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
+    onSuccess: () => { message.success('Promoción agregada'); qc.invalidateQueries({ queryKey: ['cotizacion', String(cotizacionId)] }) },
     onError: err => message.error(err.response?.data?.error || 'Error al agregar promoción')
   })
 
   const quitar = useMutation({
     mutationFn: (promocionId) => api.delete(`/cotizaciones/${cotizacionId}/promociones/${promocionId}`),
-    onSuccess: () => { message.success('Promoción quitada'); qc.invalidateQueries(['cotizacion', String(cotizacionId)]) },
+    onSuccess: () => { message.success('Promoción quitada'); qc.invalidateQueries({ queryKey: ['cotizacion', String(cotizacionId)] }) },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 

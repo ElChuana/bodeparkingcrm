@@ -85,14 +85,14 @@ function ReglaPipelineCard({ regla, onEdit }) {
 
   const toggle = useMutation({
     mutationFn: (activa) => api.put(`/alertas/reglas-pipeline/${regla.id}`, { activa }),
-    onSuccess: () => qc.invalidateQueries(['reglas-pipeline']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['reglas-pipeline'] }),
     onError: () => message.error('Error al actualizar')
   })
 
   return (
     <Card
       style={{ borderLeft: `4px solid ${regla.activa ? '#1677ff' : '#d9d9d9'}` }}
-      bodyStyle={{ padding: '14px 18px' }}
+      styles={{ body: { padding: '14px 18px' } }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <Space align="center" wrap>
@@ -121,7 +121,7 @@ function ModalReglaPipeline({ regla, onClose }) {
     mutationFn: (d) => api.put(`/alertas/reglas-pipeline/${regla.id}`, d),
     onSuccess: () => {
       message.success('Regla actualizada')
-      qc.invalidateQueries(['reglas-pipeline'])
+      qc.invalidateQueries({ queryKey: ['reglas-pipeline'] })
       onClose()
     },
     onError: () => message.error('Error al guardar')
@@ -173,14 +173,14 @@ function AutomatizacionCard({ config, onEdit }) {
 
   const toggleActiva = useMutation({
     mutationFn: (activa) => api.put(`/alertas/config/${config.tipo}`, { activa }),
-    onSuccess: () => qc.invalidateQueries(['alertas-config']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['alertas-config'] }),
     onError: () => message.error('Error al actualizar')
   })
 
   return (
     <Card
       style={{ borderLeft: `4px solid ${config.activa ? meta.color : '#d9d9d9'}`, transition: 'all 0.2s' }}
-      bodyStyle={{ padding: '16px 20px' }}
+      styles={{ body: { padding: '16px 20px' } }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
         <Space align="start">
@@ -243,7 +243,7 @@ function ModalConfigurar({ config, onClose }) {
     mutationFn: (d) => api.put(`/alertas/config/${config.tipo}`, d),
     onSuccess: () => {
       message.success('Automatización actualizada')
-      qc.invalidateQueries(['alertas-config'])
+      qc.invalidateQueries({ queryKey: ['alertas-config'] })
       onClose()
     },
     onError: () => message.error('Error al guardar')
@@ -343,8 +343,8 @@ export default function Automatizaciones() {
     mutationFn: () => api.post('/alertas/chequeo'),
     onSuccess: (res) => {
       const { alertasGeneradas = [], acciones = [] } = res.data
-      qc.invalidateQueries(['notificaciones'])
-      qc.invalidateQueries(['leads-kanban'])
+      qc.invalidateQueries({ queryKey: ['notificaciones'] })
+      qc.invalidateQueries({ queryKey: ['leads-kanban'] })
       const msg = `Chequeo completado: ${alertasGeneradas.length} alerta(s) generada(s)${acciones.length ? `, ${acciones.length} acción(es) automática(s)` : ''}.`
       message.success(msg, 5)
     },

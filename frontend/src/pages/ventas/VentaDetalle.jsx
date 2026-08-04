@@ -92,8 +92,8 @@ function useAnularVenta(ventaId) {
     mutationFn: () => api.put(`/ventas/${ventaId}/estado`, { estado: 'ANULADO' }),
     onSuccess: () => {
       message.success('Venta anulada')
-      qc.invalidateQueries(['venta', ventaId])
-      qc.invalidateQueries(['ventas'])
+      qc.invalidateQueries({ queryKey: ['venta', ventaId] })
+      qc.invalidateQueries({ queryKey: ['ventas'] })
     },
     onError: err => message.error(err.response?.data?.error || 'Error al anular'),
   })
@@ -208,7 +208,7 @@ function ModalPlanPago({ open, onClose, ventaId, precioUF }) {
     }),
     onSuccess: () => {
       message.success('Plan de pago creado')
-      qc.invalidateQueries(['venta', ventaId])
+      qc.invalidateQueries({ queryKey: ['venta', ventaId] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -276,7 +276,7 @@ function ModalLegal({ open, onClose, ventaId, proceso }) {
     mutationFn: (d) => api.put(`/legal/${ventaId}`, d),
     onSuccess: () => {
       message.success('Proceso legal actualizado')
-      qc.invalidateQueries(['venta', ventaId])
+      qc.invalidateQueries({ queryKey: ['venta', ventaId] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -531,7 +531,7 @@ function ModalPagarCuota({ open, onClose, cuota, ventaId }) {
 
   const pagar = useMutation({
     mutationFn: () => api.put(`/pagos/cuotas/${cuota?.id}/pagar`, { metodoPago, fechaPagoReal: fechaPago, notas: notas || undefined }),
-    onSuccess: () => { message.success('Pago registrado'); qc.invalidateQueries(['venta', ventaId]); onClose() },
+    onSuccess: () => { message.success('Pago registrado'); qc.invalidateQueries({ queryKey: ['venta', ventaId] }); onClose() },
     onError: err => message.error(err.response?.data?.error || 'Error'),
   })
 
@@ -584,7 +584,7 @@ function ModalAgregarCuota({ open, onClose, ventaId }) {
       const { _ultimoEditado, ...data } = cuota
       return api.post(`/pagos/plan/${ventaId}/cuota`, data)
     },
-    onSuccess: () => { message.success('Cuota agregada'); qc.invalidateQueries(['venta', ventaId]); onClose(); setCuota(EMPTY) },
+    onSuccess: () => { message.success('Cuota agregada'); qc.invalidateQueries({ queryKey: ['venta', ventaId] }); onClose(); setCuota(EMPTY) },
     onError: err => message.error(err.response?.data?.error || 'Error'),
   })
 
@@ -663,7 +663,7 @@ function ModalEditarCuota({ open, onClose, cuota, ventaId }) {
 
   const guardar = useMutation({
     mutationFn: () => api.put(`/pagos/cuotas/${cuota?.id}`, form),
-    onSuccess: () => { message.success('Cuota actualizada'); qc.invalidateQueries(['venta', ventaId]); onClose() },
+    onSuccess: () => { message.success('Cuota actualizada'); qc.invalidateQueries({ queryKey: ['venta', ventaId] }); onClose() },
     onError: err => message.error(err.response?.data?.error || 'Error'),
   })
 
@@ -1090,13 +1090,13 @@ function Comisiones({ venta }) {
 
   const marcar = useMutation({
     mutationFn: ({ id, tramo }) => api.put(`/comisiones/${id}/${tramo}`, {}),
-    onSuccess: () => { message.success('Comisión actualizada'); qc.invalidateQueries(['venta', venta.id]) },
+    onSuccess: () => { message.success('Comisión actualizada'); qc.invalidateQueries({ queryKey: ['venta', venta.id] }) },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
   const eliminar = useMutation({
     mutationFn: (id) => api.delete(`/comisiones/${id}`),
-    onSuccess: () => { message.success('Comisión eliminada'); qc.invalidateQueries(['venta', venta.id]) },
+    onSuccess: () => { message.success('Comisión eliminada'); qc.invalidateQueries({ queryKey: ['venta', venta.id] }) },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
@@ -1190,138 +1190,6 @@ function Comisiones({ venta }) {
   )
 }
 
-// ─── Modal agregar promoción ──────────────────────────────────────
-function ModalAgregarPromocion({ open, onClose, ventaId }) {
-  const qc = useQueryClient()
-  const [form] = Form.useForm()
-  const { message } = App.useApp()
-
-  const { data: disponibles = [] } = useQuery({
-    queryKey: ['promociones-activas'],
-    queryFn: () => api.get('/promociones', { params: { activa: true } }).then(r => r.data),
-    enabled: open
-  })
-
-  const agregar = useMutation({
-    mutationFn: (d) => api.post(`/promociones/${d.promocionId}/aplicar-venta`, { ventaId }),
-    onSuccess: () => {
-      message.success('Promoción agregada')
-      qc.invalidateQueries(['venta', ventaId])
-      onClose()
-      form.resetFields()
-    },
-    onError: err => message.error(err.response?.data?.error || 'Error')
-  })
-
-  return (
-    <Modal title="Agregar Promoción" open={open} onCancel={() => { onClose(); form.resetFields() }}
-      onOk={() => form.validateFields().then(agregar.mutate)}
-      okText="Agregar" cancelText="Cancelar" confirmLoading={agregar.isPending}>
-      <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-        <Form.Item name="promocionId" label="Seleccionar promoción" rules={[{ required: true }]}>
-          <Select
-            showSearch
-            optionFilterProp="label"
-            placeholder="Buscar promoción..."
-            options={disponibles.map(p => ({
-              value: p.id,
-              label: p.nombre,
-              p,
-            }))}
-            optionRender={({ data }) => (
-              <div>
-                <Tag color={TIPO_PROMO_COLOR[data.p?.tipo]} style={{ fontSize: 11 }}>
-                  {TIPO_PROMO_LABEL[data.p?.tipo]}
-                </Tag>
-                <Text style={{ fontSize: 13 }}>{data.label}</Text>
-                <div><Text type="secondary" style={{ fontSize: 11 }}>{resumenPromo(data.p || {})}</Text></div>
-              </div>
-            )}
-          />
-        </Form.Item>
-      </Form>
-    </Modal>
-  )
-}
-
-// ─── Card promociones en venta ────────────────────────────────────
-function PromocionesVenta({ venta }) {
-  const { esGerenciaOJV } = useAuth()
-  const qc = useQueryClient()
-  const { message } = App.useApp()
-  const [modal, setModal] = useState(false)
-
-  const quitar = useMutation({
-    mutationFn: (vpId) => api.delete(`/promociones/venta-promo/${vpId}`),
-    onSuccess: () => {
-      message.success('Promoción quitada')
-      qc.invalidateQueries(['venta', venta.id])
-    },
-    onError: err => message.error(err.response?.data?.error || 'Error')
-  })
-
-  const aplicadas = venta?.promociones || []
-
-  return (
-    <Card
-      title="Promociones"
-      extra={esGerenciaOJV && (
-        <Button size="small" icon={<PlusOutlined />} type="primary" ghost onClick={() => setModal(true)}>
-          Agregar
-        </Button>
-      )}
-    >
-      {aplicadas.length === 0 ? (
-        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: '12px 0' }}>
-          Sin promociones asociadas.
-        </Text>
-      ) : (
-        <Space direction="vertical" style={{ width: '100%' }} size={8}>
-          {aplicadas.map(vp => {
-            const p = vp.promocion
-            const icono = p.tipo === 'PAQUETE' ? <AppstoreOutlined /> : p.tipo === 'BENEFICIO' ? <GiftOutlined /> : null
-            return (
-              <div key={vp.id} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                background: '#fafafa', padding: '10px 14px', borderRadius: 8,
-                border: '1px solid #f0f0f0'
-              }}>
-                <div>
-                  <Space size={6}>
-                    <Tag color={TIPO_PROMO_COLOR[p.tipo]} icon={icono} style={{ fontSize: 11 }}>
-                      {TIPO_PROMO_LABEL[p.tipo]}
-                    </Tag>
-                    <Text strong style={{ fontSize: 13 }}>{p.nombre}</Text>
-                  </Space>
-                  <div style={{ marginTop: 2 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{resumenPromo(p)}</Text>
-                  </div>
-                  {p.tipo === 'ARRIENDO_ASEGURADO' && vp.pagosArriendoAsegurado?.length > 0 && (
-                    <div style={{ marginTop: 4 }}>
-                      <Text style={{ fontSize: 11, color: '#8c8c8c' }}>
-                        {vp.pagosArriendoAsegurado.filter(pg => pg.estado === 'PAGADO').length} / {vp.pagosArriendoAsegurado.length} pagos completados
-                      </Text>
-                    </div>
-                  )}
-                </div>
-                {esGerenciaOJV && (
-                  <Popconfirm
-                    title="¿Quitar esta promoción?"
-                    onConfirm={() => quitar.mutate(vp.id)}
-                    okText="Sí" cancelText="No"
-                  >
-                    <Button size="small" type="text" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>
-                )}
-              </div>
-            )
-          })}
-        </Space>
-      )}
-      <ModalAgregarPromocion open={modal} onClose={() => setModal(false)} ventaId={venta?.id} />
-    </Card>
-  )
-}
 
 // ─── Unidades Card ─────────────────────────────────────────────────
 const ACCESO_LABEL = { RAMPA: 'Rampa', ASCENSOR: 'Ascensor', ESCALERA: 'Escalera' }
@@ -1329,6 +1197,7 @@ const ESTADO_UNIDAD_COLOR = { DISPONIBLE: 'green', RESERVADO: 'orange', VENDIDO:
 const ESTADO_UNIDAD_LABEL = { DISPONIBLE: 'Disponible', RESERVADO: 'Reservado', VENDIDO: 'Vendido', ARRENDADO: 'Arrendado' }
 
 function UnidadesCard({ unidades }) {
+  const { esGerenciaOJV } = useAuth()
   const { formatUF, ufAPesos, formatPesos } = useUF()
   const [unidadVer, setUnidadVer] = useState(null)
 
@@ -1428,7 +1297,7 @@ function UnidadesCard({ unidades }) {
                 <Col span={12}><Text type="secondary" style={{ fontSize: 12 }}>{formatPesos(ufAPesos(unidadVer.precioUF))}</Text></Col>
               </>}
 
-              {unidadVer.precioMinimoUF && <>
+              {esGerenciaOJV && unidadVer.precioMinimoUF && <>
                 <Col span={12}><Text type="secondary">Precio mínimo</Text></Col>
                 <Col span={12}><Text type="secondary">{formatUF(unidadVer.precioMinimoUF)}</Text></Col>
               </>}
@@ -1455,7 +1324,7 @@ function ModalEditarVenta({ open, onClose, venta }) {
     mutationFn: (d) => api.put(`/ventas/${venta.id}`, d),
     onSuccess: () => {
       message.success('Venta actualizada')
-      qc.invalidateQueries(['venta', venta.id])
+      qc.invalidateQueries({ queryKey: ['venta', venta.id] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error al editar')

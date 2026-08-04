@@ -315,7 +315,14 @@ export default function EmailCard({ leadId, emailPara, nombreLead }) {
 
   useEffect(() => {
     if (noLeidos > 0) {
-      api.patch(`/email/conversacion/${leadId}/leer`).catch(() => {})
+      api.patch(`/email/conversacion/${leadId}/leer`)
+        .then(() => {
+          // Refrescar los contadores de "sin leer" para que los badges no queden viejos
+          qc.invalidateQueries({ queryKey: ['emails-sin-responder'] })
+          qc.invalidateQueries({ queryKey: ['notificaciones'] })
+          qc.invalidateQueries({ queryKey: ['leads-kanban'] })
+        })
+        .catch(() => {})
     }
   }, [leadId, noLeidos])
 

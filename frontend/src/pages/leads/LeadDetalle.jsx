@@ -81,8 +81,8 @@ function ModalCambiarEtapa({ open, onClose, lead, onPerdido }) {
     mutationFn: (d) => api.put(`/leads/${lead.id}/etapa`, d),
     onSuccess: () => {
       message.success('Etapa actualizada')
-      qc.invalidateQueries(['lead', lead.id])
-      qc.invalidateQueries(['leads-kanban'])
+      qc.invalidateQueries({ queryKey: ['lead', lead.id] })
+      qc.invalidateQueries({ queryKey: ['leads-kanban'] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -127,8 +127,8 @@ function ModalInteraccion({ open, onClose, leadId }) {
     }),
     onSuccess: () => {
       message.success('Actividad registrada')
-      qc.invalidateQueries(['lead', leadId])
-      qc.invalidateQueries(['actividades-cal'])
+      qc.invalidateQueries({ queryKey: ['lead', leadId] })
+      qc.invalidateQueries({ queryKey: ['actividades-cal'] })
       onClose()
       form.resetFields()
     },
@@ -173,8 +173,8 @@ function AccionesRapidas({ lead }) {
   const crear = useMutation({
     mutationFn: (d) => api.post(`/leads/${leadId}/actividades`, { leadId, ...d }),
     onSuccess: () => {
-      qc.invalidateQueries(['lead', leadId])
-      qc.invalidateQueries(['actividades-cal'])
+      qc.invalidateQueries({ queryKey: ['lead', leadId] })
+      qc.invalidateQueries({ queryKey: ['actividades-cal'] })
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
@@ -285,9 +285,9 @@ function ModalVisita({ open, onClose, leadId }) {
     mutationFn: (d) => api.post(`/leads/${leadId}/visitas`, d),
     onSuccess: () => {
       message.success('Visita agendada')
-      qc.invalidateQueries(['lead', leadId])
-      qc.invalidateQueries(['leads-kanban'])
-      qc.invalidateQueries(['visitas-todas'])
+      qc.invalidateQueries({ queryKey: ['lead', leadId] })
+      qc.invalidateQueries({ queryKey: ['leads-kanban'] })
+      qc.invalidateQueries({ queryKey: ['visitas-todas'] })
       onClose()
       form.resetFields()
     },
@@ -332,8 +332,8 @@ function ModalResultadoVisita({ open, onClose, visita, leadId }) {
     mutationFn: (d) => api.put(`/leads/${leadId}/visitas/${visita.id}`, d),
     onSuccess: () => {
       message.success('Resultado registrado')
-      qc.invalidateQueries(['lead', String(leadId)])
-      qc.invalidateQueries(['visitas-todas'])
+      qc.invalidateQueries({ queryKey: ['lead', String(leadId)] })
+      qc.invalidateQueries({ queryKey: ['visitas-todas'] })
       onClose()
       form.resetFields()
     },
@@ -416,7 +416,7 @@ function ModalEditarVisita({ open, onClose, visita, leadId }) {
       const fechaHoraUTC = new Date(fechaHora).toISOString()
       await api.patch(`/leads/${leadId}/visitas/${visita.id}`, { fechaHora: fechaHoraUTC, tipo, notas, enlace, vendedorId, edificioId })
       await qc.refetchQueries({ queryKey: ['lead', String(leadId)], type: 'active' })
-      qc.invalidateQueries(['visitas-todas'])
+      qc.invalidateQueries({ queryKey: ['visitas-todas'] })
       message.success('Visita actualizada')
       onClose()
     } catch (err) {
@@ -554,7 +554,7 @@ function NotaRapida({ leadId }) {
 
       await api.post(`/leads/${leadId}/interacciones`, { leadId, tipo: 'NOTA', descripcion: texto, mencionados })
       message.success(mencionados.length ? `Nota guardada · ${mencionados.length} persona(s) notificada(s)` : 'Nota guardada')
-      qc.invalidateQueries(['lead', leadId])
+      qc.invalidateQueries({ queryKey: ['lead', leadId] })
       setDescripcion('')
       setEdificioId(undefined)
       setUnidadesIds([])
@@ -649,7 +649,7 @@ function NotaItem({ nota, leadId, equipo, usuarioActual }) {
     setPopoverAbierto(false)
     try {
       await api.post(`/interacciones/${nota.id}/reacciones`, { emoji })
-      qc.invalidateQueries(['lead', leadId])
+      qc.invalidateQueries({ queryKey: ['lead', leadId] })
     } catch {
       message.error('No se pudo reaccionar')
     }
@@ -663,7 +663,7 @@ function NotaItem({ nota, leadId, equipo, usuarioActual }) {
         .filter(([full]) => respuesta.includes(`@${full}`))
         .map(([, id]) => id)
       await api.post(`/interacciones/${nota.id}/respuestas`, { descripcion: respuesta.trim(), mencionados })
-      qc.invalidateQueries(['lead', leadId])
+      qc.invalidateQueries({ queryKey: ['lead', leadId] })
       setRespuesta(''); setMostrarResponder(false)
     } catch {
       message.error('No se pudo responder')
@@ -871,7 +871,7 @@ function ModalEditarContacto({ open, onClose, lead }) {
     mutationFn: (d) => api.put(`/contactos/${lead.contacto.id}`, d),
     onSuccess: () => {
       message.success('Contacto actualizado')
-      qc.invalidateQueries(['lead', String(lead.id)])
+      qc.invalidateQueries({ queryKey: ['lead', String(lead.id)] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -1002,7 +1002,7 @@ function ModalEditarLead({ open, onClose, lead }) {
     mutationFn: (d) => api.put(`/leads/${lead.id}`, d),
     onSuccess: () => {
       message.success('Lead actualizado')
-      qc.invalidateQueries(['lead', String(lead.id)])
+      qc.invalidateQueries({ queryKey: ['lead', String(lead.id)] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -1061,8 +1061,8 @@ export default function LeadDetalle() {
       api.put(`/leads/${id}/etapa`, { etapa, motivoPerdidaCat, motivoPerdidaNota }),
     onSuccess: () => {
       message.success('Etapa actualizada')
-      qc.invalidateQueries(['lead', Number(id)])
-      qc.invalidateQueries(['leads-kanban'])
+      qc.invalidateQueries({ queryKey: ['lead', Number(id)] })
+      qc.invalidateQueries({ queryKey: ['leads-kanban'] })
     },
     onError: err => message.error(err.response?.data?.error || 'Error al cambiar etapa')
   })
@@ -1072,8 +1072,8 @@ export default function LeadDetalle() {
     mutationFn: () => api.post(`/leads/${id}/actividades`, { leadId: Number(id), tipo: 'WHATSAPP', descripcion: 'WhatsApp enviado' }),
     onSuccess: () => {
       message.success('WhatsApp registrado')
-      qc.invalidateQueries(['lead', Number(id)])
-      qc.invalidateQueries(['actividades-cal'])
+      qc.invalidateQueries({ queryKey: ['lead', Number(id)] })
+      qc.invalidateQueries({ queryKey: ['actividades-cal'] })
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
@@ -1089,8 +1089,8 @@ export default function LeadDetalle() {
     mutationFn: (visitaId) => api.delete(`/leads/${id}/visitas/${visitaId}`),
     onSuccess: () => {
       message.success('Visita eliminada')
-      qc.invalidateQueries(['lead', id])
-      qc.invalidateQueries(['visitas-todas'])
+      qc.invalidateQueries({ queryKey: ['lead', id] })
+      qc.invalidateQueries({ queryKey: ['visitas-todas'] })
     },
     onError: err => message.error(err.response?.data?.error || 'Sin permiso para eliminar')
   })
@@ -1116,7 +1116,7 @@ export default function LeadDetalle() {
     mutationFn: (vendedorId) => api.put(`/leads/${id}`, { vendedorId: vendedorId || null }),
     onSuccess: () => {
       message.success('Vendedor actualizado')
-      qc.invalidateQueries(['lead', id])
+      qc.invalidateQueries({ queryKey: ['lead', id] })
     },
     onError: err => message.error(err.response?.data?.error || 'Error al cambiar vendedor'),
   })

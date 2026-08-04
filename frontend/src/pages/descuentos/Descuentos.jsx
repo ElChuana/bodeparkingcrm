@@ -69,7 +69,7 @@ function ModalRevisar({ solicitud, onClose }) {
       api.put(`/descuentos/${solicitud.id}/revisar`, { decision, comentario }),
     onSuccess: (_, vars) => {
       message.success(vars.decision === 'APROBADA' ? 'Descuento aprobado y aplicado' : 'Solicitud rechazada')
-      qc.invalidateQueries(['solicitudes-descuento'])
+      qc.invalidateQueries({ queryKey: ['solicitudes-descuento'] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')

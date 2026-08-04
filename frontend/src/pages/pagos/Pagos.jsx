@@ -20,7 +20,7 @@ export default function Pagos() {
 
   const marcarPagado = useMutation({
     mutationFn: ({ cuotaId }) => api.put(`/pagos/cuotas/${cuotaId}/pagar`, { metodoPago: 'TRANSFERENCIA' }),
-    onSuccess: () => { message.success('Pago registrado'); qc.invalidateQueries(['pagos-atrasados']) },
+    onSuccess: () => { message.success('Pago registrado'); qc.invalidateQueries({ queryKey: ['pagos-atrasados'] }) },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 

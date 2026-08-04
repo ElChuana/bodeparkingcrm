@@ -326,7 +326,7 @@ export default function Equipo() {
 
   const toggleActivo = useMutation({
     mutationFn: ({ id, activo }) => api.put(`/usuarios/${id}`, { activo }),
-    onSuccess: () => qc.invalidateQueries(['usuarios']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['usuarios'] }),
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 

@@ -36,7 +36,7 @@ function ModalArriendo({ open, onClose, arriendo }) {
     mutationFn: (d) => arriendo ? api.put(`/arriendos/${arriendo.id}`, d) : api.post('/arriendos', d),
     onSuccess: () => {
       message.success(arriendo ? 'Arriendo actualizado' : 'Arriendo creado')
-      qc.invalidateQueries(['arriendos'])
+      qc.invalidateQueries({ queryKey: ['arriendos'] })
       onClose()
       form.resetFields()
     },

@@ -27,7 +27,7 @@ function ModalEdificio({ open, onClose, edificio }) {
     mutationFn: (d) => edificio ? api.put(`/edificios/${edificio.id}`, d) : api.post('/edificios', d),
     onSuccess: () => {
       message.success(edificio ? 'Edificio actualizado' : 'Edificio creado')
-      qc.invalidateQueries(['edificios'])
+      qc.invalidateQueries({ queryKey: ['edificios'] })
       onClose()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -95,8 +95,8 @@ function ModalUnidad({ open, onClose, edificioId, unidad, onSuccess }) {
     mutationFn: (d) => unidad ? api.put(`/unidades/${unidad.id}`, d) : api.post('/unidades', { ...d, edificioId }),
     onSuccess: () => {
       message.success(unidad ? 'Unidad actualizada' : 'Unidad creada')
-      if (edificioId) qc.invalidateQueries(['edificio', edificioId])
-      qc.invalidateQueries(['unidades-lista'])
+      if (edificioId) qc.invalidateQueries({ queryKey: ['edificio', edificioId] })
+      qc.invalidateQueries({ queryKey: ['unidades-lista'] })
       onSuccess?.()
       onClose()
     },

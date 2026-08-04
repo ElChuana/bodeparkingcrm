@@ -17,7 +17,7 @@ function ModalPrestar({ open, onClose, llaveId }) {
     mutationFn: (d) => api.post(`/llaves/${llaveId}/prestar`, d),
     onSuccess: () => {
       message.success('Llave prestada')
-      qc.invalidateQueries(['llaves'])
+      qc.invalidateQueries({ queryKey: ['llaves'] })
       onClose()
       form.resetFields()
     },
@@ -55,7 +55,7 @@ export default function Llaves() {
 
   const devolver = useMutation({
     mutationFn: (id) => api.post(`/llaves/${id}/devolver`, {}),
-    onSuccess: () => { message.success('Llave devuelta'); qc.invalidateQueries(['llaves']) },
+    onSuccess: () => { message.success('Llave devuelta'); qc.invalidateQueries({ queryKey: ['llaves'] }) },
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 

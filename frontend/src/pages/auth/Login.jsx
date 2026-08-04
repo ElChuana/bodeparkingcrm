@@ -44,7 +44,7 @@ export default function Login() {
           </div>
         </div>
 
-        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
+        <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
           <Form layout="vertical" onFinish={handleSubmit} size="large">
             <Form.Item label="Email" name="email" rules={[{ required: true, type: 'email', message: 'Ingresa tu email' }]}>
               <Input prefix={<MailOutlined />} placeholder="tu@email.cl" />

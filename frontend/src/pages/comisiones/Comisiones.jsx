@@ -302,9 +302,9 @@ export default function Comisiones() {
   })
 
   const invalidarComisiones = () => {
-    qc.invalidateQueries(['comisiones'])
-    qc.invalidateQueries(['comisiones-mensual'])
-    qc.invalidateQueries(['comisiones-resumen'])
+    qc.invalidateQueries({ queryKey: ['comisiones'] })
+    qc.invalidateQueries({ queryKey: ['comisiones-mensual'] })
+    qc.invalidateQueries({ queryKey: ['comisiones-resumen'] })
   }
 
   const marcar = useMutation({

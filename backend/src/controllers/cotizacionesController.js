@@ -370,7 +370,12 @@ const unidadesDisponibles = async (req, res) => {
       },
       orderBy: [{ edificio: { nombre: 'asc' } }, { numero: 'asc' }]
     })
-    res.json(unidades)
+    // Ocultar precios sensibles a roles sin permiso
+    const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
+    const resultado = esGerenciaOJV
+      ? unidades
+      : unidades.map(({ precioMinimoUF, precioCostoUF, precioVentaUF, ...u }) => u)
+    res.json(resultado)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al obtener unidades.' })

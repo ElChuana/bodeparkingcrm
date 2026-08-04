@@ -23,12 +23,12 @@ export default function NotificacionesBadge() {
 
   const marcarTodas = useMutation({
     mutationFn: () => api.put('/alertas/leer-todas'),
-    onSuccess: () => { qc.invalidateQueries(['notificaciones']); qc.invalidateQueries(['notificaciones-pagina']) }
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['notificaciones'] }); qc.invalidateQueries({ queryKey: ['notificaciones-pagina'] }) }
   })
 
   const marcarUna = useMutation({
     mutationFn: (id) => api.put(`/alertas/${id}/leer`),
-    onSuccess: () => { qc.invalidateQueries(['notificaciones']); qc.invalidateQueries(['notificaciones-pagina']) }
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['notificaciones'] }); qc.invalidateQueries({ queryKey: ['notificaciones-pagina'] }) }
   })
 
   const sinLeer = notifs.filter(n => !n.leida)

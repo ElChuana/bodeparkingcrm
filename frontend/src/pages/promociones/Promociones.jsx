@@ -81,8 +81,8 @@ function ModalUnidadesPack({ open, onClose, pack }) {
   const agregar = useMutation({
     mutationFn: (unidadId) => api.post(`/promociones/${pack.id}/unidades`, { unidadId }),
     onSuccess: () => {
-      qc.invalidateQueries(['pack-detalle', pack.id])
-      qc.invalidateQueries(['promociones'])
+      qc.invalidateQueries({ queryKey: ['pack-detalle', pack.id] })
+      qc.invalidateQueries({ queryKey: ['promociones'] })
     },
     onError: err => message.error(err.response?.data?.error || 'Error al agregar')
   })
@@ -90,8 +90,8 @@ function ModalUnidadesPack({ open, onClose, pack }) {
   const quitar = useMutation({
     mutationFn: (unidadId) => api.delete(`/promociones/${pack.id}/unidades/${unidadId}`),
     onSuccess: () => {
-      qc.invalidateQueries(['pack-detalle', pack.id])
-      qc.invalidateQueries(['promociones'])
+      qc.invalidateQueries({ queryKey: ['pack-detalle', pack.id] })
+      qc.invalidateQueries({ queryKey: ['promociones'] })
     },
     onError: err => message.error(err.response?.data?.error || 'Error al quitar')
   })
@@ -212,7 +212,7 @@ function ModalPack({ open, onClose, pack }) {
     mutationFn: (d) => pack ? api.put(`/promociones/${pack.id}`, d) : api.post('/promociones', d),
     onSuccess: () => {
       message.success(pack ? 'Pack actualizado' : 'Pack creado')
-      qc.invalidateQueries(['promociones'])
+      qc.invalidateQueries({ queryKey: ['promociones'] })
       onClose(); form.resetFields()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')
@@ -324,7 +324,7 @@ function ModalPromocion({ open, onClose, promo }) {
     mutationFn: (d) => promo ? api.put(`/promociones/${promo.id}`, d) : api.post('/promociones', d),
     onSuccess: () => {
       message.success(promo ? 'Promoción actualizada' : 'Promoción creada')
-      qc.invalidateQueries(['promociones'])
+      qc.invalidateQueries({ queryKey: ['promociones'] })
       onClose(); form.resetFields()
     },
     onError: err => message.error(err.response?.data?.error || 'Error')

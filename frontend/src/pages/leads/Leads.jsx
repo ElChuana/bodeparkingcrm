@@ -61,7 +61,7 @@ function FiltrosLeads({ filtros, onChange, vendedores, edificios, esGerenciaOJV,
     <Card
       size="small"
       style={{ marginBottom: 16, background: '#fafafa' }}
-      bodyStyle={{ padding: '10px 14px' }}
+      styles={{ body: { padding: '10px 14px' } }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <FilterOutlined style={{ color: '#8c8c8c' }} />
@@ -305,7 +305,7 @@ const LeadCard = React.memo(function LeadCard({ lead, onPreview }) {
           background: lead.emailsNoLeidos > 0 ? '#fff7e6' : undefined
         }}
         onClick={() => { if (!isDragging) onPreview(lead.id) }}
-        bodyStyle={{ padding: '8px 10px' }}
+        styles={{ body: { padding: '8px 10px' } }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 2 }}>
           <Text strong style={{ fontSize: 13 }}>
@@ -495,7 +495,7 @@ function VistaKanban({ filtros, onPreview }) {
 
       <DragOverlay>
         {activeLead ? (
-          <Card size="small" style={{ width: 240, opacity: 0.85, boxShadow: '0 8px 20px rgba(0,0,0,0.2)', cursor: 'grabbing' }} bodyStyle={{ padding: '8px 10px' }}>
+          <Card size="small" style={{ width: 240, opacity: 0.85, boxShadow: '0 8px 20px rgba(0,0,0,0.2)', cursor: 'grabbing' }} styles={{ body: { padding: '8px 10px' } }}>
             <Text strong style={{ fontSize: 13 }}>{activeLead.contacto.nombre} {activeLead.contacto.apellido}</Text>
           </Card>
         ) : null}
@@ -759,8 +759,8 @@ function ModalNuevoLead({ open, onClose }) {
     },
     onSuccess: () => {
       message.success('Lead creado')
-      qc.invalidateQueries(['leads-kanban'])
-      qc.invalidateQueries(['leads'])
+      qc.invalidateQueries({ queryKey: ['leads-kanban'] })
+      qc.invalidateQueries({ queryKey: ['leads'] })
       onClose()
       form.resetFields()
     },

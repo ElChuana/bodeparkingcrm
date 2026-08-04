@@ -62,6 +62,7 @@ function agruparPorSemana(ventasPeriodo, todasVentas, desde, hasta) {
 
 const obtener = async (req, res) => {
   const { desde, hasta } = req.query
+  const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)
   const hayFecha = desde || hasta
   const { desdeAnt, hastaAnt } = calcPeriodoAnterior(desde, hasta)
 
@@ -408,7 +409,10 @@ const obtener = async (req, res) => {
       visitasDelPeriodo,
       visitasProximas,
       cuotasPendientes,
-      ventasRecientes,
+      // Ocultar el precio de costo de las unidades a roles sin permiso
+      ventasRecientes: esGerenciaOJV
+        ? ventasRecientes
+        : ventasRecientes.map(v => ({ ...v, unidades: v.unidades?.map(({ precioCostoUF, ...u }) => u) })),
       procesoLegalPendiente,
       ventasActivas,
       embudo: [

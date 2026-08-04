@@ -21,8 +21,8 @@ export default function PlantillasEmail() {
   })
 
   const invalidar = () => {
-    qc.invalidateQueries(['plantillas-email'])
-    qc.invalidateQueries(['plantillas-email-compositor'])
+    qc.invalidateQueries({ queryKey: ['plantillas-email'] })
+    qc.invalidateQueries({ queryKey: ['plantillas-email-compositor'] })
   }
 
   const guardar = useMutation({

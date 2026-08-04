@@ -213,8 +213,7 @@ export default function Layout() {
         open={mobileOpen}
         onClose={() => setMobileOpen(false)}
         width={220}
-        bodyStyle={{ padding: 0 }}
-        headerStyle={{ display: 'none' }}
+        styles={{ body: { padding: 0 }, header: { display: 'none' } }}
       >
         <SidebarContent selectedKey={selectedKey} onNavigate={handleNavigate} />
       </Drawer>
