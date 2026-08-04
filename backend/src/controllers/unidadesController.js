@@ -15,7 +15,7 @@ const listar = async (req, res) => {
         ...(precioMax && { precioUF: { lte: Number(precioMax) } }),
       },
       include: {
-        edificio: { select: { id: true, nombre: true, region: true, comuna: true } },
+        edificio: { select: { id: true, nombre: true, direccion: true, region: true, comuna: true } },
         packs: { include: { pack: { select: { nombre: true, descuentoUF: true } } } },
         beneficios: { include: { beneficio: { select: { nombre: true, tipo: true } } } },
         _count: { select: { llaves: true } }

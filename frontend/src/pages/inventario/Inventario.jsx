@@ -361,8 +361,9 @@ function VistaLista({ edificios }) {
   const exportarExcel = () => {
     const filas = datos.map(u => ({
       Edificio: u.edificio?.nombre || '',
-      Región: u.edificio?.region || '',
+      Dirección: u.edificio?.direccion || '',
       Comuna: u.edificio?.comuna || '',
+      Región: u.edificio?.region || '',
       Tipo: u.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento',
       Subtipo: u.subtipo === 'TANDEM' ? 'Tándem' : '',
       Número: u.numero,
