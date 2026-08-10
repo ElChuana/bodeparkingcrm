@@ -134,3 +134,26 @@ test('flujo completo: cotización → venta queda cuadrada', () => {
   const chk = verificarCuadratura({ ...totales, unidades })
   assert.strictEqual(chk.ok, true, `diffLista=${chk.diffLista} diffVenta=${chk.diffVenta}`)
 })
+
+// Regresión (ago-2026): Prisma devuelve los campos @db.Decimal como objetos, no
+// como number. Sumarlos con `+` los concatenaba como texto y el total de una
+// cotización de 2+ unidades salía absurdo (5 bodegas → "78.889.511.869 UF").
+test('calcularTotalesVenta: suma bien objetos Decimal de Prisma', () => {
+  const { Decimal } = require('@prisma/client/runtime/library')
+  const t = calcularTotalesVenta({
+    items: [{ precioListaUF: new Decimal('95.24') }, { precioListaUF: new Decimal('95.24') }],
+    promociones: [{ descuentoAplicadoUF: new Decimal('44.07683') }, { descuentoAplicadoUF: new Decimal('5') }],
+    descuentoAprobadoUF: new Decimal('0'),
+  })
+  assert.ok(cerca(t.precioListaUF, 190.48), `precioListaUF concatenado: ${t.precioListaUF}`)
+  assert.ok(cerca(t.precioFinalUF, 141.40317), `precioFinalUF erróneo: ${t.precioFinalUF}`)
+})
+
+test('num(): convierte Decimal, string, null y undefined a number', () => {
+  const { num } = require('../src/lib/precios')
+  const { Decimal } = require('@prisma/client/runtime/library')
+  assert.strictEqual(num(new Decimal('12.5')), 12.5)
+  assert.strictEqual(num('12.5'), 12.5)
+  assert.strictEqual(num(null), 0)
+  assert.strictEqual(num(undefined), 0)
+})

@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { num } = require('../lib/precios')
 
 const leads = async (req, res) => {
   const { vendedorId, desde, hasta } = req.query
@@ -129,7 +130,7 @@ const pagosAtrasados = async (req, res) => {
       orderBy: { fechaVencimiento: 'asc' }
     })
 
-    const totalUF = cuotas.reduce((s, c) => s + (c.montoUF || 0), 0)
+    const totalUF = cuotas.reduce((s, c) => s + num(c.montoUF), 0)
     res.json({ total: cuotas.length, totalUF: Math.round(totalUF * 100) / 100, detalle: cuotas })
   } catch (err) {
     res.status(500).json({ error: 'Error al generar reporte de pagos atrasados.' })
@@ -161,11 +162,11 @@ const comisiones = async (req, res) => {
       orderBy: { creadoEn: 'desc' }
     })
 
-    const totalUF = data.reduce((s, c) => s + c.montoCalculadoUF, 0)
+    const totalUF = data.reduce((s, c) => s + num(c.montoCalculadoUF), 0)
     const pendienteUF = data.reduce((s, c) => {
       let p = 0
-      if (c.estadoPrimera === 'PENDIENTE') p += c.montoPrimera
-      if (c.estadoSegunda === 'PENDIENTE') p += c.montoSegunda
+      if (c.estadoPrimera === 'PENDIENTE') p += num(c.montoPrimera)
+      if (c.estadoSegunda === 'PENDIENTE') p += num(c.montoSegunda)
       return s + p
     }, 0)
 

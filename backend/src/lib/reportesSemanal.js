@@ -1,4 +1,5 @@
 const prisma = require('./prisma')
+const { num } = require('./precios')
 const { generarContenido } = require('./groq')
 
 const CHILE_UTC_OFFSET_HOURS = 4
@@ -116,7 +117,7 @@ async function agregarDatosSemana(lunesISO, domingoISO) {
     const cotizaciones = cambios.filter(i => i.descripcion?.includes('→ COTIZACION_ENVIADA'))
     const perdidos = cambios.filter(i => i.descripcion?.includes('→ PERDIDO'))
     const ventasV = ventas.filter(vt => vt.vendedorId === v.id)
-    const ufVendido = ventasV.reduce((s, vt) => s + (vt.precioFinalUF || 0), 0)
+    const ufVendido = ventasV.reduce((s, vt) => s + num(vt.precioFinalUF), 0)
 
     // Actividad por día = reales + cambios de etapa (todo cuenta)
     const actividadPorDia = dias.map(d => {

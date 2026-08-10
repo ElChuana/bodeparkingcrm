@@ -1,6 +1,6 @@
 const prisma = require('../lib/prisma')
 const { aplicarReglasComision } = require('../lib/comisiones')
-const { calcularTotalesVenta, prorratearPrecioVenta } = require('../lib/precios')
+const { num, calcularTotalesVenta, prorratearPrecioVenta } = require('../lib/precios')
 
 const INCLUDE_COMPLETO = {
   lead: {
@@ -46,11 +46,13 @@ const INCLUDE_COMPLETO = {
   }
 }
 
+// Prisma devuelve los campos @db.Decimal como objetos Decimal: sumarlos con `+`
+// los concatena como texto ("0" + "95.24" + "95.24"). Siempre convertir con num().
 function calcularTotales(cotizacion) {
-  const precioListaUF = (cotizacion.items || []).reduce((s, i) => s + (i.precioListaUF || 0), 0)
-  const descuentoPacksUF = (cotizacion.packs || []).reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
-  const descuentoPromosUF = (cotizacion.promociones || []).reduce((s, p) => s + (p.descuentoAplicadoUF || 0), 0)
-  const descuentoAprobadoUF = cotizacion.descuentoAprobadoUF || 0
+  const precioListaUF = (cotizacion.items || []).reduce((s, i) => s + num(i.precioListaUF), 0)
+  const descuentoPacksUF = (cotizacion.packs || []).reduce((s, p) => s + num(p.descuentoAplicadoUF), 0)
+  const descuentoPromosUF = (cotizacion.promociones || []).reduce((s, p) => s + num(p.descuentoAplicadoUF), 0)
+  const descuentoAprobadoUF = num(cotizacion.descuentoAprobadoUF)
   const precioFinalUF = Math.max(precioListaUF - descuentoPacksUF - descuentoPromosUF - descuentoAprobadoUF, 0)
   return { precioListaUF, descuentoPacksUF, descuentoPromosUF, descuentoAprobadoUF, precioFinalUF }
 }
@@ -90,8 +92,8 @@ async function recalcularPromociones(cotizacionId) {
       if (promo.tipo === 'PAQUETE') {
         const todas = tieneUnidades && promoUnidadIds.every(id => itemUnidadIds.includes(id))
         if (todas) {
-          const suma = cot.items.filter(i => promoUnidadIds.includes(i.unidadId)).reduce((s, i) => s + i.precioListaUF, 0)
-          descuento = Math.max(suma - (promo.valorUF || 0), 0)
+          const suma = cot.items.filter(i => promoUnidadIds.includes(i.unidadId)).reduce((s, i) => s + num(i.precioListaUF), 0)
+          descuento = Math.max(suma - num(promo.valorUF), 0)
         }
       } else if (promo.tipo === 'DESCUENTO_UF') {
         if (tieneUnidades) {
@@ -101,18 +103,18 @@ async function recalcularPromociones(cotizacionId) {
           const usarObjetivo = promo.precioObjetivoPesos != null && valorUF
           for (const it of afectadas) {
             const d = usarObjetivo
-              ? Math.max(it.precioListaUF - (promo.precioObjetivoPesos / valorUF), 0)
-              : (promo.valorUF || 0)
+              ? Math.max(num(it.precioListaUF) - (num(promo.precioObjetivoPesos) / num(valorUF)), 0)
+              : num(promo.valorUF)
             descuentoPorUnidad[it.unidadId] = (descuentoPorUnidad[it.unidadId] || 0) + d
             descuento += d
           }
         } else if (!promo.minUnidades || cot.items.length >= promo.minUnidades) {
-          descuento = promo.valorUF || 0
+          descuento = num(promo.valorUF)
         }
       } else if (promo.tipo === 'DESCUENTO_PORCENTAJE') {
         const base = tieneUnidades
-          ? cot.items.filter(i => promoUnidadIds.includes(i.unidadId)).reduce((s, i) => s + i.precioListaUF, 0)
-          : cot.items.reduce((s, i) => s + i.precioListaUF, 0)
+          ? cot.items.filter(i => promoUnidadIds.includes(i.unidadId)).reduce((s, i) => s + num(i.precioListaUF), 0)
+          : cot.items.reduce((s, i) => s + num(i.precioListaUF), 0)
         if (!promo.minUnidades || cot.items.length >= promo.minUnidades) {
           descuento = base * ((promo.valorPorcentaje || 0) / 100)
         }

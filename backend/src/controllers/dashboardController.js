@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { num } = require('../lib/precios')
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
@@ -51,11 +52,11 @@ function agruparPorSemana(ventasPeriodo, todasVentas, desde, hasta) {
   return semanas.map(s => {
     const vendidoUF = ventasPeriodo
       .filter(v => v.fechaReserva && new Date(v.fechaReserva) >= s.desde && new Date(v.fechaReserva) < s.hasta)
-      .reduce((sum, v) => sum + (v.precioFinalUF || 0), 0)
+      .reduce((sum, v) => sum + num(v.precioFinalUF), 0)
     const recolectadoUF = todasVentas
       .flatMap(v => v.planPago?.cuotas || [])
       .filter(c => c.estado === 'PAGADO' && c.fechaPagoReal && new Date(c.fechaPagoReal) >= s.desde && new Date(c.fechaPagoReal) < s.hasta)
-      .reduce((sum, c) => sum + (c.montoUF || 0), 0)
+      .reduce((sum, c) => sum + num(c.montoUF), 0)
     return { semana: s.label, vendidoUF: +vendidoUF.toFixed(2), recolectadoUF: +recolectadoUF.toFixed(2) }
   })
 }
@@ -354,7 +355,7 @@ const obtener = async (req, res) => {
     const leadsPorSemana = agruparLeadsPorSemana(leadsAnio, anioStart, anioEnd)
 
     // KPIs
-    const montoUF = ventasRecientes.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
+    const montoUF = ventasRecientes.reduce((s, v) => s + num(v.precioFinalUF), 0)
     const unidadesVendidas = ventasRecientes.reduce((s, v) => s + (v.unidades?.length || 0), 0)
     const montoUFAnt = 0
     const ventasAntCount = ventasAnt

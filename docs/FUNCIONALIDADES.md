@@ -272,7 +272,8 @@
 - Archivos: `routes/campanas.js`, `controllers/campanasController.js`
 - Agrupan promociones (ej: "Webinar Junio 2026"). `campanaId` es **opcional** en una promo: un beneficio permanente o de otra ocasión tiene `campanaId=null` y su vigencia vive en la propia `Promocion`.
 - CRUD con `autorizar('GERENTE','JEFE_VENTAS')` para escrituras.
-- Seed del webinar: `backend/scripts/seedWebinar.js`. Migración packs/beneficios→promoción: `backend/scripts/migrarPromociones.js`.
+- Seeds de webinar: `backend/scripts/seed-webinar-ago2026.js` (el vigente: sube el precio de lista al **ancla** del excel comercial, crea los descuentos por tier con `precioObjetivoPesos`, reactiva el Pack 2+ y baja las promos del webinar anterior) · `backend/scripts/seedWebinar.js` (junio 2026, histórico). Migración packs/beneficios→promoción: `backend/scripts/migrarPromociones.js`.
+- **Mecánica del precio webinar**: el precio de lista de la unidad se sube al ancla (el precio tachado) y la promo lleva el precio final al objetivo en $. Como el descuento se calcula con la UF vigente al cotizar (`precioObjetivoPesos / UF`), el precio final en pesos cae exacto aunque la UF cambie.
 
 ### PACKS — `/api/packs` (LEGACY, solo compat)
 - Archivos: `routes/packs.js`, `controllers/packsController.js`. Migrados a `Promocion`. Crear nuevos vía `/api/promociones`.
@@ -369,6 +370,7 @@
 - `POST /:id/beneficios` / `DELETE /:id/beneficios/:beneficioId` — agregar/quitar beneficios (legacy)
 - Al cambiar items o promociones se llama `recalcularPromociones(cotizacionId)`: recalcula `CotizacionPromocion.descuentoAplicadoUF` y el snapshot por ítem `CotizacionItem.descuentoUF` (precio tachado).
 - Totales calculados: precioListaUF − (Σ item.descuentoUF) − descuentoPromosUF − descuentoPacksUF − descuentoAprobadoUF = precioFinalUF
+- ⚠️ **Sumar montos siempre con `num()` de `lib/precios.js`**: Prisma entrega los campos `@db.Decimal` como objetos, y `0 + Decimal` los concatena como texto. El middleware `decimalSerializer` solo convierte al serializar la respuesta, así que toda aritmética previa en el backend debe coercionar. Bug corregido en ago-2026 (los totales de cotizaciones de 2+ unidades salían absurdos); cubierto por tests en `tests/precios.test.js`.
 - **Cotización vendedora**: el PDF (`CotizacionPDF.jsx`) muestra el precio lista **tachado** por unidad cuando hay descuento por-unidad, con el precio webinar destacado en verde. Las promos de volumen y beneficios se listan aparte.
 - PDF incluye: m2 de bodegas, teléfono y email del ejecutivo de ventas
 - Frontend: `pages/cotizaciones/CotizacionEditor.jsx`, `pages/cotizaciones/CotizacionPDF.jsx`

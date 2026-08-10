@@ -59,4 +59,4 @@ function verificarCuadratura({ precioListaUF, precioFinalUF, unidades = [] }, to
   }
 }
 
-module.exports = { calcularTotalesVenta, prorratearPrecioVenta, verificarCuadratura }
+module.exports = { num, calcularTotalesVenta, prorratearPrecioVenta, verificarCuadratura }
