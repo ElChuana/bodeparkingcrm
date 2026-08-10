@@ -85,8 +85,8 @@
 
     <div class="label">Autenticación</div>
     <p>Cada request debe incluir la API Key en el header:</p>
-    <div class="endpoint" style="margin-top:8px"><span class="method" style="background:#475569">HEADER</span> X-Api-Key: bp_62149ad6d81bc708b3f57542ac43f13c140607e436782e72</div>
-    <div class="note">La API Key se las entrega BodeParking. Si falta o es inválida, el CRM responde <code>401</code>.</div>
+    <div class="endpoint" style="margin-top:8px"><span class="method" style="background:#475569">HEADER</span> X-Api-Key: TU_API_KEY</div>
+    <div class="note">La API Key se las entrega BodeParking por un canal privado (no viaja en este documento). Si falta o es inválida, el CRM responde <code>401</code>. Debe ir <strong>siempre en el header</strong>: no se acepta como parámetro de la URL, porque quedaría registrada en los logs.</div>
 
     <div class="label">URL base</div>
     <div class="endpoint" style="margin-top:8px"><span class="method" style="background:#475569">BASE</span> https://backend-production-1c52.up.railway.app</div>
@@ -157,11 +157,20 @@
       <tr><td><code>nombre</code></td><td>string</td><td><span class="req">requerido</span></td><td>Nombre completo del contacto ("Nombre Apellido").</td></tr>
       <tr><td><code>correo</code></td><td>string</td><td><span class="opt">opcional</span></td><td>Email del contacto (también se acepta <code>email</code>).</td></tr>
       <tr><td><code>telefono</code></td><td>string</td><td><span class="opt">opcional</span></td><td>Formato internacional (+569…).</td></tr>
-      <tr><td><code>estado</code></td><td>string</td><td><span class="req">requerido</span></td><td><code>formulario-rellenado</code> o <code>agenda</code>. Determina qué hace el CRM.</td></tr>
-      <tr><td><code>inicio</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td>Fecha/hora de la cita en ISO 8601. Alternativa: <code>fecha</code> + <code>hora</code>.</td></tr>
+      <tr><td><code>estado</code></td><td>string</td><td><span class="req">requerido</span></td><td><code>formulario-rellenado</code>, <code>agenda</code> o <code>cancela</code>. Determina qué hace el CRM.</td></tr>
+      <tr><td><code>inicio</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td>Fecha/hora de la cita. Alternativa: <code>fecha</code> + <code>hora</code>. Ver formatos aceptados abajo.</td></tr>
       <tr><td><code>fecha</code> / <code>hora</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td><code>"DD/MM/YYYY"</code> y <code>"HH:MM"</code> (si no se usa <code>inicio</code>).</td></tr>
       <tr><td><code>enlace</code></td><td>string</td><td><span class="opt">solo agenda</span></td><td>Link de la reunión online (Meet/Zoom). También se acepta <code>meetUrl</code> / <code>link</code>.</td></tr>
+      <tr><td><code>tipo</code></td><td>string</td><td><span class="opt">opcional</span></td><td><code>presencial</code>, <code>virtual</code> o <code>reunion_comercial</code> (por defecto).</td></tr>
     </table>
+
+    <div class="label">Formatos de fecha aceptados</div>
+    <table>
+      <tr><td style="width:230px"><code>"2026-08-24T08:30:00"</code></td><td>ISO 8601 (recomendado).</td></tr>
+      <tr><td><code>"Monday, August 24, 2026 8:30 AM"</code></td><td>Texto con nombre de mes, en inglés o español, con o sin AM/PM.</td></tr>
+      <tr><td><code>"24/08/2026 08:30"</code></td><td>Numérico día/mes/año.</td></tr>
+    </table>
+    <div class="note"><strong>La hora se interpreta siempre como hora de Chile</strong> — el número que ve el cliente. Si el ISO trae <code>Z</code> o un offset, se ignora la etiqueta de zona.</div>
     <div class="note">Se recomienda enviar <strong>correo o teléfono</strong> (idealmente ambos): el CRM los usa para evitar contactos duplicados.</div>
   </div>
 
@@ -169,10 +178,14 @@
   <div class="card">
     <h2>Comportamiento del CRM</h2>
     <table>
-      <tr><td style="width:200px"><strong>Anti-duplicados</strong></td><td>Si el contacto ya existe (por correo o teléfono + nombre similar), se reutiliza; no se crean duplicados.</td></tr>
+      <tr><td style="width:200px"><strong>Anti-duplicados</strong></td><td>Si el contacto ya existe (por correo o teléfono + nombre similar), se reutiliza; no se crean duplicados. El teléfono se compara sin importar el formato (<code>"9 7641 7336"</code> = <code>"+56976417336"</code>).</td></tr>
       <tr><td><strong>Reenvío idempotente</strong></td><td>Reenviar el mismo evento de agenda (mismo contacto + misma fecha/hora) no duplica la reunión.</td></tr>
+      <tr><td><strong>Reagendamiento</strong></td><td>Si llega una agenda con otra fecha/hora y ya había una cita futura pendiente, se <strong>mueve</strong> esa cita en vez de crear una segunda.</td></tr>
+      <tr><td><strong>Cancelación</strong></td><td><code>estado: "cancela"</code> saca la cita del calendario (y con ella el recordatorio de 24 h) y deja el lead en seguimiento. Si se manda <code>inicio</code>, cancela esa cita puntual; si no, la(s) cita(s) futura(s) del contacto.</td></tr>
+      <tr><td><strong>Lead recuperado</strong></td><td>Si el contacto estaba dado por perdido y vuelve a dejar sus datos, el CRM lo marca como reactivado y avisa al ejecutivo.</td></tr>
       <tr><td><strong>Notificación</strong></td><td>El ejecutivo de ventas y la gerencia reciben aviso al instante; recordatorio automático 24 h antes de la cita.</td></tr>
       <tr><td><strong>Sin fecha</strong></td><td>Si el webhook de agenda llega sin fecha/hora, el lead queda agendado y se notifica para coordinar la hora manualmente.</td></tr>
+      <tr><td><strong>Límite de tráfico</strong></td><td>60 requests por minuto por API Key. Si se supera, el CRM responde <code>429</code> con el campo <code>reintentar_en_segundos</code>.</td></tr>
     </table>
   </div>
 
@@ -181,7 +194,7 @@
     <h2>Ejemplo (cURL)</h2>
 <pre>curl -X POST https://backend-production-1c52.up.railway.app/api/public/webhooks/webinar \
   -H <span class="s">"Content-Type: application/json"</span> \
-  -H <span class="s">"X-Api-Key: bp_62149ad6d81bc708b3f57542ac43f13c140607e436782e72"</span> \
+  -H <span class="s">"X-Api-Key: TU_API_KEY"</span> \
   -d '{
     <span class="k">"nombre"</span>: <span class="s">"María González"</span>,
     <span class="k">"correo"</span>: <span class="s">"maria.gonzalez@email.com"</span>,
@@ -193,9 +206,10 @@
     <div class="label">Códigos de respuesta</div>
     <table>
       <tr><td style="width:90px"><code>201</code></td><td>Creado correctamente.</td></tr>
-      <tr><td><code>200</code></td><td>OK — el contacto/lead ya existía (no se duplicó).</td></tr>
-      <tr><td><code>400</code></td><td>Falta el campo <code>nombre</code>.</td></tr>
+      <tr><td><code>200</code></td><td>OK — el contacto/lead ya existía o el evento era un reenvío (no se duplicó).</td></tr>
+      <tr><td><code>400</code></td><td>Falta el campo <code>nombre</code>, o el <code>vendedorId</code> enviado no existe.</td></tr>
       <tr><td><code>401</code></td><td>API Key faltante o inválida.</td></tr>
+      <tr><td><code>429</code></td><td>Se superó el límite de requests por minuto. Reintentar según <code>reintentar_en_segundos</code>.</td></tr>
     </table>
   </div>
 

@@ -1,5 +1,20 @@
 const prisma = require('../lib/prisma')
 
+// Redacta secretos que vengan en la query string antes de guardar la URL.
+// La key ya no se acepta por query (ver middleware/apiKey.js), pero si alguien
+// la manda igual no debe quedar en texto plano en la tabla de logs.
+const CLAVES_SECRETAS = /^(api_key|apikey|key|token|access_token|password)$/i
+function redactarUrl(url) {
+  const corte = url.indexOf('?')
+  if (corte === -1) return url
+  const params = new URLSearchParams(url.slice(corte + 1))
+  let toco = false
+  for (const k of [...params.keys()]) {
+    if (CLAVES_SECRETAS.test(k)) { params.set(k, '***'); toco = true }
+  }
+  return toco ? `${url.slice(0, corte)}?${params.toString()}` : url
+}
+
 // Registra en BD cada request a los endpoints de integración externa (Comuro,
 // formulario web, webinar): status, key usada, payload y error devuelto.
 // Va ANTES de autenticarApiKey para capturar también los 401 (key mala/ausente).
@@ -26,7 +41,7 @@ const logIntegracion = (req, res, next) => {
 
     prisma.logIntegracion.create({
       data: {
-        endpoint: req.originalUrl.slice(0, 200),
+        endpoint: redactarUrl(req.originalUrl).slice(0, 200),
         metodo: req.method,
         status: res.statusCode,
         apiKey: req.apiKey?.nombre || null,
@@ -41,4 +56,4 @@ const logIntegracion = (req, res, next) => {
   next()
 }
 
-module.exports = { logIntegracion }
+module.exports = { logIntegracion, redactarUrl }

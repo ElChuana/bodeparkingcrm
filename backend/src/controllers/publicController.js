@@ -3,8 +3,11 @@ const prisma = require('../lib/prisma')
 const { mismoNombre: _mismoNombre } = require('../lib/deduplication')
 const { vincularCampana } = require('../lib/campanas')
 const { notificarLead } = require('../lib/notifications')
-const { desdeHoraChile } = require('../lib/fechaChile')
 const { VENDEDOR_FALLBACK_ID } = require('../config')
+const {
+  splitNombre, normalizarTelefono, parsearFechaHoraCita, detectarEnlaceReunion,
+  tipoVisita, clasificarEstado, etapaTrasAgendar, esFrio,
+} = require('../lib/webinar')
 
 // Wrapper para compatibilidad: aquí se llama con (nombre, apellido, nombre2, apellido2)
 const mismoNombre = (n1, a1, n2, a2) => _mismoNombre(`${n1} ${a1}`, `${n2} ${a2}`)
@@ -16,80 +19,52 @@ const numOrNull = (v) => {
   return Number.isFinite(n) ? n : null
 }
 
-// "María González Pérez" → { nombre: "María", apellido: "González Pérez" }
-function splitNombre(completo) {
-  const partes = (completo || '').trim().split(/\s+/)
-  if (partes.length === 0) return { nombre: '', apellido: '' }
-  if (partes.length === 1) return { nombre: partes[0], apellido: '' }
-  return { nombre: partes[0], apellido: partes.slice(1).join(' ') }
-}
-
+// splitNombre, parsearFechaHoraCita, detectarEnlaceReunion, tipoVisita, etc. viven
+// en lib/webinar.js (funciones puras, con tests en tests/webinar.test.js).
 // offsetSantiagoMin y desdeHoraChile viven en lib/fechaChile (reutilizados por comuroController)
 
-// Fecha/hora de la cita. El proveedor (Calendly) envía la hora YA en horario chileno
-// (el número que ve el cliente), aunque la marque con "Z" o un offset. Por eso se toman
-// los componentes de fecha/hora TAL CUAL y se interpretan como hora de Chile, ignorando
-// la etiqueta de zona. Acepta ISO 8601 o fecha "DD/MM/YYYY" + hora "HH:MM".
-function parsearFechaHoraCita(body) {
-  const iso = body.inicio || body.fechaHora || body.start_time || body.startTime
-  if (iso) {
-    const s = String(iso).trim()
-    // 1) Tomar los dígitos de fecha/hora del texto (en cualquier parte) → hora de Chile
-    const m = s.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
-    if (m) return desdeHoraChile(+m[1], +m[2], +m[3], +m[4], +m[5])
-    // 2) Fallback: si es parseable, usar los componentes "de pared" (UTC) como hora de Chile
-    const dt = new Date(s)
-    if (!isNaN(dt.getTime())) {
-      return desdeHoraChile(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate(), dt.getUTCHours(), dt.getUTCMinutes())
-    }
-  }
-  if (body.fecha && body.hora) {
-    const m = String(body.fecha).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
-    const hm = String(body.hora).match(/^(\d{1,2}):(\d{2})$/)
-    if (m && hm) {
-      const [, dia, mes, anio] = m
-      return desdeHoraChile(+anio, +mes, +dia, +hm[1], +hm[2])
-    }
-  }
-  return null
-}
+// El servidor corre en UTC: formatear siempre en hora de Chile para que los mensajes
+// (notificaciones, timeline, respuesta del webhook) muestren la hora que ve el cliente.
+const TZ_CHILE = 'America/Santiago'
+const textoFechaChile = (d) =>
+  `${d.toLocaleDateString('es-CL', { timeZone: TZ_CHILE })} a las ` +
+  `${d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', timeZone: TZ_CHILE })}`
 
-// Recolecta todas las URLs http(s) presentes en el payload (búsqueda recursiva).
-function urlsEnPayload(obj, depth = 0, acc = []) {
-  if (depth > 5 || obj == null) return acc
-  if (typeof obj === 'string') {
-    const s = obj.trim()
-    if (/^https?:\/\/\S+/i.test(s)) acc.push(s)
-    return acc
-  }
-  if (typeof obj === 'object') for (const v of Object.values(obj)) urlsEnPayload(v, depth + 1, acc)
-  return acc
-}
-
-// Link de la reunión: primero campos conocidos; si no, cualquier URL de videollamada en el payload.
-function detectarEnlaceReunion(body) {
-  const conocido = (body.enlace || body.meetUrl || body.linkMeet || body.link || body.url ||
-    body.join_url || body.meeting_url || body.location)?.trim()
-  if (conocido && /^https?:\/\//i.test(conocido)) return conocido
-  const urls = urlsEnPayload(body)
-  return urls.find(u => /(meet\.google|zoom\.us|teams\.microsoft|whereby|jit\.si|hangouts|meet\.)/i.test(u)) || null
-}
-
-// Busca un contacto existente por correo (match seguro) o teléfono + nombre similar
+// Busca un contacto existente por correo (match seguro) o teléfono + nombre similar.
+// El teléfono se compara normalizado ("9 7641 7336" == "+56976417336"): el proveedor
+// manda el mismo número con distinto formato según el evento.
 async function buscarContactoDuplicado({ correo, telefono, nombre, apellido }) {
   if (!correo && !telefono) return null
+  const telNorm = normalizarTelefono(telefono)
+
+  // El teléfono guardado puede traer espacios/prefijo ("9 7641 7336" vs "+56976417336"),
+  // así que se compara contra la versión sin separadores directamente en Postgres.
+  let idsPorTelefono = []
+  if (telNorm) {
+    const filas = await prisma.$queryRaw`
+      SELECT id FROM contactos
+      WHERE regexp_replace(coalesce(telefono, ''), '[^0-9]', '', 'g') LIKE '%' || ${telNorm}
+      LIMIT 20`
+    idsPorTelefono = filas.map(f => f.id)
+  }
+
   const candidatos = await prisma.contacto.findMany({
     where: {
       OR: [
-        ...(correo   ? [{ email:    { equals: correo, mode: 'insensitive' } }] : []),
-        ...(telefono ? [{ telefono: telefono }] : []),
+        ...(correo               ? [{ email: { equals: correo, mode: 'insensitive' } }] : []),
+        ...(idsPorTelefono.length ? [{ id: { in: idsPorTelefono } }] : []),
       ]
     }
   })
+  if (candidatos.length === 0) return null
+
+  // Email siempre es match seguro; teléfono requiere además nombre similar
   for (const c of candidatos) {
-    const matchEmail = correo && c.email && c.email.toLowerCase() === correo.toLowerCase()
-    const matchTel   = telefono && c.telefono === telefono
-    if (matchEmail || (matchTel && mismoNombre(nombre, apellido, c.nombre, c.apellido))) return c
+    if (correo && c.email && c.email.toLowerCase() === correo.toLowerCase()) return c
+  }
+  for (const c of candidatos) {
+    const matchTel = telNorm && normalizarTelefono(c.telefono) === telNorm
+    if (matchTel && mismoNombre(nombre, apellido, c.nombre, c.apellido)) return c
   }
   return null
 }
@@ -337,31 +312,41 @@ const crearLead = async (req, res) => {
 
 // ─── POST /api/public/webhooks/webinar ────────────────────────────
 // Webhook único del lanzamiento (tipo Calendly). Enruta según `estado`:
-//   - "agenda"                  → busca/crea el lead + agenda la reunión
-//                                 (Interaccion tipo REUNION con fecha → aparece en
-//                                 el calendario, igual que Comuro) + etapa VISITA_AGENDADA
-//   - cualquier otro / formulario → solo crea el lead nuevo (etapa NUEVO)
-// En ambos casos deduplica contacto/lead y notifica al vendedor + gerencia.
+//   - "agenda"                    → busca/crea el lead + agenda la reunión como
+//                                   Visita (aparece en el calendario) + etapa VISITA_AGENDADA
+//   - "cancela"                   → borra la cita futura del calendario y avisa
+//   - cualquier otro / formulario → solo crea/reactiva el lead (etapa NUEVO)
+// En todos los casos deduplica contacto/lead y notifica al vendedor + gerencia.
 //
 // Payload (lo definimos nosotros):
-//   nombre  (req) "María González" — completo
+//   nombre  (req) "María González" — completo (acepta "González, María")
 //   correo/email, telefono, estado
 //   inicio/fechaHora ISO 8601  (o)  fecha "DD/MM/YYYY" + hora "HH:MM"   (solo agenda)
-//   vendedorId, campana, notas  (opcionales)
+//   vendedorId, campana, notas, tipo  (opcionales)
 const webhookWebinar = async (req, res) => {
   const body = req.body || {}
-  console.log('[Webhook webinar] payload:', JSON.stringify(body))
+  // Sin datos personales en stdout: el payload completo queda en logs_integraciones
+  console.log('[Webhook webinar] estado:', body.estado, '· campos:', Object.keys(body).join(','))
   const correo   = (body.correo || body.email)?.trim() || null
   const telefono = body.telefono?.trim() || null
   const { nombre, apellido } = splitNombre(body.nombre)
-  const esAgenda = String(body.estado || '').toLowerCase() === 'agenda'
+  const accion = clasificarEstado(body.estado)
 
   if (!nombre) {
     return res.status(400).json({
       error: 'nombre es requerido.',
       campos_requeridos: ['nombre'],
-      campos_opcionales: ['correo', 'telefono', 'estado', 'inicio (ISO) o fecha+hora', 'vendedorId', 'campana', 'notas'],
+      campos_opcionales: ['correo', 'telefono', 'estado', 'inicio (ISO) o fecha+hora', 'vendedorId', 'campana', 'notas', 'tipo'],
     })
+  }
+
+  // Un vendedorId inexistente reventaba con error de FK (500). Se valida antes.
+  const vendedorPedido = numOrNull(body.vendedorId)
+  if (vendedorPedido) {
+    const existe = await prisma.usuario.findUnique({ where: { id: vendedorPedido }, select: { id: true } })
+    if (!existe) {
+      return res.status(400).json({ error: `vendedorId ${vendedorPedido} no existe.` })
+    }
   }
 
   try {
@@ -376,6 +361,8 @@ const webhookWebinar = async (req, res) => {
       if (Object.keys(upd).length) contacto = await prisma.contacto.update({ where: { id: contacto.id }, data: upd })
     }
 
+    const nombreLead = `${contacto.nombre || ''} ${contacto.apellido || ''}`.trim() || 'Un lead'
+
     // 2. Lead (reusar el del contacto o crear como cualquier lead nuevo del webinar)
     const campana = body.campana?.trim() || 'Webinar'
     let lead = await prisma.lead.findFirst({ where: { contactoId: contacto.id }, orderBy: { creadoEn: 'desc' } })
@@ -384,8 +371,8 @@ const webhookWebinar = async (req, res) => {
       lead = await prisma.lead.create({
         data: {
           contactoId: contacto.id,
-          vendedorId: numOrNull(body.vendedorId),
-          etapa: esAgenda ? 'VISITA_AGENDADA' : 'NUEVO',
+          vendedorId: vendedorPedido,
+          etapa: accion === 'agenda' ? 'VISITA_AGENDADA' : 'NUEVO',
           campana,
           campanaId: await vincularCampana(campana),
           notas: body.notas?.trim() || null,
@@ -393,29 +380,97 @@ const webhookWebinar = async (req, res) => {
       })
     }
 
-    const vendedorId = numOrNull(body.vendedorId) || lead.vendedorId || VENDEDOR_FALLBACK_ID
+    const vendedorId = vendedorPedido || lead.vendedorId || VENDEDOR_FALLBACK_ID
+
+    // ── Caso C: cita cancelada → sacarla del calendario ──────────
+    // Antes caía en la rama "formulario": la Visita quedaba viva y el cron
+    // seguía mandando el recordatorio de 24h de una reunión que ya no existe.
+    if (accion === 'cancela') {
+      const fechaPedida = parsearFechaHoraCita(body)
+      const canceladas = await prisma.visita.findMany({
+        where: {
+          leadId: lead.id,
+          resultado: null,
+          ...(fechaPedida ? { fechaHora: fechaPedida } : { fechaHora: { gte: new Date() } }),
+        },
+      })
+      if (canceladas.length) {
+        await prisma.visita.deleteMany({ where: { id: { in: canceladas.map(v => v.id) } } })
+      }
+
+      // La etapa vuelve a SEGUIMIENTO solo si estaba esperando esta cita
+      if (lead.etapa === 'VISITA_AGENDADA') {
+        await prisma.lead.update({ where: { id: lead.id }, data: { etapa: 'SEGUIMIENTO' } })
+      }
+
+      const cuandoTxt = canceladas.length ? ` (era ${textoFechaChile(canceladas[0].fechaHora)})` : ''
+      await prisma.interaccion.create({
+        data: {
+          leadId: lead.id,
+          usuarioId: vendedorId,
+          tipo: 'NOTA',
+          descripcion: `❌ Cita CANCELADA vía ${req.apiKey.nombre}${cuandoTxt} — retomar contacto.`,
+        },
+      })
+      await notificarLead({
+        leadId: lead.id,
+        tipo: 'ACTIVIDAD_EN_LEAD',
+        mensaje: `❌ ${nombreLead} canceló su cita${cuandoTxt}`,
+      })
+
+      return res.json({
+        ok: true, evento: 'cancela',
+        leadId: lead.id, contactoId: contacto.id,
+        visitasCanceladas: canceladas.length,
+        etapa: lead.etapa === 'VISITA_AGENDADA' ? 'SEGUIMIENTO' : lead.etapa,
+      })
+    }
 
     // ── Caso A: formulario rellenado → lead nuevo, sin agendar ──
-    if (!esAgenda) {
+    if (accion === 'formulario') {
+      // Un lead frío que vuelve a dejar sus datos = REACTIVADO (misma regla que
+      // POST /leads). Antes se quedaba en PERDIDO y nadie lo retomaba.
+      const reactivar = !leadNuevo && esFrio(lead.etapa)
+      const etapaPrevia = lead.etapa
+
+      // Datos nuevos que traiga el reingreso (antes se perdían)
+      if (!leadNuevo) {
+        const upd = {}
+        if (body.campana?.trim() && !lead.campana) {
+          upd.campana   = campana
+          upd.campanaId = await vincularCampana(campana)
+        }
+        if (body.notas?.trim()) upd.notas = [lead.notas, body.notas.trim()].filter(Boolean).join('\n---\n')
+        if (reactivar)          upd.etapa = 'REACTIVADO'
+        if (Object.keys(upd).length) lead = await prisma.lead.update({ where: { id: lead.id }, data: upd })
+      }
+
       await prisma.interaccion.create({
-        data: { leadId: lead.id, tipo: 'NOTA', descripcion: `${leadNuevo ? 'Lead ingresado' : 'Reingreso'} vía ${req.apiKey.nombre} (formulario webinar)` },
+        data: {
+          leadId: lead.id,
+          tipo: 'NOTA',
+          descripcion: reactivar
+            ? `🔥 Lead REACTIVADO — volvió a dejar sus datos vía ${req.apiKey.nombre} (formulario webinar, estaba en ${etapaPrevia}).`
+            : `${leadNuevo ? 'Lead ingresado' : 'Reingreso'} vía ${req.apiKey.nombre} (formulario webinar)`,
+        },
       })
       if (leadNuevo) {
-        await notificarLead({ leadId: lead.id, tipo: 'LEAD_NUEVO', mensaje: `Nuevo lead del webinar: ${contacto.nombre} ${contacto.apellido}` })
+        await notificarLead({ leadId: lead.id, tipo: 'LEAD_NUEVO', mensaje: `Nuevo lead del webinar: ${nombreLead}` })
+      } else if (reactivar) {
+        await notificarLead({
+          leadId: lead.id, tipo: 'LEAD_NUEVO', soloAVendedor: true,
+          mensaje: `🔥 ${nombreLead} respondió el webinar — REACTIVAR (estaba ${etapaPrevia})`,
+        })
       }
       return res.status(leadNuevo ? 201 : 200).json({
-        ok: true, evento: 'formulario', duplicado: !leadNuevo,
+        ok: true, evento: 'formulario', duplicado: !leadNuevo, reactivado: reactivar,
         leadId: lead.id, contactoId: contacto.id, etapa: lead.etapa,
       })
     }
 
     // ── Caso B: cita agendada → reunión en el calendario ──
     const fechaHora = parsearFechaHoraCita(body)
-    // El servidor corre en UTC: formatear el texto en hora de Chile para que el mensaje sea correcto
-    const TZ = 'America/Santiago'
-    const cuandoTxt = fechaHora
-      ? `el ${fechaHora.toLocaleDateString('es-CL', { timeZone: TZ })} a las ${fechaHora.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', timeZone: TZ })}`
-      : '(fecha por coordinar)'
+    const cuandoTxt = fechaHora ? `el ${textoFechaChile(fechaHora)}` : '(fecha por coordinar)'
 
     // Link de la reunión online (Meet/Zoom): campos conocidos o cualquier URL de videollamada en el payload
     const enlace = detectarEnlaceReunion(body)
@@ -424,6 +479,7 @@ const webhookWebinar = async (req, res) => {
     // calendario y en la lista de Visitas, con recordatorio 24h nativo (igual que las visitas).
     let visita = null
     let reunionNueva = true
+    let reagendada = false
     if (fechaHora) {
       visita = await prisma.visita.findFirst({ where: { leadId: lead.id, fechaHora } })
       if (visita) {
@@ -431,16 +487,32 @@ const webhookWebinar = async (req, res) => {
         // si el reenvío trae enlace y no había, completarlo
         if (enlace && !visita.enlace) visita = await prisma.visita.update({ where: { id: visita.id }, data: { enlace } })
       } else {
-        visita = await prisma.visita.create({
-          data: {
-            leadId: lead.id,
-            vendedorId,
-            fechaHora,
-            tipo: body.tipo?.trim() || 'Reunión comercial',
-            notas: body.notas?.trim() || `Cita agendada vía ${req.apiKey.nombre} (webinar)`,
-            enlace,
-          },
+        // ¿Reagendamiento? Si ya hay una cita futura sin resultado creada por este
+        // webhook, se MUEVE en vez de crear otra (antes quedaban las dos en el calendario).
+        const previa = await prisma.visita.findFirst({
+          where: { leadId: lead.id, tipo: 'reunion_comercial', resultado: null, fechaHora: { gte: new Date() } },
+          orderBy: { fechaHora: 'asc' },
         })
+        if (previa) {
+          reagendada = true
+          visita = await prisma.visita.update({
+            where: { id: previa.id },
+            data: { fechaHora, ...(enlace ? { enlace } : {}) },
+          })
+        } else {
+          visita = await prisma.visita.create({
+            data: {
+              leadId: lead.id,
+              vendedorId,
+              fechaHora,
+              // El enum de Prisma es reunion_comercial (el @map "Reunión comercial" es
+              // el valor en la BD): mandar el texto mapeado tiraba 500 en cada agenda.
+              tipo: tipoVisita(body.tipo),
+              notas: body.notas?.trim() || `Cita agendada vía ${req.apiKey.nombre} (webinar)`,
+              enlace,
+            },
+          })
+        }
       }
     }
 
@@ -452,32 +524,39 @@ const webhookWebinar = async (req, res) => {
           leadId: lead.id,
           usuarioId: vendedorId,
           tipo: 'NOTA',
-          descripcion: `Cita agendada vía ${req.apiKey.nombre} ${cuandoTxt}`,
+          descripcion: `${reagendada ? 'Cita REAGENDADA' : 'Cita agendada'} vía ${req.apiKey.nombre} ${cuandoTxt}`,
         },
       })
     }
 
-    // Etapa + asegurar vendedor asignado (para los recordatorios)
-    await prisma.lead.update({
-      where: { id: lead.id },
-      data: { etapa: 'VISITA_AGENDADA', ...(lead.vendedorId ? {} : { vendedorId }) },
-    })
+    // Etapa + asegurar vendedor asignado (para los recordatorios). Un lead ya avanzado
+    // (NEGOCIACION, RESERVA, PROMESA…) no retrocede a VISITA_AGENDADA por agendar otra reunión.
+    const etapaNueva = etapaTrasAgendar(lead.etapa)
+    if (etapaNueva !== lead.etapa || !lead.vendedorId) {
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: { etapa: etapaNueva, ...(lead.vendedorId ? {} : { vendedorId }) },
+      })
+    }
 
-    await notificarLead({
-      leadId: lead.id,
-      tipo: 'ACTIVIDAD_EN_LEAD',
-      mensaje: `Nueva cita agendada con ${contacto.nombre} ${contacto.apellido} ${cuandoTxt}`,
-    })
+    if (reunionNueva) {
+      await notificarLead({
+        leadId: lead.id,
+        tipo: 'ACTIVIDAD_EN_LEAD',
+        mensaje: `${reagendada ? 'Cita reagendada' : 'Nueva cita agendada'} con ${nombreLead} ${cuandoTxt}`,
+      })
+    }
 
-    return res.status(201).json({
-      ok: true, evento: 'agenda',
+    return res.status(reunionNueva ? 201 : 200).json({
+      ok: true, evento: 'agenda', reagendada,
       leadId: lead.id, contactoId: contacto.id, visitaId: visita?.id || null,
       enCalendario: !!visita,
-      fechaHora: fechaHora ? fechaHora.toISOString() : null,          // UTC (estándar)
-      fechaHoraChile: fechaHora ? cuandoTxt.replace(/^el /, '') : null, // legible, hora de Chile
+      fechaHora: fechaHora ? fechaHora.toISOString() : null,      // UTC (estándar)
+      fechaHoraChile: fechaHora ? textoFechaChile(fechaHora) : null, // legible, hora de Chile
       enlace: enlace || null,
+      etapa: etapaNueva,
       mensaje: fechaHora
-        ? 'Cita agendada como visita en el calendario y vendedor notificado.'
+        ? `Cita ${reagendada ? 'reagendada' : 'agendada'} como visita en el calendario y vendedor notificado.`
         : 'Lead en VISITA_AGENDADA; falta fecha/hora, vendedor notificado para coordinar.',
     })
   } catch (err) {

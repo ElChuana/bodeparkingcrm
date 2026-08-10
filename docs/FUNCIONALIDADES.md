@@ -390,22 +390,28 @@
 
 ### API PÚBLICA — `/api/public`
 - Archivo: `routes/public.js`
-- Auth: API Key (header `X-Api-Key`)
+- Auth: API Key (header `X-Api-Key` o `Authorization`). **La key por query param `?api_key=` se eliminó (2026-08-10)**: quedaba en texto plano en `logs_integraciones.endpoint` y en logs de proxy. `middleware/logIntegraciones.js: redactarUrl` además enmascara cualquier secreto que llegue en la query.
+- **Rate limit** (`middleware/rateLimit.js`, en memoria — el backend es un solo proceso): 60 req/min por key en escritura (`/leads`, `/webhooks/webinar`), 120 en lectura (`/disponibilidad`). Excedido → `429` con `reintentar_en_segundos`. Identifica por API Key, o por IP si la key es inválida.
 - `POST /leads` — crear lead desde sistema externo (formato nombre+apellido, legacy/Comuro)
   - Si el contacto ya tiene lead y estaba frío (PERDIDO/NO_CONTESTA), reingreso lo pasa a etapa `REACTIVADO` (magenta en Kanban). La notificación de reactivación/reingreso va **solo al vendedor asignado** (`soloAVendedor` — gerencia pidió no recibirla, 2026-07-10); la señal para el resto es la etapa en el Kanban.
 - `POST /webhooks/webinar` — **Webhook único del lanzamiento (tipo Calendly)** ⭐ enruta por `estado`
-  - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `estado` (`formulario-rellenado` | `agenda`), `inicio`/`fechaHora` (ISO 8601) o `fecha` "DD/MM/YYYY" + `hora` "HH:MM" (solo agenda), opcionales `vendedorId`, `campana`, `notas`
-  - `estado: formulario-rellenado` → un lead **nuevo normal** (etapa NUEVO, campaña "Webinar"), notifica LEAD_NUEVO. Dedup.
+  - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `estado` (`formulario-rellenado` | `agenda` | `cancela`), `inicio`/`fechaHora` o `fecha` "DD/MM/YYYY" + `hora` "HH:MM" (solo agenda), opcionales `vendedorId`, `campana`, `notas`, `tipo`
+  - `estado: formulario-rellenado` → un lead **nuevo normal** (etapa NUEVO, campaña "Webinar"), notifica LEAD_NUEVO. Dedup. Si el lead existente estaba frío (PERDIDO/NO_CONTESTA) pasa a **`REACTIVADO`** con aviso `soloAVendedor` (misma regla que `POST /leads`); además mergea `campana`/`notas` nuevas del reingreso
   - `estado: agenda` → busca/crea el lead + **agenda la reunión como `Visita`** (aparece destacada en el calendario y en la lista de Visitas), etapa `VISITA_AGENDADA`, deja una NOTA en el timeline y notifica (`ACTIVIDAD_EN_LEAD`)
+  - `estado: cancela` → **borra la Visita** (con `inicio` cancela esa; sin él, las futuras sin resultado), NOTA en el timeline, notifica, y la etapa vuelve a `SEGUIMIENTO` solo si estaba en `VISITA_AGENDADA`. Antes caía en la rama "formulario" y la cita quedaba viva en el calendario disparando el recordatorio de 24h
   - Acepta `enlace` (o `meetUrl`/`link`) → link del Meet/Zoom, se guarda en `Visita.enlace`
   - Hora: se interpreta **siempre como hora de Chile** (ignora Z/offset del ISO)
   - Usa el **modelo Visita** (no interacción REUNION) para que se vea/comporte como las visitas; el recordatorio 24h lo da el cron de visitas existente
-  - Idempotente: no duplica la Visita si llega el mismo lead + fecha/hora
+  - Idempotente: no duplica la Visita si llega el mismo lead + fecha/hora. **Reagendamiento**: si llega otra fecha y ya había cita futura pendiente (`tipo reunion_comercial`, `resultado: null`), se **mueve** esa visita en vez de crear una segunda
+  - **La etapa no retrocede** (`lib/webinar.js: etapaTrasAgendar`): un lead en NEGOCIACION/RESERVA/PROMESA/ESCRITURA… que agenda otra reunión mantiene su etapa. PERDIDO sí se mueve a VISITA_AGENDADA (agendar = revivió)
+  - `vendedorId` inexistente → `400` (antes reventaba con error de FK → 500)
   - La entrada de timeline es NOTA (sin fecha futura) para no duplicar el evento en el calendario
   - Si no llega fecha/hora: deja el lead en VISITA_AGENDADA y notifica para coordinar
   - Vendedor fallback: Felix (ID 8) si el lead no tiene asignado
-  - Doc para el proveedor: `docs/API_WEBHOOKS_LANZAMIENTO.html` · Test e2e: `backend/scripts/testWebhookWebinar.js`
-- Deduplicación: por email/teléfono + similitud nombre (Levenshtein ≥ 0.6)
+  - Doc para el proveedor: `docs/API_WEBHOOKS_LANZAMIENTO.html` · Test e2e: `backend/scripts/testWebhookWebinar.js` (22 checks) · Unitarios: `backend/tests/webinar.test.js`
+  - ⚠️ **`Visita.tipo` es un enum de Prisma**: los valores válidos son `presencial | virtual | reunion_comercial`. El `@map("Reunión comercial")` es el valor en la BD, **no** el que acepta el cliente — mandarlo tiraba `PrismaClientValidationError` → 500 en toda agenda (bug 2026-08-10, ninguna agenda del webinar llegó a registrarse). Usar `lib/webinar.js: tipoVisita()`
+- Deduplicación: por email/teléfono + similitud nombre (Levenshtein ≥ 0.6). El **teléfono se compara normalizado** (solo dígitos, últimos 9) vía `regexp_replace` en Postgres: el proveedor manda el mismo número como "9 7641 7336" y "+56976417336"
+- `lib/webinar.js` — funciones puras del webhook (nombre "Apellido, Nombre", teléfono, parseo de fecha independiente de la TZ del proceso, enlace, tipo de visita, enrutado por `estado`, etapas). Testeadas sin BD en `tests/webinar.test.js`
 - Auto-asigna a JEFE_VENTAS si no se especifica vendedor
 - Usa `lib/deduplication.js`
 - Gestión de API Keys: `pages/configuracion/ApiKeys.jsx`
@@ -479,6 +485,8 @@
 | `upload.js` | Multer para archivos |
 | `mailer.js` | Resend API para emails |
 | `deduplication.js` | `mismoNombre()` + Levenshtein — usado en comuro.js y public.js |
+| `webinar.js` | Utilidades puras del webhook del webinar: `splitNombre`, `normalizarTelefono`, `parsearFechaHoraCita`, `detectarEnlaceReunion`, `tipoVisita`, `clasificarEstado`, `etapaTrasAgendar`, `esFrio` (con tests) |
+| `rateLimit.js` (middleware) | `rateLimit({max, ventanaMs, nombre})` — tope de requests en memoria para la API pública |
 | `notifications.js` | `notificarLead()` — usado en leadsController.js y comuro.js |
 | `groq.js` | Wrapper REST a Groq API — Llama 3.3 70B (`GROQ_API_KEY`) — usado por reportes IA |
 | `reportes.js` | Generador de reportes diarios con IA (agrega datos + llama a Groq) |
