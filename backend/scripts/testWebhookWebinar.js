@@ -33,7 +33,13 @@ async function main() {
   // ── 1. Formulario → lead NUEVO ────────────────────────────────
   console.log('\n1. Formulario rellenado')
   const correo = `webinar.${marca}@ejemplo.cl`
-  const f = await post({ nombre: 'Cliente Webinar Test', correo, telefono: '+56900000123', estado: 'formulario-rellenado' })
+  // Correo y teléfono irrepetibles: si tocaran un contacto real, el cleanup del
+  // final borraría datos de producción. Ver la guarda de abajo.
+  const telefono = `+569${String(marca).slice(-8)}`
+  const f = await post({ nombre: 'Cliente Webinar Test', correo, telefono, estado: 'formulario-rellenado' })
+  if (f.duplicado) {
+    throw new Error(`ABORTADO: el lead ${f.leadId} ya existía — el test habría borrado datos reales.`)
+  }
   creados.leads.push(f.leadId); creados.contactos.push(f.contactoId)
   const leadF = await prisma.lead.findUnique({ where: { id: f.leadId } })
   check('status 201', f.status === 201, f.status)
@@ -42,8 +48,10 @@ async function main() {
   // ── 2. Agenda con el payload REAL del proveedor ───────────────
   // Formato de fecha tal cual llega en producción (no es ISO).
   console.log('\n2. Agenda (payload real: "Monday, August 24, 2026 8:30 AM")')
+  // mismo número, formato distinto → debe deduplicar contra el contacto del paso 1
+  const telefonoOtroFormato = telefono.replace(/^\+56(\d)(\d{4})(\d{4})$/, '$1 $2 $3')
   const a = await post({
-    nombre: 'Cliente Webinar Test', correo, telefono: '9 0000 0123', estado: 'agenda',
+    nombre: 'Cliente Webinar Test', correo, telefono: telefonoOtroFormato, estado: 'agenda',
     inicio: 'Monday, August 24, 2026 8:30 AM', enlace: 'https://meet.google.com/wgh-vnqz-ckd',
   })
   const visita = a.visitaId ? await prisma.visita.findUnique({ where: { id: a.visitaId } }) : null
@@ -105,6 +113,16 @@ async function main() {
   check('400 con mensaje claro (antes 500)', v.status === 400, `${v.status} ${v.error || ''}`)
 
   // ── Cleanup ───────────────────────────────────────────────────
+  // Guarda: solo se borra lo que creó ESTE test. Si el contacto no tiene el
+  // correo de prueba, algo dedupló contra un registro real → no se toca nada.
+  for (const contactoId of [...new Set(creados.contactos)]) {
+    const c = await prisma.contacto.findUnique({ where: { id: contactoId } })
+    if (c && c.email !== correo) {
+      console.log(`\n⚠️  ABORTADO EL CLEANUP: el contacto ${contactoId} (${c.email}) no es de prueba.`)
+      console.log('    Revisar y borrar a mano los IDs:', JSON.stringify(creados))
+      server.close(); await prisma.$disconnect(); process.exit(1)
+    }
+  }
   for (const leadId of [...new Set(creados.leads)]) {
     await prisma.notificacion.deleteMany({ where: { referenciaId: leadId, referenciaTipo: 'lead' } })
     await prisma.visita.deleteMany({ where: { leadId } })
