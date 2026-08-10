@@ -6,8 +6,8 @@
 //     (queda registro en historial_precios_unidad)
 //  3. Crea los descuentos "Precio Webinar" por tier con precioObjetivoPesos → el precio final
 //     en $ cae exacto según la UF vigente al cotizar
-//  4. Reactiva el Pack 2+ Unidades (−5 UF) y el beneficio Gastos Operacionales
-//  5. Desactiva las promos del webinar de junio
+//  4. Crea el descuento de 2ª unidad (−$200.000) y activa el beneficio Gastos Operacionales
+//  5. Desactiva las promos de campañas anteriores
 //
 // Idempotente: upsert por nombre, precios por ancla (no acumula). Uso: node scripts/seed-webinar-ago2026.js
 require('dotenv').config()
@@ -75,10 +75,16 @@ const TIERS = [
   },
 ]
 
-// Promos del webinar de junio que hay que dejar fuera de circulación.
-const PROMOS_JUNIO = [
+// Regalo por la segunda unidad: $200.000 de descuento + Gastos Operacionales.
+const NOMBRE_SEGUNDA_UNIDAD = 'Segunda Unidad · −$200.000 + Gastos Operacionales'
+const SEGUNDA_UNIDAD_PESOS = 200000
+
+// Promos de campañas anteriores que hay que dejar fuera de circulación
+// (incluye los packs de 2ª unidad viejos: se reemplazan por el de arriba).
+const PROMOS_ANTERIORES = [
   'Precio Webinar ENTRY', 'Precio Webinar MID', 'Precio Webinar PREMIUM',
   'Precio Webinar Trinitarias', 'Pack Dúo Webinar', 'Pack Trío Webinar', 'Pack Inversor',
+  'Pack 2+ Unidades', 'Segunda Unidad 10 UF de Descuento',
 ]
 
 async function resolverUnidad(edificioNombre, numero) {
@@ -159,13 +165,16 @@ async function main() {
   }
   console.log(`\n  ${cambiados} precios de lista actualizados al ancla.\n`)
 
-  // 4. Pack por volumen y beneficio permanente
-  const pack = await upsertPromo('Pack 2+ Unidades', {
-    descripcion: '−5 UF al comprar 2 o más unidades + Gastos Operacionales de regalo',
-    categoria: 'DESCUENTO', tipo: 'DESCUENTO_UF', valorUF: 5, minUnidades: 2,
+  // 4. Segunda unidad: −$200.000 + Gastos Operacionales de regalo.
+  // El descuento es un monto en PESOS y el modelo guarda UF, así que se fija con
+  // la UF de hoy (la promo dura 7 días: la desviación es de unos pocos cientos de $).
+  const dtoSegundaUF = Number((SEGUNDA_UNIDAD_PESOS / UF).toFixed(6))
+  const pack = await upsertPromo(NOMBRE_SEGUNDA_UNIDAD, {
+    descripcion: `−$${SEGUNDA_UNIDAD_PESOS.toLocaleString('es-CL')} al comprar la 2ª unidad + Gastos Operacionales de regalo`,
+    categoria: 'DESCUENTO', tipo: 'DESCUENTO_UF', valorUF: dtoSegundaUF, minUnidades: 2,
     fechaInicio: null, fechaFin: FECHA_FIN, activa: true, campanaId: campana.id,
   })
-  console.log(`  #${pack.id} Pack 2+ Unidades: −5 UF (mín. 2 unidades)`)
+  console.log(`  #${pack.id} ${NOMBRE_SEGUNDA_UNIDAD}: −${dtoSegundaUF} UF ($${Math.round(dtoSegundaUF * UF).toLocaleString('es-CL')}) desde 2 unidades`)
 
   const go = await p.promocion.findFirst({
     where: { nombre: { contains: 'Gastos Operacionales', mode: 'insensitive' }, categoria: 'BENEFICIO' },
@@ -175,9 +184,9 @@ async function main() {
     console.log(`  #${go.id} Gastos Operacionales: beneficio permanente activo`)
   } else console.warn('  ⚠ No se encontró el beneficio Gastos Operacionales')
 
-  // 5. Bajar las promos del webinar de junio
-  const off = await p.promocion.updateMany({ where: { nombre: { in: PROMOS_JUNIO } }, data: { activa: false } })
-  if (off.count) console.log(`  (${off.count} promos del webinar de junio desactivadas)`)
+  // 5. Bajar las promos de campañas anteriores
+  const off = await p.promocion.updateMany({ where: { nombre: { in: PROMOS_ANTERIORES } }, data: { activa: false } })
+  if (off.count) console.log(`  (${off.count} promos de campañas anteriores desactivadas)`)
 
   console.log('\n✅ CRM listo para el webinar.')
 }

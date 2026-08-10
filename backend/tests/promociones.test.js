@@ -17,10 +17,12 @@ const ENTRY = {
   minUnidades: null,
   unidades: [{ unidadId: 105 }, { unidadId: 106 }, { unidadId: 41 }],
 }
-// Pack por volumen: −5 UF desde 2 unidades, sin unidades asociadas.
-const PACK_2MAS = {
+// Segunda unidad: −$200.000 (fijados en UF con la UF del seed) + Gastos
+// Operacionales de regalo. Monto fijo por volumen, sin unidades asociadas.
+const DTO_SEGUNDA_UF = 4.896427 // = $200.000 / 40.846,11
+const SEGUNDA_UNIDAD = {
   categoria: 'DESCUENTO', tipo: 'DESCUENTO_UF',
-  valorUF: new Decimal('5'), precioObjetivoPesos: null, minUnidades: 2, unidades: [],
+  valorUF: new Decimal(String(DTO_SEGUNDA_UF)), precioObjetivoPesos: null, minUnidades: 2, unidades: [],
 }
 const item = (unidadId, precio) => ({ unidadId, precioListaUF: new Decimal(String(precio)) })
 
@@ -57,34 +59,34 @@ test('precio webinar: el descuento se aplica a CADA unidad de la promo presente'
   assert.ok(cerca(descuento, 44.076830), `descuento total ${descuento}`)
 })
 
-test('Pack 2+: no aplica con 1 unidad y aplica desde 2', () => {
-  assert.strictEqual(calcularDescuentoPromocion(PACK_2MAS, [item(105, 95.24)], UF).descuento, 0)
-  assert.strictEqual(calcularDescuentoPromocion(PACK_2MAS, [item(105, 95.24), item(106, 95.24)], UF).descuento, 5)
-  // Es un monto fijo, no por unidad: con 4 unidades sigue siendo −5 UF.
+test('segunda unidad: no aplica con 1 unidad y aplica desde 2', () => {
+  assert.strictEqual(calcularDescuentoPromocion(SEGUNDA_UNIDAD, [item(105, 95.24)], UF).descuento, 0)
+  const dos = calcularDescuentoPromocion(SEGUNDA_UNIDAD, [item(105, 95.24), item(106, 95.24)], UF)
+  assert.ok(cerca(dos.descuento * UF, 200000, 1), `el descuento fue $${Math.round(dos.descuento * UF)}`)
+  // Es un monto fijo, no por unidad: con 4 unidades sigue siendo −$200.000.
   const cuatro = [item(105, 95.24), item(106, 95.24), item(41, 95.24), item(42, 95.24)]
-  assert.strictEqual(calcularDescuentoPromocion(PACK_2MAS, cuatro, UF).descuento, 5)
+  assert.strictEqual(calcularDescuentoPromocion(SEGUNDA_UNIDAD, cuatro, UF).descuento, dos.descuento)
 })
 
-test('Pack 2+ no ensucia el tachado por unidad (es descuento de volumen)', () => {
-  const { porUnidad } = calcularDescuentoPromocion(PACK_2MAS, [item(105, 95.24), item(106, 95.24)], UF)
+test('segunda unidad no ensucia el tachado por unidad (es descuento de volumen)', () => {
+  const { porUnidad } = calcularDescuentoPromocion(SEGUNDA_UNIDAD, [item(105, 95.24), item(106, 95.24)], UF)
   assert.deepStrictEqual(porUnidad, {})
 })
 
-test('escenario completo del webinar: 2 bodegas ENTRY + Pack 2+ = $5.775.770', () => {
+test('escenario completo del webinar: 2 bodegas ENTRY + segunda unidad = $5.780.000', () => {
   const items = [item(105, 95.24), item(106, 95.24)]
   const entry = calcularDescuentoPromocion(ENTRY, items, UF)
-  const pack = calcularDescuentoPromocion(PACK_2MAS, items, UF)
+  const segunda = calcularDescuentoPromocion(SEGUNDA_UNIDAD, items, UF)
 
   const t = calcularTotalesVenta({
     items,
-    promociones: [{ descuentoAplicadoUF: entry.descuento }, { descuentoAplicadoUF: pack.descuento }],
+    promociones: [{ descuentoAplicadoUF: entry.descuento }, { descuentoAplicadoUF: segunda.descuento }],
   })
 
   assert.ok(cerca(t.precioListaUF, 190.48))
-  assert.ok(cerca(t.precioFinalUF, 141.40317), `precioFinalUF ${t.precioFinalUF}`)
-  // 2 × $2.990.000 − 5 UF
-  const esperado = 2 * 2990000 - 5 * UF
-  assert.ok(cerca(t.precioFinalUF * UF, esperado, 2), `total $${Math.round(t.precioFinalUF * UF)} ≠ $${Math.round(esperado)}`)
+  assert.ok(cerca(t.precioFinalUF, 141.506743), `precioFinalUF ${t.precioFinalUF}`)
+  // 2 × $2.990.000 − $200.000
+  assert.ok(cerca(t.precioFinalUF * UF, 5780000, 2), `total $${Math.round(t.precioFinalUF * UF)} ≠ $5.780.000`)
 })
 
 test('beneficios (categoría BENEFICIO) nunca bajan el precio', () => {
