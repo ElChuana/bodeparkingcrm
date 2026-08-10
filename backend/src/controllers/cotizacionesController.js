@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma')
 const { aplicarReglasComision } = require('../lib/comisiones')
 const { num, calcularTotalesVenta, prorratearPrecioVenta } = require('../lib/precios')
+const { calcularDescuentoPromocion } = require('../lib/promociones')
 
 const INCLUDE_COMPLETO = {
   lead: {
@@ -79,52 +80,18 @@ async function recalcularPromociones(cotizacionId) {
   const ufRow = await prisma.uFDiaria.findFirst({ orderBy: { fecha: 'desc' } })
   const valorUF = ufRow?.valorPesos || null
 
-  const itemUnidadIds = cot.items.map(i => i.unidadId)
   const descuentoPorUnidad = {} // unidadId → UF acumulado (para el snapshot/tachado)
 
   for (const cp of cot.promociones) {
-    const promo = cp.promocion
-    const promoUnidadIds = promo.unidades.map(u => u.unidadId)
-    const tieneUnidades = promoUnidadIds.length > 0
-    let descuento = 0
-
-    if (promo.categoria === 'DESCUENTO') {
-      if (promo.tipo === 'PAQUETE') {
-        const todas = tieneUnidades && promoUnidadIds.every(id => itemUnidadIds.includes(id))
-        if (todas) {
-          const suma = cot.items.filter(i => promoUnidadIds.includes(i.unidadId)).reduce((s, i) => s + num(i.precioListaUF), 0)
-          descuento = Math.max(suma - num(promo.valorUF), 0)
-        }
-      } else if (promo.tipo === 'DESCUENTO_UF') {
-        if (tieneUnidades) {
-          const afectadas = cot.items.filter(i => promoUnidadIds.includes(i.unidadId))
-          // Si la promo define un precio objetivo en pesos, el descuento por unidad
-          // se calcula con la UF vigente para que el precio final en $ caiga exacto.
-          const usarObjetivo = promo.precioObjetivoPesos != null && valorUF
-          for (const it of afectadas) {
-            const d = usarObjetivo
-              ? Math.max(num(it.precioListaUF) - (num(promo.precioObjetivoPesos) / num(valorUF)), 0)
-              : num(promo.valorUF)
-            descuentoPorUnidad[it.unidadId] = (descuentoPorUnidad[it.unidadId] || 0) + d
-            descuento += d
-          }
-        } else if (!promo.minUnidades || cot.items.length >= promo.minUnidades) {
-          descuento = num(promo.valorUF)
-        }
-      } else if (promo.tipo === 'DESCUENTO_PORCENTAJE') {
-        const base = tieneUnidades
-          ? cot.items.filter(i => promoUnidadIds.includes(i.unidadId)).reduce((s, i) => s + num(i.precioListaUF), 0)
-          : cot.items.reduce((s, i) => s + num(i.precioListaUF), 0)
-        if (!promo.minUnidades || cot.items.length >= promo.minUnidades) {
-          descuento = base * ((promo.valorPorcentaje || 0) / 100)
-        }
-      }
+    // Cálculo puro en lib/promociones.js (con tests en tests/promociones.test.js)
+    const { descuento, porUnidad } = calcularDescuentoPromocion(cp.promocion, cot.items, valorUF)
+    for (const [unidadId, d] of Object.entries(porUnidad)) {
+      descuentoPorUnidad[unidadId] = (descuentoPorUnidad[unidadId] || 0) + d
     }
 
     await prisma.cotizacionPromocion.update({
       where: { id: cp.id },
-      // 6 decimales: con precio objetivo en pesos el peso final debe caer exacto
-      data: { descuentoAplicadoUF: Number(descuento.toFixed(6)) },
+      data: { descuentoAplicadoUF: descuento },
     })
   }
 
