@@ -7,6 +7,11 @@
 // Uso:
 //   DATABASE_URL="$RAILWAY_URL" node scripts/fusionar-contactos-duplicados.js            → dry-run
 //   DATABASE_URL="$RAILWAY_URL" node scripts/fusionar-contactos-duplicados.js --ejecutar → aplica (respalda antes en ~/backups/bodeparking/)
+//
+// Para fusionar un caso puntual en vez de todos los grupos detectados:
+//   --solo 2819,8594       → solo los grupos que contengan alguno de esos contactos
+//   --sobrevive 8594       → fuerza quién sobrevive (por defecto gana el más completo,
+//                            que ante empate es el de id menor — no siempre el de mejores datos)
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
@@ -22,6 +27,13 @@ function nombresCompatibles(a, b) {
 }
 
 const EJECUTAR = process.argv.includes('--ejecutar')
+
+const argValor = nombre => {
+  const i = process.argv.indexOf(nombre)
+  return i === -1 ? null : process.argv[i + 1]
+}
+const SOLO = (argValor('--solo') || '').split(',').map(n => Number(n.trim())).filter(Boolean)
+const SOBREVIVE = Number(argValor('--sobrevive')) || null
 
 const normTel = t => (t || '').replace(/\D/g, '').replace(/^56/, '')
 const telFalso = t => !t || t.length < 8 || /^(\d)\1+$/.test(t) || t.includes('12345678')
@@ -81,9 +93,10 @@ async function main() {
     if (!grupos.has(raiz)) grupos.set(raiz, [])
     grupos.get(raiz).push(c)
   }
-  const fusiones = [...grupos.values()].filter(g => g.length > 1)
+  let fusiones = [...grupos.values()].filter(g => g.length > 1)
+  if (SOLO.length) fusiones = fusiones.filter(g => g.some(c => SOLO.includes(c.id)))
 
-  console.log(`Grupos a fusionar: ${fusiones.length}${EJECUTAR ? '' : '  (DRY-RUN — nada se modifica; usa --ejecutar)'}\n`)
+  console.log(`Grupos a fusionar: ${fusiones.length}${SOLO.length ? ` (filtrado por --solo ${SOLO.join(',')})` : ''}${EJECUTAR ? '' : '  (DRY-RUN — nada se modifica; usa --ejecutar)'}\n`)
 
   if (EJECUTAR && fusiones.length) {
     const dir = path.join(os.homedir(), 'backups', 'bodeparking')
@@ -94,7 +107,13 @@ async function main() {
   }
 
   for (const grupo of fusiones) {
-    grupo.sort((a, b) => puntaje(b) - puntaje(a) || a.id - b.id)
+    grupo.sort((a, b) => {
+      if (SOBREVIVE) {
+        if (a.id === SOBREVIVE) return -1
+        if (b.id === SOBREVIVE) return 1
+      }
+      return puntaje(b) - puntaje(a) || a.id - b.id
+    })
     const [sobreviviente, ...duplicados] = grupo
     console.log(`── Sobrevive #${sobreviviente.id} ${nombreCompleto(sobreviviente)} (${sobreviviente.email || sobreviviente.telefono})`)
 
