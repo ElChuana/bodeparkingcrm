@@ -64,6 +64,7 @@
 - `GET /:id` — detalle
 - `POST /` — crear (GERENTE, JEFE_VENTAS)
 - `PUT /:id` — editar (GERENTE, JEFE_VENTAS)
+- Galería del edificio: relación `fotos` → `FotoEdificio` (ver **FOTOS DEL CATÁLOGO**)
 - Frontend: `pages/inventario/Inventario.jsx`
 
 ### UNIDADES — `/api/unidades`
@@ -72,8 +73,9 @@
 - `GET /:id` — detalle
 - `POST /` — crear (GERENTE, JEFE_VENTAS)
 - `PUT /:id` — editar (GERENTE, JEFE_VENTAS)
-- `POST /:id/archivos` — subir archivo (plano, doc)
+- `POST /:id/archivos` — subir archivo (`tipo`: "foto" | "plano")
 - `DELETE /:id/archivos/:archivoId` — eliminar archivo
+- `Archivo` tiene `urlMiniatura`, `orden` y `esPortada` (ver **FOTOS DEL CATÁLOGO**)
 - Tipos: BODEGA, ESTACIONAMIENTO
 - Estados: DISPONIBLE, RESERVADO, VENDIDO, ARRENDADO
 - Campos: precioUF, precioVentaUF, precioMinimoUF, precioCostoUF, m2, piso, techado, acceso
@@ -357,7 +359,7 @@
 
 ### COTIZACIONES — `/api/cotizaciones`
 - Archivos: `routes/cotizaciones.js`, `controllers/cotizacionesController.js`
-- `GET /unidades-disponibles` — unidades disponibles para cotizar (con m2, precioUF, packs disponibles)
+- `GET /unidades-disponibles` — unidades disponibles para cotizar (con m2, precioUF, packs/beneficios/promos vigentes, **fotos de la unidad y del edificio**). Oculta `precioMinimoUF`/`precioCostoUF`/`precioVentaUF` fuera de GERENTE/JEFE_VENTAS. Lo usan el `CotizacionEditor` y el **modo reunión** — no crear otro endpoint de catálogo
 - `GET /` — listar cotizaciones (propias si VENDEDOR)
 - `GET /:id` — detalle completo
 - `POST /` — crear cotización
@@ -474,6 +476,29 @@
 - Variable de entorno requerida: `GROQ_API_KEY` (en Railway)
 - Vista: gerentes/jefes pueden cambiar de vendedor con selector en el header
 
+### MODO REUNIÓN (`/reunion` y `/reunion/:leadId`) — ago 2026
+- Archivo: `pages/reunion/ModoReunion.jsx`. Botón de entrada en el header (`components/Layout.jsx: BotonModoReunion`)
+- **Ruta fuera del `Layout`**: va a pantalla completa, sin menú, sin notificaciones, sin badges
+- Acceso: GERENTE, JEFE_VENTAS, VENDEDOR, BROKER_EXTERNO
+- Para qué: es la vista que el vendedor le muestra al cliente en la reunión. Solo catálogo disponible, fotos y precios; nada de gestión interna
+- Desde `/leads/:id` el botón arrastra ese lead a la reunión (`/reunion/:leadId`) y la cotización sale con el cliente ya puesto
+- **No tiene endpoint propio**: usa `GET /api/cotizaciones/unidades-disponibles`, que ya filtra DISPONIBLE y oculta `precioMinimoUF`/`precioCostoUF`/`precioVentaUF` a quien no es GERENTE/JEFE_VENTAS
+- Flujo: filtrar (tipo/edificio) → tocar unidades → panel "Su propuesta" con total en UF y pesos (UF del día) → **Crear cotización** hace `POST /api/cotizaciones` y navega al `CotizacionEditor`
+- Muestra precios de **lista**. Los descuentos por volumen y promociones los aplica el backend al crear la cotización (`recalcularPromociones`) — la pantalla no los estima para no prometer un número que después no cuadre
+- El selector de cliente busca contra el servidor (`GET /leads?search=`, mínimo 2 letras, tope 50): hay más de 1.000 leads y cargarlos todos colgaba el modal
+- Visor de fotos: galería de la unidad y, a continuación, la del edificio
+
+### FOTOS DEL CATÁLOGO — ago 2026
+- `Edificio.fotos` → modelo **`FotoEdificio`** (tabla `fotos_edificio`): url, urlMiniatura, nombre, categoria (fachada/acceso/interior/plano), orden
+- `Archivo` (fotos de unidad) sumó `urlMiniatura`, `orden` y `esPortada`
+- **Jerarquía de la foto que se muestra**: portada de la unidad → primera foto del edificio → marcador "sin foto". Cuando cae al edificio, la ficha lo dice con una etiqueta ("FOTO DEL EDIFICIO") para no hacer pasar una foto genérica por la de la unidad
+- Import masivo: `scripts/importarFotos.js --origen <carpeta> [--ejecutar]`
+  - Sin `--ejecutar` es **simulación**: no escribe ni archivos ni BD
+  - Convierte todo a **WebP** (1600px + miniatura cuadrada de 480px) con ImageMagick. **Los HEIC de iPhone no los muestra ningún navegador**: convertir no es opcional. La conversión baja el peso ~10x (129 MB → ~15 MB)
+  - Mapea `Bodegas|Estacionamiento/<Edificio>/<Bodega N>` a la unidad, y las sueltas a la galería del edificio. En Brasil el número va en el nombre del archivo (`E2-E4.jpg`, `E14.jpg` → tándem `E14-E16`)
+  - Idempotente: no reimporta una foto ya cargada (compara por nombre original)
+- ⚠️ Las fotos se guardan en `backend/uploads/catalogo/`, que en Railway es **disco efímero**: se pierden en cada deploy si no se monta un volumen
+
 ---
 
 ## Librerías compartidas (backend/src/lib/)
@@ -523,7 +548,7 @@
 | `NotificacionesBadge.jsx` | Badge de notificaciones en header |
 | `UFDisplay.jsx` | Valor UF actual |
 | `ModalEmail.jsx` | Enviar email desde cualquier contexto |
-| `Layout.jsx` | Wrapper con sidebar + header |
+| `Layout.jsx` | Wrapper con sidebar + header; incluye `BotonModoReunion` |
 | `ui.jsx` | ETAPA_COLOR, ETAPA_LABEL y constantes UI compartidas |
 
 ---

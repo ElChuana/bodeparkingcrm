@@ -308,7 +308,18 @@ const unidadesDisponibles = async (req, res) => {
         })
       },
       include: {
-        edificio: { select: { id: true, nombre: true, region: true, comuna: true } },
+        edificio: {
+          select: {
+            id: true, nombre: true, region: true, comuna: true, direccion: true,
+            // Galería del edificio: respaldo para las unidades sin foto propia
+            fotos: { orderBy: [{ orden: 'asc' }, { id: 'asc' }] }
+          }
+        },
+        // Solo fotos; los planos y documentos no van al catálogo (tipo = "foto" | "plano")
+        archivos: {
+          where: { tipo: 'foto' },
+          orderBy: [{ esPortada: 'desc' }, { orden: 'asc' }, { id: 'asc' }]
+        },
         packs: {
           include: { pack: true },
           where: {

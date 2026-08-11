@@ -37,6 +37,7 @@ const PreviewPDF = lazy(() => import('./pages/cotizaciones/PreviewPDF'))
 const Notificaciones = lazy(() => import('./pages/notificaciones/Notificaciones'))
 const MiReporte = lazy(() => import('./pages/mi-reporte/MiReporte'))
 const ReporteSemanal = lazy(() => import('./pages/reporte-semanal/ReporteSemanal'))
+const ModoReunion = lazy(() => import('./pages/reunion/ModoReunion'))
 
 function PageFallback() {
   return (
@@ -98,6 +99,13 @@ export default function App() {
               <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
+                {/* Modo reunión: fuera del Layout — va a pantalla completa, sin menú */}
+                <Route path="/reunion" element={
+                  <RutaProtegida roles={['GERENTE','JEFE_VENTAS','VENDEDOR','BROKER_EXTERNO']}><ModoReunion /></RutaProtegida>
+                } />
+                <Route path="/reunion/:leadId" element={
+                  <RutaProtegida roles={['GERENTE','JEFE_VENTAS','VENDEDOR','BROKER_EXTERNO']}><ModoReunion /></RutaProtegida>
+                } />
                 <Route path="/" element={
                   <RutaProtegida>
                     <Layout />

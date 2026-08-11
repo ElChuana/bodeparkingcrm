@@ -350,8 +350,27 @@ model Edificio {
 
   unidades Unidad[]
   visitas  Visita[]
+  fotos    FotoEdificio[]
 
   @@map("edificios")
+}
+
+// Fotos del edificio (fachada, acceso, pasillo, bodega tipo). Son la galería que
+// se muestra cuando la unidad no tiene foto propia — ver modo reunión.
+model FotoEdificio {
+  id           Int      @id @default(autoincrement())
+  edificioId   Int
+  url          String
+  urlMiniatura String?
+  nombre       String
+  categoria    String? // fachada | acceso | interior | plano | otro
+  orden        Int      @default(0)
+  creadoEn     DateTime @default(now())
+
+  edificio Edificio @relation(fields: [edificioId], references: [id], onDelete: Cascade)
+
+  @@index([edificioId])
+  @@map("fotos_edificio")
 }
 
 model Unidad {
@@ -411,12 +430,15 @@ model HistorialPrecioUnidad {
 }
 
 model Archivo {
-  id       Int      @id @default(autoincrement())
-  unidadId Int
-  url      String
-  nombre   String
-  tipo     String
-  creadoEn DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  unidadId     Int
+  url          String
+  urlMiniatura String? // versión liviana para la grilla del catálogo
+  nombre       String
+  tipo         String
+  orden        Int      @default(0)
+  esPortada    Boolean  @default(false) // la que encabeza la ficha de la unidad
+  creadoEn     DateTime @default(now())
 
   unidad Unidad @relation(fields: [unidadId], references: [id])
 

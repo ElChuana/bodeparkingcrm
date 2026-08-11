@@ -182,6 +182,38 @@ function SidebarContent({ selectedKey, onNavigate }) {
   )
 }
 
+// Entra al modo reunión: la vista limpia para mostrarle el catálogo al cliente.
+// Si se está viendo un lead, arrastra ese cliente a la reunión.
+function BotonModoReunion() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { usuario } = useAuth()
+
+  if (!['GERENTE', 'JEFE_VENTAS', 'VENDEDOR', 'BROKER_EXTERNO'].includes(usuario?.rol)) return null
+
+  const enLead = location.pathname.match(/^\/leads\/(\d+)/)
+
+  return (
+    <Button
+      icon={<PresentationIcon />}
+      onClick={() => navigate(enLead ? `/reunion/${enLead[1]}` : '/reunion')}
+      style={{
+        borderRadius: 999, borderColor: '#0091C3', color: '#0091C3',
+        fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
+      }}
+    >
+      <span className="texto-modo-reunion">Modo reunión</span>
+    </Button>
+  )
+}
+
+const PresentationIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M2 3h20M4 3v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3M9 21l3-4 3 4" />
+  </svg>
+)
+
 export default function Layout() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -243,6 +275,7 @@ export default function Layout() {
             <BuscadorUniversal />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <BotonModoReunion />
             <CalendarioWidget />
             <NotificacionesBadge />
           </div>
