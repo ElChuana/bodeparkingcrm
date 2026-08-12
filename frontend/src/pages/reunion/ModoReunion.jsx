@@ -22,95 +22,21 @@ import { useAuth } from '../../context/AuthContext'
 import { CotizacionDocumento } from '../cotizaciones/CotizacionPDF'
 import { cotizacionParaPDF } from '../cotizaciones/cotizacionParaPDF'
 import logoUrl from '../../assets/logo.png'
+import { Ilustracion, IlustracionEdificio } from './ilustraciones'
 
 const AZUL = '#0091C3'
 const AZUL_OSC = '#00719a'
 
-// Cuando no hay foto de la unidad, una ilustración de la marca: un espacio en
-// blanco con el rótulo "sin foto" hacía ver el catálogo incompleto delante del
-// cliente.
-const IlustracionBodega = ({ alto = 152 }) => (
-  <svg viewBox="0 0 200 130" style={{ width: '100%', height: alto }} role="img" aria-label="Bodega">
-    <rect width="200" height="130" fill="#EDF3F7" />
-    <path d="M0 104h200" stroke="#C8D8E2" strokeWidth="2" />
-    {/* cortina metálica */}
-    <rect x="56" y="30" width="88" height="74" rx="3" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
-    {[40, 50, 60, 70, 80, 90].map(y => (
-      <path key={y} d={`M60 ${y}h80`} stroke="#DCE7EE" strokeWidth="3" strokeLinecap="round" />
-    ))}
-    <rect x="56" y="22" width="88" height="10" rx="2" fill={AZUL} opacity=".9" />
-    <circle cx="100" cy="98" r="3" fill="#9DB0BE" />
-    {/* cajas */}
-    <rect x="20" y="76" width="28" height="28" rx="2" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
-    <path d="M20 86h28M34 76v10" stroke="#DCE7EE" strokeWidth="2" />
-    <rect x="152" y="84" width="22" height="20" rx="2" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
-    <path d="M152 91h22M163 84v7" stroke="#DCE7EE" strokeWidth="2" />
-  </svg>
-)
-
-const IlustracionEstacionamiento = ({ alto = 152 }) => (
-  <svg viewBox="0 0 200 130" style={{ width: '100%', height: alto }} role="img" aria-label="Estacionamiento">
-    <rect width="200" height="130" fill="#EDF3F7" />
-    {/* demarcación */}
-    <path d="M38 116V54M162 116V54M38 54h124" stroke="#E6C34A" strokeWidth="4" strokeLinecap="round" fill="none" />
-    {/* auto de frente */}
-    <path d="M62 96v-13c0-2 1-4 3-5l7-12c1-2 3-3 5-3h46c2 0 4 1 5 3l7 12c2 1 3 3 3 5v13z"
-      fill="#fff" stroke="#B9CCD9" strokeWidth="2" strokeLinejoin="round" />
-    <path d="M76 70h48l5 9H71z" fill={AZUL} opacity=".18" />
-    <circle cx="74" cy="96" r="6" fill="#9DB0BE" />
-    <circle cx="126" cy="96" r="6" fill="#9DB0BE" />
-    <rect x="88" y="84" width="24" height="5" rx="2" fill={AZUL} opacity=".55" />
-  </svg>
-)
-
-const Ilustracion = ({ tipo, alto }) =>
-  tipo === 'ESTACIONAMIENTO' ? <IlustracionEstacionamiento alto={alto} /> : <IlustracionBodega alto={alto} />
-
-const IlustracionEdificio = () => (
-  <svg viewBox="0 0 320 200" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet"
-    role="img" aria-label="Edificio">
-    <rect width="320" height="200" fill="#EDF3F7" />
-    <path d="M0 168h320" stroke="#C8D8E2" strokeWidth="2" />
-    {/* torre principal */}
-    <rect x="96" y="40" width="128" height="128" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
-    {[0, 1, 2, 3, 4].map(f => [0, 1, 2, 3].map(c => (
-      <rect key={`${f}-${c}`} x={108 + c * 28} y={54 + f * 23} width="18" height="14" rx="1.5"
-        fill={(f + c) % 3 === 0 ? AZUL : '#DCE7EE'} opacity={(f + c) % 3 === 0 ? .28 : 1} />
-    )))}
-    <rect x="148" y="140" width="24" height="28" rx="2" fill="#DCE7EE" />
-    {/* alas laterales */}
-    <rect x="48" y="86" width="48" height="82" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
-    {[0, 1, 2].map(f => (
-      <rect key={f} x="60" y={98 + f * 23} width="24" height="14" rx="1.5" fill="#DCE7EE" />
-    ))}
-    <rect x="224" y="104" width="46" height="64" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
-    {[0, 1, 2].map(f => (
-      <rect key={f} x="236" y={116 + f * 18} width="22" height="11" rx="1.5" fill="#DCE7EE" />
-    ))}
-    {/* arbolito */}
-    <path d="M286 168v-16" stroke="#B9CCD9" strokeWidth="3" strokeLinecap="round" />
-    <circle cx="286" cy="145" r="11" fill="#DCE7EE" />
-  </svg>
-)
-
 const fmtUF = (n) => Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtM2 = (n) => Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-// Foto que encabeza la ficha: la portada de la unidad; si no tiene, una de la
-// galería del edificio; si tampoco, un marcador.
-// Cuando cae al edificio se reparte la galería entre las unidades (la primera
-// queda para la portada del proyecto): con 22 bodegas en un mismo edificio,
-// repetir la misma foto 22 veces hacía ver el catálogo como un error.
-function fotoDe(unidad, indice = 0) {
+// Foto que encabeza la ficha: solo la de la unidad. Sin foto propia va la
+// ilustración: rellenar con fotos del edificio hacía que veinte bodegas
+// distintas se vieran como la misma, y el cliente creía estar mirando dos veces
+// lo mismo.
+function fotoDe(unidad) {
   const propia = unidad.archivos?.[0]
-  if (propia) return { url: propia.url, mini: propia.urlMiniatura || propia.url, propia: true }
-
-  const galeria = unidad.edificio?.fotos || []
-  if (!galeria.length) return null
-  const interiores = galeria.filter(f => f.categoria !== 'fachada')
-  const pool = interiores.length ? interiores : galeria
-  const f = pool[indice % pool.length]
-  return { url: f.url, mini: f.urlMiniatura || f.url, propia: false }
+  return propia ? { url: propia.url, mini: propia.urlMiniatura || propia.url } : null
 }
 
 const galeriaDe = (unidad) => [
@@ -257,6 +183,28 @@ export default function ModoReunion() {
     }
   }, [elegidas])
 
+  // Beneficios que traen las unidades elegidas. `POST /cotizaciones` NO los
+  // aplica solo, así que sin esto la cotización salía a precio de lista: hoy 34
+  // de 38 unidades tienen un precio webinar cargado.
+  const [beneficiosFuera, setBeneficiosFuera] = useState([])   // claves desmarcadas
+  const beneficiosDisponibles = useMemo(() => {
+    const m = new Map()
+    for (const u of elegidas) {
+      for (const cp of u.promociones || []) {
+        if (cp.promocion) m.set(`promocion-${cp.promocion.id}`, { clase: 'promociones', id: cp.promocion.id, nombre: cp.promocion.nombre, detalle: cp.promocion.detalle })
+      }
+      for (const cp of u.packs || []) {
+        if (cp.pack) m.set(`pack-${cp.pack.id}`, { clase: 'packs', id: cp.pack.id, nombre: cp.pack.nombre, detalle: `Desde ${cp.pack.minUnidades || 2} unidades` })
+      }
+      for (const cb of u.beneficios || []) {
+        if (cb.beneficio) m.set(`beneficio-${cb.beneficio.id}`, { clase: 'beneficios', id: cb.beneficio.id, nombre: cb.beneficio.nombre, detalle: null })
+      }
+    }
+    return [...m.entries()].map(([clave, v]) => ({ clave, ...v }))
+  }, [elegidas])
+
+  const beneficiosElegidos = beneficiosDisponibles.filter(b => !beneficiosFuera.includes(b.clave))
+
   // La cotización se crea y se muestra ahí mismo como PDF: la reunión sigue,
   // no se va al editor.
   const [cotizacionPdf, setCotizacionPdf] = useState(null)
@@ -267,9 +215,16 @@ export default function ModoReunion() {
         validezDias: 7,
         items: elegidas.map(u => ({ unidadId: u.id, precioListaUF: Number(u.precioUF) })),
       })
-      // Se recarga completa: el backend aplica promociones y descuentos al crearla
-      const completa = await api.get(`/cotizaciones/${data.id}`).then(r => r.data)
-      return completa
+      // Los beneficios se agregan uno a uno; cada promoción dispara el
+      // recálculo en el backend (lib/promociones.js), que es donde vive el
+      // cálculo probado. Acá no se estima nada.
+      for (const b of beneficiosElegidos) {
+        const campo = b.clase === 'promociones' ? 'promocionId' : b.clase === 'packs' ? 'packId' : 'beneficioId'
+        await api.post(`/cotizaciones/${data.id}/${b.clase}`, { [campo]: b.id })
+          .catch(() => message.warning(`No se pudo aplicar "${b.nombre}"`))
+      }
+      // Se recarga completa: ya con promociones aplicadas y totales al día
+      return api.get(`/cotizaciones/${data.id}`).then(r => r.data)
     },
     onSuccess: async (cot) => {
       if (sesionId) api.patch(`/reuniones/${sesionId}`, { cotizacionId: cot.id }).catch(() => {})
@@ -549,9 +504,9 @@ export default function ModoReunion() {
       {/* ── catálogo + propuesta ── */}
       <div style={{ ...s.cuerpo, display: comparando ? 'none' : 'flex' }}>
         <div style={s.rejilla}>
-          {visibles.map((u, i) => {
+          {visibles.map(u => {
             const on = seleccion.includes(u.id)
-            const foto = fotoDe(u, i + 1)
+            const foto = fotoDe(u)
             const promos = [
               ...(u.packs || []).map(p => p.pack?.nombre),
               ...(u.beneficios || []).map(b => b.beneficio?.nombre),
@@ -577,12 +532,7 @@ export default function ModoReunion() {
                         }}
                       />
                     : <Ilustracion tipo={u.tipo} />}
-                  {foto && !foto.propia && (
-                    <span style={{
-                      position: 'absolute', bottom: 8, left: 8, background: 'rgba(17,24,39,.72)', color: '#fff',
-                      fontSize: 10.5, fontWeight: 600, padding: '3px 8px', borderRadius: 6, letterSpacing: '.03em',
-                    }}>FOTO DEL EDIFICIO</span>
-                  )}
+                  
                   <span style={{
                     position: 'absolute', top: 10, right: 10, width: 28, height: 28, borderRadius: '50%',
                     background: on ? AZUL : 'rgba(255,255,255,.92)', color: on ? '#fff' : '#B7C4CE',
@@ -663,6 +613,40 @@ export default function ModoReunion() {
                   </div>
                 ))}
               </div>
+              {beneficiosDisponibles.length > 0 && (
+                <div style={{ padding: '12px 18px', borderTop: '1px solid #E4E9EE' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#7A8593', letterSpacing: '.05em', marginBottom: 8 }}>
+                    BENEFICIOS QUE APLICAN
+                  </div>
+                  {beneficiosDisponibles.map(b => {
+                    const puesto = !beneficiosFuera.includes(b.clave)
+                    return (
+                      <button key={b.clave}
+                        onClick={() => setBeneficiosFuera(p => puesto ? [...p, b.clave] : p.filter(x => x !== b.clave))}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 9, width: '100%', textAlign: 'left',
+                          padding: '7px 0', border: 'none', background: 'none', cursor: 'pointer',
+                        }}>
+                        <span style={{
+                          flexShrink: 0, width: 18, height: 18, borderRadius: 5, marginTop: 1,
+                          border: `1.5px solid ${puesto ? '#15803d' : '#C9D2DB'}`,
+                          background: puesto ? '#15803d' : '#fff',
+                          display: 'grid', placeItems: 'center', color: '#fff',
+                        }}>{puesto && <CheckOutlined style={{ fontSize: 10 }} />}</span>
+                        <span style={{ minWidth: 0 }}>
+                          <span style={{ display: 'block', fontSize: 13.5, fontWeight: 500, color: puesto ? '#111827' : '#9AA5B1' }}>
+                            {b.nombre}
+                          </span>
+                          {b.detalle && (
+                            <span style={{ display: 'block', fontSize: 12, color: '#8b96a3' }}>{b.detalle}</span>
+                          )}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
               <div style={{ padding: '14px 18px', borderTop: '1px solid #E4E9EE', background: '#FAFBFC', fontSize: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #E4E9EE', paddingTop: 11, color: '#111827', fontSize: 16, fontWeight: 700 }}>
                   <span>Total</span>
@@ -674,8 +658,9 @@ export default function ModoReunion() {
                   </div>
                 )}
                 <div style={{ fontSize: 12, color: '#7A8593', marginTop: 10, lineHeight: 1.5 }}>
-                  Precios de lista. Los descuentos por volumen y promociones se aplican
-                  al generar la cotización.
+                  {beneficiosElegidos.length
+                    ? 'Precios de lista: el descuento de los beneficios se aplica al generar la cotización y sale en el PDF.'
+                    : 'Precios de lista.'}
                 </div>
               </div>
             </>

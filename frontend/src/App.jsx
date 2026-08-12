@@ -38,6 +38,7 @@ const Notificaciones = lazy(() => import('./pages/notificaciones/Notificaciones'
 const MiReporte = lazy(() => import('./pages/mi-reporte/MiReporte'))
 const ReporteSemanal = lazy(() => import('./pages/reporte-semanal/ReporteSemanal'))
 const ModoReunion = lazy(() => import('./pages/reunion/ModoReunion'))
+const PreviewIlustraciones = lazy(() => import('./pages/reunion/PreviewIlustraciones'))
 
 function PageFallback() {
   return (
@@ -106,6 +107,7 @@ export default function App() {
                 <Route path="/reunion/:leadId" element={
                   <RutaProtegida roles={['GERENTE','JEFE_VENTAS','VENDEDOR','BROKER_EXTERNO']}><ModoReunion /></RutaProtegida>
                 } />
+                <Route path="/reunion-ilustraciones" element={<RutaProtegida><PreviewIlustraciones /></RutaProtegida>} />
                 <Route path="/" element={
                   <RutaProtegida>
                     <Layout />
