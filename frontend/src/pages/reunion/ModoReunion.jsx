@@ -9,17 +9,89 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { App, Select, Modal, Spin, Empty } from 'antd'
+import { App, Select, Modal, Spin, Empty, Input, Button } from 'antd'
 import {
   CloseOutlined, CheckOutlined, PictureOutlined, ShoppingCartOutlined,
-  DeleteOutlined, FileTextOutlined, LeftOutlined, RightOutlined, ColumnWidthOutlined
+  DeleteOutlined, FileTextOutlined, LeftOutlined, RightOutlined, ColumnWidthOutlined,
+  MailOutlined, DownloadOutlined
 } from '@ant-design/icons'
+import { PDFViewer, pdf } from '@react-pdf/renderer'
 import api from '../../services/api'
 import { useUF } from '../../hooks/useUF'
 import { useAuth } from '../../context/AuthContext'
+import { CotizacionDocumento } from '../cotizaciones/CotizacionPDF'
+import { cotizacionParaPDF } from '../cotizaciones/cotizacionParaPDF'
+import logoUrl from '../../assets/logo.png'
 
 const AZUL = '#0091C3'
 const AZUL_OSC = '#00719a'
+
+// Cuando no hay foto de la unidad, una ilustración de la marca: un espacio en
+// blanco con el rótulo "sin foto" hacía ver el catálogo incompleto delante del
+// cliente.
+const IlustracionBodega = ({ alto = 152 }) => (
+  <svg viewBox="0 0 200 130" style={{ width: '100%', height: alto }} role="img" aria-label="Bodega">
+    <rect width="200" height="130" fill="#EDF3F7" />
+    <path d="M0 104h200" stroke="#C8D8E2" strokeWidth="2" />
+    {/* cortina metálica */}
+    <rect x="56" y="30" width="88" height="74" rx="3" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
+    {[40, 50, 60, 70, 80, 90].map(y => (
+      <path key={y} d={`M60 ${y}h80`} stroke="#DCE7EE" strokeWidth="3" strokeLinecap="round" />
+    ))}
+    <rect x="56" y="22" width="88" height="10" rx="2" fill={AZUL} opacity=".9" />
+    <circle cx="100" cy="98" r="3" fill="#9DB0BE" />
+    {/* cajas */}
+    <rect x="20" y="76" width="28" height="28" rx="2" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
+    <path d="M20 86h28M34 76v10" stroke="#DCE7EE" strokeWidth="2" />
+    <rect x="152" y="84" width="22" height="20" rx="2" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
+    <path d="M152 91h22M163 84v7" stroke="#DCE7EE" strokeWidth="2" />
+  </svg>
+)
+
+const IlustracionEstacionamiento = ({ alto = 152 }) => (
+  <svg viewBox="0 0 200 130" style={{ width: '100%', height: alto }} role="img" aria-label="Estacionamiento">
+    <rect width="200" height="130" fill="#EDF3F7" />
+    {/* demarcación */}
+    <path d="M38 116V54M162 116V54M38 54h124" stroke="#E6C34A" strokeWidth="4" strokeLinecap="round" fill="none" />
+    {/* auto de frente */}
+    <path d="M62 96v-13c0-2 1-4 3-5l7-12c1-2 3-3 5-3h46c2 0 4 1 5 3l7 12c2 1 3 3 3 5v13z"
+      fill="#fff" stroke="#B9CCD9" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M76 70h48l5 9H71z" fill={AZUL} opacity=".18" />
+    <circle cx="74" cy="96" r="6" fill="#9DB0BE" />
+    <circle cx="126" cy="96" r="6" fill="#9DB0BE" />
+    <rect x="88" y="84" width="24" height="5" rx="2" fill={AZUL} opacity=".55" />
+  </svg>
+)
+
+const Ilustracion = ({ tipo, alto }) =>
+  tipo === 'ESTACIONAMIENTO' ? <IlustracionEstacionamiento alto={alto} /> : <IlustracionBodega alto={alto} />
+
+const IlustracionEdificio = () => (
+  <svg viewBox="0 0 320 200" style={{ width: '100%', height: '100%' }} preserveAspectRatio="xMidYMid meet"
+    role="img" aria-label="Edificio">
+    <rect width="320" height="200" fill="#EDF3F7" />
+    <path d="M0 168h320" stroke="#C8D8E2" strokeWidth="2" />
+    {/* torre principal */}
+    <rect x="96" y="40" width="128" height="128" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
+    {[0, 1, 2, 3, 4].map(f => [0, 1, 2, 3].map(c => (
+      <rect key={`${f}-${c}`} x={108 + c * 28} y={54 + f * 23} width="18" height="14" rx="1.5"
+        fill={(f + c) % 3 === 0 ? AZUL : '#DCE7EE'} opacity={(f + c) % 3 === 0 ? .28 : 1} />
+    )))}
+    <rect x="148" y="140" width="24" height="28" rx="2" fill="#DCE7EE" />
+    {/* alas laterales */}
+    <rect x="48" y="86" width="48" height="82" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
+    {[0, 1, 2].map(f => (
+      <rect key={f} x="60" y={98 + f * 23} width="24" height="14" rx="1.5" fill="#DCE7EE" />
+    ))}
+    <rect x="224" y="104" width="46" height="64" fill="#fff" stroke="#B9CCD9" strokeWidth="2" />
+    {[0, 1, 2].map(f => (
+      <rect key={f} x="236" y={116 + f * 18} width="22" height="11" rx="1.5" fill="#DCE7EE" />
+    ))}
+    {/* arbolito */}
+    <path d="M286 168v-16" stroke="#B9CCD9" strokeWidth="3" strokeLinecap="round" />
+    <circle cx="286" cy="145" r="11" fill="#DCE7EE" />
+  </svg>
+)
 
 const fmtUF = (n) => Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtM2 = (n) => Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -185,16 +257,23 @@ export default function ModoReunion() {
     }
   }, [elegidas])
 
+  // La cotización se crea y se muestra ahí mismo como PDF: la reunión sigue,
+  // no se va al editor.
+  const [cotizacionPdf, setCotizacionPdf] = useState(null)
   const crearCotizacion = useMutation({
-    mutationFn: () => api.post('/cotizaciones', {
-      leadId,
-      validezDias: 7,
-      items: elegidas.map(u => ({ unidadId: u.id, precioListaUF: Number(u.precioUF) })),
-    }),
-    onSuccess: async (res) => {
-      message.success('Cotización creada')
-      await cerrarSesion(res.data.id) // la reunión termina cuando se cotiza
-      navigate(`/cotizaciones/${res.data.id}`)
+    mutationFn: async () => {
+      const { data } = await api.post('/cotizaciones', {
+        leadId,
+        validezDias: 7,
+        items: elegidas.map(u => ({ unidadId: u.id, precioListaUF: Number(u.precioUF) })),
+      })
+      // Se recarga completa: el backend aplica promociones y descuentos al crearla
+      const completa = await api.get(`/cotizaciones/${data.id}`).then(r => r.data)
+      return completa
+    },
+    onSuccess: async (cot) => {
+      if (sesionId) api.patch(`/reuniones/${sesionId}`, { cotizacionId: cot.id }).catch(() => {})
+      setCotizacionPdf(cot)
     },
     onError: (err) => message.error(err.response?.data?.error || 'No se pudo crear la cotización'),
   })
@@ -346,100 +425,107 @@ export default function ModoReunion() {
         ))}
       </div>
 
-      {/* ── portada del edificio (al filtrar por uno) ── */}
+      {/* ── portada del edificio (al filtrar por uno) ──
+          Dos columnas: la foto manda y se ve entera, sin texto encima ni
+          degradados. Los datos van al lado, sobre blanco. */}
       {edificioActual && !comparando && (() => {
         const galeria = edificioActual.fotos || []
         const foto = galeria[fotoHero % Math.max(galeria.length, 1)]
+        const abrirGaleria = (i = 0) => setVisor({
+          titulo: `${edificioActual.nombre} · ${edificioActual.comuna}`,
+          fotos: galeria.map(f => ({ ...f, propia: false })), indice: i,
+        })
+        const Dato = ({ valor, etiqueta }) => (
+          <div>
+            <b style={{ display: 'block', fontSize: 23, fontWeight: 700, letterSpacing: '-.02em', color: '#111827' }}>{valor}</b>
+            <span style={{ fontSize: 11.5, color: '#7A8593', letterSpacing: '.06em', fontWeight: 600 }}>{etiqueta}</span>
+          </div>
+        )
         return (
           <div style={{ padding: '16px 30px 0' }}>
             <div style={{
-              position: 'relative', borderRadius: 18, overflow: 'hidden', minHeight: 300,
-              display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-              background: 'linear-gradient(150deg,#2C3E4C,#16222C)', color: '#fff', padding: '32px 36px',
+              display: 'grid', gridTemplateColumns: 'minmax(0,1.35fr) minmax(280px,1fr)', gap: 22,
+              background: '#fff', border: '1.5px solid #E4E9EE', borderRadius: 18, padding: 16,
+              boxShadow: '0 1px 2px rgba(16,24,40,.06), 0 4px 14px rgba(16,24,40,.05)',
             }}>
-              {foto
-                ? <img src={foto.url} alt={`${edificioActual.nombre}`}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'rgba(255,255,255,.16)' }}>
-                    <PictureOutlined style={{ fontSize: 64 }} />
-                  </div>}
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(10,16,22,.88) 8%,rgba(10,16,22,.15) 62%)' }} />
+              {/* foto grande + tira de miniaturas */}
+              <div>
+                <div
+                  onClick={() => galeria.length && abrirGaleria(fotoHero % galeria.length)}
+                  style={{
+                    position: 'relative', height: 'clamp(230px, 36vh, 360px)', borderRadius: 12, overflow: 'hidden',
+                    background: '#EDF3F7', cursor: galeria.length ? 'zoom-in' : 'default',
+                  }}>
+                  {foto
+                    ? <img src={foto.url} alt={edificioActual.nombre}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : <IlustracionEdificio />}
+                  {galeria.length > 1 && (
+                    <span style={{
+                      position: 'absolute', bottom: 10, right: 10, background: 'rgba(17,24,39,.72)', color: '#fff',
+                      fontSize: 12, fontWeight: 600, padding: '5px 11px', borderRadius: 999,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}><PictureOutlined style={{ fontSize: 12 }} /> {galeria.length} fotos</span>
+                  )}
+                </div>
 
-              <div style={{ position: 'relative', zIndex: 2 }}>
-                <div style={{ fontSize: 13, letterSpacing: '.14em', textTransform: 'uppercase', opacity: .75, fontWeight: 600 }}>
-                  {edificioActual.comuna}
-                </div>
-                <h2 style={{ fontSize: 'clamp(32px,4.6vw,54px)', fontWeight: 800, letterSpacing: '-.035em', margin: '6px 0 8px', lineHeight: 1 }}>
-                  {edificioActual.nombre}
-                </h2>
-                {edificioActual.direccion && <div style={{ fontSize: 16, opacity: .82 }}>{edificioActual.direccion}</div>}
-                <div style={{ display: 'flex', gap: 34, marginTop: 22, flexWrap: 'wrap' }}>
-                  <div>
-                    <b style={{ display: 'block', fontSize: 26, fontWeight: 700 }}>{edificioActual.unidades.length}</b>
-                    <span style={{ fontSize: 12.5, opacity: .72, letterSpacing: '.03em' }}>DISPONIBLES</span>
+                {galeria.length > 1 && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10, overflowX: 'auto', paddingBottom: 2 }}>
+                    {galeria.slice(0, 10).map((f, i) => (
+                      <button key={f.id} onClick={() => setFotoHero(i)} aria-label={`Foto ${i + 1}`}
+                        style={{
+                          flex: '0 0 76px', height: 54, borderRadius: 8, overflow: 'hidden', padding: 0, cursor: 'pointer',
+                          border: `2px solid ${i === fotoHero % galeria.length ? AZUL : 'transparent'}`,
+                          opacity: i === fotoHero % galeria.length ? 1 : .72, background: '#EDF3F7',
+                        }}>
+                        <img src={f.urlMiniatura || f.url} alt=""
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      </button>
+                    ))}
                   </div>
-                  {edificioActual.m2Min && (
-                    <div>
-                      <b style={{ display: 'block', fontSize: 26, fontWeight: 700 }}>
-                        {edificioActual.m2Min === edificioActual.m2Max
-                          ? `${fmtM2(edificioActual.m2Min)} m²`
-                          : `${fmtM2(edificioActual.m2Min)} – ${fmtM2(edificioActual.m2Max)} m²`}
-                      </b>
-                      <span style={{ fontSize: 12.5, opacity: .72, letterSpacing: '.03em' }}>SUPERFICIE</span>
-                    </div>
-                  )}
-                  <div>
-                    <b style={{ display: 'block', fontSize: 26, fontWeight: 700 }}>{fmtUF(edificioActual.desdeUF)} UF</b>
-                    <span style={{ fontSize: 12.5, opacity: .72, letterSpacing: '.03em' }}>DESDE</span>
-                  </div>
-                  {valorUF && (
-                    <div>
-                      <b style={{ display: 'block', fontSize: 26, fontWeight: 700 }}>
-                        ${Math.round(edificioActual.desdeUF * valorUF).toLocaleString('es-CL')}
-                      </b>
-                      <span style={{ fontSize: 12.5, opacity: .72, letterSpacing: '.03em' }}>APROX.</span>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
 
-              {galeria.length > 1 && (
-                <div style={{ position: 'absolute', bottom: 20, right: 24, zIndex: 3, display: 'flex', gap: 7 }}>
-                  {galeria.slice(0, 8).map((_, i) => (
-                    <button key={i} onClick={() => setFotoHero(i)} aria-label={`Foto ${i + 1}`}
-                      style={{
-                        width: i === fotoHero % galeria.length ? 26 : 9, height: 9, borderRadius: 5, border: 'none',
-                        background: i === fotoHero % galeria.length ? AZUL : 'rgba(255,255,255,.5)', cursor: 'pointer',
-                      }} />
-                  ))}
+              {/* datos del proyecto */}
+              <div style={{ display: 'flex', flexDirection: 'column', padding: '8px 8px 4px' }}>
+                <div style={{ fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: AZUL_OSC, fontWeight: 700 }}>
+                  {edificioActual.comuna}
                 </div>
-              )}
-              {galeria.length > 0 && (
-                <button onClick={() => setVisor({
-                    titulo: `${edificioActual.nombre} · ${edificioActual.comuna}`,
-                    fotos: galeria.map(f => ({ ...f, propia: false })), indice: fotoHero % galeria.length,
-                  })}
-                  style={{
-                    position: 'absolute', top: 18, right: 20, zIndex: 3, border: 'none', cursor: 'pointer',
-                    background: 'rgba(255,255,255,.9)', color: '#3D3D3D', borderRadius: 999,
-                    padding: '8px 15px', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7,
-                  }}>
-                  <PictureOutlined /> Ver las {galeria.length} fotos
-                </button>
-              )}
-            </div>
+                <h2 style={{ fontSize: 'clamp(28px,3.2vw,42px)', fontWeight: 800, letterSpacing: '-.035em', margin: '4px 0 6px', lineHeight: 1.02 }}>
+                  {edificioActual.nombre}
+                </h2>
+                {edificioActual.direccion && (
+                  <div style={{ fontSize: 15, color: '#5B6672' }}>{edificioActual.direccion}</div>
+                )}
 
-            {/* pasar de un proyecto a otro sin volver a los filtros */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
-              <button onClick={() => irAEdificio(-1)} aria-label="Edificio anterior" style={s.flechaNav}><LeftOutlined /></button>
-              <button onClick={() => irAEdificio(1)} aria-label="Edificio siguiente" style={s.flechaNav}><RightOutlined /></button>
-              <span style={{ fontSize: 14, color: '#5B6672' }}>
-                Edificio {edificios.findIndex(e => e.id === filtroEdificio) + 1} de {edificios.length}
-              </span>
-              <button onClick={() => setFiltroEdificio(null)}
-                style={{ marginLeft: 'auto', border: 'none', background: 'none', color: AZUL_OSC, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-                Ver todos los edificios
-              </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px 20px', margin: '22px 0 0' }}>
+                  <Dato valor={edificioActual.unidades.length} etiqueta="DISPONIBLES" />
+                  {edificioActual.m2Min && (
+                    <Dato
+                      valor={edificioActual.m2Min === edificioActual.m2Max
+                        ? `${fmtM2(edificioActual.m2Min)} m²`
+                        : `${fmtM2(edificioActual.m2Min)} – ${fmtM2(edificioActual.m2Max)}`}
+                      etiqueta="SUPERFICIE m²" />
+                  )}
+                  <Dato valor={`${fmtUF(edificioActual.desdeUF)} UF`} etiqueta="DESDE" />
+                  {valorUF && (
+                    <Dato valor={`$${Math.round(edificioActual.desdeUF * valorUF).toLocaleString('es-CL')}`} etiqueta="APROX. EN PESOS" />
+                  )}
+                </div>
+
+                {/* pasar de un proyecto a otro sin volver a los filtros */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto', paddingTop: 22 }}>
+                  <button onClick={() => irAEdificio(-1)} aria-label="Edificio anterior" style={s.flechaNav}><LeftOutlined /></button>
+                  <button onClick={() => irAEdificio(1)} aria-label="Edificio siguiente" style={s.flechaNav}><RightOutlined /></button>
+                  <span style={{ fontSize: 13.5, color: '#7A8593' }}>
+                    {edificios.findIndex(e => e.id === filtroEdificio) + 1} de {edificios.length}
+                  </span>
+                  <button onClick={() => setFiltroEdificio(null)}
+                    style={{ marginLeft: 'auto', border: 'none', background: 'none', color: AZUL_OSC, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+                    Ver todos
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )
@@ -490,12 +576,7 @@ export default function ModoReunion() {
                           })
                         }}
                       />
-                    : <div style={{ textAlign: 'center' }}>
-                        <PictureOutlined style={{ fontSize: 30 }} />
-                        <div style={{ fontSize: 11, letterSpacing: '.05em', textTransform: 'uppercase', fontWeight: 600, marginTop: 6 }}>
-                          Sin foto
-                        </div>
-                      </div>}
+                    : <Ilustracion tipo={u.tipo} />}
                   {foto && !foto.propia && (
                     <span style={{
                       position: 'absolute', bottom: 8, left: 8, background: 'rgba(17,24,39,.72)', color: '#fff',
@@ -628,6 +709,17 @@ export default function ModoReunion() {
         </span>
       </div>
 
+      {/* ── la cotización recién creada, sin salir de la reunión ── */}
+      {cotizacionPdf && (
+        <ModalCotizacion
+          cotizacion={cotizacionPdf}
+          valorUF={valorUF}
+          usuario={usuario}
+          message={message}
+          onCerrar={() => setCotizacionPdf(null)}
+        />
+      )}
+
       {/* ── visor de fotos ── */}
       <Modal
         open={!!visor}
@@ -665,6 +757,151 @@ export default function ModoReunion() {
 
     </div>
   )
+}
+
+// La cotización recién creada, en pantalla y lista para mandar. No saca al
+// vendedor del modo reunión: se cierra y la conversación sigue.
+function ModalCotizacion({ cotizacion, valorUF, usuario, onCerrar, message }) {
+  const contacto = cotizacion.lead?.contacto
+  const doc = <CotizacionDocumento cotizacion={cotizacionParaPDF(cotizacion)} logoUrl={logoUrl} valorUF={valorUF} />
+  const archivo = `Cotizacion-${cotizacion.id}-${contacto?.apellido || 'cliente'}.pdf`
+
+  const [enviando, setEnviando] = useState(false)
+  const [enviado, setEnviado] = useState(false)
+  const [para, setPara] = useState(contacto?.email || '')
+  const [asunto, setAsunto] = useState(`Cotización BodeParking N°${cotizacion.id}`)
+  const [cuerpo, setCuerpo] = useState('')
+
+  // Sin correo propio configurado el envío falla. Se avisa antes de apretar,
+  // no en medio de la reunión: hoy la mitad del equipo no lo tiene puesto.
+  const [remitente, setRemitente] = useState(undefined) // undefined = cargando
+
+  // Cuerpo sugerido: la plantilla del vendedor si la tiene configurada
+  useEffect(() => {
+    const nombre = contacto?.nombre || ''
+    const porDefecto =
+      `Hola ${nombre},\n\n` +
+      `Adjunto la cotización que revisamos hoy. Queda vigente por ${cotizacion.validezDias} días.\n\n` +
+      `Cualquier duda me escribes.\n\n${usuario?.nombre || ''}`
+    api.get('/email/config')
+      .then(r => {
+        const plantilla = r.data?.plantillaCotizacion
+        setCuerpo(plantilla ? plantilla.replace(/\{nombre\}/g, nombre) : porDefecto)
+        setRemitente(r.data?.smtpEmail || null)
+      })
+      .catch(() => { setCuerpo(porDefecto); setRemitente(null) })
+  }, [contacto?.nombre, cotizacion.validezDias, usuario?.nombre])
+
+  const descargar = async () => {
+    const blob = await pdf(doc).toBlob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = archivo; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const enviar = async () => {
+    if (!para.trim()) return message.warning('Falta el correo del cliente')
+    setEnviando(true)
+    try {
+      const blob = await pdf(doc).toBlob()
+      const pdfBase64 = await new Promise((ok, err) => {
+        const fr = new FileReader()
+        fr.onload = () => ok(String(fr.result).split(',')[1])
+        fr.onerror = err
+        fr.readAsDataURL(blob)
+      })
+      await api.post('/email/enviar', {
+        para: para.trim(),
+        asunto,
+        cuerpo: cuerpo.replace(/\n/g, '<br>'),
+        pdfBase64,
+        pdfNombre: archivo,
+        leadId: cotizacion.leadId,
+      })
+      await api.put(`/cotizaciones/${cotizacion.id}/estado`, { estado: 'ENVIADA' }).catch(() => {})
+      setEnviado(true)
+      message.success(`Cotización enviada a ${para.trim()}`)
+    } catch (err) {
+      message.error(err.response?.data?.error || 'No se pudo enviar el correo')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onCancel={onCerrar}
+      footer={null}
+      width="min(1180px, 96vw)"
+      centered
+      styles={{ body: { padding: 0 } }}
+      title={<span style={{ fontSize: 16 }}>Cotización N°{cotizacion.id} · {contacto?.nombre} {contacto?.apellido || ''}</span>}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.5fr) minmax(320px,.9fr)', gap: 0, minHeight: '68vh' }}>
+        <div style={{ background: '#525659' }}>
+          <PDFViewer style={{ width: '100%', height: '100%', minHeight: '68vh', border: 'none' }} showToolbar={false}>
+            {doc}
+          </PDFViewer>
+        </div>
+
+        <div style={{ padding: '20px 22px', borderLeft: '1px solid #E4E9EE', display: 'flex', flexDirection: 'column' }}>
+          <h3 style={{ margin: '0 0 3px', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <MailOutlined style={{ color: AZUL }} /> Enviársela ahora
+          </h3>
+          <p style={{ margin: '0 0 16px', fontSize: 13.5, color: '#5B6672' }}>
+            {remitente
+              ? <>Sale desde <b>{remitente}</b> con el PDF adjunto y queda registrada en la ficha del cliente.</>
+              : 'Sale con el PDF adjunto y queda registrada en la ficha del cliente.'}
+          </p>
+
+          {remitente === null && (
+            <div style={{
+              background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 9,
+              padding: '10px 13px', fontSize: 13, color: '#92400E', marginBottom: 16, lineHeight: 1.5,
+            }}>
+              No tienes tu correo configurado, así que el envío no va a salir. Puedes
+              descargar el PDF ahora y configurarlo después en <b>Mi perfil</b>.
+            </div>
+          )}
+
+          <label style={etiquetaCampo}>Para</label>
+          <Input value={para} onChange={e => setPara(e.target.value)} size="large"
+            placeholder="correo@cliente.cl" status={!para.trim() ? 'warning' : ''} />
+          {!contacto?.email && (
+            <span style={{ fontSize: 12.5, color: '#b45309', marginTop: 5 }}>
+              Este cliente no tiene correo guardado: escríbelo y se envía igual.
+            </span>
+          )}
+
+          <label style={{ ...etiquetaCampo, marginTop: 14 }}>Asunto</label>
+          <Input value={asunto} onChange={e => setAsunto(e.target.value)} />
+
+          <label style={{ ...etiquetaCampo, marginTop: 14 }}>Mensaje</label>
+          <Input.TextArea value={cuerpo} onChange={e => setCuerpo(e.target.value)} rows={7}
+            style={{ resize: 'vertical' }} />
+
+          <div style={{ marginTop: 'auto', paddingTop: 18, display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <Button type="primary" size="large" icon={<MailOutlined />} loading={enviando}
+              onClick={enviar} disabled={enviado || remitente === null}
+              style={{ height: 46, fontWeight: 600, background: enviado ? '#15803d' : undefined, borderColor: enviado ? '#15803d' : undefined }}>
+              {enviado ? 'Enviada' : enviando ? 'Enviando…' : 'Enviar por correo'}
+            </Button>
+            <div style={{ display: 'flex', gap: 9 }}>
+              <Button icon={<DownloadOutlined />} onClick={descargar} style={{ flex: 1, height: 40 }}>Descargar</Button>
+              <Button onClick={onCerrar} style={{ flex: 1, height: 40 }}>Seguir en la reunión</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+const etiquetaCampo = {
+  display: 'block', fontSize: 12.5, fontWeight: 600, color: '#5B6672',
+  marginBottom: 5, letterSpacing: '.02em',
 }
 
 const Celda = ({ children, destacado, style }) => (

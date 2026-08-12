@@ -484,9 +484,13 @@
 - **Siempre se entra con un cliente**: `/reunion` sin lead muestra un buscador ("¿Con quién es la reunión?") y no deja pasar hasta elegirlo, porque la reunión se registra contra alguien. Desde `/leads/:id` entra directo con ese cliente
 - **No tiene endpoint propio**: usa `GET /api/cotizaciones/unidades-disponibles`, que ya filtra DISPONIBLE y oculta `precioMinimoUF`/`precioCostoUF`/`precioVentaUF` a quien no es GERENTE/JEFE_VENTAS
 - Flujo: filtrar (tipo/edificio) → tocar unidades → panel "Su propuesta" con total en UF y pesos (UF del día) → **Crear cotización** hace `POST /api/cotizaciones` y navega al `CotizacionEditor`
-- **Portada del edificio**: al filtrar por un edificio aparece arriba su foto grande con comuna, dirección, cuántas quedan, rango de m² y desde cuánto (en UF y pesos). Puntos para cambiar de foto, flechas para pasar al edificio siguiente sin volver a los filtros
+- **Portada del edificio**: al filtrar por un edificio aparece arriba, en **dos columnas** — la foto grande a la izquierda (limpia, sin texto ni degradado encima, con tira de miniaturas) y los datos a la derecha sobre blanco: comuna, dirección, cuántas quedan, rango de m² y desde cuánto (en UF y pesos). Se probó primero con la foto de fondo y el texto encima, pero tapaba justo el edificio, que es lo que el vendedor quiere mostrar
+- **Ilustraciones**: las unidades sin foto propia y los edificios sin galería muestran una ilustración de la marca (bodega, estacionamiento o edificio) en vez del rótulo "sin foto", que delante del cliente hacía ver el catálogo incompleto
 - **Comparador** (`Comparador` en el mismo archivo): con 2 o más unidades elegidas aparece "Comparar las N". Muestra precio, superficie, precio por m², ubicación y beneficios lado a lado, y marca cuál gana en cada fila (menor entrada / la más grande / mejor valor). El precio por m² se omite si la unidad no tiene m² cargados (los tándem). "Elegir esta" deja esa sola en la propuesta
 - Muestra precios de **lista**. Los descuentos por volumen y promociones los aplica el backend al crear la cotización (`recalcularPromociones`) — la pantalla no los estima para no prometer un número que después no cuadre
+- **La cotización se ve y se manda sin salir de la reunión** (`ModalCotizacion` en el mismo archivo): al crearla se recarga completa (`GET /cotizaciones/:id`, ya con promociones aplicadas) y se muestra el PDF en pantalla con `PDFViewer`. Al lado: destinatario prellenado con el correo del contacto **y editable**, asunto y mensaje sugeridos (usa `plantillaCotizacion` del vendedor si la tiene). "Enviar por correo" adjunta el PDF (`POST /email/enviar` con `pdfBase64` + `leadId`) y marca la cotización como ENVIADA. También se puede descargar. El botón "Seguir en la reunión" cierra el modal y devuelve al catálogo — no se navega al editor
+  - Si el vendedor no tiene `smtpEmail` configurado se le avisa **al abrir** el modal y el botón queda deshabilitado (antes reventaba con un 400 recién al apretar, en plena reunión). Hoy 3 de 5 vendedores no lo tienen puesto
+- `cotizacionParaPDF` vive en `pages/cotizaciones/cotizacionParaPDF.js` — estaba duplicada en `CotizacionEditor` y `EmailCard`; ahora la comparten los tres
 - El selector de cliente busca contra el servidor (`GET /leads?search=`, mínimo 2 letras, tope 50): hay más de 1.000 leads y cargarlos todos colgaba el modal
 - Visor de fotos: galería de la unidad y, a continuación, la del edificio
 
@@ -510,6 +514,7 @@
   - Convierte todo a **WebP** (1600px + miniatura cuadrada de 480px) con ImageMagick. **Los HEIC de iPhone no los muestra ningún navegador**: convertir no es opcional. La conversión baja el peso ~10x (129 MB → ~15 MB)
   - Mapea `Bodegas|Estacionamiento/<Edificio>/<Bodega N>` a la unidad, y las sueltas a la galería del edificio. En Brasil el número va en el nombre del archivo (`E2-E4.jpg`, `E14.jpg` → tándem `E14-E16`)
   - Idempotente: no reimporta una foto ya cargada (compara por nombre original)
+  - `--reordenar` recalcula orden y categoría sin reconvertir. `--portada "Edificio=parte-del-archivo"` fija la portada a mano: la detección por cielo acierta con día despejado, pero con cielo nublado una fachada se parece demasiado a un pasillo iluminado (fue el caso de Trinitarias)
 - ⚠️ Las fotos se guardan en `backend/uploads/catalogo/`, que en Railway es **disco efímero**: se pierden en cada deploy si no se monta un volumen
 
 ---

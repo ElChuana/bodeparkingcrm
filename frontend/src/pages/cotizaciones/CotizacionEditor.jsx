@@ -17,6 +17,7 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { useUF } from '../../hooks/useUF'
 import logoUrl from '../../assets/logo.png'
+import { cotizacionParaPDF, esDescuentoPorUnidad } from './cotizacionParaPDF'
 
 const { Title, Text } = Typography
 
@@ -636,41 +637,6 @@ function PanelPromociones({ cotizacionId, promociones, items = [], soloLectura }
 }
 
 // ¿Es un descuento por-unidad? (ya se refleja tachado en la tabla del PDF, no se lista como global)
-const esDescuentoPorUnidad = (promo) => promo?.tipo === 'DESCUENTO_UF' && (promo?.unidades?.length > 0)
-
-// Arma el formato `promociones` que espera CotizacionDocumento, desde el modelo unificado.
-// Excluye los descuentos por-unidad (van tachados en la tabla). Mantiene compat con packs/beneficios viejos.
-function cotizacionParaPDF(cot) {
-  const promociones = [
-    ...(cot.promociones || [])
-      .filter(cp => !esDescuentoPorUnidad(cp.promocion))
-      .map(cp => ({
-        aplicada: true,
-        ahorroUF: cp.descuentoAplicadoUF,
-        promocion: {
-          nombre: cp.promocion?.nombre,
-          tipo: cp.promocion?.tipo,
-          valorUF: cp.promocion?.valorUF,
-          valorPorcentaje: cp.promocion?.valorPorcentaje,
-          minUnidades: cp.promocion?.minUnidades,
-          detalle: cp.promocion?.detalle,
-        },
-      })),
-    // Compat: cotizaciones antiguas con packs/beneficios
-    ...(cot.packs || []).map(cp => ({
-      aplicada: true,
-      ahorroUF: cp.descuentoAplicadoUF,
-      promocion: { nombre: cp.pack?.nombre || 'Pack', tipo: 'DESCUENTO_UF', valorUF: cp.descuentoAplicadoUF }
-    })),
-    ...(cot.beneficios || []).map(cb => ({
-      aplicada: true,
-      ahorroUF: 0,
-      promocion: { nombre: cb.beneficio?.nombre || 'Beneficio', tipo: cb.beneficio?.tipo || 'OTRO' }
-    })),
-  ]
-  return { ...cot, promociones }
-}
-
 // ── Página principal editor ─────────────────────────────────────
 export default function CotizacionEditor() {
   const { id } = useParams()

@@ -144,7 +144,38 @@ async function reordenar() {
   console.log(`\n  ${EJECUTAR ? '✅ Actualizadas' : 'Se actualizarían'} ${cambios} fotos\n`)
 }
 
+// node scripts/importarFotos.js --portada "Trinitarias=c05872e3" --ejecutar
+// Fija a mano la portada de un edificio (por un trozo del nombre del archivo).
+// La detección automática acierta cuando hay cielo despejado, pero con cielo
+// nublado una fachada se parece demasiado a un pasillo iluminado.
+async function fijarPortada(spec) {
+  const [nombreEd, trozo] = spec.split('=')
+  if (!nombreEd || !trozo) { console.error('Formato: --portada "Edificio=parte-del-archivo"'); return }
+
+  const edificio = await prisma.edificio.findFirst({ where: { nombre: { contains: nombreEd.trim(), mode: 'insensitive' } } })
+  if (!edificio) { console.error(`No existe el edificio "${nombreEd}"`); return }
+
+  const fotos = await prisma.fotoEdificio.findMany({ where: { edificioId: edificio.id }, orderBy: { orden: 'asc' } })
+  const elegida = fotos.find(f => f.nombre.includes(trozo.trim()))
+  if (!elegida) { console.error(`Ninguna foto de ${edificio.nombre} contiene "${trozo}"`); return }
+
+  const resto = fotos.filter(f => f.id !== elegida.id)
+  if (EJECUTAR) {
+    await prisma.fotoEdificio.update({ where: { id: elegida.id }, data: { orden: 0, categoria: 'fachada' } })
+    for (let i = 0; i < resto.length; i++) {
+      await prisma.fotoEdificio.update({ where: { id: resto[i].id }, data: { orden: i + 1 } })
+    }
+  }
+  console.log(`  ${edificio.nombre}: portada → "${elegida.nombre}"${EJECUTAR ? '' : ' (simulación)'}`)
+}
+
 async function main() {
+  const iPortada = args.indexOf('--portada')
+  if (iPortada >= 0) {
+    await fijarPortada(args[iPortada + 1] || '')
+    await prisma.$disconnect()
+    return
+  }
   if (args.includes('--reordenar')) {
     console.log(`\n${EJECUTAR ? 'REORDENANDO' : 'SIMULACIÓN (usar --ejecutar para aplicar)'}\n`)
     await reordenar()
