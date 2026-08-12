@@ -38,6 +38,7 @@ const EDIFICIOS = {
   'Aldunate': 'Aldunate',
   'Brasil': 'Brasil',
   'Neocisternas': 'Neocisterna', // en el CRM va sin "s" final
+  'Vicuña Mackenna 1796': 'Vicuña Mackenna 1796',
 }
 
 // "E. Bodega 23" → "23" · "Bodega 209" → "209" · "Edificio" → null
