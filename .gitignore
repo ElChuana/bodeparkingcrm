@@ -12,6 +12,11 @@ API_LEADS.pdf
 backend/.env
 backend/node_modules/
 backend/uploads/*
+# Excepción: las fotos del catálogo comercial sí se versionan. El disco de
+# Railway es efímero (se borra en cada deploy), y así viajan con el código y
+# quedan respaldadas. Lo que sube el equipo (documentos legales, planos) sigue
+# fuera del repo: eso son datos de clientes.
+!backend/uploads/catalogo/
 frontend/.env
 frontend/dist/
 frontend/node_modules/
