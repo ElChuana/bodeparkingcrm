@@ -9,11 +9,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { App, Select, Modal, Spin, Empty, Input, Button } from 'antd'
+import { App, Select, Modal, Spin, Empty, Input, Button, Popover } from 'antd'
 import {
   CloseOutlined, CheckOutlined, PictureOutlined, ShoppingCartOutlined,
   DeleteOutlined, FileTextOutlined, LeftOutlined, RightOutlined, ColumnWidthOutlined,
-  MailOutlined, DownloadOutlined
+  MailOutlined, DownloadOutlined, EditOutlined
 } from '@ant-design/icons'
 import { PDFViewer, pdf } from '@react-pdf/renderer'
 import api from '../../services/api'
@@ -162,6 +162,7 @@ export default function ModoReunion() {
     if (!edificios.length) return
     const i = edificios.findIndex(e => e.id === filtroEdificio)
     const siguiente = edificios[(i + paso + edificios.length) % edificios.length]
+    setFiltroTipo('TODAS')
     setFiltroEdificio(siguiente.id)
     setFotoHero(0)
   }
@@ -274,7 +275,7 @@ export default function ModoReunion() {
   }, [automaticos, catalogoBeneficios, elegidas.length])
 
   const beneficiosElegidos = beneficiosOfrecibles.filter(b => estaPuesto(b.clave))
-  const [verTodosBeneficios, setVerTodosBeneficios] = useState(false)
+  const [panelBeneficios, setPanelBeneficios] = useState(false)
 
   // La cotización se crea y se muestra ahí mismo como PDF: la reunión sigue,
   // no se va al editor.
@@ -443,7 +444,12 @@ export default function ModoReunion() {
           <button
             key={e.id}
             style={s.chip(filtroEdificio === e.id)}
-            onClick={() => setFiltroEdificio(filtroEdificio === e.id ? null : e.id)}
+            onClick={() => {
+              // Al entrar a un edificio se muestra todo lo suyo: quedarse con
+              // "Bodegas" del edificio anterior escondía sus estacionamientos.
+              setFiltroTipo('TODAS')
+              setFiltroEdificio(filtroEdificio === e.id ? null : e.id)
+            }}
           >
             {e.nombre}
             <span style={{ fontSize: 12.5, opacity: .65 }}>{unidades.filter(u => u.edificio?.id === e.id).length}</span>
@@ -684,67 +690,83 @@ export default function ModoReunion() {
                   </div>
                 ))}
               </div>
-              {beneficiosOfrecibles.length > 0 && (() => {
-                const conLaUnidad = beneficiosOfrecibles.filter(b => clavesAutomaticas.has(b.clave))
-                const resto = beneficiosOfrecibles.filter(b => !clavesAutomaticas.has(b.clave))
-                const puestosDelResto = resto.filter(b => estaPuesto(b.clave))
-                const restoVisible = verTodosBeneficios ? resto : puestosDelResto
-
-                const Fila = (b) => (
-                  <button key={b.clave} onClick={() => alternarBeneficio(b.clave)}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 9, width: '100%', textAlign: 'left',
-                      padding: '7px 0', border: 'none', background: 'none', cursor: 'pointer',
-                    }}>
-                    <span style={{
-                      flexShrink: 0, width: 18, height: 18, borderRadius: 5, marginTop: 1,
-                      border: `1.5px solid ${estaPuesto(b.clave) ? '#15803d' : '#C9D2DB'}`,
-                      background: estaPuesto(b.clave) ? '#15803d' : '#fff',
-                      display: 'grid', placeItems: 'center', color: '#fff',
-                    }}>{estaPuesto(b.clave) && <CheckOutlined style={{ fontSize: 10 }} />}</span>
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 500, color: estaPuesto(b.clave) ? '#111827' : '#5B6672' }}>
-                        {b.nombre}
-                      </span>
-                      {b.detalle && <span style={{ display: 'block', fontSize: 12, color: '#8b96a3' }}>{b.detalle}</span>}
-                    </span>
-                  </button>
-                )
-
-                return (
-                  <div style={{ padding: '12px 18px', borderTop: '1px solid #E4E9EE' }}>
-                    {conLaUnidad.length > 0 && (
+              {/* Beneficios: el cliente ve solo lo que se le está dando. La
+                  lista completa de lo que se podría ofrecer queda detrás de un
+                  botón discreto — mostrarla abierta era enseñarle la carta de
+                  todo lo que puede pedir. */}
+              {beneficiosOfrecibles.length > 0 && (
+                <div style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  padding: '11px 18px', borderTop: '1px solid #E4E9EE',
+                }}>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13, lineHeight: 1.45 }}>
+                    {beneficiosElegidos.length ? (
                       <>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#7A8593', letterSpacing: '.05em', marginBottom: 4 }}>
-                          BENEFICIOS QUE APLICAN
-                        </div>
-                        {conLaUnidad.map(Fila)}
+                        <span style={{ color: '#15803d', fontWeight: 600 }}>Incluye </span>
+                        <span style={{ color: '#5B6672' }}>
+                          {beneficiosElegidos.map(b => b.nombre).join(' · ')}
+                        </span>
                       </>
+                    ) : (
+                      <span style={{ color: '#9AA5B1' }}>Sin beneficios</span>
                     )}
+                  </span>
 
-                    {restoVisible.length > 0 && (
-                      <>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#7A8593', letterSpacing: '.05em', margin: '12px 0 4px' }}>
-                          {conLaUnidad.length ? 'PUEDES AGREGAR' : 'BENEFICIOS'}
-                        </div>
-                        {restoVisible.map(Fila)}
-                      </>
-                    )}
-
-                    {resto.length > puestosDelResto.length && (
-                      <button onClick={() => setVerTodosBeneficios(v => !v)}
-                        style={{
-                          border: 'none', background: 'none', color: AZUL_OSC, fontWeight: 600,
-                          fontSize: 13, cursor: 'pointer', padding: '8px 0 0',
-                        }}>
-                        {verTodosBeneficios
-                          ? 'Ocultar'
-                          : `+ Agregar beneficio (${resto.length - puestosDelResto.length} disponibles)`}
-                      </button>
-                    )}
-                  </div>
-                )
-              })()}
+                  <Popover
+                    open={panelBeneficios}
+                    onOpenChange={setPanelBeneficios}
+                    trigger="click"
+                    placement="leftBottom"
+                    styles={{ body: { padding: 0 } }}
+                    content={
+                      <div style={{ width: 320, maxHeight: '60vh', overflow: 'auto', padding: '14px 16px' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Beneficios de la propuesta</div>
+                        {[
+                          ['Vienen con la unidad', beneficiosOfrecibles.filter(b => clavesAutomaticas.has(b.clave))],
+                          ['Se pueden ofrecer', beneficiosOfrecibles.filter(b => !clavesAutomaticas.has(b.clave))],
+                        ].map(([titulo, lista]) => lista.length > 0 && (
+                          <div key={titulo} style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 11.5, fontWeight: 700, color: '#9AA5B1', letterSpacing: '.05em', margin: '6px 0 2px' }}>
+                              {titulo.toUpperCase()}
+                            </div>
+                            {lista.map(b => (
+                              <button key={b.clave} onClick={() => alternarBeneficio(b.clave)}
+                                style={{
+                                  display: 'flex', alignItems: 'flex-start', gap: 9, width: '100%', textAlign: 'left',
+                                  padding: '6px 0', border: 'none', background: 'none', cursor: 'pointer',
+                                }}>
+                                <span style={{
+                                  flexShrink: 0, width: 17, height: 17, borderRadius: 5, marginTop: 1,
+                                  border: `1.5px solid ${estaPuesto(b.clave) ? '#15803d' : '#C9D2DB'}`,
+                                  background: estaPuesto(b.clave) ? '#15803d' : '#fff',
+                                  display: 'grid', placeItems: 'center', color: '#fff',
+                                }}>{estaPuesto(b.clave) && <CheckOutlined style={{ fontSize: 9.5 }} />}</span>
+                                <span style={{ minWidth: 0 }}>
+                                  <span style={{ display: 'block', fontSize: 13.5, color: estaPuesto(b.clave) ? '#111827' : '#5B6672' }}>
+                                    {b.nombre}
+                                  </span>
+                                  {b.detalle && <span style={{ display: 'block', fontSize: 12, color: '#9AA5B1' }}>{b.detalle}</span>}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    }
+                  >
+                    <button
+                      aria-label="Elegir beneficios"
+                      title="Elegir beneficios"
+                      style={{
+                        flexShrink: 0, width: 26, height: 26, borderRadius: 7, border: 'none',
+                        background: panelBeneficios ? '#E6F5FA' : 'none',
+                        color: panelBeneficios ? AZUL_OSC : '#B7C4CE', cursor: 'pointer',
+                        display: 'grid', placeItems: 'center',
+                      }}
+                    ><EditOutlined style={{ fontSize: 14 }} /></button>
+                  </Popover>
+                </div>
+              )}
 
               <div style={{ padding: '14px 18px', borderTop: '1px solid #E4E9EE', background: '#FAFBFC', fontSize: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #E4E9EE', paddingTop: 11, color: '#111827', fontSize: 16, fontWeight: 700 }}>
