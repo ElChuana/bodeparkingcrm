@@ -484,6 +484,8 @@
 - Desde `/leads/:id` el botón arrastra ese lead a la reunión (`/reunion/:leadId`) y la cotización sale con el cliente ya puesto
 - **No tiene endpoint propio**: usa `GET /api/cotizaciones/unidades-disponibles`, que ya filtra DISPONIBLE y oculta `precioMinimoUF`/`precioCostoUF`/`precioVentaUF` a quien no es GERENTE/JEFE_VENTAS
 - Flujo: filtrar (tipo/edificio) → tocar unidades → panel "Su propuesta" con total en UF y pesos (UF del día) → **Crear cotización** hace `POST /api/cotizaciones` y navega al `CotizacionEditor`
+- **Portada del edificio**: al filtrar por un edificio aparece arriba su foto grande con comuna, dirección, cuántas quedan, rango de m² y desde cuánto (en UF y pesos). Puntos para cambiar de foto, flechas para pasar al edificio siguiente sin volver a los filtros
+- **Comparador** (`Comparador` en el mismo archivo): con 2 o más unidades elegidas aparece "Comparar las N". Muestra precio, superficie, precio por m², ubicación y beneficios lado a lado, y marca cuál gana en cada fila (menor entrada / la más grande / mejor valor). El precio por m² se omite si la unidad no tiene m² cargados (los tándem). "Elegir esta" deja esa sola en la propuesta
 - Muestra precios de **lista**. Los descuentos por volumen y promociones los aplica el backend al crear la cotización (`recalcularPromociones`) — la pantalla no los estima para no prometer un número que después no cuadre
 - El selector de cliente busca contra el servidor (`GET /leads?search=`, mínimo 2 letras, tope 50): hay más de 1.000 leads y cargarlos todos colgaba el modal
 - Visor de fotos: galería de la unidad y, a continuación, la del edificio
