@@ -2,7 +2,11 @@
 // Sin menú, sin notificaciones, sin comisiones ni etapas: solo el catálogo
 // disponible con fotos y el armado de la propuesta. El botón de salida vuelve
 // al CRM normal.
-import { useState, useMemo } from 'react'
+//
+// Siempre se entra con un cliente: la reunión queda registrada (qué se mostró,
+// qué quedó en la propuesta, si terminó en cotización) y al cerrarla aparece en
+// el historial del lead como actividad REUNION_COMERCIAL.
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { App, Select, Modal, Spin, Empty } from 'antd'
@@ -53,10 +57,9 @@ export default function ModoReunion() {
   const [filtroEdificio, setFiltroEdificio] = useState(null)
   const [seleccion, setSeleccion] = useState([])           // ids de unidad
   const [visor, setVisor] = useState(null)                 // { unidad, indice }
-  const [modalLead, setModalLead] = useState(false)
   const [comparando, setComparando] = useState(false)
   const [fotoHero, setFotoHero] = useState(0)              // índice en la galería del edificio
-  const [leadId, setLeadId] = useState(leadIdParam ? Number(leadIdParam) : null)
+  const leadId = leadIdParam ? Number(leadIdParam) : null
 
   const { data: unidades = [], isLoading } = useQuery({
     queryKey: ['reunion-catalogo'],
@@ -67,10 +70,10 @@ export default function ModoReunion() {
   // El buscador va contra el servidor: hay más de mil leads, cargarlos todos
   // en el Select dejaba la reunión esperando.
   const [busquedaLead, setBusquedaLead] = useState('')
-  const { data: leads = [], isFetching: buscandoLeads } = useQuery({
+  const { data: leadsBuscados = [], isFetching: buscandoLeads } = useQuery({
     queryKey: ['reunion-leads', busquedaLead],
     queryFn: () => api.get('/leads', { params: { search: busquedaLead } }).then(r => r.data.slice(0, 50)),
-    enabled: modalLead && busquedaLead.length >= 2,
+    enabled: busquedaLead.length >= 2,
   })
 
   const { data: lead } = useQuery({
@@ -78,6 +81,45 @@ export default function ModoReunion() {
     queryFn: () => api.get(`/leads/${leadId}`).then(r => r.data),
     enabled: !!leadId,
   })
+
+  // ── registro de la reunión ────────────────────────────────
+  const [sesionId, setSesionId] = useState(null)
+  const vistas = useRef(new Set())     // lo que se le llegó a mostrar al cliente
+  const cerrada = useRef(false)
+
+  // Abre la sesión al entrar con un cliente. Si se recarga la página en plena
+  // reunión, el backend devuelve la que ya estaba abierta.
+  useEffect(() => {
+    if (!leadId || sesionId) return
+    let vigente = true
+    api.post('/reuniones', { leadId })
+      .then(r => { if (vigente) setSesionId(r.data.id) })
+      .catch(() => {}) // que no se caiga la reunión por el registro
+    return () => { vigente = false }
+  }, [leadId, sesionId])
+
+  const marcarVista = (unidadId) => {
+    if (vistas.current.has(unidadId)) return
+    vistas.current.add(unidadId)
+    if (sesionId) api.patch(`/reuniones/${sesionId}`, { unidadesVistas: [unidadId] }).catch(() => {})
+  }
+
+  const cerrarSesion = async (cotizacionId) => {
+    if (!sesionId || cerrada.current) return
+    cerrada.current = true
+    try {
+      await api.post(`/reuniones/${sesionId}/cerrar`, {
+        unidadesVistas: [...vistas.current],
+        unidadesPropuestas: seleccion,
+        ...(cotizacionId && { cotizacionId }),
+      })
+    } catch { /* la reunión ya terminó; no vale la pena molestar al vendedor */ }
+  }
+
+  const salir = async () => {
+    await cerrarSesion()
+    navigate(leadId ? `/leads/${leadId}` : '/leads')
+  }
 
   const edificios = useMemo(() => {
     const m = new Map()
@@ -96,7 +138,10 @@ export default function ModoReunion() {
   )
   const totalUF = elegidas.reduce((a, u) => a + Number(u.precioUF), 0)
 
-  const alternar = (id) => setSeleccion(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  const alternar = (id) => {
+    marcarVista(id)
+    setSeleccion(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  }
 
   // Edificio en pantalla: cuando hay uno filtrado se muestra su portada grande,
   // con lo que le queda disponible y desde cuánto.
@@ -146,17 +191,16 @@ export default function ModoReunion() {
       validezDias: 7,
       items: elegidas.map(u => ({ unidadId: u.id, precioListaUF: Number(u.precioUF) })),
     }),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       message.success('Cotización creada')
+      await cerrarSesion(res.data.id) // la reunión termina cuando se cotiza
       navigate(`/cotizaciones/${res.data.id}`)
     },
     onError: (err) => message.error(err.response?.data?.error || 'No se pudo crear la cotización'),
   })
 
   const alCotizar = () => {
-    if (!elegidas.length) return
-    if (!leadId) { setModalLead(true); return }
-    crearCotizacion.mutate()
+    if (elegidas.length) crearCotizacion.mutate()
   }
 
   // ── estilos ──────────────────────────────────────────────
@@ -209,6 +253,54 @@ export default function ModoReunion() {
     return <div style={{ ...s.raiz, alignItems: 'center', justifyContent: 'center' }}><Spin size="large" /></div>
   }
 
+  // Sin cliente no se entra: la reunión se registra contra alguien.
+  if (!leadId) {
+    return (
+      <div style={{ ...s.raiz, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{
+          width: '100%', maxWidth: 480, background: '#fff', border: '1.5px solid #E4E9EE',
+          borderRadius: 16, padding: '34px 32px', boxShadow: '0 8px 30px rgba(16,24,40,.08)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 6 }}>
+            <span style={{ width: 38, height: 38, borderRadius: 10, background: '#E6F5FA', color: AZUL_OSC, display: 'grid', placeItems: 'center' }}>
+              <ShoppingCartOutlined style={{ fontSize: 18 }} />
+            </span>
+            <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.02em', margin: 0 }}>¿Con quién es la reunión?</h1>
+          </div>
+          <p style={{ color: '#5B6672', fontSize: 14.5, margin: '0 0 20px', lineHeight: 1.55 }}>
+            Todo lo que le muestres y coticen queda guardado en la ficha del cliente.
+          </p>
+          <Select
+            showSearch autoFocus
+            style={{ width: '100%' }}
+            size="large"
+            placeholder="Escribe el nombre, correo o teléfono…"
+            onSearch={setBusquedaLead}
+            onChange={(id) => navigate(`/reunion/${id}`, { replace: true })}
+            filterOption={false}
+            loading={buscandoLeads}
+            notFoundContent={
+              busquedaLead.length < 2 ? 'Escribe al menos 2 letras'
+                : buscandoLeads ? 'Buscando…' : 'Sin resultados'
+            }
+            options={leadsBuscados.map(l => ({
+              value: l.id,
+              label: [`${l.contacto?.nombre || ''} ${l.contacto?.apellido || ''}`.trim() || `Lead #${l.id}`,
+                l.contacto?.email].filter(Boolean).join(' · '),
+            }))}
+          />
+          <button
+            onClick={() => navigate('/leads')}
+            style={{
+              marginTop: 22, border: 'none', background: 'none', color: '#5B6672',
+              fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
+            }}
+          ><LeftOutlined style={{ fontSize: 11 }} /> Volver al CRM</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={s.raiz}>
       {/* ── barra ── */}
@@ -222,7 +314,7 @@ export default function ModoReunion() {
           </span>
         </div>
         <div style={{ flex: 1 }} />
-        <button style={s.salir} onClick={() => navigate(leadId ? `/leads/${leadId}` : '/leads')}>
+        <button style={s.salir} onClick={salir}>
           <CloseOutlined /> Salir del modo reunión
         </button>
       </div>
@@ -391,6 +483,7 @@ export default function ModoReunion() {
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         onClick={e => {
                           e.stopPropagation()
+                          marcarVista(u.id)
                           setVisor({
                             titulo: `${u.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento'} ${u.numero} · ${u.edificio?.nombre}`,
                             fotos: galeriaDe(u), indice: 0,
@@ -570,37 +663,6 @@ export default function ModoReunion() {
         })()}
       </Modal>
 
-      {/* ── elegir cliente antes de cotizar ── */}
-      <Modal
-        open={modalLead}
-        onCancel={() => setModalLead(false)}
-        onOk={() => { if (leadId) { setModalLead(false); crearCotizacion.mutate() } }}
-        okText="Crear cotización"
-        cancelText="Cancelar"
-        okButtonProps={{ disabled: !leadId }}
-        title="¿Para qué cliente es la cotización?"
-      >
-        <Select
-          showSearch
-          style={{ width: '100%', marginTop: 12 }}
-          size="large"
-          placeholder="Escribe el nombre, correo o teléfono…"
-          value={leadId}
-          onChange={setLeadId}
-          onSearch={setBusquedaLead}
-          filterOption={false}
-          loading={buscandoLeads}
-          notFoundContent={
-            busquedaLead.length < 2 ? 'Escribe al menos 2 letras'
-              : buscandoLeads ? 'Buscando…' : 'Sin resultados'
-          }
-          options={leads.map(l => ({
-            value: l.id,
-            label: [`${l.contacto?.nombre || ''} ${l.contacto?.apellido || ''}`.trim() || `Lead #${l.id}`,
-              l.contacto?.email].filter(Boolean).join(' · '),
-          }))}
-        />
-      </Modal>
     </div>
   )
 }

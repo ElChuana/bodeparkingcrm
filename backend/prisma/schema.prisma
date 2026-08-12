@@ -312,6 +312,7 @@ model Usuario {
   arriendosComoVendedor   Arriendo[]              @relation("VendedorArriendo")
   cambiosLegales          HistorialLegal[]
   plantillasEmail         PlantillaEmail[]
+  sesionesReunion         SesionReunion[]
 
   @@map("usuarios")
 }
@@ -353,6 +354,29 @@ model Edificio {
   fotos    FotoEdificio[]
 
   @@map("edificios")
+}
+
+// Una reunión con el cliente en el modo reunión: qué se le mostró, qué quedó en
+// la propuesta y si terminó en cotización. Al cerrarla se deja una Actividad
+// REUNION_COMERCIAL en el lead para que aparezca en su historial.
+model SesionReunion {
+  id                 Int       @id @default(autoincrement())
+  leadId             Int
+  vendedorId         Int
+  inicio             DateTime  @default(now())
+  fin                DateTime?
+  unidadesVistas     Int[] // abrió sus fotos o su detalle
+  unidadesPropuestas Int[] // quedaron en la propuesta al cerrar
+  cotizacionId       Int?
+
+  lead       Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  vendedor   Usuario     @relation(fields: [vendedorId], references: [id])
+  cotizacion Cotizacion? @relation(fields: [cotizacionId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([vendedorId])
+  @@index([inicio])
+  @@map("sesiones_reunion")
 }
 
 // Fotos del edificio (fachada, acceso, pasillo, bodega tipo). Son la galería que
@@ -510,6 +534,7 @@ model Lead {
   cotizaciones        Cotizacion[]
   recordatorios       Recordatorio[]
   emailConversaciones EmailConversacion[]
+  sesionesReunion     SesionReunion[]
 
   @@index([contactoId])
   @@index([campanaId])
@@ -871,6 +896,7 @@ model Cotizacion {
   promociones          CotizacionPromocion[]
   solicitudesDescuento SolicitudDescuento[]
   ventaOrigen          Venta?
+  sesionesReunion      SesionReunion[]
 
   @@index([leadId])
   @@index([creadoPorId])

@@ -1208,6 +1208,10 @@ export default function LeadDetalle() {
             </div>
             {item.usuario && <div><Text type="secondary" style={{ fontSize: 12 }}>{item.usuario.nombre} {item.usuario.apellido}</Text></div>}
             <TextoConMenciones texto={item.descripcion} usuarios={equipoMenciones} style={{ fontSize: 13, color: '#3a4452', whiteSpace: 'pre-wrap', display: 'block', marginTop: 1 }} />
+            {/* Las reuniones guardan en resultado qué unidades se le mostraron */}
+            {item.tipo === 'REUNION_COMERCIAL' && item.resultado && (
+              <Text type="secondary" style={{ fontSize: 12.5, display: 'block', marginTop: 3 }}>{item.resultado}</Text>
+            )}
           </div>
         )}
       </div>
@@ -1236,6 +1240,13 @@ export default function LeadDetalle() {
           </div>
         </div>
         <Space wrap>
+          <Button
+            size="small"
+            onClick={() => navigate(`/reunion/${id}`)}
+            style={{ borderColor: '#0091C3', color: '#0091C3', fontWeight: 600 }}
+          >
+            Modo reunión
+          </Button>
           <Button size="small" onClick={() => setModalInteraccion(true)}>+ Actividad</Button>
           <Button size="small" icon={<CalendarOutlined />} onClick={() => setModalVisita(true)}>Agendar visita</Button>
           <Button size="small" icon={<FileTextOutlined />} onClick={() => navigate(`/cotizaciones/nueva?leadId=${id}`)}>

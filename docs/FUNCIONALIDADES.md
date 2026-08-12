@@ -477,11 +477,11 @@
 - Vista: gerentes/jefes pueden cambiar de vendedor con selector en el header
 
 ### MODO REUNIÓN (`/reunion` y `/reunion/:leadId`) — ago 2026
-- Archivo: `pages/reunion/ModoReunion.jsx`. Botón de entrada en el header (`components/Layout.jsx: BotonModoReunion`)
+- Archivo: `pages/reunion/ModoReunion.jsx`. Entradas: botón en el header (`components/Layout.jsx: BotonModoReunion`) y botón en `LeadDetalle`
 - **Ruta fuera del `Layout`**: va a pantalla completa, sin menú, sin notificaciones, sin badges
 - Acceso: GERENTE, JEFE_VENTAS, VENDEDOR, BROKER_EXTERNO
 - Para qué: es la vista que el vendedor le muestra al cliente en la reunión. Solo catálogo disponible, fotos y precios; nada de gestión interna
-- Desde `/leads/:id` el botón arrastra ese lead a la reunión (`/reunion/:leadId`) y la cotización sale con el cliente ya puesto
+- **Siempre se entra con un cliente**: `/reunion` sin lead muestra un buscador ("¿Con quién es la reunión?") y no deja pasar hasta elegirlo, porque la reunión se registra contra alguien. Desde `/leads/:id` entra directo con ese cliente
 - **No tiene endpoint propio**: usa `GET /api/cotizaciones/unidades-disponibles`, que ya filtra DISPONIBLE y oculta `precioMinimoUF`/`precioCostoUF`/`precioVentaUF` a quien no es GERENTE/JEFE_VENTAS
 - Flujo: filtrar (tipo/edificio) → tocar unidades → panel "Su propuesta" con total en UF y pesos (UF del día) → **Crear cotización** hace `POST /api/cotizaciones` y navega al `CotizacionEditor`
 - **Portada del edificio**: al filtrar por un edificio aparece arriba su foto grande con comuna, dirección, cuántas quedan, rango de m² y desde cuánto (en UF y pesos). Puntos para cambiar de foto, flechas para pasar al edificio siguiente sin volver a los filtros
@@ -489,6 +489,17 @@
 - Muestra precios de **lista**. Los descuentos por volumen y promociones los aplica el backend al crear la cotización (`recalcularPromociones`) — la pantalla no los estima para no prometer un número que después no cuadre
 - El selector de cliente busca contra el servidor (`GET /leads?search=`, mínimo 2 letras, tope 50): hay más de 1.000 leads y cargarlos todos colgaba el modal
 - Visor de fotos: galería de la unidad y, a continuación, la del edificio
+
+### SESIONES DE REUNIÓN — `/api/reuniones` — ago 2026
+- Archivos: `routes/reuniones.js`, `controllers/reunionesController.js`. Modelo **`SesionReunion`** (tabla `sesiones_reunion`)
+- Deja registro de qué se le mostró al cliente en el modo reunión, qué quedó en la propuesta y si terminó en cotización
+- `POST /` — abre la reunión (`{ leadId }`). Si el vendedor ya tenía una abierta con ese cliente **la retoma**: recargar la página en plena reunión no debe abrir una segunda
+- `PATCH /:id` — `unidadesVistas` se **acumulan** (lo mostrado no se desmuestra), `unidadesPropuestas` se reemplaza (refleja el estado actual)
+- `POST /:id/cerrar` — marca `fin` y crea una **`Actividad` REUNION_COMERCIAL** en el lead: `descripcion` con el resumen ("Reunión de 12 min · 8 unidades mostradas · 2 en la propuesta · cotización #41") y `resultado` con el detalle ("Bodega 209 (Plus) · Estac. E2-E4 (Brasil)"). Es idempotente: cerrar dos veces no duplica la actividad. Una reunión donde no se mostró nada no ensucia el historial
+- `GET /?leadId=` — historial de reuniones (acotado por `filtroAcceso`)
+- Se cierra sola al salir del modo reunión y al crear la cotización
+- Acceso por `puedeAccederLead` (lib/acceso.js); el ABOGADO queda fuera
+- `LeadDetalle` muestra el `resultado` bajo la actividad cuando el tipo es REUNION_COMERCIAL
 
 ### FOTOS DEL CATÁLOGO — ago 2026
 - `Edificio.fotos` → modelo **`FotoEdificio`** (tabla `fotos_edificio`): url, urlMiniatura, nombre, categoria (fachada/acceso/interior/plano), orden
