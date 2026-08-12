@@ -519,7 +519,7 @@
   - Convierte todo a **WebP** (1600px + miniatura cuadrada de 480px) con ImageMagick. **Los HEIC de iPhone no los muestra ningún navegador**: convertir no es opcional. La conversión baja el peso ~10x (129 MB → ~15 MB)
   - Mapea `Bodegas|Estacionamiento/<Edificio>/<Bodega N>` a la unidad, y las sueltas a la galería del edificio. En Brasil el número va en el nombre del archivo (`E2-E4.jpg`, `E14.jpg` → tándem `E14-E16`)
   - Idempotente: no reimporta una foto ya cargada (compara por nombre original)
-  - `--reordenar` recalcula orden y categoría sin reconvertir. `--portada "Edificio=parte-del-archivo"` fija la portada a mano: la detección por cielo acierta con día despejado, pero con cielo nublado una fachada se parece demasiado a un pasillo iluminado (fue el caso de Trinitarias)
+  - `--reordenar` recalcula orden y categoría sin reconvertir (⚠️ pisa las portadas fijadas a mano). `--portada "Edificio=parte-del-archivo"` fija la portada: la detección por cielo acierta con día despejado, pero con cielo nublado una fachada se parece a un pasillo iluminado (Trinitarias) y con un árbol encima queda oscura (Vicuña Mackenna). `--asignar "parte-del-archivo=numeroUnidad"` mueve una foto de la galería del edificio a una unidad, reutilizando el WebP ya convertido — para cuando recién después se sabe de qué unidad era
 - ⚠️ Las fotos se guardan en `backend/uploads/catalogo/`, que en Railway es **disco efímero**: se pierden en cada deploy si no se monta un volumen
 
 ---

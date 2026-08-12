@@ -170,7 +170,48 @@ async function fijarPortada(spec) {
   console.log(`  ${edificio.nombre}: portada → "${elegida.nombre}"${EJECUTAR ? '' : ' (simulación)'}`)
 }
 
+// node scripts/importarFotos.js --asignar "12.21.01=71" --ejecutar
+// Mueve una foto de la galería del edificio a una unidad concreta. Pasa cuando
+// la foto no traía el número en el nombre y recién después se sabe de cuál es.
+// Reutiliza el WebP ya convertido: no vuelve a procesar nada.
+async function asignarAUnidad(spec) {
+  const [trozo, numero] = (spec || '').split('=')
+  if (!trozo || !numero) { console.error('Formato: --asignar "parte-del-archivo=numeroUnidad"'); return }
+
+  const foto = await prisma.fotoEdificio.findFirst({
+    where: { nombre: { contains: trozo.trim() } },
+    include: { edificio: { select: { id: true, nombre: true } } },
+  })
+  if (!foto) { console.error(`Ninguna foto de edificio contiene "${trozo}"`); return }
+
+  const unidad = await prisma.unidad.findFirst({
+    where: { edificioId: foto.edificioId, numero: numero.trim() },
+  })
+  if (!unidad) { console.error(`${foto.edificio.nombre} no tiene la unidad "${numero}"`); return }
+
+  console.log(`  "${foto.nombre}"`)
+  console.log(`  ${foto.edificio.nombre} · galería → unidad ${unidad.numero}${EJECUTAR ? '' : ' (simulación)'}`)
+  if (!EJECUTAR) return
+
+  const yaTiene = await prisma.archivo.count({ where: { unidadId: unidad.id, tipo: 'foto' } })
+  await prisma.archivo.create({
+    data: {
+      unidadId: unidad.id, url: foto.url, urlMiniatura: foto.urlMiniatura,
+      nombre: foto.nombre, tipo: 'foto', orden: yaTiene, esPortada: yaTiene === 0,
+    },
+  })
+  await prisma.fotoEdificio.delete({ where: { id: foto.id } })
+  console.log('  ✅ listo')
+}
+
 async function main() {
+  const iAsignar = args.indexOf('--asignar')
+  if (iAsignar >= 0) {
+    console.log(`\n${EJECUTAR ? 'ASIGNANDO' : 'SIMULACIÓN (usar --ejecutar para aplicar)'}\n`)
+    await asignarAUnidad(args[iAsignar + 1])
+    await prisma.$disconnect()
+    return
+  }
   const iPortada = args.indexOf('--portada')
   if (iPortada >= 0) {
     await fijarPortada(args[iPortada + 1] || '')
