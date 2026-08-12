@@ -67,11 +67,27 @@ const unidadDeArchivo = (archivo, unidadPorNumero) => {
   return null
 }
 
-const categoriaDe = (nombre) => {
+// Cuánto "cielo" hay en el tercio superior. Los nombres de archivo que vienen
+// de WhatsApp no dicen nada, así que la fachada se detecta mirando la foto: al
+// aire libre el cielo tira a azul (B > R) y bajo techo el tono es cálido.
+// Sirve para que la portada del edificio sea la fachada y no una pared.
+function puntajeExterior(archivo) {
+  try {
+    const azul = execFileSync('magick', [
+      archivo, '-auto-orient', '-gravity', 'north', '-crop', '100%x33%+0+0', '+repage',
+      '-resize', '1x1', '-format', '%[fx:int(255*(b-r))]', 'info:'
+    ]).toString().trim()
+    return Number(azul) || 0
+  } catch {
+    return 0
+  }
+}
+
+const categoriaDe = (nombre, puntaje) => {
   const n = nombre.toLowerCase()
-  if (/fachada|edificio|exterior/.test(n)) return 'fachada'
-  if (/conserjeria|conserjería|acceso|entrada|hall/.test(n)) return 'acceso'
   if (/plano/.test(n)) return 'plano'
+  if (/conserjeria|conserjería|acceso|entrada|hall/.test(n)) return 'acceso'
+  if (/fachada|exterior/.test(n) || puntaje >= 10) return 'fachada'
   return 'interior'
 }
 
@@ -99,7 +115,42 @@ const subcarpetas = (dir) => fs.readdirSync(dir, { withFileTypes: true })
   .map(e => e.name)
   .sort()
 
+// Recalcula el orden y la categoría de las fotos ya importadas, mirando los
+// WebP que están en uploads/. No reconvierte ni vuelve a bajar nada.
+async function reordenar() {
+  const fotos = await prisma.fotoEdificio.findMany({ orderBy: [{ edificioId: 'asc' }, { id: 'asc' }] })
+  if (!fotos.length) { console.log('No hay fotos de edificio importadas.'); return }
+
+  const porEdificio = {}
+  for (const f of fotos) {
+    const archivo = path.join(__dirname, '../uploads', f.url.replace(/^\/uploads\//, ''))
+    const puntaje = fs.existsSync(archivo) ? puntajeExterior(archivo) : 0
+    ;(porEdificio[f.edificioId] ||= []).push({ ...f, puntaje })
+  }
+
+  let cambios = 0
+  for (const [edificioId, lista] of Object.entries(porEdificio)) {
+    lista.sort((a, b) => b.puntaje - a.puntaje || a.nombre.localeCompare(b.nombre))
+    for (let i = 0; i < lista.length; i++) {
+      const categoria = categoriaDe(lista[i].nombre, lista[i].puntaje)
+      if (lista[i].orden !== i || lista[i].categoria !== categoria) {
+        if (EJECUTAR) await prisma.fotoEdificio.update({ where: { id: lista[i].id }, data: { orden: i, categoria } })
+        cambios++
+      }
+    }
+    const portada = lista[0]
+    console.log(`  Edificio ${edificioId}: portada "${portada.nombre}" (${categoriaDe(portada.nombre, portada.puntaje)}, cielo ${portada.puntaje >= 0 ? '+' : ''}${portada.puntaje})`)
+  }
+  console.log(`\n  ${EJECUTAR ? '✅ Actualizadas' : 'Se actualizarían'} ${cambios} fotos\n`)
+}
+
 async function main() {
+  if (args.includes('--reordenar')) {
+    console.log(`\n${EJECUTAR ? 'REORDENANDO' : 'SIMULACIÓN (usar --ejecutar para aplicar)'}\n`)
+    await reordenar()
+    await prisma.$disconnect()
+    return
+  }
   if (!ORIGEN || !fs.existsSync(ORIGEN)) {
     console.error('Falta --origen con la ruta de la carpeta BODEPARKING.')
     process.exit(1)
@@ -219,15 +270,23 @@ async function main() {
     if (primera) await prisma.archivo.update({ where: { id: primera.id }, data: { esPortada: true } })
   }
 
+  // La galería del edificio se ordena con la fachada adelante: es la portada
+  // que ve el cliente cuando el vendedor abre el proyecto.
+  const conPuntaje = plan.edificio.map(it => ({ ...it, puntaje: puntajeExterior(it.imagen) }))
+  conPuntaje.sort((a, b) =>
+    a.edificioId - b.edificioId || b.puntaje - a.puntaje || a.nombre.localeCompare(b.nombre))
+
   let m = 0
-  for (const it of plan.edificio) {
+  const ordenPorEdificio = {}
+  for (const it of conPuntaje) {
     const base = path.join(DESTINO, `e${it.edificioId}-${Date.now()}-${m}`)
     const { url, urlMiniatura, bytes: b } = convertir(it.imagen, base)
     bytes += b
+    ordenPorEdificio[it.edificioId] = (ordenPorEdificio[it.edificioId] ?? -1) + 1
     await prisma.fotoEdificio.create({
       data: {
         edificioId: it.edificioId, url, urlMiniatura, nombre: it.nombre,
-        categoria: categoriaDe(it.nombre), orden: m,
+        categoria: categoriaDe(it.nombre, it.puntaje), orden: ordenPorEdificio[it.edificioId],
       }
     })
     m++

@@ -20,14 +20,21 @@ const AZUL_OSC = '#00719a'
 const fmtUF = (n) => Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtM2 = (n) => Number(n).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-// Foto que encabeza la ficha: la portada de la unidad; si no tiene, la galería
-// del edificio; si tampoco, un marcador.
-function fotoDe(unidad) {
+// Foto que encabeza la ficha: la portada de la unidad; si no tiene, una de la
+// galería del edificio; si tampoco, un marcador.
+// Cuando cae al edificio se reparte la galería entre las unidades (la primera
+// queda para la portada del proyecto): con 22 bodegas en un mismo edificio,
+// repetir la misma foto 22 veces hacía ver el catálogo como un error.
+function fotoDe(unidad, indice = 0) {
   const propia = unidad.archivos?.[0]
   if (propia) return { url: propia.url, mini: propia.urlMiniatura || propia.url, propia: true }
-  const edificio = unidad.edificio?.fotos?.[0]
-  if (edificio) return { url: edificio.url, mini: edificio.urlMiniatura || edificio.url, propia: false }
-  return null
+
+  const galeria = unidad.edificio?.fotos || []
+  if (!galeria.length) return null
+  const interiores = galeria.filter(f => f.categoria !== 'fachada')
+  const pool = interiores.length ? interiores : galeria
+  const f = pool[indice % pool.length]
+  return { url: f.url, mini: f.urlMiniatura || f.url, propia: false }
 }
 
 const galeriaDe = (unidad) => [
@@ -364,9 +371,9 @@ export default function ModoReunion() {
       {/* ── catálogo + propuesta ── */}
       <div style={{ ...s.cuerpo, display: comparando ? 'none' : 'flex' }}>
         <div style={s.rejilla}>
-          {visibles.map(u => {
+          {visibles.map((u, i) => {
             const on = seleccion.includes(u.id)
-            const foto = fotoDe(u)
+            const foto = fotoDe(u, i + 1)
             const promos = [
               ...(u.packs || []).map(p => p.pack?.nombre),
               ...(u.beneficios || []).map(b => b.beneficio?.nombre),
