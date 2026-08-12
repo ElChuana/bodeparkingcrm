@@ -183,27 +183,98 @@ export default function ModoReunion() {
     }
   }, [elegidas])
 
-  // Beneficios que traen las unidades elegidas. `POST /cotizaciones` NO los
-  // aplica solo, así que sin esto la cotización salía a precio de lista: hoy 34
-  // de 38 unidades tienen un precio webinar cargado.
-  const [beneficiosFuera, setBeneficiosFuera] = useState([])   // claves desmarcadas
-  const beneficiosDisponibles = useMemo(() => {
+  // ── Beneficios ────────────────────────────────────────────
+  // `POST /cotizaciones` no aplica nada solo: sin esto la cotización salía a
+  // precio de lista (34 de 38 unidades tienen precio webinar cargado).
+  // Además del que trae la unidad, el vendedor puede ofrecer cualquiera del
+  // catálogo: las cuotas sin interés, los gastos operacionales o las repisas no
+  // están ligados a ninguna unidad y son justo los que se negocian en la mesa.
+  const { data: catalogoBeneficios = [] } = useQuery({
+    queryKey: ['reunion-beneficios'],
+    queryFn: async () => {
+      const vigente = (x) => x.activa !== false && (!x.fechaFin || new Date(x.fechaFin) >= new Date())
+      const [promos, packs, benes] = await Promise.all([
+        api.get('/promociones').then(r => r.data).catch(() => []),
+        api.get('/packs').then(r => r.data).catch(() => []),
+        api.get('/beneficios').then(r => r.data).catch(() => []),
+      ])
+      // Los que están amarrados a unidades concretas (los precios webinar de
+      // cada edificio) solo salen si la unidad elegida los trae; ofrecer el
+      // "Precio Webinar Trinitarias" para una bodega de Temuco no tiene sentido.
+      const general = (x) => !(x._count?.unidades > 0)
+      const lista = [
+        ...promos.filter(x => vigente(x) && general(x)).map(p => ({
+          clave: `promocion-${p.id}`, clase: 'promociones', id: p.id, nombre: p.nombre,
+          detalle: p.detalle || (p.minUnidades > 1 ? `Desde ${p.minUnidades} unidades` : null),
+          minUnidades: p.minUnidades || 1,
+        })),
+        ...packs.filter(x => vigente(x) && general(x)).map(p => ({
+          clave: `pack-${p.id}`, clase: 'packs', id: p.id, nombre: p.nombre,
+          detalle: `Desde ${p.minUnidades || 2} unidades`, minUnidades: p.minUnidades || 2,
+        })),
+        ...benes.filter(x => vigente(x) && general(x)).map(b => ({
+          clave: `beneficio-${b.id}`, clase: 'beneficios', id: b.id, nombre: b.nombre,
+          detalle: null, minUnidades: 1,
+        })),
+      ]
+      // El catálogo arrastra el modelo viejo (beneficios/packs) junto al nuevo
+      // (promociones), y varios están con el mismo nombre en los dos. En la
+      // reunión no se le puede mostrar al cliente "Gastos Operacionales" dos
+      // veces: se deja uno solo, con preferencia por la promoción.
+      const porNombre = new Map()
+      for (const b of lista) {
+        const k = b.nombre.trim().toLowerCase().replace(/\s+/g, ' ')
+        const previo = porNombre.get(k)
+        if (!previo || (previo.clase !== 'promociones' && b.clase === 'promociones')) porNombre.set(k, b)
+      }
+      return [...porNombre.values()]
+    },
+    staleTime: 5 * 60000,
+  })
+
+  // Los que vienen pegados a las unidades elegidas: se marcan solos
+  const automaticos = useMemo(() => {
     const m = new Map()
     for (const u of elegidas) {
-      for (const cp of u.promociones || []) {
-        if (cp.promocion) m.set(`promocion-${cp.promocion.id}`, { clase: 'promociones', id: cp.promocion.id, nombre: cp.promocion.nombre, detalle: cp.promocion.detalle })
+      for (const cp of u.promociones || []) if (cp.promocion) {
+        m.set(`promocion-${cp.promocion.id}`, {
+          clave: `promocion-${cp.promocion.id}`, clase: 'promociones', id: cp.promocion.id,
+          nombre: cp.promocion.nombre, detalle: cp.promocion.detalle, minUnidades: cp.promocion.minUnidades || 1,
+        })
       }
-      for (const cp of u.packs || []) {
-        if (cp.pack) m.set(`pack-${cp.pack.id}`, { clase: 'packs', id: cp.pack.id, nombre: cp.pack.nombre, detalle: `Desde ${cp.pack.minUnidades || 2} unidades` })
+      for (const cp of u.packs || []) if (cp.pack) {
+        m.set(`pack-${cp.pack.id}`, {
+          clave: `pack-${cp.pack.id}`, clase: 'packs', id: cp.pack.id,
+          nombre: cp.pack.nombre, detalle: `Desde ${cp.pack.minUnidades || 2} unidades`, minUnidades: cp.pack.minUnidades || 2,
+        })
       }
-      for (const cb of u.beneficios || []) {
-        if (cb.beneficio) m.set(`beneficio-${cb.beneficio.id}`, { clase: 'beneficios', id: cb.beneficio.id, nombre: cb.beneficio.nombre, detalle: null })
+      for (const cb of u.beneficios || []) if (cb.beneficio) {
+        m.set(`beneficio-${cb.beneficio.id}`, {
+          clave: `beneficio-${cb.beneficio.id}`, clase: 'beneficios', id: cb.beneficio.id,
+          nombre: cb.beneficio.nombre, detalle: null, minUnidades: 1,
+        })
       }
     }
-    return [...m.entries()].map(([clave, v]) => ({ clave, ...v }))
+    return [...m.values()]
   }, [elegidas])
 
-  const beneficiosElegidos = beneficiosDisponibles.filter(b => !beneficiosFuera.includes(b.clave))
+  const clavesAutomaticas = useMemo(() => new Set(automaticos.map(b => b.clave)), [automaticos])
+
+  // Lo que el vendedor tocó a mano manda sobre lo automático
+  const [beneficiosManual, setBeneficiosManual] = useState({}) // clave → true | false
+  const estaPuesto = (clave) => beneficiosManual[clave] ?? clavesAutomaticas.has(clave)
+  const alternarBeneficio = (clave) =>
+    setBeneficiosManual(p => ({ ...p, [clave]: !estaPuesto(clave) }))
+
+  // Los que exigen 2+ unidades no se ofrecen con una sola
+  const beneficiosOfrecibles = useMemo(() => {
+    const claves = new Set(automaticos.map(b => b.clave))
+    return [...automaticos, ...catalogoBeneficios.filter(b => !claves.has(b.clave))]
+      .filter(b => elegidas.length >= (b.minUnidades || 1))
+  }, [automaticos, catalogoBeneficios, elegidas.length])
+
+  const beneficiosElegidos = beneficiosOfrecibles.filter(b => estaPuesto(b.clave))
+  const [verTodosBeneficios, setVerTodosBeneficios] = useState(false)
 
   // La cotización se crea y se muestra ahí mismo como PDF: la reunión sigue,
   // no se va al editor.
@@ -613,39 +684,67 @@ export default function ModoReunion() {
                   </div>
                 ))}
               </div>
-              {beneficiosDisponibles.length > 0 && (
-                <div style={{ padding: '12px 18px', borderTop: '1px solid #E4E9EE' }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#7A8593', letterSpacing: '.05em', marginBottom: 8 }}>
-                    BENEFICIOS QUE APLICAN
-                  </div>
-                  {beneficiosDisponibles.map(b => {
-                    const puesto = !beneficiosFuera.includes(b.clave)
-                    return (
-                      <button key={b.clave}
-                        onClick={() => setBeneficiosFuera(p => puesto ? [...p, b.clave] : p.filter(x => x !== b.clave))}
+              {beneficiosOfrecibles.length > 0 && (() => {
+                const conLaUnidad = beneficiosOfrecibles.filter(b => clavesAutomaticas.has(b.clave))
+                const resto = beneficiosOfrecibles.filter(b => !clavesAutomaticas.has(b.clave))
+                const puestosDelResto = resto.filter(b => estaPuesto(b.clave))
+                const restoVisible = verTodosBeneficios ? resto : puestosDelResto
+
+                const Fila = (b) => (
+                  <button key={b.clave} onClick={() => alternarBeneficio(b.clave)}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 9, width: '100%', textAlign: 'left',
+                      padding: '7px 0', border: 'none', background: 'none', cursor: 'pointer',
+                    }}>
+                    <span style={{
+                      flexShrink: 0, width: 18, height: 18, borderRadius: 5, marginTop: 1,
+                      border: `1.5px solid ${estaPuesto(b.clave) ? '#15803d' : '#C9D2DB'}`,
+                      background: estaPuesto(b.clave) ? '#15803d' : '#fff',
+                      display: 'grid', placeItems: 'center', color: '#fff',
+                    }}>{estaPuesto(b.clave) && <CheckOutlined style={{ fontSize: 10 }} />}</span>
+                    <span style={{ minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 500, color: estaPuesto(b.clave) ? '#111827' : '#5B6672' }}>
+                        {b.nombre}
+                      </span>
+                      {b.detalle && <span style={{ display: 'block', fontSize: 12, color: '#8b96a3' }}>{b.detalle}</span>}
+                    </span>
+                  </button>
+                )
+
+                return (
+                  <div style={{ padding: '12px 18px', borderTop: '1px solid #E4E9EE' }}>
+                    {conLaUnidad.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#7A8593', letterSpacing: '.05em', marginBottom: 4 }}>
+                          BENEFICIOS QUE APLICAN
+                        </div>
+                        {conLaUnidad.map(Fila)}
+                      </>
+                    )}
+
+                    {restoVisible.length > 0 && (
+                      <>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#7A8593', letterSpacing: '.05em', margin: '12px 0 4px' }}>
+                          {conLaUnidad.length ? 'PUEDES AGREGAR' : 'BENEFICIOS'}
+                        </div>
+                        {restoVisible.map(Fila)}
+                      </>
+                    )}
+
+                    {resto.length > puestosDelResto.length && (
+                      <button onClick={() => setVerTodosBeneficios(v => !v)}
                         style={{
-                          display: 'flex', alignItems: 'flex-start', gap: 9, width: '100%', textAlign: 'left',
-                          padding: '7px 0', border: 'none', background: 'none', cursor: 'pointer',
+                          border: 'none', background: 'none', color: AZUL_OSC, fontWeight: 600,
+                          fontSize: 13, cursor: 'pointer', padding: '8px 0 0',
                         }}>
-                        <span style={{
-                          flexShrink: 0, width: 18, height: 18, borderRadius: 5, marginTop: 1,
-                          border: `1.5px solid ${puesto ? '#15803d' : '#C9D2DB'}`,
-                          background: puesto ? '#15803d' : '#fff',
-                          display: 'grid', placeItems: 'center', color: '#fff',
-                        }}>{puesto && <CheckOutlined style={{ fontSize: 10 }} />}</span>
-                        <span style={{ minWidth: 0 }}>
-                          <span style={{ display: 'block', fontSize: 13.5, fontWeight: 500, color: puesto ? '#111827' : '#9AA5B1' }}>
-                            {b.nombre}
-                          </span>
-                          {b.detalle && (
-                            <span style={{ display: 'block', fontSize: 12, color: '#8b96a3' }}>{b.detalle}</span>
-                          )}
-                        </span>
+                        {verTodosBeneficios
+                          ? 'Ocultar'
+                          : `+ Agregar beneficio (${resto.length - puestosDelResto.length} disponibles)`}
                       </button>
-                    )
-                  })}
-                </div>
-              )}
+                    )}
+                  </div>
+                )
+              })()}
 
               <div style={{ padding: '14px 18px', borderTop: '1px solid #E4E9EE', background: '#FAFBFC', fontSize: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1.5px solid #E4E9EE', paddingTop: 11, color: '#111827', fontSize: 16, fontWeight: 700 }}>
