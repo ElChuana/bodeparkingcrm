@@ -15,11 +15,8 @@ import { horaChile, diaChile, fechaHoraChile } from '../../utils/fechaChile'
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
-const RESULTADO_COLOR = {
-  POSITIVO: 'green', positivo: 'green',
-  NEGATIVO: 'red',   negativo: 'red',
-  PENDIENTE: 'default', pendiente: 'default',
-}
+const RESULTADO_COLOR = { ASISTIO: 'green', NO_ASISTIO: 'red' }
+const RESULTADO_LABEL = { ASISTIO: 'Asistió', NO_ASISTIO: 'No asistió' }
 
 const TIPO_COLOR = {
   LLAMADA: '#1677ff', EMAIL: '#722ed1', WHATSAPP: '#52c41a',
@@ -224,7 +221,7 @@ function VistaLista({ rango, setRango, vendedorId, setVendedorId, edificioId, se
     {
       title: 'Resultado', key: 'resultado', width: 120,
       render: (_, v) => v.resultado
-        ? <Tag color={RESULTADO_COLOR[v.resultado]}>{v.resultado}</Tag>
+        ? <Tag color={RESULTADO_COLOR[v.resultado]}>{RESULTADO_LABEL[v.resultado] || v.resultado}</Tag>
         : <Tag color="default">Sin resultado</Tag>
     },
     {
@@ -285,9 +282,9 @@ function VistaLista({ rango, setRango, vendedorId, setVendedorId, edificioId, se
           value={resultado}
           onChange={setResultado}
           options={[
-            { value: 'POSITIVO', label: 'Positivo' },
-            { value: 'NEGATIVO', label: 'Negativo' },
-            { value: 'PENDIENTE', label: 'Pendiente' },
+            { value: 'ASISTIO', label: 'Asistió' },
+            { value: 'NO_ASISTIO', label: 'No asistió' },
+            { value: 'SIN_RESULTADO', label: 'Sin resultado' },
           ]}
         />
         {hayFiltros && <Button size="small" onClick={limpiar}>Limpiar</Button>}

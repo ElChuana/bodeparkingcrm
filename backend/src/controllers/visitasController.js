@@ -41,7 +41,8 @@ const listarTodas = async (req, res) => {
           }
         } : {}),
         ...(edificioId && { edificioId: Number(edificioId) }),
-        ...(resultado && { resultado })
+        // SIN_RESULTADO = visitas que aún no se cierran (resultado en null)
+        ...(resultado && (resultado === 'SIN_RESULTADO' ? { resultado: null } : { resultado }))
       },
       include: {
         lead: {
