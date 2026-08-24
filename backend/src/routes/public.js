@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const { autenticarApiKey } = require('../middleware/apiKey')
+const { autenticarApiKey, bloquearSoloEscritura } = require('../middleware/apiKey')
 const { logIntegracion } = require('../middleware/logIntegraciones')
 const { rateLimit } = require('../middleware/rateLimit')
 const { autenticar, autorizar } = require('../middleware/auth')
@@ -17,7 +17,10 @@ const limiteLectura   = rateLimit({ max: 120, ventanaMs: 60_000, nombre: 'public
 // API pública para integraciones externas (autenticación por API Key)
 router.post('/leads',            logIntegracion, autenticarApiKey, limiteEscritura, crearLead)
 // GET /leads/:id eliminado por IDOR (2026-07-30) — ver nota en publicController.js
-router.get('/disponibilidad',    logIntegracion, autenticarApiKey, limiteLectura,   disponibilidad)
+// bloquearSoloEscritura va en TODA ruta de lectura: el flag existía en el
+// modelo desde antes pero no estaba cableado a ninguna ruta, así que una key
+// marcada "solo escritura" igual podía leer el inventario con precios.
+router.get('/disponibilidad',    logIntegracion, autenticarApiKey, bloquearSoloEscritura, limiteLectura, disponibilidad)
 router.post('/webhooks/webinar', logIntegracion, autenticarApiKey, limiteEscritura, webhookWebinar)
 
 // Gestión de API Keys (requiere JWT normal, solo gerencia)

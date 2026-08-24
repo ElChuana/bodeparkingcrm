@@ -5,6 +5,8 @@ backups/
 *.sql.gz
 .claude/settings.local.json
 API_LEADS.pdf
+# Los PDF de la doc se generan desde el .html (chromium --print-to-pdf)
+docs/*.pdf
 *.log
 .DS_Store
 .env

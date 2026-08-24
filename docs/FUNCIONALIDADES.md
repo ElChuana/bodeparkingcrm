@@ -417,6 +417,8 @@
 - Auto-asigna a JEFE_VENTAS si no se especifica vendedor
 - Usa `lib/deduplication.js`
 - Gestión de API Keys: `pages/configuracion/ApiKeys.jsx`
+- **`soloEscritura`**: una key así marcada solo puede crear leads; en las rutas de **lectura** la corta `middleware/apiKey.js: bloquearSoloEscritura` → `403`. ⚠️ El middleware existía desde antes pero **no estaba cableado a ninguna ruta**, así que el flag no hacía nada y una key de solo escritura podía leer `/disponibilidad` con precios (detectado y corregido el 2026-08-24 al probar la key nueva). Toda ruta de lectura que se agregue debe llevarlo
+- Doc para entregar a integradores externos: `docs/API_LEADS_AGENCIA.html` (sin credenciales; el PDF se genera con `chromium --headless --no-pdf-header-footer --print-to-pdf`)
 - **Log de integraciones** (`middleware/logIntegraciones.js` → tabla `logs_integraciones`): registra cada request a `/api/leads/upsert` y `/api/public/*` con status, key usada, IP, payload y error devuelto. Va antes de `autenticarApiKey` para capturar también los 401. Diagnóstico de caídas del flujo de leads (agregado 2026-07-09 tras el corte del 7 jul).
 
 ### BÚSQUEDA UNIVERSAL — `/api/buscar`
