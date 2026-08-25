@@ -1,7 +1,7 @@
 const crypto = require('crypto')
 const prisma = require('../lib/prisma')
 const { mismoNombre: _mismoNombre } = require('../lib/deduplication')
-const { vincularCampana } = require('../lib/campanas')
+const { vincularCampana, campanaTrasReingreso, textoCambioCampana } = require('../lib/campanas')
 const { notificarLead } = require('../lib/notifications')
 const { VENDEDOR_FALLBACK_ID } = require('../config')
 const {
@@ -201,9 +201,12 @@ const crearLead = async (req, res) => {
       const actualizarLead = {}
       const presupuestoNum = numOrNull(presupuestoAprox)
       const vendedorNum = numOrNull(vendedorId)
-      if (campana       && !leadExistente.campana) {
-        actualizarLead.campana   = campana.trim()
-        actualizarLead.campanaId = await vincularCampana(campana)
+      // La campaña pasa a ser la última que lo trajo (el cambio queda escrito
+      // abajo en el timeline, así no se pierde de dónde venía)
+      const cambioCampana = await campanaTrasReingreso(leadExistente, campana)
+      if (cambioCampana) {
+        actualizarLead.campana   = cambioCampana.campana
+        actualizarLead.campanaId = cambioCampana.campanaId
       }
       if (presupuestoNum && !leadExistente.presupuestoAprox) actualizarLead.presupuestoAprox = presupuestoNum
       if (notas)                                             actualizarLead.notas            = [leadExistente.notas, notas.trim()].filter(Boolean).join('\n---\n')
@@ -221,8 +224,8 @@ const crearLead = async (req, res) => {
           leadId:      leadExistente.id,
           tipo:        'NOTA',
           descripcion: reactivar
-            ? `🔥 Lead REACTIVADO — volvió a dejar sus datos vía ${req.apiKey.nombre} (estaba en ${leadExistente.etapa})${campana ? ` · Campaña: ${campana}` : ''}.`
-            : `Reingreso vía API (${req.apiKey.nombre}) — etapa actual: ${leadExistente.etapa}${campana ? ` · Campaña nueva: ${campana}` : ''}. No se creó lead duplicado.`,
+            ? `🔥 Lead REACTIVADO — volvió a dejar sus datos vía ${req.apiKey.nombre} (estaba en ${leadExistente.etapa})${textoCambioCampana(cambioCampana)}.`
+            : `Reingreso vía API (${req.apiKey.nombre}) — etapa actual: ${leadExistente.etapa}${textoCambioCampana(cambioCampana)}. No se creó lead duplicado.`,
         }
       })
 
@@ -434,11 +437,16 @@ const webhookWebinar = async (req, res) => {
       const etapaPrevia = lead.etapa
 
       // Datos nuevos que traiga el reingreso (antes se perdían)
+      let cambioCampana = null
       if (!leadNuevo) {
         const upd = {}
-        if (body.campana?.trim() && !lead.campana) {
-          upd.campana   = campana
-          upd.campanaId = await vincularCampana(campana)
+        // Inscribirse a un webinar nuevo mueve el lead a esa campaña: si no,
+        // el que ya venía de un webinar anterior no aparecía en el informe del
+        // nuevo ni comisionaba como venta suya
+        cambioCampana = await campanaTrasReingreso(lead, campana)
+        if (cambioCampana) {
+          upd.campana   = cambioCampana.campana
+          upd.campanaId = cambioCampana.campanaId
         }
         if (body.notas?.trim()) upd.notas = [lead.notas, body.notas.trim()].filter(Boolean).join('\n---\n')
         if (reactivar)          upd.etapa = 'REACTIVADO'
@@ -450,8 +458,8 @@ const webhookWebinar = async (req, res) => {
           leadId: lead.id,
           tipo: 'NOTA',
           descripcion: reactivar
-            ? `🔥 Lead REACTIVADO — volvió a dejar sus datos vía ${req.apiKey.nombre} (formulario webinar, estaba en ${etapaPrevia}).`
-            : `${leadNuevo ? 'Lead ingresado' : 'Reingreso'} vía ${req.apiKey.nombre} (formulario webinar)`,
+            ? `🔥 Lead REACTIVADO — volvió a dejar sus datos vía ${req.apiKey.nombre} (formulario webinar, estaba en ${etapaPrevia})${textoCambioCampana(cambioCampana)}.`
+            : `${leadNuevo ? 'Lead ingresado' : 'Reingreso'} vía ${req.apiKey.nombre} (formulario webinar)${textoCambioCampana(cambioCampana)}`,
         },
       })
       if (leadNuevo) {
