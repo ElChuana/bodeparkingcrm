@@ -154,6 +154,16 @@ enum MetodoPago {
   EFECTIVO
 }
 
+// Forma en que el cliente paga la venta. Se pueden combinar varias
+// (ej: pie por transferencia + saldo en cuotas). Sin ninguna registrada
+// la venta se considera AL CONTADO.
+enum FormaPagoVenta {
+  TRANSFERENCIA
+  VALE_VISTA
+  TARJETA
+  CUOTAS
+}
+
 enum TipoCuota {
   RESERVA
   PIE
@@ -336,7 +346,7 @@ model PlantillaEmail {
 }
 
 model Edificio {
-  id                   Int      @id @default(autoincrement())
+  id                   Int       @id @default(autoincrement())
   nombre               String
   direccion            String
   region               String
@@ -345,9 +355,9 @@ model Edificio {
   contactoInmobiliaria String?
   descripcion          String?
   fechaEscritura       DateTime? // fecha de compra/escritura del proyecto
-  activo               Boolean  @default(true)
-  creadoEn             DateTime @default(now())
-  actualizadoEn        DateTime @updatedAt
+  activo               Boolean   @default(true)
+  creadoEn             DateTime  @default(now())
+  actualizadoEn        DateTime  @updatedAt
 
   unidades Unidad[]
   visitas  Visita[]
@@ -546,7 +556,7 @@ model Lead {
 }
 
 model Visita {
-  id         Int      @id @default(autoincrement())
+  id         Int        @id @default(autoincrement())
   leadId     Int
   vendedorId Int?
   edificioId Int?
@@ -555,7 +565,7 @@ model Visita {
   resultado  String?
   notas      String?
   enlace     String? // link de la reunión online (Meet/Zoom) cuando es virtual
-  creadoEn   DateTime @default(now())
+  creadoEn   DateTime   @default(now())
 
   lead     Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
   vendedor Usuario?  @relation(fields: [vendedorId], references: [id])
@@ -676,6 +686,7 @@ model Venta {
   promociones      VentaPromocion[]
   postventa        Postventa[]
   resumenesLegales ResumenLegal[]
+  formasPago       VentaFormaPago[]
 
   @@index([leadId])
   @@index([compradorId])
@@ -761,6 +772,25 @@ model DocumentoLegal {
   @@map("documentos_legales")
 }
 
+// Formas de pago pactadas en la venta (combinables). El monto de cada una
+// suma el precio final; la cantidad de cuotas de la forma CUOTAS sale del
+// beneficio "cuotas sin interés" salvo que se indique otra aquí.
+model VentaFormaPago {
+  id       Int            @id @default(autoincrement())
+  ventaId  Int
+  forma    FormaPagoVenta
+  montoUF  Decimal?       @db.Decimal(18, 6)
+  cuotas   Int?
+  notas    String?
+  creadoEn DateTime       @default(now())
+
+  venta Venta @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+
+  @@unique([ventaId, forma])
+  @@index([ventaId])
+  @@map("venta_formas_pago")
+}
+
 model PlanPago {
   id          Int      @id @default(autoincrement())
   ventaId     Int      @unique
@@ -774,6 +804,7 @@ model PlanPago {
 
   @@map("planes_pago")
 }
+
 // (ventaId ya está indexado por @unique)
 
 model Cuota {
@@ -905,7 +936,7 @@ model Cotizacion {
 }
 
 model CotizacionItem {
-  id            Int   @id @default(autoincrement())
+  id            Int     @id @default(autoincrement())
   cotizacionId  Int
   unidadId      Int
   precioListaUF Decimal @db.Decimal(18, 6)
@@ -949,7 +980,7 @@ model UnidadPack {
 }
 
 model CotizacionPack {
-  id                  Int   @id @default(autoincrement())
+  id                  Int     @id @default(autoincrement())
   cotizacionId        Int
   packId              Int
   descuentoAplicadoUF Decimal @db.Decimal(18, 6)
@@ -1040,23 +1071,23 @@ model Campana {
 }
 
 model Promocion {
-  id              Int                @id @default(autoincrement())
-  nombre          String
-  descripcion     String?
-  categoria       CategoriaPromocion // DESCUENTO (afecta precio) | BENEFICIO (no afecta)
-  tipo            TipoPromocion
-  valorUF         Decimal? @db.Decimal(18, 6) // DESCUENTO_UF / PAQUETE (precio del pack)
-  valorPorcentaje Float? // DESCUENTO_PORCENTAJE
-  precioObjetivoPesos Decimal? @db.Decimal(18, 2) // precio final por unidad en $ (el descuento UF se calcula dinámico con la UF vigente → peso exacto)
-  minUnidades     Int? // mínimo de unidades en la cotización (volumen)
-  meses           Int? // ARRIENDO_ASEGURADO / CUOTAS_SIN_INTERES
-  montoMensualUF  Decimal? @db.Decimal(18, 6) // ARRIENDO_ASEGURADO
-  detalle         String?
-  fechaInicio     DateTime?
-  fechaFin        DateTime?
-  activa          Boolean            @default(true)
-  campanaId       Int? // null = permanente / sin campaña
-  creadoEn        DateTime           @default(now())
+  id                  Int                @id @default(autoincrement())
+  nombre              String
+  descripcion         String?
+  categoria           CategoriaPromocion // DESCUENTO (afecta precio) | BENEFICIO (no afecta)
+  tipo                TipoPromocion
+  valorUF             Decimal?           @db.Decimal(18, 6) // DESCUENTO_UF / PAQUETE (precio del pack)
+  valorPorcentaje     Float? // DESCUENTO_PORCENTAJE
+  precioObjetivoPesos Decimal?           @db.Decimal(18, 2) // precio final por unidad en $ (el descuento UF se calcula dinámico con la UF vigente → peso exacto)
+  minUnidades         Int? // mínimo de unidades en la cotización (volumen)
+  meses               Int? // ARRIENDO_ASEGURADO / CUOTAS_SIN_INTERES
+  montoMensualUF      Decimal?           @db.Decimal(18, 6) // ARRIENDO_ASEGURADO
+  detalle             String?
+  fechaInicio         DateTime?
+  fechaFin            DateTime?
+  activa              Boolean            @default(true)
+  campanaId           Int? // null = permanente / sin campaña
+  creadoEn            DateTime           @default(now())
 
   campana      Campana?              @relation(fields: [campanaId], references: [id])
   unidades     UnidadPromocion[]
@@ -1080,7 +1111,7 @@ model UnidadPromocion {
 }
 
 model CotizacionPromocion {
-  id                  Int   @id @default(autoincrement())
+  id                  Int     @id @default(autoincrement())
   cotizacionId        Int
   promocionId         Int
   descuentoAplicadoUF Decimal @default(0) @db.Decimal(18, 6) // 0 para beneficios
@@ -1172,17 +1203,17 @@ model Llave {
 }
 
 model MovimientoLlave {
-  id                      Int       @id @default(autoincrement())
+  id                      Int                 @id @default(autoincrement())
   llaveId                 Int
   responsableId           Int?
   tipo                    TipoMovimientoLlave
   personaNombre           String?
   personaContacto         String?
   motivo                  String?
-  fechaPrestamo           DateTime  @default(now())
+  fechaPrestamo           DateTime            @default(now())
   fechaDevolucionEsperada DateTime?
   fechaDevolucionReal     DateTime?
-  creadoEn                DateTime  @default(now())
+  creadoEn                DateTime            @default(now())
 
   llave       Llave    @relation(fields: [llaveId], references: [id], onDelete: Cascade)
   responsable Usuario? @relation(fields: [responsableId], references: [id])
@@ -1193,18 +1224,18 @@ model MovimientoLlave {
 }
 
 model Postventa {
-  id            Int             @id @default(autoincrement())
+  id            Int                @id @default(autoincrement())
   ventaId       Int
   responsableId Int?
   tipo          TipoPostventa
   descripcion   String
   estado        EstadoPostventa    @default(ABIERTO)
   prioridad     PrioridadPostventa @default(media)
-  fechaApertura DateTime        @default(now())
+  fechaApertura DateTime           @default(now())
   fechaCierre   DateTime?
   resolucion    String?
-  creadoEn      DateTime        @default(now())
-  actualizadoEn DateTime        @updatedAt
+  creadoEn      DateTime           @default(now())
+  actualizadoEn DateTime           @updatedAt
 
   venta       Venta    @relation(fields: [ventaId], references: [id])
   responsable Usuario? @relation(fields: [responsableId], references: [id])
@@ -1281,18 +1312,18 @@ model Notificacion {
 }
 
 model SolicitudDescuento {
-  id              Int                      @id @default(autoincrement())
-  cotizacionId    Int
-  solicitadoPorId Int
-  revisadoPorId   Int?
-  tipo            String // UF | PESOS | PORCENTAJE | TOTAL_UF | TOTAL_PESOS
-  valor           Decimal @db.Decimal(18, 6)
-  descuentoAplicadoUF Decimal? @db.Decimal(18, 6) // UF efectivamente descontadas al aprobar
-  motivo          String
-  estado          EstadoSolicitudDescuento @default(PENDIENTE)
-  comentario      String?
-  creadoEn        DateTime                 @default(now())
-  revisadoEn      DateTime?
+  id                  Int                      @id @default(autoincrement())
+  cotizacionId        Int
+  solicitadoPorId     Int
+  revisadoPorId       Int?
+  tipo                String // UF | PESOS | PORCENTAJE | TOTAL_UF | TOTAL_PESOS
+  valor               Decimal                  @db.Decimal(18, 6)
+  descuentoAplicadoUF Decimal?                 @db.Decimal(18, 6) // UF efectivamente descontadas al aprobar
+  motivo              String
+  estado              EstadoSolicitudDescuento @default(PENDIENTE)
+  comentario          String?
+  creadoEn            DateTime                 @default(now())
+  revisadoEn          DateTime?
 
   cotizacion    Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
   solicitadoPor Usuario    @relation("SolicitudesHechas", fields: [solicitadoPorId], references: [id])
@@ -1338,22 +1369,22 @@ model ReglaPipeline {
 }
 
 model EmailConversacion {
-  id        Int       @id @default(autoincrement())
+  id        Int            @id @default(autoincrement())
   leadId    Int
-  messageId String?   @unique
+  messageId String?        @unique
   inReplyTo String?
   direction DireccionEmail
   asunto    String
-  cuerpo    String    @db.Text
+  cuerpo    String         @db.Text
   de        String
   para      String
-  cc        String[]  @default([])
-  bcc       String[]  @default([])
+  cc        String[]       @default([])
+  bcc       String[]       @default([])
   usuarioId Int?
-  leido     Boolean   @default(false)
-  abierto   Boolean   @default(false)
+  leido     Boolean        @default(false)
+  abierto   Boolean        @default(false)
   abiertoEn DateTime?
-  creadoEn  DateTime  @default(now())
+  creadoEn  DateTime       @default(now())
 
   lead    Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
   usuario Usuario? @relation(fields: [usuarioId], references: [id])

@@ -66,9 +66,16 @@ paso('aplicar descuento aprobado de 32.586963 UF', async (ctx) => {
   })
 })
 
-paso('convertir cotización en venta', async (ctx) => {
+paso('convertir cotización en venta con forma de pago combinada', async (ctx) => {
   const r = await api(`/api/cotizaciones/${ctx.cotizacionId}/convertir`, {
-    method: 'POST', token: ctx.token, body: { conPromesa: true },
+    method: 'POST', token: ctx.token,
+    body: {
+      conPromesa: true,
+      formasPago: [
+        { forma: 'TRANSFERENCIA', montoUF: 78.413037 },
+        { forma: 'CUOTAS', montoUF: 100, cuotas: 6 },
+      ],
+    },
   })
   assert.ok([200, 201].includes(r.status), JSON.stringify(r.body))
   ctx.ventaId = r.body.id || r.body.venta?.id
@@ -91,6 +98,37 @@ paso('INVARIANTE: la cabecera de la venta cuadra con sus unidades', async (ctx) 
   // venta: suma de precioVentaUF == precioFinalUF  ← el descuadre de la venta 123
   const sumaVenta = venta.unidades.reduce((s, u) => s + Number(u.precioVentaUF || 0), 0)
   assert.ok(cerca(venta.precioFinalUF, sumaVenta), `final=${venta.precioFinalUF} vs prorrateo=${sumaVenta}`)
+})
+
+paso('la forma de pago quedó guardada y suma el precio final', async (ctx) => {
+  const formas = await prisma.ventaFormaPago.findMany({ where: { ventaId: ctx.ventaId }, orderBy: { id: 'asc' } })
+  assert.strictEqual(formas.length, 2, `quedaron ${formas.length} formas`)
+  assert.deepStrictEqual(formas.map(f => f.forma), ['TRANSFERENCIA', 'CUOTAS'])
+  assert.strictEqual(formas[1].cuotas, 6)
+  const suma = formas.reduce((s, f) => s + Number(f.montoUF), 0)
+  assert.ok(cerca(suma, 178.413037), `formas suman ${suma}`)
+})
+
+paso('la forma de pago se reemplaza completa y no puede pasarse del total', async (ctx) => {
+  const excede = await api(`/api/ventas/${ctx.ventaId}/formas-pago`, {
+    method: 'PUT', token: ctx.token,
+    body: { formasPago: [{ forma: 'VALE_VISTA', montoUF: 500 }] },
+  })
+  assert.strictEqual(excede.status, 400, `debió rechazar, dio ${excede.status}`)
+
+  const ok = await api(`/api/ventas/${ctx.ventaId}/formas-pago`, {
+    method: 'PUT', token: ctx.token,
+    body: { formasPago: [{ forma: 'VALE_VISTA', montoUF: 178.413037 }] },
+  })
+  assert.strictEqual(ok.status, 200, JSON.stringify(ok.body))
+  assert.strictEqual(ok.body.length, 1, 'el set anterior debió reemplazarse')
+
+  // Sin formas la venta vuelve a quedar al contado
+  const contado = await api(`/api/ventas/${ctx.ventaId}/formas-pago`, {
+    method: 'PUT', token: ctx.token, body: { formasPago: [] },
+  })
+  assert.strictEqual(contado.status, 200)
+  assert.strictEqual(contado.body.length, 0)
 })
 
 paso('las unidades quedaron RESERVADAS y con precio pactado congelado', async (ctx) => {

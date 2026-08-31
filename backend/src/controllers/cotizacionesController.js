@@ -2,6 +2,7 @@ const prisma = require('../lib/prisma')
 const { aplicarReglasComision } = require('../lib/comisiones')
 const { num, calcularTotalesVenta, prorratearPrecioVenta } = require('../lib/precios')
 const { calcularDescuentoPromocion } = require('../lib/promociones')
+const { normalizarFormasPago } = require('../lib/formasPago')
 
 const INCLUDE_COMPLETO = {
   lead: {
@@ -542,7 +543,7 @@ const quitarPromocion = async (req, res) => {
 
 const convertir = async (req, res) => {
   const { id } = req.params
-  const { conPromesa = true } = req.body
+  const { conPromesa = true, formasPago: formasPagoBody } = req.body
 
   try {
     const cotizacion = await prisma.cotizacion.findUnique({
@@ -575,6 +576,10 @@ const convertir = async (req, res) => {
       promociones: cotizacion.promociones,
       descuentoAprobadoUF: cotizacion.descuentoAprobadoUF,
     })
+
+    // Formas de pago pactadas (opcional): sin ninguna, la venta queda al contado
+    const formasPago = normalizarFormasPago(formasPagoBody, precioFinalUF)
+    if (!formasPago.ok) return res.status(400).json({ error: formasPago.error })
 
     const gerentes = await prisma.usuario.findMany({ where: { rol: 'GERENTE', activo: true }, select: { id: true } })
     const gerenteId = gerentes[0]?.id || null
@@ -625,6 +630,12 @@ const convertir = async (req, res) => {
         })
       }
 
+      if (formasPago.formas.length > 0) {
+        await tx.ventaFormaPago.createMany({
+          data: formasPago.formas.map(f => ({ ventaId: nuevaVenta.id, ...f }))
+        })
+      }
+
       await tx.cotizacion.update({ where: { id: cotizacion.id }, data: { estado: 'ACEPTADA' } })
       await tx.lead.update({ where: { id: cotizacion.lead.id }, data: { etapa: 'RESERVA' } })
 
@@ -658,7 +669,8 @@ const convertir = async (req, res) => {
         unidades: { include: { edificio: true } },
         beneficios: { include: { beneficio: true } },
         procesoLegal: true,
-        comisiones: true
+        comisiones: true,
+        formasPago: true
       }
     })
 

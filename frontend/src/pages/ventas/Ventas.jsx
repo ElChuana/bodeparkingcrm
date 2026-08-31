@@ -11,6 +11,7 @@ import { es } from 'date-fns/locale'
 import api from '../../services/api'
 import { useUF } from '../../hooks/useUF'
 import { ESTADO_VENTA_COLOR } from '../../components/ui'
+import { resumenFormasPago } from '../../components/FormasPago'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -111,6 +112,17 @@ export default function Ventas() {
           )}
         </div>
       )
+    },
+    {
+      title: 'Forma de pago', key: 'formaPago',
+      render: (_, v) => {
+        const alContado = (v.formasPago?.length || 0) === 0
+        return (
+          <Text style={{ fontSize: 12, color: alContado ? '#8c8c8c' : undefined }}>
+            {resumenFormasPago(v)}
+          </Text>
+        )
+      }
     },
     {
       title: 'Estado', dataIndex: 'estado', key: 'estado',

@@ -9,6 +9,7 @@ import { useUFPorFecha } from '../../hooks/useUFPorFecha'
 import { useAuth } from '../../context/AuthContext'
 import { ESTADO_VENTA_COLOR } from '../../components/ui'
 import ResumenLegal from '../../components/ResumenLegal'
+import { EditorFormasPago, DetalleFormasPago, cuotasDelBeneficio } from '../../components/FormasPago'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
   Space, Spin, Row, Col, Steps, Table, App, Alert, Divider, Tooltip, Popconfirm,
@@ -737,6 +738,67 @@ function BtnRecibo({ cuota, venta }) {
     <Button type="link" size="small" loading={loading} onClick={descargar}>
       {loading ? '' : 'Recibo'}
     </Button>
+  )
+}
+
+// ─── Sección Forma de Pago ────────────────────────────────────────
+function FormaDePago({ venta }) {
+  const [modal, setModal] = useState(false)
+  const [formas, setFormas] = useState([])
+  const { usuario } = useAuth()
+  const { message } = App.useApp()
+  const qc = useQueryClient()
+
+  const esSuya = venta?.vendedor?.id === usuario?.id || venta?.broker?.id === usuario?.id
+  const puedeEditar = venta?.estado !== 'ANULADO' &&
+    (['GERENTE', 'JEFE_VENTAS'].includes(usuario?.rol) || esSuya)
+
+  // Al abrir el modal se parte del set guardado
+  const abrir = () => {
+    setFormas((venta?.formasPago || []).map(f => ({
+      forma: f.forma,
+      montoUF: f.montoUF != null ? Number(f.montoUF) : null,
+      cuotas: f.cuotas ?? null,
+    })))
+    setModal(true)
+  }
+
+  const guardar = useMutation({
+    mutationFn: () => api.put(`/ventas/${venta.id}/formas-pago`, { formasPago: formas }),
+    onSuccess: () => {
+      message.success('Forma de pago actualizada')
+      qc.invalidateQueries({ queryKey: ['venta', venta.id] })
+      qc.invalidateQueries({ queryKey: ['ventas'] })
+      setModal(false)
+    },
+    onError: err => message.error(err.response?.data?.error || 'Error al guardar la forma de pago')
+  })
+
+  return (
+    <Card
+      size="small"
+      title="Forma de pago"
+      extra={puedeEditar && <Button size="small" onClick={abrir}>Editar</Button>}
+    >
+      <DetalleFormasPago venta={venta} />
+
+      <Modal
+        title="Forma de pago"
+        open={modal}
+        onCancel={() => setModal(false)}
+        onOk={() => guardar.mutate()}
+        okText="Guardar"
+        cancelText="Cancelar"
+        confirmLoading={guardar.isPending}
+      >
+        <EditorFormasPago
+          value={formas}
+          onChange={setFormas}
+          totalUF={Number(venta?.precioFinalUF || 0)}
+          cuotasBeneficio={cuotasDelBeneficio(venta || {})}
+        />
+      </Modal>
+    </Card>
   )
 }
 
@@ -1522,6 +1584,7 @@ export default function VentaDetalle() {
         <Col xs={24} md={16}>
           <Space direction="vertical" style={{ width: '100%' }} size={16}>
             <ProcesoLegal ventaId={id} venta={venta} />
+            <FormaDePago venta={venta} />
             <PlanDePagos venta={venta} />
             {(() => {
               const beneficiosPromo = (venta.promociones || []).filter(p => p.categoria === 'BENEFICIO')

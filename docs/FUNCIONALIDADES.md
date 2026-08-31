@@ -165,10 +165,12 @@
 - `GET /` — listar (GERENTE, JEFE_VENTAS, ABOGADO)
 - `GET /:id` — detalle con legal, plan de pago, unidades, comisiones
 - `PUT /:id/estado` — cambiar estado (GERENTE, JEFE_VENTAS)
+- `PUT /:id/formas-pago` — reemplaza el set completo de formas de pago (GERENTE, JEFE_VENTAS y el vendedor/broker de la venta)
 - `PUT /:id` — editar precios (solo GERENTE, bloqueado si ENTREGADO)
 - Estados: RESERVA, PROMESA, ESCRITURA, ENTREGADO, ANULADO
 - Campos precio: precioListaUF, descuentoPacksUF, descuentoAprobadoUF, precioFinalUF
 - `conPromesa: Boolean` — se fija al crear venta desde cotización (afecta split de comisiones)
+- **Forma de pago** (`venta_formas_pago`, ago 2026): TRANSFERENCIA, VALE_VISTA, TARJETA y CUOTAS, **combinables** (ej: pie por transferencia + saldo en cuotas). Cada forma lleva su `montoUF`; la suma no puede pasar el `precioFinalUF` (sí puede faltar: se asigna de a poco y la UI muestra cuánto falta). **Sin ninguna forma registrada la venta es AL CONTADO** — no hay fila que lo represente. La cantidad de cuotas sale del beneficio "cuotas sin interés" de la venta y solo se guarda en la forma cuando se pacta otra. Se define al convertir la cotización (modal "Convertir a venta") y se edita después en VentaDetalle (card "Forma de pago"); el listado de ventas la muestra en una columna. Lógica pura en `lib/formasPago.js` (con tests). **Backfill histórico** (`scripts/backfill-formas-pago.js`, corrido el 31-ago-2026): las 37 ventas activas se completaron infiriendo la forma desde lo que ya había — CUOTAS si tenían beneficio de "cuotas sin interés" o 2+ cuotas tipo CUOTA en el plan; TRANSFERENCIA/VALE_VISTA/TARJETA según el método de las cuotas pagadas; sin evidencia queda al contado. **Los montos del backfill quedaron en null a propósito** (no existe el dato histórico), y la vista oculta el cuadre cuando ninguna forma tiene monto. El script es idempotente (solo toca ventas sin formas) y de paso completó `meses` en las promos/beneficios de cuotas que solo lo tenían en el nombre
 - Al llegar a ESCRITURA: notificación COMISION_ESCRITURA a GERENTE+JV si hay comisiones pendientes
 - Relaciones: Contacto (comprador), Usuario (vendedor/broker/gerente), Unidad[] (many-to-many)
 - Frontend: `pages/ventas/Ventas.jsx`, `pages/ventas/VentaDetalle.jsx`
@@ -548,12 +550,13 @@
 | `reportes.js` | Generador de reportes diarios con IA (agrega datos + llama a Groq) |
 | `reportesSemanal.js` | Generador de reporte semanal del gerente (lunes a domingo, agrega datos por vendedor + IA) |
 | `precios.js` | `calcularTotalesVenta`, `prorratearPrecioVenta`, `verificarCuadratura` — lógica de precios/cuadratura (con tests) |
+| `formasPago.js` | `normalizarFormasPago` (valida el set y que no exceda el total), `cuotasPactadas`, `resumenFormasPago` — formas de pago combinables de una venta (con tests) |
 | `comisiones.js` | `aplicarReglasComision` (acepta `tx`), `esVentaWebinar`, `montoComision` (cálculo por tramos, con tests) |
 | `acceso.js` | `filtroAcceso` + `puedeAccederLead` — control de acceso por rol reutilizable; base para cerrar IDOR (con tests) |
 | `fechaChile.js` | `desdeHoraChile` / `offsetSantiagoMin` — interpreta hora local de Chile con DST (con tests) |
 
 ## Calidad (tests + lint)
-- **Tests**: `cd backend && npm test` (node:test). Cubren precios/prorrateo/cuadratura, dedup, acceso por rol, fecha Chile y cálculo de comisiones. También un e2e cotización→venta (`tests/e2e/`).
+- **Tests**: `cd backend && npm test` (node:test). Cubren precios/prorrateo/cuadratura, formas de pago, dedup, acceso por rol, fecha Chile y cálculo de comisiones. También un e2e cotización→venta (`tests/e2e/`).
 - **Lint**: `npm run lint` en `backend/` y `frontend/` (ESLint 9 flat config). Frontend sin errores; reglas nuevas de hooks (`set-state-in-effect`, `refs`) y `react-refresh` quedan como *warning*.
 - **Acceso/seguridad**: los endpoints con `:id` o subrecursos de lead verifican pertenencia vía `lib/acceso`. Roles GERENTE/JEFE_VENTAS ven precios de costo/mínimo/venta; el resto no (backend los quita y la UI los oculta).
 
@@ -581,6 +584,7 @@
 | `ModalEmail.jsx` | Enviar email desde cualquier contexto |
 | `Layout.jsx` | Wrapper con sidebar + header; incluye `BotonModoReunion` |
 | `ui.jsx` | ETAPA_COLOR, ETAPA_LABEL y constantes UI compartidas |
+| `FormasPago.jsx` | `EditorFormasPago` (checkboxes + monto por forma y control contra el total), `DetalleFormasPago`, `resumenFormasPago`, `cuotasDelBeneficio` — usado en VentaDetalle, Ventas y el modal de convertir cotización |
 
 ---
 

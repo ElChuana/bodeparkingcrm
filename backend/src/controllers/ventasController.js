@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma')
 const { prorratearPrecioVenta } = require('../lib/precios')
 const { aplicarReglasComision } = require('../lib/comisiones')
+const { normalizarFormasPago } = require('../lib/formasPago')
 
 const listar = async (req, res) => {
   const { estado, vendedorId, edificioId, tipoUnidad, precioMin, precioMax, search, desde, hasta } = req.query
@@ -41,6 +42,16 @@ const listar = async (req, res) => {
           select: { numero: true, tipo: true, edificio: { select: { nombre: true, region: true } } }
         },
         planPago: { select: { totalCuotas: true } },
+        formasPago: { select: { forma: true, montoUF: true, cuotas: true } },
+        // Solo el beneficio de cuotas: la lista muestra "12 cuotas" sin traer todas las promos
+        promociones: {
+          where: { promocion: { tipo: 'CUOTAS_SIN_INTERES' } },
+          select: { promocion: { select: { tipo: true, meses: true, nombre: true } } }
+        },
+        beneficios: {
+          where: { beneficio: { tipo: 'CUOTAS_SIN_INTERES' } },
+          select: { beneficio: { select: { tipo: true, meses: true, nombre: true } } }
+        },
         procesoLegal: {
           select: {
             estadoActual: true, tienePromesa: true,
@@ -97,6 +108,7 @@ const obtener = async (req, res) => {
           }
         },
         planPago: { include: { cuotas: { orderBy: { numeroCuota: 'asc' } } } },
+        formasPago: { orderBy: { id: 'asc' } },
         procesoLegal: {
           include: {
             documentos: { orderBy: { creadoEn: 'desc' } },
@@ -218,6 +230,49 @@ const actualizarEstado = async (req, res) => {
   }
 }
 
+// Reemplaza el set completo de formas de pago de una venta.
+// Sin formas la venta queda como AL CONTADO (no hay fila que lo represente).
+const guardarFormasPago = async (req, res) => {
+  const { id } = req.params
+  const { rol, id: usuarioId } = req.usuario
+  const esGerenciaOJV = ['GERENTE', 'JEFE_VENTAS'].includes(rol)
+
+  try {
+    const venta = await prisma.venta.findUnique({
+      where: { id: Number(id) },
+      select: { id: true, estado: true, precioFinalUF: true, vendedorId: true, brokerId: true }
+    })
+    if (!venta) return res.status(404).json({ error: 'Venta no encontrada.' })
+    // Vendedor/broker solo tocan sus propias ventas (mismo criterio que obtener)
+    if (!esGerenciaOJV && venta.vendedorId !== usuarioId && venta.brokerId !== usuarioId) {
+      return res.status(403).json({ error: 'No tienes acceso a esta venta.' })
+    }
+    if (venta.estado === 'ANULADO') {
+      return res.status(400).json({ error: 'No se puede editar la forma de pago de una venta anulada.' })
+    }
+
+    const { ok, error, formas } = normalizarFormasPago(req.body?.formasPago, venta.precioFinalUF)
+    if (!ok) return res.status(400).json({ error })
+
+    await prisma.$transaction(async (tx) => {
+      await tx.ventaFormaPago.deleteMany({ where: { ventaId: venta.id } })
+      if (formas.length > 0) {
+        await tx.ventaFormaPago.createMany({
+          data: formas.map(f => ({ ventaId: venta.id, ...f }))
+        })
+      }
+    })
+
+    const formasPago = await prisma.ventaFormaPago.findMany({
+      where: { ventaId: venta.id }, orderBy: { id: 'asc' }
+    })
+    res.json(formasPago)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al guardar la forma de pago.' })
+  }
+}
+
 const editar = async (req, res) => {
   const { id } = req.params
   const { precioListaUF, descuentoPacksUF, descuentoAprobadoUF, precioFinalUF, fechaReserva, notas } = req.body
@@ -270,4 +325,4 @@ const editar = async (req, res) => {
   }
 }
 
-module.exports = { listar, obtener, actualizarEstado, editar }
+module.exports = { listar, obtener, actualizarEstado, guardarFormasPago, editar }

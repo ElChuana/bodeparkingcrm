@@ -18,6 +18,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useUF } from '../../hooks/useUF'
 import logoUrl from '../../assets/logo.png'
 import { cotizacionParaPDF, esDescuentoPorUnidad } from './cotizacionParaPDF'
+import { EditorFormasPago, cuotasDelBeneficio } from '../../components/FormasPago'
 
 const { Title, Text } = Typography
 
@@ -657,6 +658,7 @@ export default function CotizacionEditor() {
   const [leadId, setLeadId] = useState(leadIdParam ? Number(leadIdParam) : null)
   const [modalConvertir, setModalConvertir] = useState(false)
   const [conPromesa, setConPromesa] = useState(true)
+  const [formasPago, setFormasPago] = useState([])
 
   // Cargar cotización existente
   const { data: cotizacion, isLoading: cargando } = useQuery({
@@ -724,7 +726,8 @@ export default function CotizacionEditor() {
   })
 
   const convertir = useMutation({
-    mutationFn: (conPromesaVal) => api.post(`/cotizaciones/${id}/convertir`, { conPromesa: conPromesaVal }),
+    mutationFn: ({ conPromesa: conPromesaVal, formasPago: formasPagoVal }) =>
+      api.post(`/cotizaciones/${id}/convertir`, { conPromesa: conPromesaVal, formasPago: formasPagoVal }),
     onSuccess: (res) => {
       message.success('¡Venta creada exitosamente!')
       qc.invalidateQueries({ queryKey: ['cotizacion', id] })
@@ -774,7 +777,7 @@ export default function CotizacionEditor() {
                 type="primary"
                 icon={<ShoppingOutlined />}
                 loading={convertir.isPending}
-                onClick={() => { setConPromesa(true); setModalConvertir(true) }}
+                onClick={() => { setConPromesa(true); setFormasPago([]); setModalConvertir(true) }}
               >
                 Convertir a Venta
               </Button>
@@ -782,7 +785,7 @@ export default function CotizacionEditor() {
                 title="Convertir cotización a venta"
                 open={modalConvertir}
                 onCancel={() => setModalConvertir(false)}
-                onOk={() => { setModalConvertir(false); convertir.mutate(conPromesa) }}
+                onOk={() => { setModalConvertir(false); convertir.mutate({ conPromesa, formasPago }) }}
                 okText="Confirmar venta"
                 cancelText="Cancelar"
                 confirmLoading={convertir.isPending}
@@ -799,6 +802,18 @@ export default function CotizacionEditor() {
                       <Radio value={true}>Sí, tiene promesa (split 50/50)</Radio>
                       <Radio value={false}>No, directo a escritura (100% en escritura)</Radio>
                     </Radio.Group>
+                  </Form.Item>
+
+                  <Form.Item
+                    label="Forma de pago"
+                    help="Se pueden combinar varias. Sin nada marcado la venta queda al contado; después se puede editar en la ficha de la venta."
+                  >
+                    <EditorFormasPago
+                      value={formasPago}
+                      onChange={setFormasPago}
+                      totalUF={cotizacion?.precioFinalUF || 0}
+                      cuotasBeneficio={cuotasDelBeneficio(cotizacion || {})}
+                    />
                   </Form.Item>
                 </Form>
               </Modal>
