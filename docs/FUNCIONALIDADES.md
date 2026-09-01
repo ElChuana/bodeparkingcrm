@@ -535,6 +535,35 @@
 
 ---
 
+## Modo ERP (financiero) — rutas `/api/erp/*`
+
+El ERP sigue **la plata** (el CRM sigue las unidades). Misma app, mismo login, misma base;
+solo GERENTE y JEFE_VENTAS. Doctrina completa en `docs/DOCTRINA.md`; el resumen: *un
+movimiento del banco es un hecho, un documento es una afirmación, la conciliación los une;
+todo estado de plata se calcula, nunca se guarda*. Sin contabilidad (el contador sigue con
+Nubox): sin F29/RCV/IVA/asientos.
+
+| Área | Endpoints | Qué hace |
+|------|-----------|----------|
+| **Panel** | `GET /erp/dashboard`, `/erp/salud`, `/erp/flujo` | Caja, CxC, próximos 30 días, presupuesto del mes, provisiones sin factura, salud de los datos; flujo de caja real+proyectado a 12 meses |
+| **Banco** | `/erp/banco/cuentas`, `/cargas`, `/movimientos(+/resumen)`, `/contrapartes(+alias, reidentificar)`, `/ia`, `/analizar-glosas` | Cartolas Banco Security (parser en `lib/cartola.js`, dedupe por huella, cuadre contra los totales del banco), identificación/aprendizaje de contrapartes (`lib/contraparte.js` + `lib/aprendizaje.js`), lector de glosas con IA opcional |
+| **Scraper** | `POST /erp/banco/cartola-scraper` (API key, sin JWT) | Recibe el texto crudo de la cartola desde `~/scraper-banco-security` — el parser vive en el backend |
+| **Conciliación** | `/erp/conciliacion/{resumen, por-conciliar, cuotas-por-cobrar, saldos-a-favor}`, `POST /erp/conciliacion(+/automatica, /aplicar-saldo, /documento)`, `DELETE /erp/conciliacion/:id` | La bandeja: cada movimiento con contraparte y sugerencias con score y motivos (`lib/conciliacion.js`). Destinos: cuota / pago de arriendo / factura de compra / documento interno / a cuenta del cliente. `POST /documento` = el caso notaría (crear el documento ficticio y conciliar en una transacción). Guarda de sobreimputación en `lib/imputacion.js` |
+| **Documentos y provisiones** | `/erp/documentos(+/:id/asociar-factura, /generar-provisiones)`, `/erp/gastos`, `/erp/facturas-compra` | `GastoProgramado` (plantilla) → `DocumentoInterno PROVISION` por período (cron mensual) → se asocia la `FacturaCompra` real cuando llega → alerta **"no te han facturado"** si la fecha pasó sin factura. Estados siempre calculados (`lib/documentos.js`) |
+| **Cuentas y presupuesto** | `/erp/cuentas(+/:id/documentos)`, `/erp/presupuesto(+/copiar, /ejecucion)` | Plan de cuentas de 2 niveles (`CuentaGasto`), presupuesto por subcuenta y mes (UF o CLP), ejecución Presupuesto/Ejecutado/Comprometido/Disponible por lo devengado (`lib/presupuesto.js`). Semilla: `scripts/seed-cuentas-gasto.js` |
+| **Cartera / cobranza** | `/erp/cartera`, `/erp/cartera/matriz`, `/erp/cartera/:contactoId` | Antigüedad 30/60/90 por cliente ordenada por gravedad (`lib/cartera.js`), matriz Cliente × Mes (reemplaza el excel de ventas en cuotas), estado de cuenta con saldo corriente |
+| **Proveedores** | `/erp/proveedores(+/:id/aplicar-cuenta)` | Catálogo liviano con cuenta por defecto |
+| **Reglas** | `/erp/reglas(+/probar)` | Conciliación automática por glosa/monto (idea de Odoo); `autoValidar` opt-in imputa a la provisión del período solo con coincidencia única |
+
+Tablas nuevas: `cuentas_gasto`, `presupuestos`, `proveedores`, `gastos_programados`,
+`documentos_internos`, `facturas_compra`, `alias_contraparte`, `reglas_conciliacion`,
+`cuentas_bancarias`, `cargas_cartola`, `movimientos_banco`, `conciliaciones` (+
+`Cuota.origenMigracion`). Libs con tests: `cartola`, `conciliacion`, `imputacion`,
+`contraparte`, `reglas`, `saldoCliente`, `cartera`, `cuotas`, `documentos`, `presupuesto`,
+`gastosProgramados`, `glosaIA`.
+
+---
+
 ## Librerías compartidas (backend/src/lib/)
 
 | Archivo | Propósito |
@@ -572,6 +601,7 @@
 | Diario 12:00 UTC | Chequeo de alertas (LEAD_SIN_ACTIVIDAD, LEAD_ESTANCADO) |
 | Diario 11:00 UTC (7-8 AM Chile) | Generar reportes IA del día para vendedores activos |
 | Lunes 11:00 UTC (7 AM Chile) | Generar reporte semanal del gerente (cubre lun-dom anterior) |
+| Día 1 de cada mes 10:00 UTC | ERP: generar provisiones del mes desde los gastos programados |
 
 ---
 
@@ -612,5 +642,5 @@
 
 ---
 
-*Última actualización: 23 Junio 2026 — auditoría BBDD: índices/onDelete, uniques de negocio, montos en Decimal + serializador, enums de integridad*
+*Última actualización: 1 Septiembre 2026 — modo ERP financiero: banco/conciliación, documentos y provisiones, plan de cuentas + presupuesto, cartera*
 *Actualizar este archivo después de cada cambio significativo.*

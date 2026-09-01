@@ -20,4 +20,15 @@ const filtroImagenes = (req, file, cb) => {
 
 const upload = multer({ storage, fileFilter: filtroImagenes, limits: { fileSize: 10 * 1024 * 1024 } })
 
+// Cartolas del banco (ERP). Vienen como .txt pese a ser CSV con ";", y a veces
+// el navegador las baja como .csv — se aceptan las dos, más text/plain suelto.
+const filtroCartola = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase()
+  const ok = ['.txt', '.csv'].includes(ext) || /^text\//.test(file.mimetype)
+  ok ? cb(null, true) : cb(new Error('La cartola debe ser un archivo .txt o .csv del banco'))
+}
+
+const uploadCartola = multer({ storage, fileFilter: filtroCartola, limits: { fileSize: 5 * 1024 * 1024 } })
+
 module.exports = upload
+module.exports.uploadCartola = uploadCartola

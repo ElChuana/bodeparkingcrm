@@ -323,6 +323,13 @@ model Usuario {
   cambiosLegales          HistorialLegal[]
   plantillasEmail         PlantillaEmail[]
   sesionesReunion         SesionReunion[]
+  cargasCartola           CargaCartola[]
+  conciliaciones          Conciliacion[]
+  gastosProgramados       GastoProgramado[]
+  reglasConciliacion      ReglaConciliacion[]
+  documentosInternos      DocumentoInterno[]
+  facturasCompraCreadas   FacturaCompra[]
+  presupuestos            Presupuesto[]
 
   @@map("usuarios")
 }
@@ -501,9 +508,13 @@ model Contacto {
   creadoEn            DateTime    @default(now())
   actualizadoEn       DateTime    @updatedAt
 
-  leads     Lead[]
-  compras   Venta[]    @relation("CompradorVenta")
-  arriendos Arriendo[]
+  leads              Lead[]
+  compras            Venta[]            @relation("CompradorVenta")
+  arriendos          Arriendo[]
+  alias              AliasContraparte[]
+  movimientos        MovimientoBanco[]
+  aCuenta            Conciliacion[]
+  documentosInternos DocumentoInterno[]
 
   @@index([email])
   @@map("contactos")
@@ -821,10 +832,14 @@ model Cuota {
   numeroComprobante String?
   archivoUrl        String?
   notas             String?
+  // Cuota reconstruida por un script (no pactada por una persona). Queda fuera de las
+  // sugerencias de conciliación y de las alertas hasta que alguien la revise.
+  origenMigracion   Boolean     @default(false)
   creadoEn          DateTime    @default(now())
   actualizadoEn     DateTime    @updatedAt
 
-  planPago PlanPago @relation(fields: [planPagoId], references: [id], onDelete: Cascade)
+  planPago       PlanPago       @relation(fields: [planPagoId], references: [id], onDelete: Cascade)
+  conciliaciones Conciliacion[]
 
   @@index([planPagoId])
   @@index([estado])
@@ -1180,7 +1195,8 @@ model PagoArriendo {
   comprobante String?
   creadoEn    DateTime   @default(now())
 
-  arriendo Arriendo @relation(fields: [arriendoId], references: [id], onDelete: Cascade)
+  arriendo       Arriendo       @relation(fields: [arriendoId], references: [id], onDelete: Cascade)
+  conciliaciones Conciliacion[]
 
   @@unique([arriendoId, mes])
   @@map("pagos_arriendo")
@@ -1435,4 +1451,433 @@ model EmailFavorito {
   @@unique([usuarioId, email])
   @@index([usuarioId])
   @@map("emails_favoritos")
+}
+
+// ─── ERP FINANCIERO ───────────────────────────────────────────
+//
+// El modo ERP sigue la plata: banco, conciliación, provisiones, presupuesto,
+// flujo de caja y cobranza. Doctrina completa en docs/DOCTRINA.md; el resumen:
+//
+//   · Un movimiento del banco es un HECHO. Un documento es una AFIRMACIÓN.
+//     La conciliación los une.
+//   · Todo estado de plata se CALCULA, nunca se guarda ("pagada", "conciliado",
+//     "vencida", el estado de un documento interno, la ejecución del presupuesto).
+//   · La clasificación (cuenta de gasto) vive en el DOCUMENTO, nunca en el
+//     movimiento: el movimiento hereda la cuenta de lo que paga.
+//   · Cada peso se imputa UNA sola vez (lib/imputacion.js es la única puerta).
+//
+// Esto NO es contabilidad: sin partida doble, sin F29/RCV/IVA. El contador
+// sigue con Nubox.
+
+// Cómo llegó el movimiento a la base: subida manual del .txt o el scraper.
+// No existe MANUAL a propósito: los hechos entran solo desde el banco.
+// LIBRO_BANCO es la transcripción del contador (.xlsx) — vale como hecho porque
+// sale del banco, pero se marca aparte por ser una copia que puede traer un tipeo.
+enum OrigenMovimiento {
+  CARTOLA_MANUAL
+  SCRAPER
+  LIBRO_BANCO
+}
+
+enum Periodicidad {
+  UNICO
+  MENSUAL
+  BIMESTRAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+// De qué lado del flujo está una cuenta o un documento interno.
+enum LadoFinanciero {
+  GASTO
+  INGRESO
+}
+
+// El documento ficticio, pieza central de la conciliación (ver DocumentoInterno).
+enum TipoDocumentoInterno {
+  PROVISION // gasto que se SABE que viene (aún sin factura): "me van a facturar tal fecha tal cosa"
+  RESPALDO // plata que ya se movió y nunca tendrá DTE: la notaría, una comisión bancaria
+}
+
+// Plan de cuentas jerárquico (2 niveles): la cuenta grande (Administración,
+// Comercial, Financiera, Inmobiliaria…) y sus subcuentas (Software, Notaría,
+// Publicidad, Gastos inmobiliarios…). Cada documento se clasifica en una
+// SUBCUENTA; el presupuesto se controla por cuenta y subcuenta.
+model CuentaGasto {
+  id       Int            @id @default(autoincrement())
+  nombre   String
+  codigo   String? // "ADM-01" — opcional, para ordenar reportes
+  padreId  Int? // null = cuenta grande (nivel 1); con padre = subcuenta (nivel 2)
+  tipo     LadoFinanciero @default(GASTO)
+  color    String? // para los gráficos del flujo de caja y presupuesto
+  orden    Int            @default(0)
+  activa   Boolean        @default(true)
+  creadoEn DateTime       @default(now())
+
+  padre      CuentaGasto?  @relation("SubCuentas", fields: [padreId], references: [id], onDelete: SetNull)
+  subcuentas CuentaGasto[] @relation("SubCuentas")
+
+  documentosInternos DocumentoInterno[]
+  facturasCompra     FacturaCompra[]
+  gastosProgramados  GastoProgramado[]
+  proveedores        Proveedor[]
+  presupuestos       Presupuesto[]
+
+  @@unique([nombre, padreId])
+  @@index([padreId])
+  @@map("cuentas_gasto")
+}
+
+// Presupuesto mensual por subcuenta. La ejecución NO se guarda: se calcula
+// contra los documentos (ejecutado = conciliados; comprometido = provisiones y
+// facturas sin pago). El de la cuenta grande es la suma de sus subcuentas.
+model Presupuesto {
+  id            Int      @id @default(autoincrement())
+  cuentaId      Int
+  periodo       String // 'YYYY-MM'
+  montoUF       Decimal? @db.Decimal(18, 6)
+  montoCLP      Decimal? @db.Decimal(18, 2)
+  notas         String?
+  creadoPorId   Int?
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  cuenta    CuentaGasto @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  creadoPor Usuario?    @relation(fields: [creadoPorId], references: [id])
+
+  @@unique([cuentaId, periodo])
+  @@index([periodo])
+  @@map("presupuestos")
+}
+
+// Quién me cobra a mí. Catálogo liviano: identidad + cuenta por defecto para
+// que clasificar sus documentos no obligue a repetir la misma decisión.
+model Proveedor {
+  id            Int      @id @default(autoincrement())
+  rut           String   @unique
+  razonSocial   String
+  giro          String?
+  email         String?
+  telefono      String?
+  contacto      String?
+  cuentaId      Int? // subcuenta por defecto de sus documentos
+  diasPago      Int? // plazo pactado; si el documento no trae vencimiento se calcula con esto
+  activo        Boolean  @default(true)
+  notas         String?
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  cuenta             CuentaGasto?       @relation(fields: [cuentaId], references: [id], onDelete: SetNull)
+  facturasCompra     FacturaCompra[]
+  gastosProgramados  GastoProgramado[]
+  movimientos        MovimientoBanco[]
+  alias              AliasContraparte[]
+  documentosInternos DocumentoInterno[]
+
+  @@index([activo])
+  @@map("proveedores")
+}
+
+// Un gasto que se sabe que viene: el arriendo de la oficina, la contabilidad,
+// un seguro. Es la PLANTILLA; el cron mensual genera el DocumentoInterno
+// PROVISION de cada período (y también se pueden crear a mano). La provisión
+// hereda cuenta, proveedor y monto (usualmente en UF).
+model GastoProgramado {
+  id             Int          @id @default(autoincrement())
+  nombre         String
+  proveedorTexto String? // proveedor sin RUT/catálogo (texto libre)
+  proveedorId    Int?
+  cuentaId       Int?
+  montoUF        Decimal?     @db.Decimal(18, 6) // el arriendo suele pactarse en UF
+  montoCLP       Decimal?     @db.Decimal(18, 2) // …y otros gastos en pesos
+  periodicidad   Periodicidad @default(MENSUAL)
+  diaVencimiento Int? // día del mes en que se paga (5 = el 5 de cada mes)
+  fechaInicio    DateTime     @db.Date
+  fechaFin       DateTime?    @db.Date // null = sigue indefinidamente
+  activo         Boolean      @default(true)
+  notas          String?
+  creadoPorId    Int?
+  creadoEn       DateTime     @default(now())
+  actualizadoEn  DateTime     @updatedAt
+
+  cuenta     CuentaGasto?        @relation(fields: [cuentaId], references: [id], onDelete: SetNull)
+  proveedor  Proveedor?          @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  creadoPor  Usuario?            @relation(fields: [creadoPorId], references: [id])
+  documentos DocumentoInterno[] // las provisiones generadas, una por período
+  reglas     ReglaConciliacion[]
+
+  @@index([activo])
+  @@index([proveedorId])
+  @@map("gastos_programados")
+}
+
+// El documento ficticio — pieza central del rediseño.
+//
+//   · PROVISION: "sé que me van a facturar tal fecha tal cosa" — monto aprox.
+//     (usualmente UF), fecha esperada, cuenta. Cuando llega la factura real se
+//     ASOCIA (facturaCompraId) y el documento queda respaldado. Si la fecha
+//     pasó y no hay factura → alerta "no te han facturado".
+//   · RESPALDO: plata que ya se movió y nunca tendrá DTE (la notaría, una
+//     comisión bancaria). Se crea desde el movimiento y se concilia al tiro.
+//
+// El ESTADO se calcula, nunca se guarda (lib/documentos.js):
+//   ESPERADO → VENCIDO_SIN_FACTURA / FACTURADO_SIN_PAGO / PAGADO_SIN_FACTURA → CERRADO
+// (cerrado = tiene factura asociada Y su pago conciliado; un RESPALDO cierra solo con pago).
+model DocumentoInterno {
+  id            Int                  @id @default(autoincrement())
+  tipo          TipoDocumentoInterno
+  lado          LadoFinanciero       @default(GASTO)
+  descripcion   String
+  // Provisión: cuándo se espera la factura/el cobro. Respaldo: la fecha del gasto.
+  fechaEsperada DateTime             @db.Date
+  montoUF       Decimal?             @db.Decimal(18, 6) // al menos uno de los dos; si es UF,
+  montoCLP      Decimal?             @db.Decimal(18, 2) // el CLP se calcula con la UF del día al conciliar
+
+  cuentaId    Int?
+  proveedorId Int?
+  contactoId  Int?
+
+  // Si nació de una recurrencia: qué plantilla y qué período cubre.
+  gastoProgramadoId Int?
+  periodo           String? // 'YYYY-MM'
+
+  // La factura real que lo respalda, asociada cuando llega.
+  facturaCompraId Int? @unique
+
+  archivoUrl    String?
+  notas         String?
+  creadoPorId   Int?
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  cuenta          CuentaGasto?     @relation(fields: [cuentaId], references: [id], onDelete: SetNull)
+  proveedor       Proveedor?       @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  contacto        Contacto?        @relation(fields: [contactoId], references: [id], onDelete: SetNull)
+  gastoProgramado GastoProgramado? @relation(fields: [gastoProgramadoId], references: [id], onDelete: SetNull)
+  facturaCompra   FacturaCompra?   @relation(fields: [facturaCompraId], references: [id], onDelete: SetNull)
+  creadoPor       Usuario?         @relation(fields: [creadoPorId], references: [id])
+  conciliaciones  Conciliacion[]
+
+  // El cron no genera dos provisiones para la misma ocurrencia.
+  @@unique([gastoProgramadoId, periodo])
+  @@index([fechaEsperada])
+  @@index([cuentaId])
+  @@index([proveedorId])
+  @@map("documentos_internos")
+}
+
+// Factura de compra mínima: el registro manual del DTE que me emitieron, solo
+// para cerrar el ciclo de la provisión (y pagar facturas directas). Sin RCV/SII
+// automático en v1; sin estado persistido — pagada se deriva de sus conciliaciones.
+model FacturaCompra {
+  id               Int       @id @default(autoincrement())
+  tipoDte          Int       @default(33) // 33 afecta, 34 exenta
+  folio            String // string: hay folios con ceros a la izquierda
+  proveedorId      Int
+  fechaEmision     DateTime  @db.Date
+  fechaVencimiento DateTime? @db.Date // si no la trae, se deriva de proveedor.diasPago
+  neto             Decimal   @default(0) @db.Decimal(18, 2)
+  iva              Decimal   @default(0) @db.Decimal(18, 2)
+  total            Decimal   @default(0) @db.Decimal(18, 2)
+  cuentaId         Int?
+  archivoUrl       String?
+  notas            String?
+  creadoPorId      Int?
+  creadoEn         DateTime  @default(now())
+  actualizadoEn    DateTime  @updatedAt
+
+  proveedor        Proveedor         @relation(fields: [proveedorId], references: [id])
+  cuenta           CuentaGasto?      @relation(fields: [cuentaId], references: [id], onDelete: SetNull)
+  creadoPor        Usuario?          @relation(fields: [creadoPorId], references: [id])
+  documentoInterno DocumentoInterno? // la provisión que respalda, si existe
+  conciliaciones   Conciliacion[]
+
+  // El mismo DTE no se carga dos veces: clave natural del documento tributario.
+  @@unique([proveedorId, tipoDte, folio])
+  @@index([proveedorId])
+  @@index([fechaVencimiento])
+  @@map("facturas_compra")
+}
+
+// Aprendizaje de contrapartes: cada conciliación confirmada guarda la decisión
+// "esta glosa es este cliente/proveedor". `clave` es el núcleo de la glosa
+// normalizado (lib/contraparte.js). Un alias apunta a cliente O proveedor O es
+// interno (traspasos propios), nunca a dos.
+model AliasContraparte {
+  id          Int      @id @default(autoincrement())
+  clave       String   @unique
+  etiqueta    String // el texto original, para mostrarlo tal cual llegó
+  contactoId  Int?
+  proveedorId Int?
+  interno     Boolean  @default(false) // plata que se mueve dentro de la empresa
+  rut         String?
+  vecesVisto  Int      @default(1)
+  ultimaVez   DateTime @default(now())
+  creadoEn    DateTime @default(now())
+
+  contacto  Contacto?  @relation(fields: [contactoId], references: [id], onDelete: Cascade)
+  proveedor Proveedor? @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+
+  @@index([contactoId])
+  @@index([proveedorId])
+  @@map("alias_contraparte")
+}
+
+// Reglas de conciliación automática (idea de Odoo): "si la glosa trae esto y el
+// monto anda por acá, es este gasto". La regla imputa a la PROVISIÓN del período
+// que corresponde; la clasificación sigue viviendo en el documento.
+// `autoValidar` es opt-in y exige coincidencia única.
+model ReglaConciliacion {
+  id                Int      @id @default(autoincrement())
+  nombre            String
+  patronGlosa       String // debe aparecer en la glosa (sin distinguir tildes ni mayúsculas)
+  tipoMovimiento    String   @default("CARGO") // CARGO | ABONO | AMBOS
+  montoMin          Decimal? @db.Decimal(18, 2)
+  montoMax          Decimal? @db.Decimal(18, 2)
+  gastoProgramadoId Int
+  autoValidar       Boolean  @default(false) // imputar sola cuando la coincidencia es única
+  activa            Boolean  @default(true)
+  orden             Int      @default(0) // la primera que calza gana
+  vecesAplicada     Int      @default(0)
+  creadoPorId       Int?
+  creadoEn          DateTime @default(now())
+  actualizadoEn     DateTime @updatedAt
+
+  gastoProgramado GastoProgramado @relation(fields: [gastoProgramadoId], references: [id], onDelete: Cascade)
+  creadoPor       Usuario?        @relation(fields: [creadoPorId], references: [id])
+
+  @@index([activa])
+  @@map("reglas_conciliacion")
+}
+
+model CuentaBancaria {
+  id            Int      @id @default(autoincrement())
+  banco         String // "Banco Security"
+  numeroCuenta  String
+  rutEmpresa    String
+  razonSocial   String
+  alias         String? // "Cuenta corriente empresa"
+  activa        Boolean  @default(true)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  movimientos MovimientoBanco[]
+  cargas      CargaCartola[]
+
+  @@unique([rutEmpresa, numeroCuenta])
+  @@map("cuentas_bancarias")
+}
+
+// Una subida de cartola (archivo .txt del banco o corrida del scraper).
+// Guarda el resultado del cuadre para saber si el parseo perdió movimientos.
+model CargaCartola {
+  id             Int              @id @default(autoincrement())
+  cuentaId       Int
+  origen         OrigenMovimiento
+  nombreArchivo  String?
+  archivoUrl     String?
+  desde          DateTime?        @db.Date
+  hasta          DateTime?        @db.Date
+  totalLeidos    Int              @default(0)
+  totalNuevos    Int              @default(0)
+  totalRepetidos Int              @default(0)
+  cuadra         Boolean?
+  detalleCuadre  Json?
+  subidoPorId    Int?
+  creadoEn       DateTime         @default(now())
+
+  cuenta      CuentaBancaria    @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  subidoPor   Usuario?          @relation(fields: [subidoPorId], references: [id])
+  movimientos MovimientoBanco[]
+
+  @@index([cuentaId])
+  @@index([creadoEn])
+  @@map("cargas_cartola")
+}
+
+// Un movimiento de la cartola. `huella` es la clave de deduplicación: la misma
+// cartola se puede subir dos veces (o el scraper solaparse con la subida manual)
+// y no debe duplicar filas.
+model MovimientoBanco {
+  id                  Int              @id @default(autoincrement())
+  cuentaId            Int
+  cargaId             Int?
+  fecha               DateTime         @db.Date
+  glosa               String
+  monto               Decimal          @db.Decimal(18, 2) // > 0 abono, < 0 cargo
+  saldo               Decimal?         @db.Decimal(18, 2)
+  documento           String?
+  contraparteRut      String?
+  origen              OrigenMovimiento @default(CARTOLA_MANUAL)
+  // NO hay cuenta de gasto acá a propósito: el movimiento hereda la
+  // clasificación del documento que paga. Ver doctrina.
+  contactoId          Int? // contraparte identificada (cliente) — se aprende al conciliar
+  proveedorId         Int? // ídem para el otro lado: quién me cobró
+  // Campos que el parser de glosas dejó limpios (lib/glosaIA.js). Ayudan al
+  // matcher determinista; la decisión sigue siendo del score.
+  nombreDetectado     String?
+  referenciaDetectada String?
+  glosaAnalizada      Boolean          @default(false)
+  huella              String           @unique // cuenta|fecha|glosa|monto|documento
+  ignorado            Boolean          @default(false) // fuera del radar de conciliación
+  notas               String?
+  creadoEn            DateTime         @default(now())
+  actualizadoEn       DateTime         @updatedAt
+
+  cuenta         CuentaBancaria @relation(fields: [cuentaId], references: [id], onDelete: Cascade)
+  carga          CargaCartola?  @relation(fields: [cargaId], references: [id], onDelete: SetNull)
+  contacto       Contacto?      @relation(fields: [contactoId], references: [id], onDelete: SetNull)
+  proveedor      Proveedor?     @relation(fields: [proveedorId], references: [id], onDelete: SetNull)
+  conciliaciones Conciliacion[]
+
+  @@index([cuentaId])
+  @@index([fecha])
+  @@index([ignorado])
+  @@index([contactoId])
+  @@map("movimientos_banco")
+}
+
+// El nexo movimiento ⇄ documento. N:N a propósito: una cuota se puede pagar en
+// varias transferencias y una transferencia puede cubrir varias cuotas.
+// `monto` es cuánto de ese movimiento se imputa a ese destino.
+// Cada fila tiene EXACTAMENTE UN destino (cuota, pago de arriendo, factura de
+// compra, documento interno, o "a cuenta del cliente"); lo verifica
+// lib/imputacion.js al escribir y lib/salud.js después.
+model Conciliacion {
+  id                 Int  @id @default(autoincrement())
+  movimientoId       Int
+  // Destinos (exactamente uno):
+  cuotaId            Int? // el abono paga una cuota de un plan de pago (CRM)
+  pagoArriendoId     Int? // el abono paga un mes de arriendo (CRM)
+  facturaCompraId    Int? // el cargo paga una factura que me hicieron
+  documentoInternoId Int? // el movimiento respalda un documento interno (provisión o respaldo)
+  contactoId         Int? // "a cuenta del cliente": plata sin destino todavía, o devuelta
+
+  monto       Decimal  @db.Decimal(18, 2)
+  automatica  Boolean  @default(false) // la sugirió el matcher / una regla
+  confianza   Int? // 0-100, score del matcher al momento de sugerirla
+  notas       String?
+  creadoPorId Int?
+  creadoEn    DateTime @default(now())
+
+  movimiento       MovimientoBanco   @relation(fields: [movimientoId], references: [id], onDelete: Cascade)
+  cuota            Cuota?            @relation(fields: [cuotaId], references: [id], onDelete: SetNull)
+  pagoArriendo     PagoArriendo?     @relation(fields: [pagoArriendoId], references: [id], onDelete: Cascade)
+  facturaCompra    FacturaCompra?    @relation(fields: [facturaCompraId], references: [id], onDelete: Cascade)
+  documentoInterno DocumentoInterno? @relation(fields: [documentoInternoId], references: [id], onDelete: Cascade)
+  contacto         Contacto?         @relation(fields: [contactoId], references: [id], onDelete: Cascade)
+  creadoPor        Usuario?          @relation(fields: [creadoPorId], references: [id])
+
+  @@unique([movimientoId, cuotaId])
+  @@unique([movimientoId, pagoArriendoId])
+  @@unique([movimientoId, facturaCompraId])
+  @@unique([movimientoId, documentoInternoId])
+  @@unique([movimientoId, contactoId])
+  @@index([movimientoId])
+  @@index([cuotaId])
+  @@index([facturaCompraId])
+  @@index([documentoInternoId])
+  @@index([contactoId])
+  @@map("conciliaciones")
 }

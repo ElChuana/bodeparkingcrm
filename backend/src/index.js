@@ -59,6 +59,12 @@ app.use('/api/plantillas-email', require('./routes/plantillasEmail'))
 app.use('/api/leads/:id/recordatorios', require('./routes/recordatorios'))
 app.use('/api/recordatorios',           require('./routes/recordatorios-completar'))
 
+// ── Modo ERP (financiero) ──
+// El scraper del banco entra por API key, así que su router va ANTES del que exige JWT.
+app.use('/api/erp/banco', require('./routes/bancoIntegracion'))
+app.use('/api/erp/banco', require('./routes/banco'))
+app.use('/api/erp',       require('./routes/erp'))
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
