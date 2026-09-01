@@ -4,10 +4,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConfigProvider, App as AntApp, Spin } from 'antd'
 import esES from 'antd/locale/es_ES'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ModoProvider } from './context/ModoContext'
 
 // Shell: eager (se necesita en el primer render)
 import Layout from './components/Layout'
 import Login from './pages/auth/Login'
+
+// Modo ERP (financiero): otra piel sobre la misma app — chunk propio, no toca al CRM
+const ErpLayout = lazy(() => import('./erp/ErpLayout'))
+const ErpPanel = lazy(() => import('./erp/pages/Panel'))
+const ErpBanco = lazy(() => import('./erp/pages/Banco'))
+const ErpConciliacion = lazy(() => import('./erp/pages/Conciliacion'))
+const ErpDocumentos = lazy(() => import('./erp/pages/Documentos'))
+const ErpPresupuesto = lazy(() => import('./erp/pages/Presupuesto'))
+const ErpFlujo = lazy(() => import('./erp/pages/Flujo'))
+const ErpCartera = lazy(() => import('./erp/pages/Cartera'))
+const ErpConfiguracion = lazy(() => import('./erp/pages/Configuracion'))
 
 // Páginas: lazy → cada una en su propio chunk (Vite hace el split por ruta)
 const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'))
@@ -97,6 +109,7 @@ export default function App() {
         <QueryClientProvider client={qc}>
           <AuthProvider>
             <BrowserRouter>
+              <ModoProvider>
               <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
@@ -108,6 +121,19 @@ export default function App() {
                   <RutaProtegida roles={['GERENTE','JEFE_VENTAS','VENDEDOR','BROKER_EXTERNO']}><ModoReunion /></RutaProtegida>
                 } />
                 <Route path="/reunion-ilustraciones" element={<RutaProtegida><PreviewIlustraciones /></RutaProtegida>} />
+                {/* Modo ERP: mismo login, otra piel. Solo gerencia. */}
+                <Route path="/erp" element={
+                  <RutaProtegida roles={['GERENTE','JEFE_VENTAS']}><ErpLayout /></RutaProtegida>
+                }>
+                  <Route index element={<ErpPanel />} />
+                  <Route path="banco" element={<ErpBanco />} />
+                  <Route path="conciliacion" element={<ErpConciliacion />} />
+                  <Route path="documentos" element={<ErpDocumentos />} />
+                  <Route path="presupuesto" element={<ErpPresupuesto />} />
+                  <Route path="flujo" element={<ErpFlujo />} />
+                  <Route path="cartera" element={<ErpCartera />} />
+                  <Route path="configuracion" element={<ErpConfiguracion />} />
+                </Route>
                 <Route path="/" element={
                   <RutaProtegida>
                     <Layout />
@@ -146,6 +172,7 @@ export default function App() {
                 <Route path="*" element={<Navigate to="/leads" replace />} />
               </Routes>
               </Suspense>
+              </ModoProvider>
             </BrowserRouter>
           </AuthProvider>
         </QueryClientProvider>

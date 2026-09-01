@@ -1,0 +1,84 @@
+/*
+ * Sistema de diseño del modo ERP — Tailwind 4 SIN preflight.
+ *
+ * El CRM usa Ant Design y su reset propio; cargar el preflight de Tailwind lo
+ * rompería. Por eso se importan solo el theme y las utilidades, y las páginas
+ * del ERP parten de la clase raíz .erp (que fija tipografía y fondo).
+ *
+ * Referencia visual: clay.cl — denso pero limpio, KPIs grandes, tablas finas,
+ * dígitos tabulares, verde abono / rojo cargo, real sólido / proyectado punteado.
+ */
+
+@layer theme, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@theme {
+  /* Marca BodeParking */
+  --color-bp: #0091c3;
+  --color-bp-dark: #00719a;
+  --color-bp-soft: #e6f5fa;
+  --color-tinta: #1c2733; /* texto principal (el #3D3D3D de marca, subido para contraste) */
+  --color-gris: #5a6b7c; /* texto secundario */
+  --color-sutil: #8b9aa9; /* texto terciario */
+  --color-fondo: #f4f6f9;
+  --color-carta: #ffffff;
+  --color-borde: #e4e9ef;
+  --color-borde-suave: #eef2f6;
+
+  /* Semánticos de plata */
+  --color-abono: #0e9f6e;
+  --color-abono-soft: #e7f6f0;
+  --color-cargo: #dc2626;
+  --color-cargo-soft: #fdecec;
+  --color-alerta: #b45309;
+  --color-alerta-soft: #fdf3e2;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+
+  --shadow-carta: 0 1px 2px rgb(16 36 54 / 0.05), 0 1px 3px rgb(16 36 54 / 0.06);
+  --shadow-flotante: 0 8px 30px rgb(16 36 54 / 0.12);
+}
+
+/* Raíz del modo ERP: lo mínimo que el preflight habría dado. */
+.erp {
+  font-family: var(--font-sans);
+  color: var(--color-tinta);
+  background: var(--color-fondo);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.erp *,
+.erp *::before,
+.erp *::after {
+  box-sizing: border-box;
+}
+
+.erp h1, .erp h2, .erp h3, .erp p { margin: 0; }
+.erp button { font: inherit; background: none; border: none; cursor: pointer; color: inherit; padding: 0; }
+.erp input, .erp select, .erp textarea { font: inherit; color: inherit; }
+.erp table { border-collapse: collapse; width: 100%; }
+.erp th { text-align: left; font-weight: 600; }
+.erp a { color: inherit; text-decoration: none; }
+.erp svg { display: block; }
+
+/* Todos los montos del ERP en dígitos tabulares: las columnas no bailan. */
+.erp .monto, .erp td.num, .erp .tnum {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Scrollbars discretos en las tablas largas */
+.erp ::-webkit-scrollbar { width: 8px; height: 8px; }
+.erp ::-webkit-scrollbar-thumb { background: #cdd6df; border-radius: 99px; }
+.erp ::-webkit-scrollbar-track { background: transparent; }
+
+/* Barra de progreso del presupuesto */
+.erp .barra { position: relative; height: 6px; border-radius: 99px; background: var(--color-borde-suave); overflow: hidden; }
+.erp .barra > span { position: absolute; inset: 0 auto 0 0; border-radius: 99px; transition: width 0.3s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .erp *, .erp *::before, .erp *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

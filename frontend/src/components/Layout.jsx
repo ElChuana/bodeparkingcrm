@@ -182,6 +182,31 @@ function SidebarContent({ selectedKey, onNavigate }) {
   )
 }
 
+// El switch al modo ERP: misma app, otra piel — el CRM sigue las unidades, el
+// ERP sigue la plata. Solo gerencia.
+function BotonModoErp() {
+  const navigate = useNavigate()
+  const { usuario } = useAuth()
+
+  if (!['GERENTE', 'JEFE_VENTAS'].includes(usuario?.rol)) return null
+
+  return (
+    <Button
+      onClick={() => navigate('/erp')}
+      style={{
+        borderRadius: 999, borderColor: '#0091C3', background: '#0091C3', color: '#fff',
+        fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 12h.01M15 12h.01M12 12h.01" />
+      </svg>
+      <span className="texto-modo-reunion">ERP</span>
+    </Button>
+  )
+}
+
 // Entra al modo reunión: la vista limpia para mostrarle el catálogo al cliente.
 // Si se está viendo un lead, arrastra ese cliente a la reunión.
 function BotonModoReunion() {
@@ -275,6 +300,7 @@ export default function Layout() {
             <BuscadorUniversal />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <BotonModoErp />
             <BotonModoReunion />
             <CalendarioWidget />
             <NotificacionesBadge />
