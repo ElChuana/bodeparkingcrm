@@ -113,18 +113,19 @@ function TablaVentas({ ventas }) {
   const totalUF     = ventas.reduce((s, v) => s + (v.precioFinalUF || 0), 0)
   const totalCosto  = ventas.reduce((s, v) => s + (v.unidades?.reduce((cs, u) => cs + (u.precioCostoUF || 0), 0) || 0), 0)
   const totalMultiplo = totalCosto > 0 ? totalUF / totalCosto : null
+  const totalMargen   = totalCosto > 0 ? totalUF - totalCosto : null
 
   const columns = [
+    {
+      title: 'Cliente', key: 'cliente', width: 150,
+      render: (_, v) => v.comprador
+        ? <Text strong style={{ fontSize: 12 }}>{v.comprador.nombre} {v.comprador.apellido}</Text>
+        : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
+    },
     {
       title: 'Vendedor', key: 'vendedor', width: 130,
       render: (_, v) => v.vendedor
         ? <Text style={{ fontSize: 12 }}>{v.vendedor.nombre} {v.vendedor.apellido}</Text>
-        : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
-    },
-    {
-      title: 'Broker', key: 'broker', width: 130,
-      render: (_, v) => v.broker
-        ? <Text style={{ fontSize: 12 }}>{v.broker.nombre} {v.broker.apellido}</Text>
         : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
     },
     {
@@ -152,7 +153,7 @@ function TablaVentas({ ventas }) {
         const precio = v.precioFinalUF || 0
         return (
           <Text strong style={{ fontSize: 12 }}>
-            {precio.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF
+            {precio.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF
           </Text>
         )
       }
@@ -172,8 +173,28 @@ function TablaVentas({ ventas }) {
       render: (_, v) => {
         const costo = v.unidades?.reduce((s, u) => s + (u.precioCostoUF || 0), 0) || 0
         return costo > 0
-          ? <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{costo.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF</Text>
+          ? <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{costo.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF</Text>
           : <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
+      }
+    },
+    {
+      title: 'Margen UF', key: 'margen', width: 105, align: 'right',
+      render: (_, v) => {
+        const precio = v.precioFinalUF || 0
+        const costo  = v.unidades?.reduce((s, u) => s + (u.precioCostoUF || 0), 0) || 0
+        if (!costo || !precio) return <Text type="secondary" style={{ fontSize: 12 }}>—</Text>
+        const margen = precio - costo
+        const pct    = (margen / precio) * 100
+        return (
+          <Tooltip title={`${precio.toFixed(2)} UF − ${costo.toFixed(2)} UF de costo`}>
+            <div>
+              <Text strong style={{ fontSize: 12, color: margen >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                {margen.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF
+              </Text>
+              <div style={{ fontSize: 11, color: '#8c8c8c' }}>{pct.toFixed(1)}%</div>
+            </div>
+          </Tooltip>
+        )
       }
     },
     {
@@ -196,26 +217,6 @@ function TablaVentas({ ventas }) {
       render: (_, v) => <Tag color={ESTADO_VENTA_COLOR[v.estado]} style={{ fontSize: 11 }}>{ESTADO_LABEL[v.estado]}</Tag>
     },
     {
-      title: 'Reserva pagada', key: 'pagado', width: 120, align: 'center',
-      render: (_, v) => {
-        const cuota = v.planPago?.cuotas?.[0]
-        if (!cuota) return <Text type="secondary" style={{ fontSize: 12 }}>Sin plan</Text>
-        const pagado = cuota.estado === 'PAGADO'
-        return (
-          <div style={{ textAlign: 'center' }}>
-            <Tag color={pagado ? 'green' : 'orange'} style={{ fontSize: 11 }}>
-              {pagado ? 'Pagada' : 'Pendiente'}
-            </Tag>
-            {pagado && cuota.metodoPago && (
-              <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>
-                {cuota.metodoPago.toLowerCase().replace('_', ' ')}
-              </div>
-            )}
-          </div>
-        )
-      }
-    },
-    {
       title: 'Fecha reserva', key: 'fecha', width: 110,
       render: (_, v) => v.fechaReserva
         ? <Text type="secondary" style={{ fontSize: 12 }}>{format(new Date(v.fechaReserva), "d MMM yyyy", { locale: es })}</Text>
@@ -228,14 +229,14 @@ function TablaVentas({ ventas }) {
       title={`Ventas del período (${ventas.length})`}
       extra={totalUF > 0 && (
         <Text type="secondary" style={{ fontSize: 13 }}>
-          Total: <Text strong>{totalUF.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF</Text>
+          Total: <Text strong>{totalUF.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF</Text>
           {ufAPesos(totalUF) && <Text type="secondary"> · {formatPesos(ufAPesos(totalUF))}</Text>}
         </Text>
       )}
     >
       <Table
         dataSource={ventas}
-        columns={esGerenciaOJV ? columns : columns.filter(c => !['costo', 'multiplo'].includes(c.key))}
+        columns={esGerenciaOJV ? columns : columns.filter(c => !['costo', 'margen', 'multiplo'].includes(c.key))}
         rowKey="id"
         pagination={false}
         size="small"
@@ -249,20 +250,27 @@ function TablaVentas({ ventas }) {
               <Text strong style={{ fontSize: 12 }}>Totales ({ventas.length} ventas)</Text>
             </Table.Summary.Cell>
             <Table.Summary.Cell index={4} align="right">
-              <Text strong style={{ fontSize: 12 }}>{totalUF.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF</Text>
+              <Text strong style={{ fontSize: 12 }}>{totalUF.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF</Text>
             </Table.Summary.Cell>
             <Table.Summary.Cell index={5} align="right">
               <Text style={{ fontSize: 12 }}>{ufAPesos(totalUF) ? formatPesos(ufAPesos(totalUF)) : '—'}</Text>
             </Table.Summary.Cell>
             {esGerenciaOJV && <Table.Summary.Cell index={6} align="right">
-              <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{totalCosto > 0 ? `${totalCosto.toLocaleString('es-CL', { minimumFractionDigits: 2 })} UF` : '—'}</Text>
+              <Text style={{ fontSize: 12, color: '#8c8c8c' }}>{totalCosto > 0 ? `${totalCosto.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF` : '—'}</Text>
             </Table.Summary.Cell>}
-            {esGerenciaOJV && <Table.Summary.Cell index={7} align="center">
+            {esGerenciaOJV && <Table.Summary.Cell index={7} align="right">
+              {totalMargen != null
+                ? <Text strong style={{ fontSize: 12, color: totalMargen >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                    {totalMargen.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} UF
+                  </Text>
+                : '—'}
+            </Table.Summary.Cell>}
+            {esGerenciaOJV && <Table.Summary.Cell index={8} align="center">
               {totalMultiplo != null
                 ? <Text strong style={{ fontSize: 13, color: totalMultiplo >= 2 ? '#52c41a' : totalMultiplo >= 1.5 ? '#1677ff' : '#faad14' }}>{totalMultiplo.toFixed(2)}x</Text>
                 : '—'}
             </Table.Summary.Cell>}
-            <Table.Summary.Cell index={8} colSpan={3} />
+            <Table.Summary.Cell index={9} colSpan={2} />
           </Table.Summary.Row>
         )}
       />

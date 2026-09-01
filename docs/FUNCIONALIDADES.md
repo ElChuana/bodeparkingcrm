@@ -347,6 +347,7 @@
 - Embudo: todos los pasos cuentan leads por etapa (consistente)
 - Gráficos: ingresos por semana, ventas por mes, leads por campaña, inventario por edificio
 - Datos: visitas del período, visitas próximas, cuotas pendientes, proceso legal activo
+- Tabla "Ventas del período" (sep 2026): cliente, vendedor, unidades, proyecto, valor UF/CLP, costo UF, **margen UF** (precio − costo, con el % sobre el precio), múltiplo, estado y fecha de reserva. Costo, margen y múltiplo son sensibles: solo GERENTE/JEFE_VENTAS (el backend además no manda `precioCostoUF` al resto). Se sacaron las columnas Broker y Reserva pagada
 - Frontend: `pages/dashboard/Dashboard.jsx`
 
 ### REPORTES — `/api/reportes`

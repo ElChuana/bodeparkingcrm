@@ -118,7 +118,6 @@ const obtener = async (req, res) => {
           fechaReserva: true,
           comprador: { select: { nombre: true, apellido: true } },
           vendedor:  { select: { nombre: true, apellido: true } },
-          broker:    { select: { nombre: true, apellido: true } },
           unidades: {
             select: {
               numero: true, tipo: true, precioCostoUF: true,
