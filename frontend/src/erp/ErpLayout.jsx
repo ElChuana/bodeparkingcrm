@@ -1,33 +1,38 @@
 /**
- * El shell del modo ERP: misma app y mismo login que el CRM, otra piel.
- *
- * El CRM sigue las unidades; el ERP sigue la plata. El switch de arriba a la
- * izquierda vuelve al CRM; el modo se deriva de la URL (ver ModoContext).
+ * El shell del modo ERP: la misma app, el mismo login y la misma estética del
+ * CRM (Ant Design) — solo cambia el menú. El CRM sigue las unidades; el ERP
+ * sigue la plata. "Volver al CRM" te devuelve al otro mundo.
  */
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useNavigate, useLocation, Outlet } from 'react-router-dom'
+import { Layout as AntLayout, Button, Drawer, Badge } from 'antd'
 import {
-  Squares2X2Icon, BuildingLibraryIcon, ArrowsRightLeftIcon, DocumentTextIcon,
-  ChartPieIcon, PresentationChartLineIcon, UsersIcon, Cog6ToothIcon,
-  ArrowUturnLeftIcon, Bars3Icon, XMarkIcon,
-} from '@heroicons/react/24/outline'
+  DashboardOutlined, BankOutlined, SwapOutlined, FileTextOutlined,
+  PieChartOutlined, LineChartOutlined, TeamOutlined, SettingOutlined,
+  MenuOutlined, LogoutOutlined, RollbackOutlined,
+} from '@ant-design/icons'
+import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
-import './erp.css'
+import UFDisplay from '../components/UFDisplay'
+
+const { Sider, Header, Content } = AntLayout
 
 const NAV = [
-  { to: '/erp', fin: true, label: 'Panel', icon: Squares2X2Icon },
-  { to: '/erp/banco', label: 'Banco', icon: BuildingLibraryIcon },
-  { to: '/erp/conciliacion', label: 'Conciliación', icon: ArrowsRightLeftIcon },
-  { to: '/erp/documentos', label: 'Documentos', icon: DocumentTextIcon },
-  { to: '/erp/presupuesto', label: 'Presupuesto', icon: ChartPieIcon },
-  { to: '/erp/flujo', label: 'Flujo de caja', icon: PresentationChartLineIcon },
-  { to: '/erp/cartera', label: 'Cobranza', icon: UsersIcon },
-  { to: '/erp/configuracion', label: 'Configuración', icon: Cog6ToothIcon },
+  { key: '/erp', label: 'Panel financiero', icon: <DashboardOutlined /> },
+  { key: '/erp/banco', label: 'Banco', icon: <BankOutlined /> },
+  { key: '/erp/conciliacion', label: 'Conciliación', icon: <SwapOutlined /> },
+  { key: '/erp/documentos', label: 'Documentos', icon: <FileTextOutlined /> },
+  { key: '/erp/presupuesto', label: 'Presupuesto', icon: <PieChartOutlined /> },
+  { key: '/erp/flujo', label: 'Flujo de caja', icon: <LineChartOutlined /> },
+  { key: '/erp/cartera', label: 'Cobranza', icon: <TeamOutlined /> },
+  { key: '/erp/configuracion', label: 'Configuración', icon: <SettingOutlined /> },
 ]
 
-function Nav({ onNavega }) {
+function SidebarContent({ selectedKey, onNavigate }) {
+  const { usuario, logout } = useAuth()
+  const navigate = useNavigate()
+
   const { data: salud } = useQuery({
     queryKey: ['erp-salud-badge'],
     queryFn: () => api.get('/erp/salud').then((r) => r.data),
@@ -35,148 +40,182 @@ function Nav({ onNavega }) {
     refetchInterval: 300000,
   })
 
-  return (
-    <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto" aria-label="Navegación del ERP">
-      {NAV.map((item) => {
-        const Icon = item.icon
-        const { to, fin, label } = item
-        return (
-        <NavLink
-          key={to}
-          to={to}
-          end={fin}
-          onClick={onNavega}
-          className={({ isActive }) =>
-            `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12.5px] font-medium transition-colors ${
-              isActive ? 'bg-bp-soft text-bp-dark font-semibold' : 'text-gris hover:bg-borde-suave hover:text-tinta'
-            }`
-          }
-        >
-          <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <span className="flex-1">{label}</span>
-          {label === 'Panel' && salud?.errores > 0 && (
-            <span className="bg-cargo text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{salud.errores}</span>
-          )}
-        </NavLink>
-        )
-      })}
-    </nav>
-  )
-}
+  const handleLogout = () => { logout(); navigate('/login') }
 
-function Marca() {
   return (
-    <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-borde-suave">
-      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-bp to-bp-dark flex items-center justify-center text-white text-[11px] font-extrabold shrink-0">
-        BP
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff' }}>
+      {/* Logo — el mismo bloque del CRM, con la identidad Finanzas */}
+      <div style={{ padding: '16px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 30, height: 30, borderRadius: 7,
+          background: 'linear-gradient(135deg, #0091C3, #00719a)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 12, color: '#fff', fontWeight: 800,
+          fontFamily: "'Plus Jakarta Sans', sans-serif", flexShrink: 0,
+        }}>BP</div>
+        <div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 13, fontWeight: 700, color: '#0f172a', letterSpacing: '-0.3px' }}>BodeParking</div>
+          <div style={{ fontSize: 9, color: '#0091C3', fontWeight: 700, letterSpacing: '1px' }}>FINANZAS</div>
+        </div>
       </div>
-      <div className="leading-tight">
-        <div className="text-[13px] font-bold text-tinta tracking-tight">BodeParking</div>
-        <div className="text-[9.5px] font-semibold uppercase tracking-widest text-bp-dark">Finanzas</div>
+
+      {/* UF pill */}
+      <div style={{ margin: '8px 12px' }}>
+        <UFDisplay />
+      </div>
+
+      {/* Nav */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
+        <div style={{ fontSize: 9, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1.2px', padding: '8px 8px 3px' }}>
+          Finanzas
+        </div>
+        {NAV.map(item => {
+          const isActive = selectedKey === item.key
+          return (
+            <div
+              key={item.key}
+              onClick={() => onNavigate(item.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '7px 9px', borderRadius: 7, cursor: 'pointer',
+                fontSize: 12, fontWeight: isActive ? 600 : 500,
+                color: isActive ? '#0083b0' : '#475569',
+                background: isActive ? '#e6f5fa' : 'transparent',
+                marginBottom: 1, transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f8fafc' }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+            >
+              <span style={{ fontSize: 13, color: isActive ? '#0083b0' : '#94a3b8', width: 16, textAlign: 'center', flexShrink: 0 }}>
+                {item.icon}
+              </span>
+              <span style={{ flex: 1 }}>{item.label}</span>
+              {item.key === '/erp' && salud?.errores > 0 && (
+                <span style={{ background: '#ef4444', color: '#fff', fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 99 }}>
+                  {salud.errores}
+                </span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Volver al CRM */}
+      <div style={{ padding: '0 12px 8px' }}>
+        <Button
+          block
+          icon={<RollbackOutlined />}
+          onClick={() => navigate('/leads')}
+          style={{ borderRadius: 7, fontSize: 12, fontWeight: 600 }}
+        >
+          Volver al CRM
+        </Button>
+      </div>
+
+      {/* Usuario */}
+      <div style={{ padding: '10px 12px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #0091C3, #00719a)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0,
+        }}>
+          {usuario?.nombre?.[0]}{usuario?.apellido?.[0]}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {usuario?.nombre} {usuario?.apellido}
+          </div>
+          <div style={{ fontSize: 9, color: '#94a3b8' }}>{usuario?.rol?.replace(/_/g, ' ')}</div>
+        </div>
+        <Button
+          type="text"
+          size="small"
+          icon={<LogoutOutlined />}
+          onClick={handleLogout}
+          style={{ color: '#cbd5e1', padding: '0 4px', minWidth: 0 }}
+        />
       </div>
     </div>
-  )
-}
-
-function VolverAlCrm() {
-  const navigate = useNavigate()
-  return (
-    <button
-      type="button"
-      onClick={() => navigate('/leads')}
-      className="flex items-center gap-2 mx-2 mb-2 px-2.5 py-2 rounded-lg text-[11.5px] font-semibold text-gris hover:bg-borde-suave hover:text-tinta transition-colors cursor-pointer"
-    >
-      <ArrowUturnLeftIcon className="w-3.5 h-3.5" aria-hidden="true" />
-      Volver al CRM
-    </button>
   )
 }
 
 export default function ErpLayout() {
-  const { usuario, logout } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
-  const [menuAbierto, setMenuAbierto] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
-  const { data: ufHoy } = useQuery({
-    queryKey: ['uf-actual'],
-    queryFn: () => api.get('/uf').then((r) => r.data).catch(() => null),
-    staleTime: 3600000,
-  })
+  // /erp/banco → /erp/banco; /erp → /erp (el Panel)
+  const partes = location.pathname.split('/')
+  const selectedKey = partes[2] ? `/erp/${partes[2]}` : '/erp'
 
-  const sidebar = (
-    <div className="flex flex-col h-full bg-carta">
-      <Marca />
-      <Nav onNavega={() => setMenuAbierto(false)} />
-      <VolverAlCrm />
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-borde-suave">
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-bp to-bp-dark text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-          {usuario?.nombre?.[0]}{usuario?.apellido?.[0]}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-[11.5px] font-semibold truncate">{usuario?.nombre} {usuario?.apellido}</div>
-          <div className="text-[9.5px] text-sutil">{usuario?.rol?.replace(/_/g, ' ')}</div>
-        </div>
-        <button
-          type="button"
-          onClick={() => { logout(); navigate('/login') }}
-          className="text-[10.5px] text-sutil hover:text-cargo cursor-pointer"
-          title="Cerrar sesión"
-        >
-          Salir
-        </button>
-      </div>
-    </div>
-  )
+  const handleNavigate = (key) => {
+    navigate(key)
+    setMobileOpen(false)
+  }
 
   return (
-    <div className="erp min-h-dvh flex">
-      {/* Sidebar escritorio */}
-      <aside className="hidden md:flex w-52 shrink-0 border-r border-borde flex-col sticky top-0 h-dvh">
-        {sidebar}
-      </aside>
+    <AntLayout style={{ minHeight: '100vh' }}>
+      {/* Desktop sidebar */}
+      <Sider
+        width={220}
+        style={{ background: '#fff', boxShadow: '2px 0 12px rgba(0,0,0,0.04)' }}
+        breakpoint="md"
+        collapsedWidth={0}
+        trigger={null}
+      >
+        <SidebarContent selectedKey={selectedKey} onNavigate={handleNavigate} />
+      </Sider>
 
-      {/* Drawer móvil */}
-      {menuAbierto && (
-        <div className="fixed inset-0 z-[900] md:hidden">
-          <div className="absolute inset-0 bg-tinta/50" onClick={() => setMenuAbierto(false)} />
-          <aside className="absolute inset-y-0 left-0 w-60 shadow-flotante">
-            {sidebar}
-            <button
-              type="button"
-              onClick={() => setMenuAbierto(false)}
-              className="absolute top-3 right-3 text-sutil cursor-pointer"
-              aria-label="Cerrar menú"
-            >
-              <XMarkIcon className="w-5 h-5" />
-            </button>
-          </aside>
-        </div>
-      )}
+      {/* Mobile drawer */}
+      <Drawer
+        placement="left"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        width={220}
+        styles={{ body: { padding: 0 }, header: { display: 'none' } }}
+      >
+        <SidebarContent selectedKey={selectedKey} onNavigate={handleNavigate} />
+      </Drawer>
 
-      <div className="flex-1 min-w-0 flex flex-col">
-        {/* Header fino */}
-        <header className="sticky top-0 z-[100] bg-carta/90 backdrop-blur border-b border-borde h-11 flex items-center gap-3 px-4">
-          <button
-            type="button"
-            className="md:hidden text-gris cursor-pointer"
-            onClick={() => setMenuAbierto(true)}
-            aria-label="Abrir menú"
+      <AntLayout>
+        {/* Header */}
+        <Header style={{
+          background: '#fff',
+          padding: '0 20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          borderBottom: '1px solid #e2e8f0',
+          height: 52,
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+        }}>
+          <Button
+            type="text"
+            icon={<MenuOutlined />}
+            onClick={() => setMobileOpen(true)}
+            className="mobile-menu-btn"
+            style={{ display: 'none' }}
+          />
+          <Badge color="#0091C3" text={<span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Modo ERP · financiero</span>} />
+          <div style={{ flex: 1 }} />
+          <Button
+            size="small"
+            icon={<RollbackOutlined />}
+            onClick={() => navigate('/leads')}
+            style={{ borderRadius: 999, fontWeight: 600, fontSize: 12 }}
           >
-            <Bars3Icon className="w-5 h-5" />
-          </button>
-          <div className="text-[11px] text-sutil font-medium">Modo ERP · financiero</div>
-          <div className="flex-1" />
-          {ufHoy?.valorPesos && (
-            <div className="text-[11px] text-gris monto">
-              UF hoy <span className="font-semibold text-tinta">${new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(ufHoy.valorPesos)}</span>
-            </div>
-          )}
-        </header>
+            CRM
+          </Button>
+        </Header>
 
-        <main className="flex-1 p-4 md:p-5 max-w-[1400px] w-full mx-auto">
+        {/* Content */}
+        <Content style={{ padding: '24px', background: '#f0f4f8', minHeight: 'calc(100vh - 52px)' }}>
           <Outlet />
-        </main>
-      </div>
-    </div>
+        </Content>
+      </AntLayout>
+    </AntLayout>
   )
 }

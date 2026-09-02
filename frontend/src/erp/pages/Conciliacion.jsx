@@ -6,13 +6,15 @@
  * documento creado al vuelo (el caso notaría), la cuenta de un cliente, o
  * marcarlo interno. El matcher propone; la persona confirma.
  */
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import toast from 'react-hot-toast'
-import { BoltIcon } from '@heroicons/react/24/outline'
+import { Card, Tag, Typography, Button, Space, Segmented, Modal, Form, Input, InputNumber, Select, Empty, Spin, App } from 'antd'
+import { ThunderboltOutlined, FileAddOutlined } from '@ant-design/icons'
 import api from '../../services/api'
-import { Carta, Badge, Score, Monto, clp, fecha, Cargando, Vacio, Boton, Modal, Campo, Input, Select } from '../ui'
+import { clp, fecha, Monto, Score, VERDE, ROJO, NUM } from '../ui'
+
+const { Title, Text } = Typography
 
 const invalidar = (qc) => {
   qc.invalidateQueries({ queryKey: ['erp-conciliacion'] })
@@ -21,11 +23,7 @@ const invalidar = (qc) => {
   qc.invalidateQueries({ queryKey: ['erp-documentos'] })
 }
 
-/** Modal "crear documento y conciliar": pagué algo y no tengo documento que subir. */
-function ModalDocumento({ mov, onCerrar }) {
-  const qc = useQueryClient()
-  const [form, setForm] = useState({ descripcion: '', cuentaId: '', proveedorId: '', monto: Math.round(mov.saldoPendiente) })
-
+function useCatalogos() {
   const { data: cuentas } = useQuery({
     queryKey: ['erp-cuentas'],
     queryFn: () => api.get('/erp/cuentas').then((r) => r.data),
@@ -36,6 +34,23 @@ function ModalDocumento({ mov, onCerrar }) {
     queryFn: () => api.get('/erp/proveedores').then((r) => r.data),
     staleTime: 300000,
   })
+  const subcuentas = (cuentas?.arbol || []).flatMap((r) => [
+    ...(r.subcuentas.length ? [] : [{ ...r, grupo: null }]),
+    ...r.subcuentas.map((s) => ({ ...s, grupo: r.nombre })),
+  ])
+  return {
+    opcionesCuenta: subcuentas.map((c) => ({ value: c.id, label: c.grupo ? `${c.grupo} · ${c.nombre}` : c.nombre })),
+    opcionesProveedor: (proveedores || []).map((p) => ({ value: p.id, label: p.razonSocial })),
+  }
+}
+
+/** Modal "crear documento y conciliar": pagué algo y no tengo documento que subir. */
+function ModalDocumento({ mov, onCerrar }) {
+  const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [form] = Form.useForm()
+  const { opcionesCuenta, opcionesProveedor } = useCatalogos()
+
   // El formulario se pre-llena según el historial: "esta misma glosa se clasificó antes como…"
   useQuery({
     queryKey: ['erp-conciliacion', 'historial', mov.id],
@@ -43,13 +58,13 @@ function ModalDocumento({ mov, onCerrar }) {
       const { data } = await api.get('/erp/conciliacion/historial-sugerencia', { params: { movimientoId: mov.id } })
       const s = data?.sugerencia
       if (s) {
-        setForm((f) => ({
-          ...f,
-          descripcion: f.descripcion || s.descripcion || '',
-          cuentaId: f.cuentaId || (s.cuentaId ?? ''),
-          proveedorId: f.proveedorId || (s.proveedorId ?? ''),
-        }))
-        toast(s.motivo, { icon: '💡', id: `hist-${mov.id}` })
+        const actual = form.getFieldsValue()
+        form.setFieldsValue({
+          descripcion: actual.descripcion || s.descripcion || undefined,
+          cuentaId: actual.cuentaId ?? s.cuentaId ?? undefined,
+          proveedorId: actual.proveedorId ?? s.proveedorId ?? undefined,
+        })
+        message.info(s.motivo, 4)
       }
       return data
     },
@@ -57,64 +72,51 @@ function ModalDocumento({ mov, onCerrar }) {
   })
 
   const crear = useMutation({
-    mutationFn: () => api.post('/erp/conciliacion/documento', {
-      movimientoId: mov.id,
-      descripcion: form.descripcion,
-      cuentaId: form.cuentaId || null,
-      proveedorId: form.proveedorId || null,
-      monto: Number(form.monto),
-    }).then((r) => r.data),
-    onSuccess: () => { invalidar(qc); toast.success('Documento creado y conciliado.'); onCerrar() },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo crear el documento.'),
+    mutationFn: (valores) => api.post('/erp/conciliacion/documento', { movimientoId: mov.id, ...valores }).then((r) => r.data),
+    onSuccess: () => { invalidar(qc); message.success('Documento creado y conciliado.'); onCerrar() },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo crear el documento.'),
   })
 
-  const subcuentas = (cuentas?.arbol || []).flatMap((r) => [
-    ...(r.subcuentas.length ? [] : [r]),
-    ...r.subcuentas.map((s) => ({ ...s, grupo: r.nombre })),
-  ])
-
   return (
-    <Modal abierto onCerrar={onCerrar} titulo="Crear documento y conciliar">
-      <p className="text-[11.5px] text-gris mb-3">
+    <Modal open title="Crear documento y conciliar" onCancel={onCerrar} footer={null} destroyOnHidden>
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
         El documento ficticio para la plata sin factura (una notaría, una comisión bancaria).
-        Queda amarrado a este movimiento: <span className="font-medium text-tinta">{mov.glosa}</span>
-      </p>
-      <div className="space-y-3">
-        <Campo label="Qué fue esta plata">
-          <Input autoFocus value={form.descripcion} placeholder="Ej: Gastos notariales promesa Aldunate"
-            onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))} />
-        </Campo>
-        <div className="grid grid-cols-2 gap-3">
-          <Campo label="Cuenta del plan">
-            <Select value={form.cuentaId} onChange={(e) => setForm((f) => ({ ...f, cuentaId: e.target.value }))}>
-              <option value="">Sin clasificar</option>
-              {subcuentas.map((c) => <option key={c.id} value={c.id}>{c.grupo ? `${c.grupo} · ` : ''}{c.nombre}</option>)}
-            </Select>
-          </Campo>
-          <Campo label="Proveedor (opcional)">
-            <Select value={form.proveedorId} onChange={(e) => setForm((f) => ({ ...f, proveedorId: e.target.value }))}>
-              <option value="">—</option>
-              {(proveedores || []).map((p) => <option key={p.id} value={p.id}>{p.razonSocial}</option>)}
-            </Select>
-          </Campo>
+        Queda amarrado a este movimiento: <Text strong>{mov.glosa}</Text>
+      </Text>
+      <Form
+        form={form}
+        layout="vertical"
+        size="middle"
+        initialValues={{ monto: Math.round(mov.saldoPendiente) }}
+        onFinish={(v) => crear.mutate(v)}
+      >
+        <Form.Item name="descripcion" label="Qué fue esta plata" rules={[{ required: true, message: 'Describe qué fue' }]}>
+          <Input autoFocus placeholder="Ej: Gastos notariales promesa Aldunate" />
+        </Form.Item>
+        <Space.Compact block>
+          <Form.Item name="cuentaId" label="Cuenta del plan" style={{ flex: 1, marginRight: 8 }}>
+            <Select allowClear showSearch optionFilterProp="label" placeholder="Sin clasificar" options={opcionesCuenta} />
+          </Form.Item>
+          <Form.Item name="proveedorId" label="Proveedor (opcional)" style={{ flex: 1 }}>
+            <Select allowClear showSearch optionFilterProp="label" placeholder="—" options={opcionesProveedor} />
+          </Form.Item>
+        </Space.Compact>
+        <Form.Item name="monto" label={`Monto a imputar (disponible ${clp(mov.saldoPendiente)})`}
+          rules={[{ required: true, message: 'Indica el monto' }]}>
+          <InputNumber style={{ width: '100%' }} min={1} max={Math.round(mov.saldoPendiente)} formatter={(v) => `$ ${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')} parser={(v) => v.replace(/[^\d]/g, '')} />
+        </Form.Item>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button type="primary" htmlType="submit" loading={crear.isPending}>Crear y conciliar</Button>
         </div>
-        <Campo label={`Monto a imputar (disponible ${clp(mov.saldoPendiente)})`}>
-          <Input type="number" value={form.monto} min={1} max={Math.round(mov.saldoPendiente)}
-            onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))} />
-        </Campo>
-        <div className="flex justify-end gap-2 pt-1">
-          <Boton onClick={onCerrar}>Cancelar</Boton>
-          <Boton variante="primario" disabled={!form.descripcion.trim() || crear.isPending} onClick={() => crear.mutate()}>
-            {crear.isPending ? 'Guardando…' : 'Crear y conciliar'}
-          </Boton>
-        </div>
-      </div>
+      </Form>
     </Modal>
   )
 }
 
 function FilaMovimiento({ mov }) {
   const qc = useQueryClient()
+  const { message, modal } = App.useApp()
   const [modalDoc, setModalDoc] = useState(false)
 
   const conciliarSug = useMutation({
@@ -124,81 +126,88 @@ function FilaMovimiento({ mov }) {
       facturaCompraId: s.facturaCompraId, documentoInternoId: s.documentoInternoId,
       confianza: s.score,
     }).then((r) => r.data),
-    onSuccess: () => { invalidar(qc); toast.success('Conciliado.') },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo conciliar.'),
+    onSuccess: () => { invalidar(qc); message.success('Conciliado.') },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo conciliar.'),
   })
 
   const aCuenta = useMutation({
     mutationFn: () => api.post('/erp/conciliacion', { movimientoId: mov.id, contactoId: mov.contraparte?.id }).then((r) => r.data),
-    onSuccess: () => { invalidar(qc); toast.success('Imputado a la cuenta del cliente.') },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo imputar.'),
+    onSuccess: () => { invalidar(qc); message.success('Imputado a la cuenta del cliente.') },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo imputar.'),
   })
 
   const ignorar = useMutation({
     mutationFn: () => api.patch(`/erp/banco/movimientos/${mov.id}`, { ignorado: true }).then((r) => r.data),
-    onSuccess: () => { invalidar(qc); toast.success('Fuera del radar de conciliación.') },
+    onSuccess: () => { invalidar(qc); message.success('Fuera del radar de conciliación.') },
   })
 
   const c = mov.contraparte
 
   return (
-    <div className="border-b border-borde-suave last:border-0 px-4 py-3 hover:bg-borde-suave/40">
-      <div className="flex items-start gap-3 flex-wrap">
-        <div className="w-16 shrink-0">
-          <div className="monto text-[11.5px] text-sutil">{fecha(mov.fecha)}</div>
-          <Monto valor={mov.monto} className="text-[14px] font-bold block" />
+    <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* Monto y fecha */}
+        <div style={{ width: 110, flexShrink: 0 }}>
+          <Text type="secondary" style={{ fontSize: 11, ...NUM }}>{fecha(mov.fecha)}</Text>
+          <div><Monto valor={mov.monto} style={{ fontSize: 15 }} /></div>
           {mov.saldoPendiente < Math.abs(mov.monto) - 500 && (
-            <div className="text-[10px] text-sutil monto">quedan {clp(mov.saldoPendiente)}</div>
+            <Text type="secondary" style={{ fontSize: 10, ...NUM }}>quedan {clp(mov.saldoPendiente)}</Text>
           )}
         </div>
-        <div className="flex-1 min-w-[240px]">
-          <div className="text-[12.5px] truncate" title={mov.glosa}>{mov.glosa}</div>
-          <div className="mt-0.5 flex items-center gap-1.5 flex-wrap text-[11px]">
+
+        {/* Glosa + contraparte + sugerencias */}
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <Text style={{ fontSize: 13 }} ellipsis={{ tooltip: mov.glosa }}>{mov.glosa}</Text>
+          <div style={{ marginTop: 2 }}>
             {c ? (
-              <>
-                <Badge tono={c.sugerida ? 'gris' : 'azul'} title={c.sugerida ? `Propuesta (${c.como})` : 'Identificada'}>
-                  {c.sugerida ? '¿' : ''}{c.nombre}{c.sugerida ? '?' : ''}
-                </Badge>
-                {c.telefono && <span className="text-sutil monto">{c.telefono}</span>}
-              </>
-            ) : <span className="text-sutil">Contraparte sin identificar</span>}
+              <Space size={6}>
+                <Tag color={c.sugerida ? 'default' : 'blue'} title={c.sugerida ? `Propuesta (${c.como})` : 'Identificada'}>
+                  {c.sugerida ? `¿${c.nombre}?` : c.nombre}
+                </Tag>
+                {c.telefono && <Text type="secondary" style={{ fontSize: 11, ...NUM }}>{c.telefono}</Text>}
+              </Space>
+            ) : <Text type="secondary" style={{ fontSize: 11 }}>Contraparte sin identificar</Text>}
           </div>
-          {/* Sugerencias */}
+
           {mov.sugerencias?.length > 0 && (
-            <ul className="mt-2 space-y-1">
+            <div style={{ marginTop: 8 }}>
               {mov.sugerencias.slice(0, 3).map((s, i) => (
-                <li key={i} className="flex items-center gap-2 text-[11.5px]">
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
                   <Score valor={s.score} motivos={s.motivos} />
-                  <span className="flex-1 truncate">
+                  <Text style={{ fontSize: 12, flex: 1 }} ellipsis>
                     {s.etiqueta} · {s.nombre}
-                    {s.cuenta && <span className="text-sutil"> · {s.cuenta}</span>}
-                    <span className="text-sutil monto"> · {clp(s.saldoPorCobrar)}</span>
-                  </span>
-                  <Boton size="sm" variante={i === 0 ? 'verde' : 'normal'} disabled={conciliarSug.isPending}
+                    {s.cuenta ? <Text type="secondary"> · {s.cuenta}</Text> : null}
+                    <Text type="secondary" style={NUM}> · {clp(s.saldoPorCobrar)}</Text>
+                  </Text>
+                  <Button size="small" type={i === 0 ? 'primary' : 'default'} loading={conciliarSug.isPending}
                     onClick={() => conciliarSug.mutate(s)}>
                     Conciliar
-                  </Boton>
-                </li>
+                  </Button>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {mov.lado === 'CARGO' && (
-            <Boton size="sm" onClick={() => setModalDoc(true)}>+ Documento</Boton>
-          )}
+
+        {/* Acciones */}
+        <Space style={{ flexShrink: 0 }}>
+          <Button size="small" icon={<FileAddOutlined />} onClick={() => setModalDoc(true)}>Documento</Button>
           {mov.lado === 'ABONO' && c && !c.sugerida && c.tipo === 'cliente' && (
-            <Boton size="sm" onClick={() => aCuenta.mutate()} disabled={aCuenta.isPending} title="Plata del cliente sin destino todavía">
+            <Button size="small" onClick={() => aCuenta.mutate()} loading={aCuenta.isPending}
+              title="Plata del cliente sin destino todavía">
               A cuenta
-            </Boton>
+            </Button>
           )}
-          {mov.lado === 'ABONO' && (!c || c.sugerida) && (
-            <Boton size="sm" onClick={() => setModalDoc(true)}>+ Documento</Boton>
-          )}
-          <Boton size="sm" variante="fantasma" onClick={() => ignorar.mutate()} title="Traspasos propios, fuera del radar">
+          <Button size="small" type="text"
+            onClick={() => modal.confirm({
+              title: '¿Sacar este movimiento del radar?',
+              content: 'Para traspasos entre cuentas propias o cosas que no hay que conciliar.',
+              okText: 'Ignorar', cancelText: 'Cancelar',
+              onOk: () => ignorar.mutate(),
+            })}>
             Ignorar
-          </Boton>
-        </div>
+          </Button>
+        </Space>
       </div>
       {modalDoc && <ModalDocumento mov={mov} onCerrar={() => setModalDoc(false)} />}
     </div>
@@ -209,6 +218,7 @@ export default function Conciliacion() {
   const [params, setParams] = useSearchParams()
   const lado = params.get('lado') || 'todos'
   const qc = useQueryClient()
+  const { message } = App.useApp()
 
   const { data: resumen } = useQuery({
     queryKey: ['erp-conciliacion', 'resumen'],
@@ -225,49 +235,45 @@ export default function Conciliacion() {
     mutationFn: () => api.post('/erp/conciliacion/automatica', {}).then((r) => r.data),
     onSuccess: (r) => {
       invalidar(qc)
-      toast.success(`${r.conciliadas} conciliadas solas (${r.ambiguos} ambiguas quedaron para ti).`, { duration: 6000 })
+      message.success(`${r.conciliadas} conciliadas solas (${r.ambiguos} ambiguas quedaron para ti).`, 6)
     },
-    onError: (e) => toast.error(e.response?.data?.error || 'Error en la conciliación automática.'),
+    onError: (e) => message.error(e.response?.data?.error || 'Error en la conciliación automática.'),
   })
 
-  const filas = useMemo(() => bandeja || [], [bandeja])
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-4">
-          <h1 className="text-[17px] font-bold tracking-tight">Conciliación</h1>
-          <div className="flex items-center gap-1 bg-carta border border-borde rounded-lg p-0.5">
-            {[['todos', 'Todos'], ['abonos', 'Abonos'], ['cargos', 'Cargos']].map(([k, l]) => (
-              <button key={k} type="button" onClick={() => setParams(k === 'todos' ? {} : { lado: k })}
-                className={`px-2.5 py-1 rounded-md text-[11.5px] font-semibold cursor-pointer transition-colors ${lado === k ? 'bg-bp-soft text-bp-dark' : 'text-gris hover:text-tinta'}`}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-        <Boton variante="primario" size="sm" onClick={() => automatica.mutate()} disabled={automatica.isPending}>
-          <BoltIcon className="w-3.5 h-3.5" aria-hidden="true" />
-          {automatica.isPending ? 'Cruzando…' : 'Conciliar automático'}
-        </Boton>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <Space size="large">
+          <Title level={4} style={{ margin: 0 }}>Conciliación</Title>
+          <Segmented
+            options={[{ label: 'Todos', value: 'todos' }, { label: 'Abonos', value: 'abonos' }, { label: 'Cargos', value: 'cargos' }]}
+            value={lado}
+            onChange={(v) => setParams(v === 'todos' ? {} : { lado: v })}
+          />
+        </Space>
+        <Button type="primary" icon={<ThunderboltOutlined />} loading={automatica.isPending} onClick={() => automatica.mutate()}>
+          Conciliar automático
+        </Button>
       </div>
 
       {resumen && (
-        <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11.5px] text-gris">
-          <span><span className="monto font-semibold text-abono">{clp(resumen.abonosSinConciliar.monto)}</span> en {resumen.abonosSinConciliar.cantidad} abonos sin conciliar</span>
-          <span><span className="monto font-semibold text-cargo">{clp(resumen.cargosSinDocumento.monto)}</span> en {resumen.cargosSinDocumento.cantidad} cargos sin documento</span>
-          <span><span className="monto font-semibold">{clp(resumen.cuotasPorCobrar.monto)}</span> en cuotas por cobrar</span>
-          <span><span className="monto font-semibold">{clp(resumen.documentosAbiertos.monto + resumen.comprasAbiertas.monto)}</span> en documentos abiertos</span>
-        </div>
+        <Space size="large" wrap style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12 }}><Text strong style={{ color: VERDE, ...NUM }}>{clp(resumen.abonosSinConciliar.monto)}</Text> en {resumen.abonosSinConciliar.cantidad} abonos sin conciliar</Text>
+          <Text style={{ fontSize: 12 }}><Text strong style={{ color: ROJO, ...NUM }}>{clp(resumen.cargosSinDocumento.monto)}</Text> en {resumen.cargosSinDocumento.cantidad} cargos sin documento</Text>
+          <Text style={{ fontSize: 12 }}><Text strong style={NUM}>{clp(resumen.cuotasPorCobrar.monto)}</Text> en cuotas por cobrar</Text>
+          <Text style={{ fontSize: 12 }}><Text strong style={NUM}>{clp(resumen.documentosAbiertos.monto + resumen.comprasAbiertas.monto)}</Text> en documentos abiertos</Text>
+        </Space>
       )}
 
-      <Carta>
-        {isLoading ? <Cargando alto="h-56" /> : !filas.length ? (
-          <Vacio>Nada por conciliar con este filtro. Cada peso del banco tiene su documento. 🎯</Vacio>
+      <Card styles={{ body: { padding: 0 } }}>
+        {isLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spin size="large" /></div>
+        ) : !bandeja?.length ? (
+          <Empty style={{ padding: 40 }} description="Nada por conciliar con este filtro. Cada peso del banco tiene su documento. 🎯" />
         ) : (
-          filas.map((m) => <FilaMovimiento key={m.id} mov={m} />)
+          bandeja.map((m) => <FilaMovimiento key={m.id} mov={m} />)
         )}
-      </Carta>
+      </Card>
     </div>
   )
 }

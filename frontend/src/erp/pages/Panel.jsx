@@ -1,28 +1,35 @@
 /**
- * Panel financiero: las preguntas que uno se hace al abrir el ERP.
- * ¿Cuánta plata hay? ¿Cuánto me deben? ¿Cómo viene el mes? ¿Qué espera decisión mía?
+ * Panel financiero: ¿cuánta plata hay? ¿cuánto me deben? ¿cómo viene el mes?
+ * ¿qué espera una decisión mía? Todo calculado en el backend, nada guardado.
  */
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ExclamationTriangleIcon, CheckCircleIcon } from '@heroicons/react/24/solid'
+import { Card, Row, Col, Statistic, Typography, Progress, List, Tag, Alert, Empty, Spin, Badge } from 'antd'
+import { BankOutlined, ArrowUpOutlined, ArrowDownOutlined, TeamOutlined, CalendarOutlined } from '@ant-design/icons'
 import api from '../../services/api'
-import { Carta, CartaTitulo, Kpi, Badge, Monto, clp, fecha, Cargando, Vacio, Boton } from '../ui'
+import { clp, fecha, VERDE, ROJO, AMBAR, NUM } from '../ui'
+
+const { Title, Text } = Typography
 
 function BarraPresupuesto({ cuenta }) {
   const usado = cuenta.ejecutado + cuenta.comprometido
-  const pct = cuenta.presupuesto > 0 ? Math.min(100, Math.round((usado / cuenta.presupuesto) * 100)) : null
-  const color = pct == null ? 'var(--color-sutil)' : pct > 100 ? 'var(--color-cargo)' : pct >= 85 ? 'var(--color-alerta)' : 'var(--color-abono)'
+  const pct = cuenta.presupuesto > 0 ? Math.round((usado / cuenta.presupuesto) * 100) : null
+  const color = pct == null ? '#94a3b8' : pct > 100 ? ROJO : pct >= 85 ? '#faad14' : '#52c41a'
   return (
-    <div className="py-1.5">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[12px] font-medium truncate">{cuenta.nombre}</span>
-        <span className="monto text-[11.5px] text-gris whitespace-nowrap">
-          {clp(usado)}{cuenta.presupuesto > 0 && <span className="text-sutil"> / {clp(cuenta.presupuesto)}</span>}
-        </span>
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+        <Text style={{ fontSize: 13 }}>{cuenta.nombre}</Text>
+        <Text type="secondary" style={{ fontSize: 12, ...NUM, whiteSpace: 'nowrap' }}>
+          {clp(usado)}{cuenta.presupuesto > 0 ? ` / ${clp(cuenta.presupuesto)}` : ''}
+        </Text>
       </div>
-      <div className="barra mt-1" role="img" aria-label={pct != null ? `${pct}% del presupuesto` : 'sin presupuesto'}>
-        <span style={{ width: `${pct == null ? (usado > 0 ? 100 : 0) : Math.min(pct, 100)}%`, background: color }} />
-      </div>
+      <Progress
+        percent={pct == null ? (usado > 0 ? 100 : 0) : Math.min(pct, 100)}
+        showInfo={pct != null}
+        format={() => `${pct}%`}
+        strokeColor={color}
+        size="small"
+      />
     </div>
   )
 }
@@ -34,124 +41,150 @@ export default function Panel() {
     staleTime: 60000,
   })
 
-  if (isLoading || !data) return <Cargando alto="h-64" />
+  if (isLoading || !data) {
+    return <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}><Spin size="large" /></div>
+  }
 
   const { caja, cxc, proximos30, provisiones, presupuestoMes, pendientes, salud } = data
   const cuentasConMovimiento = (presupuestoMes?.cuentas || []).filter((c) => c.presupuesto > 0 || c.ejecutado > 0 || c.comprometido > 0)
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-[17px] font-bold tracking-tight">Panel financiero</h1>
-        <span className="text-[11px] text-sutil">
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
+        <Title level={4} style={{ margin: 0 }}>Panel financiero</Title>
+        <Text type="secondary" style={{ fontSize: 12 }}>
           {caja.saldoAl ? `Banco al ${fecha(caja.saldoAl)}` : 'Sin cartola cargada'}
-        </span>
+        </Text>
       </div>
+
+      {salud.errores > 0 && (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={`${salud.errores} error${salud.errores === 1 ? '' : 'es'} en los datos — las cifras no son confiables hasta revisarlos.`}
+        />
+      )}
 
       {/* Las cifras que mandan */}
-      <div className="flex flex-wrap gap-3">
-        <Kpi etiqueta="Saldo banco" valor={clp(caja.saldo)} sub={`${caja.cuentas} cuenta${caja.cuentas === 1 ? '' : 's'}`} tono="bp" />
-        <Kpi etiqueta="Entradas del mes" valor={clp(caja.entradasMes)} tono="abono" />
-        <Kpi etiqueta="Salidas del mes" valor={clp(caja.salidasMes)} tono="cargo" />
-        <Kpi
-          etiqueta="Por cobrar (cuotas)"
-          valor={clp(cxc.total)}
-          sub={cxc.vencido > 0 ? `${clp(cxc.vencido)} vencido` : 'nada vencido'}
-          tono={cxc.vencido > 0 ? 'alerta' : 'neutro'}
-        />
-        <Kpi
-          etiqueta="Próximos 30 días"
-          valor={clp(proximos30.neto)}
-          sub={`${clp(proximos30.porCobrar)} entra · ${clp(proximos30.porPagar)} sale`}
-          tono={proximos30.neto >= 0 ? 'abono' : 'cargo'}
-        />
-      </div>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={12} lg={5}>
+          <Card>
+            <Statistic title="Saldo banco" value={caja.saldo ?? '—'} formatter={(v) => (typeof v === 'number' ? clp(v) : v)}
+              prefix={<BankOutlined />} valueStyle={{ color: '#0083b0', ...NUM }} />
+            <Text type="secondary" style={{ fontSize: 11 }}>{caja.cuentas} cuenta{caja.cuentas === 1 ? '' : 's'}</Text>
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} lg={5}>
+          <Card>
+            <Statistic title="Entradas del mes" value={caja.entradasMes} formatter={clp}
+              prefix={<ArrowUpOutlined />} valueStyle={{ color: VERDE, ...NUM }} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} lg={5}>
+          <Card>
+            <Statistic title="Salidas del mes" value={caja.salidasMes} formatter={clp}
+              prefix={<ArrowDownOutlined />} valueStyle={{ color: ROJO, ...NUM }} />
+          </Card>
+        </Col>
+        <Col xs={12} sm={12} lg={4}>
+          <Card>
+            <Statistic title="Por cobrar (cuotas)" value={cxc.total} formatter={clp}
+              prefix={<TeamOutlined />} valueStyle={{ color: cxc.vencido > 0 ? AMBAR : undefined, ...NUM }} />
+            <Text type={cxc.vencido > 0 ? 'danger' : 'secondary'} style={{ fontSize: 11 }}>
+              {cxc.vencido > 0 ? `${clp(cxc.vencido)} vencido` : 'nada vencido'}
+            </Text>
+          </Card>
+        </Col>
+        <Col xs={24} sm={24} lg={5}>
+          <Card>
+            <Statistic title="Próximos 30 días" value={proximos30.neto} formatter={clp}
+              prefix={<CalendarOutlined />} valueStyle={{ color: proximos30.neto >= 0 ? VERDE : ROJO, ...NUM }} />
+            <Text type="secondary" style={{ fontSize: 11, ...NUM }}>
+              {clp(proximos30.porCobrar)} entra · {clp(proximos30.porPagar)} sale
+            </Text>
+          </Card>
+        </Col>
+      </Row>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <Row gutter={[16, 16]}>
         {/* Presupuesto del mes */}
-        <Carta className="lg:col-span-1">
-          <CartaTitulo extra={<Link to="/erp/presupuesto" className="text-[11px] font-semibold text-bp-dark hover:underline">Ver todo</Link>}>
-            Presupuesto del mes
-          </CartaTitulo>
-          <div className="px-4 pb-3">
+        <Col xs={24} lg={8}>
+          <Card
+            title="Presupuesto del mes"
+            extra={<Link to="/erp/presupuesto" style={{ fontSize: 12 }}>Ver todo</Link>}
+            styles={{ body: { paddingTop: 12 } }}
+          >
             {cuentasConMovimiento.length
               ? cuentasConMovimiento.map((c) => <BarraPresupuesto key={c.id} cuenta={c} />)
-              : <Vacio>Sin presupuesto cargado este mes. <Link className="text-bp-dark font-semibold" to="/erp/presupuesto">Cárgalo acá</Link>.</Vacio>}
-          </div>
-        </Carta>
+              : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<span>Sin presupuesto este mes. <Link to="/erp/presupuesto">Cárgalo acá</Link>.</span>} />}
+          </Card>
+        </Col>
 
         {/* No te han facturado */}
-        <Carta>
-          <CartaTitulo extra={provisiones.vencidasSinFactura > 0 && <Badge tono="ambar">{provisiones.vencidasSinFactura}</Badge>}>
-            ¿No te han facturado?
-          </CartaTitulo>
-          <div className="px-4 pb-3">
+        <Col xs={24} lg={8}>
+          <Card
+            title={<span>¿No te han facturado? {provisiones.vencidasSinFactura > 0 && <Badge count={provisiones.vencidasSinFactura} color="orange" />}</span>}
+            extra={<Link to="/erp/documentos?estado=VENCIDO_SIN_FACTURA" style={{ fontSize: 12 }}>Ver</Link>}
+          >
             {provisiones.vencidasSinFactura === 0 ? (
-              <Vacio>Ninguna provisión vencida sin factura. Todo lo esperado está al día.</Vacio>
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Ninguna provisión vencida sin factura." />
             ) : (
               <>
-                <p className="text-[11.5px] text-gris mb-2">
-                  {clp(provisiones.montoSinFactura)} en gastos cuya fecha pasó y la factura no ha llegado:
-                </p>
-                <ul className="space-y-1.5">
-                  {provisiones.detalle.map((p) => (
-                    <li key={p.documentoInternoId} className="flex items-baseline justify-between gap-2 text-[12px]">
-                      <span className="truncate">
-                        {p.concepto}
-                        {p.proveedor && <span className="text-sutil"> · {p.proveedor}</span>}
-                      </span>
-                      <span className="monto text-alerta font-semibold whitespace-nowrap">{clp(p.monto)}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/erp/documentos?estado=VENCIDO_SIN_FACTURA">
-                  <Boton variante="normal" size="sm" className="mt-3 w-full">Ver provisiones vencidas</Boton>
-                </Link>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {clp(provisiones.montoSinFactura)} en gastos cuya fecha pasó y la factura no llega:
+                </Text>
+                <List
+                  size="small"
+                  dataSource={provisiones.detalle}
+                  renderItem={(p) => (
+                    <List.Item style={{ padding: '6px 0' }}>
+                      <Text style={{ fontSize: 13, flex: 1 }} ellipsis>
+                        {p.concepto}{p.proveedor ? <Text type="secondary"> · {p.proveedor}</Text> : ''}
+                      </Text>
+                      <Text strong style={{ color: AMBAR, ...NUM }}>{clp(p.monto)}</Text>
+                    </List.Item>
+                  )}
+                />
               </>
             )}
-          </div>
-        </Carta>
+          </Card>
+        </Col>
 
-        {/* Trabajo pendiente + salud */}
-        <Carta>
-          <CartaTitulo>Espera una decisión tuya</CartaTitulo>
-          <div className="px-4 pb-3 space-y-2">
-            <Link to="/erp/conciliacion" className="flex items-baseline justify-between gap-2 text-[12px] hover:bg-borde-suave rounded-md px-1.5 py-1 -mx-1.5">
-              <span>Abonos sin imputar <Badge tono={pendientes.abonosSinImputar.cantidad ? 'azul' : 'gris'}>{pendientes.abonosSinImputar.cantidad}</Badge></span>
-              <Monto valor={pendientes.abonosSinImputar.monto} signo="abono" className="font-semibold" />
+        {/* Espera una decisión tuya */}
+        <Col xs={24} lg={8}>
+          <Card title="Espera una decisión tuya">
+            <Link to="/erp/conciliacion?lado=abonos" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+              <span style={{ fontSize: 13 }}>Abonos sin imputar <Tag color="blue">{pendientes.abonosSinImputar.cantidad}</Tag></span>
+              <Text strong style={{ color: VERDE, ...NUM }}>{clp(pendientes.abonosSinImputar.monto)}</Text>
             </Link>
-            <Link to="/erp/conciliacion?lado=cargos" className="flex items-baseline justify-between gap-2 text-[12px] hover:bg-borde-suave rounded-md px-1.5 py-1 -mx-1.5">
-              <span>Cargos sin documento <Badge tono={pendientes.cargosSinDocumento.cantidad ? 'ambar' : 'gris'}>{pendientes.cargosSinDocumento.cantidad}</Badge></span>
-              <Monto valor={pendientes.cargosSinDocumento.monto} signo="cargo" className="font-semibold" />
+            <Link to="/erp/conciliacion?lado=cargos" style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+              <span style={{ fontSize: 13 }}>Cargos sin documento <Tag color="orange">{pendientes.cargosSinDocumento.cantidad}</Tag></span>
+              <Text strong style={{ color: ROJO, ...NUM }}>−{clp(pendientes.cargosSinDocumento.monto)}</Text>
             </Link>
+
             {cxc.peores.length > 0 && (
-              <div className="pt-1 border-t border-borde-suave">
-                <div className="text-[10.5px] font-semibold uppercase tracking-wider text-sutil mb-1">A quién llamar</div>
+              <>
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 1, margin: '10px 0 4px' }}>
+                  A quién llamar
+                </div>
                 {cxc.peores.map((c) => (
-                  <Link key={c.contactoId} to={`/erp/cartera`} className="flex items-baseline justify-between gap-2 text-[12px] py-0.5 hover:text-bp-dark">
-                    <span className="truncate">{c.nombre} <span className="text-sutil">· {c.diasMax} días</span></span>
-                    <span className="monto font-semibold text-cargo">{clp(c.vencido || c.total)}</span>
+                  <Link key={c.contactoId} to="/erp/cartera" style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
+                    <Text style={{ fontSize: 13 }} ellipsis>{c.nombre} <Text type="secondary">· {c.diasMax} días</Text></Text>
+                    <Text strong style={{ color: ROJO, ...NUM }}>{clp(c.vencido || c.total)}</Text>
                   </Link>
                 ))}
-              </div>
+              </>
             )}
-            <div className="pt-1 border-t border-borde-suave flex items-center gap-1.5 text-[11.5px]">
-              {salud.errores > 0 ? (
-                <>
-                  <ExclamationTriangleIcon className="w-3.5 h-3.5 text-cargo" aria-hidden="true" />
-                  <span className="text-cargo font-semibold">{salud.errores} error{salud.errores === 1 ? '' : 'es'} en los datos</span>
-                  <span className="text-sutil">— las cifras no son confiables hasta revisarlo</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircleIcon className="w-3.5 h-3.5 text-abono" aria-hidden="true" />
-                  <span className="text-gris">Datos sanos{salud.avisos > 0 ? ` · ${salud.avisos} aviso${salud.avisos === 1 ? '' : 's'}` : ''}</span>
-                </>
-              )}
+
+            <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 10, paddingTop: 8 }}>
+              {salud.errores > 0
+                ? <Text type="danger" style={{ fontSize: 12 }}>⚠ {salud.errores} error(es) en los datos</Text>
+                : <Text type="secondary" style={{ fontSize: 12 }}>✓ Datos sanos{salud.avisos > 0 ? ` · ${salud.avisos} aviso${salud.avisos === 1 ? '' : 's'}` : ''}</Text>}
             </div>
-          </div>
-        </Carta>
-      </div>
+          </Card>
+        </Col>
+      </Row>
     </div>
   )
 }

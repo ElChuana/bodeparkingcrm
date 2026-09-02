@@ -8,15 +8,18 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import toast from 'react-hot-toast'
+import { Card, Table, Tag, Typography, Button, Space, Tabs, Modal, Form, Input, InputNumber, Select, DatePicker, Segmented, App } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
+import dayjs from 'dayjs'
 import api from '../../services/api'
-import {
-  Carta, Tabla, Th, Td, Badge, EstadoDoc, clp, uf, fecha, mesLabel,
-  Cargando, Vacio, Boton, Modal, Campo, Input, Select,
-} from '../ui'
+import { clp, uf, fecha, mesLabel, EstadoDoc, VERDE, ROJO, NUM } from '../ui'
+
+const { Title, Text } = Typography
 
 const invalidar = (qc) => {
   qc.invalidateQueries({ queryKey: ['erp-documentos'] })
+  qc.invalidateQueries({ queryKey: ['erp-facturas'] })
+  qc.invalidateQueries({ queryKey: ['erp-gastos'] })
   qc.invalidateQueries({ queryKey: ['erp-dashboard'] })
   qc.invalidateQueries({ queryKey: ['erp-conciliacion'] })
 }
@@ -33,75 +36,76 @@ function useCatalogos() {
     staleTime: 300000,
   })
   const subcuentas = (cuentas?.arbol || []).flatMap((r) => [
-    ...(r.subcuentas.length ? [] : [r]),
+    ...(r.subcuentas.length ? [] : [{ ...r, grupo: null }]),
     ...r.subcuentas.map((s) => ({ ...s, grupo: r.nombre })),
   ])
-  return { subcuentas, proveedores: proveedores || [] }
+  return {
+    opcionesCuenta: subcuentas.map((c) => ({ value: c.id, label: c.grupo ? `${c.grupo} · ${c.nombre}` : c.nombre })),
+    opcionesProveedor: (proveedores || []).map((p) => ({ value: p.id, label: p.razonSocial })),
+  }
 }
 
-function SelectCuenta({ value, onChange, subcuentas }) {
-  return (
-    <Select value={value} onChange={onChange}>
-      <option value="">Sin clasificar</option>
-      {subcuentas.map((c) => <option key={c.id} value={c.id}>{c.grupo ? `${c.grupo} · ` : ''}{c.nombre}</option>)}
-    </Select>
-  )
-}
+const CampoMonto = () => (
+  <Space.Compact block>
+    <Form.Item name="montoUF" label="Monto UF" style={{ flex: 1, marginRight: 8 }}>
+      <InputNumber style={{ width: '100%' }} min={0} step={0.01} placeholder="—" />
+    </Form.Item>
+    <Form.Item name="montoCLP" label="o Monto $" style={{ flex: 1 }}>
+      <InputNumber style={{ width: '100%' }} min={0} placeholder="—" />
+    </Form.Item>
+  </Space.Compact>
+)
 
 // ─── Provisiones y respaldos ──────────────────────────────────
 
 function ModalProvision({ onCerrar }) {
   const qc = useQueryClient()
-  const { subcuentas, proveedores } = useCatalogos()
-  const [form, setForm] = useState({ descripcion: '', fechaEsperada: '', montoUF: '', montoCLP: '', cuentaId: '', proveedorId: '' })
+  const { message } = App.useApp()
+  const { opcionesCuenta, opcionesProveedor } = useCatalogos()
 
   const crear = useMutation({
-    mutationFn: () => api.post('/erp/documentos', form).then((r) => r.data),
-    onSuccess: () => { invalidar(qc); toast.success('Provisión creada.'); onCerrar() },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo crear.'),
+    mutationFn: (v) => api.post('/erp/documentos', { ...v, fechaEsperada: v.fechaEsperada?.format('YYYY-MM-DD') }).then((r) => r.data),
+    onSuccess: () => { invalidar(qc); message.success('Provisión creada.'); onCerrar() },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo crear.'),
   })
 
   return (
-    <Modal abierto onCerrar={onCerrar} titulo="Nueva provisión">
-      <p className="text-[11.5px] text-gris mb-3">
+    <Modal open title="Nueva provisión" onCancel={onCerrar} footer={null} destroyOnHidden>
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
         "Sé que me van a facturar tal fecha tal cosa." Cuando llegue la factura real se asocia;
         si la fecha pasa sin factura, el sistema avisa.
-      </p>
-      <div className="space-y-3">
-        <Campo label="Qué es"><Input autoFocus value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))} placeholder="Ej: Asesoría legal septiembre" /></Campo>
-        <div className="grid grid-cols-3 gap-3">
-          <Campo label="Fecha esperada"><Input type="date" value={form.fechaEsperada} onChange={(e) => setForm((f) => ({ ...f, fechaEsperada: e.target.value }))} /></Campo>
-          <Campo label="Monto UF"><Input type="number" step="0.01" value={form.montoUF} onChange={(e) => setForm((f) => ({ ...f, montoUF: e.target.value, montoCLP: '' }))} placeholder="—" /></Campo>
-          <Campo label="o Monto $"><Input type="number" value={form.montoCLP} onChange={(e) => setForm((f) => ({ ...f, montoCLP: e.target.value, montoUF: '' }))} placeholder="—" /></Campo>
+      </Text>
+      <Form layout="vertical" onFinish={(v) => crear.mutate(v)}>
+        <Form.Item name="descripcion" label="Qué es" rules={[{ required: true, message: 'Descríbelo' }]}>
+          <Input autoFocus placeholder="Ej: Asesoría legal septiembre" />
+        </Form.Item>
+        <Form.Item name="fechaEsperada" label="Fecha esperada" rules={[{ required: true, message: 'Indica la fecha' }]}>
+          <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
+        </Form.Item>
+        <CampoMonto />
+        <Space.Compact block>
+          <Form.Item name="cuentaId" label="Cuenta del plan" style={{ flex: 1, marginRight: 8 }}>
+            <Select allowClear showSearch optionFilterProp="label" placeholder="Sin clasificar" options={opcionesCuenta} />
+          </Form.Item>
+          <Form.Item name="proveedorId" label="Proveedor (opcional)" style={{ flex: 1 }}>
+            <Select allowClear showSearch optionFilterProp="label" placeholder="—" options={opcionesProveedor} />
+          </Form.Item>
+        </Space.Compact>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button type="primary" htmlType="submit" loading={crear.isPending}>Crear provisión</Button>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Campo label="Cuenta del plan"><SelectCuenta value={form.cuentaId} onChange={(e) => setForm((f) => ({ ...f, cuentaId: e.target.value }))} subcuentas={subcuentas} /></Campo>
-          <Campo label="Proveedor (opcional)">
-            <Select value={form.proveedorId} onChange={(e) => setForm((f) => ({ ...f, proveedorId: e.target.value }))}>
-              <option value="">—</option>
-              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.razonSocial}</option>)}
-            </Select>
-          </Campo>
-        </div>
-        <div className="flex justify-end gap-2 pt-1">
-          <Boton onClick={onCerrar}>Cancelar</Boton>
-          <Boton variante="primario" disabled={crear.isPending || !form.descripcion.trim() || !form.fechaEsperada || (!form.montoUF && !form.montoCLP)} onClick={() => crear.mutate()}>Crear provisión</Boton>
-        </div>
-      </div>
+      </Form>
     </Modal>
   )
 }
 
-/** Asociar la factura real a una provisión (o registrarla al vuelo). */
+/** Asociar la factura real a la provisión: "ya me facturaron esto". */
 function ModalAsociar({ doc, onCerrar }) {
   const qc = useQueryClient()
-  const { subcuentas, proveedores } = useCatalogos()
-  const [modo, setModo] = useState('nueva') // nueva | existente
-  const [facturaId, setFacturaId] = useState('')
-  const [form, setForm] = useState({
-    folio: '', proveedorId: doc.proveedorId || '', fechaEmision: '', fechaVencimiento: '',
-    total: doc.montoEstimadoCLP || '', iva: '', cuentaId: doc.cuentaId || '',
-  })
+  const { message } = App.useApp()
+  const [modo, setModo] = useState('nueva')
+  const { opcionesCuenta, opcionesProveedor } = useCatalogos()
 
   const { data: facturas } = useQuery({
     queryKey: ['erp-facturas'],
@@ -111,60 +115,73 @@ function ModalAsociar({ doc, onCerrar }) {
   const sinDoc = (facturas || []).filter((f) => !f.documentoInterno)
 
   const asociar = useMutation({
-    mutationFn: () => api.post(`/erp/documentos/${doc.id}/asociar-factura`, { facturaCompraId: Number(facturaId) }).then((r) => r.data),
-    onSuccess: () => { invalidar(qc); toast.success('Factura asociada: la provisión quedó respaldada.'); onCerrar() },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo asociar.'),
+    mutationFn: (facturaCompraId) => api.post(`/erp/documentos/${doc.id}/asociar-factura`, { facturaCompraId }).then((r) => r.data),
+    onSuccess: () => { invalidar(qc); message.success('Factura asociada: la provisión quedó respaldada.'); onCerrar() },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo asociar.'),
   })
 
   const crearYAsociar = useMutation({
-    mutationFn: () => api.post('/erp/facturas-compra', { ...form, documentoInternoId: doc.id }).then((r) => r.data),
-    onSuccess: () => { invalidar(qc); qc.invalidateQueries({ queryKey: ['erp-facturas'] }); toast.success('Factura registrada y asociada.'); onCerrar() },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo registrar.'),
+    mutationFn: (v) => api.post('/erp/facturas-compra', {
+      ...v,
+      fechaEmision: v.fechaEmision?.format('YYYY-MM-DD'),
+      fechaVencimiento: v.fechaVencimiento?.format('YYYY-MM-DD'),
+      documentoInternoId: doc.id,
+    }).then((r) => r.data),
+    onSuccess: () => { invalidar(qc); message.success('Factura registrada y asociada.'); onCerrar() },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo registrar.'),
   })
 
   return (
-    <Modal abierto onCerrar={onCerrar} titulo={`Ya me facturaron: ${doc.descripcion}`}>
-      <div className="flex items-center gap-1 bg-fondo border border-borde rounded-lg p-0.5 mb-3 w-fit">
-        {[['nueva', 'Registrar factura'], ['existente', 'Elegir una cargada']].map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setModo(k)}
-            className={`px-2.5 py-1 rounded-md text-[11.5px] font-semibold cursor-pointer ${modo === k ? 'bg-carta shadow-carta text-bp-dark' : 'text-gris'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
-
+    <Modal open title={`Ya me facturaron: ${doc.descripcion}`} onCancel={onCerrar} footer={null} destroyOnHidden>
+      <Segmented
+        style={{ marginBottom: 16 }}
+        options={[{ label: 'Registrar la factura', value: 'nueva' }, { label: 'Elegir una cargada', value: 'existente' }]}
+        value={modo}
+        onChange={setModo}
+      />
       {modo === 'existente' ? (
-        <div className="space-y-3">
-          <Campo label="Factura de compra">
-            <Select value={facturaId} onChange={(e) => setFacturaId(e.target.value)}>
-              <option value="">Elegir…</option>
-              {sinDoc.map((f) => <option key={f.id} value={f.id}>N° {f.folio} · {f.proveedor?.razonSocial} · {clp(f.total)}</option>)}
-            </Select>
-          </Campo>
-          <div className="flex justify-end gap-2"><Boton onClick={onCerrar}>Cancelar</Boton>
-            <Boton variante="primario" disabled={!facturaId || asociar.isPending} onClick={() => asociar.mutate()}>Asociar</Boton></div>
-        </div>
+        <Form layout="vertical" onFinish={(v) => asociar.mutate(v.facturaCompraId)}>
+          <Form.Item name="facturaCompraId" label="Factura de compra" rules={[{ required: true, message: 'Elige la factura' }]}>
+            <Select
+              showSearch optionFilterProp="label" placeholder="Elegir…"
+              options={sinDoc.map((f) => ({ value: f.id, label: `N° ${f.folio} · ${f.proveedor?.razonSocial} · ${clp(f.total)}` }))}
+            />
+          </Form.Item>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={onCerrar}>Cancelar</Button>
+            <Button type="primary" htmlType="submit" loading={asociar.isPending}>Asociar</Button>
+          </div>
+        </Form>
       ) : (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Campo label="Proveedor">
-              <Select value={form.proveedorId} onChange={(e) => setForm((f) => ({ ...f, proveedorId: e.target.value }))}>
-                <option value="">Elegir…</option>
-                {proveedores.map((p) => <option key={p.id} value={p.id}>{p.razonSocial}</option>)}
-              </Select>
-            </Campo>
-            <Campo label="Folio"><Input value={form.folio} onChange={(e) => setForm((f) => ({ ...f, folio: e.target.value }))} /></Campo>
+        <Form layout="vertical" onFinish={(v) => crearYAsociar.mutate(v)}
+          initialValues={{ proveedorId: doc.proveedorId || undefined, total: doc.montoEstimadoCLP || undefined, cuentaId: doc.cuentaId || undefined }}>
+          <Space.Compact block>
+            <Form.Item name="proveedorId" label="Proveedor" style={{ flex: 1, marginRight: 8 }} rules={[{ required: true, message: 'Elige el proveedor' }]}>
+              <Select showSearch optionFilterProp="label" options={opcionesProveedor} />
+            </Form.Item>
+            <Form.Item name="folio" label="Folio" style={{ width: 140 }} rules={[{ required: true, message: 'Folio' }]}>
+              <Input />
+            </Form.Item>
+          </Space.Compact>
+          <Space.Compact block>
+            <Form.Item name="fechaEmision" label="Emisión" style={{ flex: 1, marginRight: 8 }} rules={[{ required: true, message: 'Fecha' }]}>
+              <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
+            </Form.Item>
+            <Form.Item name="fechaVencimiento" label="Vencimiento" style={{ flex: 1, marginRight: 8 }}>
+              <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
+            </Form.Item>
+            <Form.Item name="total" label="Total $" style={{ flex: 1 }} rules={[{ required: true, message: 'Total' }]}>
+              <InputNumber style={{ width: '100%' }} min={1} />
+            </Form.Item>
+          </Space.Compact>
+          <Form.Item name="cuentaId" label="Cuenta del plan">
+            <Select allowClear showSearch optionFilterProp="label" options={opcionesCuenta} />
+          </Form.Item>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={onCerrar}>Cancelar</Button>
+            <Button type="primary" htmlType="submit" loading={crearYAsociar.isPending}>Registrar y asociar</Button>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Campo label="Emisión"><Input type="date" value={form.fechaEmision} onChange={(e) => setForm((f) => ({ ...f, fechaEmision: e.target.value }))} /></Campo>
-            <Campo label="Vencimiento"><Input type="date" value={form.fechaVencimiento} onChange={(e) => setForm((f) => ({ ...f, fechaVencimiento: e.target.value }))} /></Campo>
-            <Campo label="Total $"><Input type="number" value={form.total} onChange={(e) => setForm((f) => ({ ...f, total: e.target.value }))} /></Campo>
-          </div>
-          <Campo label="Cuenta del plan"><SelectCuenta value={form.cuentaId} onChange={(e) => setForm((f) => ({ ...f, cuentaId: e.target.value }))} subcuentas={subcuentas} /></Campo>
-          <div className="flex justify-end gap-2"><Boton onClick={onCerrar}>Cancelar</Boton>
-            <Boton variante="primario" disabled={crearYAsociar.isPending || !form.folio || !form.proveedorId || !form.fechaEmision || !form.total}
-              onClick={() => crearYAsociar.mutate()}>Registrar y asociar</Boton></div>
-        </div>
+        </Form>
       )}
     </Modal>
   )
@@ -176,6 +193,7 @@ function TabDocumentos() {
   const [modalNueva, setModalNueva] = useState(false)
   const [asociando, setAsociando] = useState(null)
   const qc = useQueryClient()
+  const { message, modal } = App.useApp()
 
   const { data, isLoading } = useQuery({
     queryKey: ['erp-documentos', 'lista'],
@@ -185,67 +203,72 @@ function TabDocumentos() {
 
   const eliminar = useMutation({
     mutationFn: (id) => api.delete(`/erp/documentos/${id}`).then((r) => r.data),
-    onSuccess: () => { invalidar(qc); toast.success('Documento eliminado.') },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo eliminar.'),
+    onSuccess: () => { invalidar(qc); message.success('Documento eliminado.') },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo eliminar.'),
   })
 
   const docs = (data?.documentos || []).filter((d) => !estado || d.estado === estado)
-  const FILTROS = [['', 'Todos'], ['ESPERADO', 'Esperados'], ['VENCIDO_SIN_FACTURA', 'Sin factura ⚠'], ['FACTURADO_SIN_PAGO', 'Por pagar'], ['CERRADO', 'Cerrados']]
+
+  const columns = [
+    {
+      title: 'Documento', key: 'doc',
+      render: (_, d) => (
+        <div>
+          <Text strong style={{ fontSize: 13 }}>{d.descripcion}</Text>
+          <div><Text type="secondary" style={{ fontSize: 11 }}>
+            {d.tipo === 'PROVISION' ? 'Provisión' : 'Respaldo'}
+            {d.proveedor ? ` · ${d.proveedor.razonSocial}` : ''}
+            {d.facturaCompra ? ` · Factura N° ${d.facturaCompra.folio}` : ''}
+          </Text></div>
+        </div>
+      ),
+    },
+    { title: 'Cuenta', key: 'cuenta', render: (_, d) => d.cuenta ? <Tag color="blue">{d.cuenta.nombre}</Tag> : <Text type="secondary">—</Text> },
+    { title: 'Período', key: 'periodo', render: (_, d) => <Text style={{ fontSize: 12, ...NUM }}>{d.periodo ? mesLabel(d.periodo) : '—'}</Text> },
+    { title: 'Fecha esperada', key: 'fecha', render: (_, d) => <Text style={{ fontSize: 12, ...NUM }}>{fecha(d.fechaEsperada)}</Text> },
+    { title: 'Monto', key: 'monto', align: 'right', render: (_, d) => <Text strong style={NUM}>{d.montoUF ? uf(d.montoUF) : clp(d.montoCLP)}</Text> },
+    { title: 'Pagado', key: 'pagado', align: 'right', render: (_, d) => d.pagado > 0 ? <Text style={{ color: VERDE, ...NUM }}>{clp(d.pagado)}</Text> : <Text type="secondary">—</Text> },
+    { title: 'Estado', key: 'estado', render: (_, d) => <EstadoDoc estado={d.estado} /> },
+    {
+      title: '', key: 'acciones',
+      render: (_, d) => (
+        <Space>
+          {d.tipo === 'PROVISION' && !d.facturaCompraId && d.estado !== 'CERRADO' && (
+            <Button size="small" onClick={() => setAsociando(d)}>Ya me facturaron</Button>
+          )}
+          {!d.conciliaciones?.length && !d.facturaCompraId && (
+            <Button size="small" type="text" danger
+              onClick={() => modal.confirm({ title: '¿Eliminar este documento?', okText: 'Eliminar', okButtonProps: { danger: true }, onOk: () => eliminar.mutate(d.id) })}>
+              ✕
+            </Button>
+          )}
+        </Space>
+      ),
+    },
+  ]
+
+  const FILTROS = [
+    { label: 'Todos', value: '' },
+    { label: 'Esperados', value: 'ESPERADO' },
+    { label: '⚠ Sin factura', value: 'VENCIDO_SIN_FACTURA' },
+    { label: 'Por pagar', value: 'FACTURADO_SIN_PAGO' },
+    { label: 'Cerrados', value: 'CERRADO' },
+  ]
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-1 bg-carta border border-borde rounded-lg p-0.5">
-          {FILTROS.map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setParams(k ? { estado: k } : {})}
-              className={`px-2.5 py-1 rounded-md text-[11.5px] font-semibold cursor-pointer transition-colors ${estado === k ? 'bg-bp-soft text-bp-dark' : 'text-gris hover:text-tinta'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-        <Boton variante="primario" size="sm" onClick={() => setModalNueva(true)}>+ Provisión</Boton>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <Segmented options={FILTROS} value={estado} onChange={(v) => setParams(v ? { estado: v } : {})} />
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalNueva(true)}>Provisión</Button>
       </div>
-
-      <Carta>
-        {isLoading ? <Cargando /> : !docs.length ? (
-          <Vacio>No hay documentos con ese estado. Las provisiones se generan solas desde los gastos programados.</Vacio>
-        ) : (
-          <Tabla>
-            <thead><tr><Th>Documento</Th><Th>Cuenta</Th><Th>Período</Th><Th>Fecha esperada</Th><Th num>Monto</Th><Th num>Pagado</Th><Th>Estado</Th><Th /></tr></thead>
-            <tbody>
-              {docs.map((d) => (
-                <tr key={d.id} className="hover:bg-borde-suave/50">
-                  <Td>
-                    <span className="font-medium">{d.descripcion}</span>
-                    <span className="block text-[10.5px] text-sutil">
-                      {d.tipo === 'PROVISION' ? 'Provisión' : 'Respaldo'}
-                      {d.proveedor && ` · ${d.proveedor.razonSocial}`}
-                      {d.facturaCompra && ` · Factura N° ${d.facturaCompra.folio}`}
-                    </span>
-                  </Td>
-                  <Td>{d.cuenta ? <Badge tono="azul">{d.cuenta.nombre}</Badge> : <span className="text-sutil">—</span>}</Td>
-                  <Td className="monto">{d.periodo ? mesLabel(d.periodo) : '—'}</Td>
-                  <Td className="monto">{fecha(d.fechaEsperada)}</Td>
-                  <Td num className="font-semibold">{d.montoUF ? uf(d.montoUF) : clp(d.montoCLP)}</Td>
-                  <Td num className={d.pagado > 0 ? 'text-abono font-semibold' : 'text-sutil'}>{d.pagado > 0 ? clp(d.pagado) : '—'}</Td>
-                  <Td><EstadoDoc estado={d.estado} /></Td>
-                  <Td className="whitespace-nowrap">
-                    {d.tipo === 'PROVISION' && !d.facturaCompraId && d.estado !== 'CERRADO' && (
-                      <Boton size="sm" onClick={() => setAsociando(d)}>Ya me facturaron</Boton>
-                    )}
-                    {!d.conciliaciones?.length && !d.facturaCompraId && (
-                      <Boton size="sm" variante="fantasma" onClick={() => { if (confirm('¿Eliminar este documento?')) eliminar.mutate(d.id) }}>✕</Boton>
-                    )}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Tabla>
-        )}
-      </Carta>
+      <Table
+        dataSource={docs} columns={columns} rowKey="id" size="small" loading={isLoading}
+        pagination={{ pageSize: 25, showSizeChanger: false }}
+        locale={{ emptyText: 'No hay documentos con ese estado. Las provisiones se generan solas desde los gastos programados.' }}
+      />
       {modalNueva && <ModalProvision onCerrar={() => setModalNueva(false)} />}
       {asociando && <ModalAsociar doc={asociando} onCerrar={() => setAsociando(null)} />}
-    </div>
+    </>
   )
 }
 
@@ -253,54 +276,65 @@ function TabDocumentos() {
 
 function ModalGasto({ gasto, onCerrar }) {
   const qc = useQueryClient()
-  const { subcuentas, proveedores } = useCatalogos()
-  const [form, setForm] = useState(gasto ? {
-    nombre: gasto.nombre, cuentaId: gasto.cuentaId || '', proveedorId: gasto.proveedorId || '',
-    montoUF: gasto.montoUF || '', montoCLP: gasto.montoCLP || '', periodicidad: gasto.periodicidad,
-    diaVencimiento: gasto.diaVencimiento || '', fechaInicio: gasto.fechaInicio?.slice(0, 10) || '', fechaFin: gasto.fechaFin?.slice(0, 10) || '',
-  } : { nombre: '', cuentaId: '', proveedorId: '', montoUF: '', montoCLP: '', periodicidad: 'MENSUAL', diaVencimiento: '', fechaInicio: '', fechaFin: '' })
+  const { message } = App.useApp()
+  const { opcionesCuenta, opcionesProveedor } = useCatalogos()
 
   const guardar = useMutation({
-    mutationFn: () => (gasto
-      ? api.put(`/erp/gastos/${gasto.id}`, form)
-      : api.post('/erp/gastos', form)
-    ).then((r) => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['erp-gastos'] }); invalidar(qc); toast.success('Gasto guardado; sus provisiones se generan solas.'); onCerrar() },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo guardar.'),
+    mutationFn: (v) => {
+      const body = { ...v, fechaInicio: v.fechaInicio?.format('YYYY-MM-DD'), fechaFin: v.fechaFin?.format('YYYY-MM-DD') || null }
+      return (gasto ? api.put(`/erp/gastos/${gasto.id}`, body) : api.post('/erp/gastos', body)).then((r) => r.data)
+    },
+    onSuccess: () => { invalidar(qc); message.success('Gasto guardado; sus provisiones se generan solas.'); onCerrar() },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo guardar.'),
   })
 
   return (
-    <Modal abierto onCerrar={onCerrar} titulo={gasto ? `Editar: ${gasto.nombre}` : 'Nuevo gasto programado'}>
-      <div className="space-y-3">
-        <Campo label="Nombre"><Input autoFocus value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Ej: Arriendo oficina" /></Campo>
-        <div className="grid grid-cols-2 gap-3">
-          <Campo label="Cuenta del plan"><SelectCuenta value={form.cuentaId} onChange={(e) => setForm((f) => ({ ...f, cuentaId: e.target.value }))} subcuentas={subcuentas} /></Campo>
-          <Campo label="Proveedor">
-            <Select value={form.proveedorId} onChange={(e) => setForm((f) => ({ ...f, proveedorId: e.target.value }))}>
-              <option value="">—</option>
-              {proveedores.map((p) => <option key={p.id} value={p.id}>{p.razonSocial}</option>)}
-            </Select>
-          </Campo>
+    <Modal open title={gasto ? `Editar: ${gasto.nombre}` : 'Nuevo gasto programado'} onCancel={onCerrar} footer={null} destroyOnHidden>
+      <Form
+        layout="vertical"
+        onFinish={(v) => guardar.mutate(v)}
+        initialValues={gasto ? {
+          nombre: gasto.nombre, cuentaId: gasto.cuentaId || undefined, proveedorId: gasto.proveedorId || undefined,
+          montoUF: gasto.montoUF || undefined, montoCLP: gasto.montoCLP || undefined,
+          periodicidad: gasto.periodicidad, diaVencimiento: gasto.diaVencimiento || undefined,
+          fechaInicio: gasto.fechaInicio ? dayjs(gasto.fechaInicio) : undefined,
+          fechaFin: gasto.fechaFin ? dayjs(gasto.fechaFin) : undefined,
+          activo: gasto.activo,
+        } : { periodicidad: 'MENSUAL' }}
+      >
+        <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: 'Ponle nombre' }]}>
+          <Input autoFocus placeholder="Ej: Arriendo oficina" />
+        </Form.Item>
+        <Space.Compact block>
+          <Form.Item name="cuentaId" label="Cuenta del plan" style={{ flex: 1, marginRight: 8 }}>
+            <Select allowClear showSearch optionFilterProp="label" options={opcionesCuenta} />
+          </Form.Item>
+          <Form.Item name="proveedorId" label="Proveedor" style={{ flex: 1 }}>
+            <Select allowClear showSearch optionFilterProp="label" options={opcionesProveedor} />
+          </Form.Item>
+        </Space.Compact>
+        <CampoMonto />
+        <Space.Compact block>
+          <Form.Item name="periodicidad" label="Periodicidad" style={{ flex: 1, marginRight: 8 }}>
+            <Select options={['MENSUAL', 'BIMESTRAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL', 'UNICO'].map((p) => ({ value: p, label: p.toLowerCase() }))} />
+          </Form.Item>
+          <Form.Item name="diaVencimiento" label="Día de pago" style={{ width: 120 }}>
+            <InputNumber style={{ width: '100%' }} min={1} max={31} placeholder="5" />
+          </Form.Item>
+        </Space.Compact>
+        <Space.Compact block>
+          <Form.Item name="fechaInicio" label="Desde" style={{ flex: 1, marginRight: 8 }} rules={[{ required: true, message: 'Desde cuándo' }]}>
+            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
+          </Form.Item>
+          <Form.Item name="fechaFin" label="Hasta (opcional)" style={{ flex: 1 }}>
+            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" />
+          </Form.Item>
+        </Space.Compact>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button type="primary" htmlType="submit" loading={guardar.isPending}>Guardar</Button>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Campo label="Monto UF"><Input type="number" step="0.01" value={form.montoUF} onChange={(e) => setForm((f) => ({ ...f, montoUF: e.target.value, montoCLP: '' }))} /></Campo>
-          <Campo label="o Monto $"><Input type="number" value={form.montoCLP} onChange={(e) => setForm((f) => ({ ...f, montoCLP: e.target.value, montoUF: '' }))} /></Campo>
-          <Campo label="Día de pago"><Input type="number" min={1} max={31} value={form.diaVencimiento} onChange={(e) => setForm((f) => ({ ...f, diaVencimiento: e.target.value }))} /></Campo>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <Campo label="Periodicidad">
-            <Select value={form.periodicidad} onChange={(e) => setForm((f) => ({ ...f, periodicidad: e.target.value }))}>
-              {['MENSUAL', 'BIMESTRAL', 'TRIMESTRAL', 'SEMESTRAL', 'ANUAL', 'UNICO'].map((p) => <option key={p} value={p}>{p.toLowerCase()}</option>)}
-            </Select>
-          </Campo>
-          <Campo label="Desde"><Input type="date" value={form.fechaInicio} onChange={(e) => setForm((f) => ({ ...f, fechaInicio: e.target.value }))} /></Campo>
-          <Campo label="Hasta (opcional)"><Input type="date" value={form.fechaFin} onChange={(e) => setForm((f) => ({ ...f, fechaFin: e.target.value }))} /></Campo>
-        </div>
-        <div className="flex justify-end gap-2 pt-1">
-          <Boton onClick={onCerrar}>Cancelar</Boton>
-          <Boton variante="primario" disabled={guardar.isPending || !form.nombre.trim() || !form.fechaInicio || (!form.montoUF && !form.montoCLP)} onClick={() => guardar.mutate()}>Guardar</Boton>
-        </div>
-      </div>
+      </Form>
     </Modal>
   )
 }
@@ -313,38 +347,35 @@ function TabGastos() {
     staleTime: 60000,
   })
 
+  const columns = [
+    {
+      title: 'Gasto', key: 'gasto',
+      render: (_, g) => (
+        <div>
+          <Text strong style={{ fontSize: 13, opacity: g.activo ? 1 : 0.5 }}>{g.nombre}</Text>
+          <div><Text type="secondary" style={{ fontSize: 11 }}>{g.proveedor?.razonSocial || g.proveedorTexto || ''}</Text></div>
+        </div>
+      ),
+    },
+    { title: 'Cuenta', key: 'cuenta', render: (_, g) => g.cuenta ? <Tag color="blue">{g.cuenta.nombre}</Tag> : <Text type="secondary">—</Text> },
+    { title: 'Periodicidad', key: 'per', render: (_, g) => <Text style={{ fontSize: 12 }}>{g.periodicidad.toLowerCase()}{g.diaVencimiento ? ` · día ${g.diaVencimiento}` : ''}</Text> },
+    { title: 'Monto', key: 'monto', align: 'right', render: (_, g) => <Text strong style={NUM}>{g.montoUF ? uf(g.montoUF) : clp(g.montoCLP)}</Text> },
+    { title: '≈ $', key: 'clp', align: 'right', render: (_, g) => <Text type="secondary" style={NUM}>{clp(g.montoEstimadoCLP)}</Text> },
+    { title: '', key: 'a', render: (_, g) => <Button size="small" onClick={() => setEditando(g)}>Editar</Button> },
+  ]
+
   return (
-    <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <p className="text-[11.5px] text-gris">Las plantillas de lo que se sabe que viene. Cada mes generan su provisión sola.</p>
-        <Boton variante="primario" size="sm" onClick={() => setEditando('nuevo')}>+ Gasto programado</Boton>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>Las plantillas de lo que se sabe que viene. Cada mes generan su provisión sola.</Text>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditando('nuevo')}>Gasto programado</Button>
       </div>
-      <Carta>
-        {isLoading ? <Cargando /> : !gastos?.length ? (
-          <Vacio>Sin gastos programados. El arriendo, la contabilidad, un seguro: lo que llega todos los meses.</Vacio>
-        ) : (
-          <Tabla>
-            <thead><tr><Th>Gasto</Th><Th>Cuenta</Th><Th>Periodicidad</Th><Th num>Monto</Th><Th num>≈ $</Th><Th /></tr></thead>
-            <tbody>
-              {gastos.map((g) => (
-                <tr key={g.id} className={`hover:bg-borde-suave/50 ${!g.activo ? 'opacity-50' : ''}`}>
-                  <Td>
-                    <span className="font-medium">{g.nombre}</span>
-                    <span className="block text-[10.5px] text-sutil">{g.proveedor?.razonSocial || g.proveedorTexto || ''}</span>
-                  </Td>
-                  <Td>{g.cuenta ? <Badge tono="azul">{g.cuenta.nombre}</Badge> : <span className="text-sutil">—</span>}</Td>
-                  <Td className="lowercase">{g.periodicidad}{g.diaVencimiento ? ` · día ${g.diaVencimiento}` : ''}</Td>
-                  <Td num className="font-semibold">{g.montoUF ? uf(g.montoUF) : clp(g.montoCLP)}</Td>
-                  <Td num className="text-gris">{clp(g.montoEstimadoCLP)}</Td>
-                  <Td><Boton size="sm" variante="fantasma" onClick={() => setEditando(g)}>Editar</Boton></Td>
-                </tr>
-              ))}
-            </tbody>
-          </Tabla>
-        )}
-      </Carta>
+      <Table
+        dataSource={gastos || []} columns={columns} rowKey="id" size="small" loading={isLoading} pagination={false}
+        locale={{ emptyText: 'Sin gastos programados. El arriendo, la contabilidad, un seguro: lo que llega todos los meses.' }}
+      />
       {editando && <ModalGasto gasto={editando === 'nuevo' ? null : editando} onCerrar={() => setEditando(null)} />}
-    </div>
+    </>
   )
 }
 
@@ -357,52 +388,47 @@ function TabFacturas() {
     staleTime: 30000,
   })
 
+  const columns = [
+    { title: 'Folio', key: 'folio', render: (_, f) => <Text strong style={NUM}>N° {f.folio}</Text> },
+    { title: 'Proveedor', key: 'prov', render: (_, f) => <Text style={{ fontSize: 13 }}>{f.proveedor?.razonSocial}</Text> },
+    { title: 'Cuenta', key: 'cuenta', render: (_, f) => f.cuenta ? <Tag color="blue">{f.cuenta.nombre}</Tag> : <Text type="secondary">—</Text> },
+    { title: 'Emisión', key: 'em', render: (_, f) => <Text style={{ fontSize: 12, ...NUM }}>{fecha(f.fechaEmision)}</Text> },
+    { title: 'Vence', key: 've', render: (_, f) => <Text style={{ fontSize: 12, ...NUM }}>{fecha(f.fechaVencimiento)}</Text> },
+    { title: 'Total', key: 'total', align: 'right', render: (_, f) => <Text strong style={NUM}>{clp(f.total)}</Text> },
+    { title: 'Saldo', key: 'saldo', align: 'right', render: (_, f) => f.saldoPorPagar > 0 ? <Text strong style={{ color: ROJO, ...NUM }}>{clp(f.saldoPorPagar)}</Text> : <Text type="secondary">—</Text> },
+    {
+      title: 'Estado', key: 'estado',
+      render: (_, f) => (
+        <div>
+          {f.pagada ? <Tag color="green">Pagada</Tag> : <Tag color="orange">Por pagar</Tag>}
+          {f.documentoInterno && <div><Text type="secondary" style={{ fontSize: 10 }}>respalda: {f.documentoInterno.descripcion}</Text></div>}
+        </div>
+      ),
+    },
+  ]
+
   return (
-    <Carta>
-      {isLoading ? <Cargando /> : !facturas?.length ? (
-        <Vacio>Sin facturas registradas. Se registran desde una provisión ("Ya me facturaron") o acá cuando llegan sueltas.</Vacio>
-      ) : (
-        <Tabla>
-          <thead><tr><Th>Folio</Th><Th>Proveedor</Th><Th>Cuenta</Th><Th>Emisión</Th><Th>Vence</Th><Th num>Total</Th><Th num>Saldo</Th><Th>Estado</Th></tr></thead>
-          <tbody>
-            {facturas.map((f) => (
-              <tr key={f.id} className="hover:bg-borde-suave/50">
-                <Td className="monto font-medium">N° {f.folio}</Td>
-                <Td>{f.proveedor?.razonSocial}</Td>
-                <Td>{f.cuenta ? <Badge tono="azul">{f.cuenta.nombre}</Badge> : <span className="text-sutil">—</span>}</Td>
-                <Td className="monto">{fecha(f.fechaEmision)}</Td>
-                <Td className="monto">{fecha(f.fechaVencimiento)}</Td>
-                <Td num className="font-semibold">{clp(f.total)}</Td>
-                <Td num className={f.saldoPorPagar > 0 ? 'text-cargo font-semibold' : 'text-sutil'}>{clp(f.saldoPorPagar)}</Td>
-                <Td>
-                  {f.pagada ? <Badge tono="verde">Pagada</Badge> : <Badge tono="ambar">Por pagar</Badge>}
-                  {f.documentoInterno && <span className="block text-[10px] text-sutil mt-0.5">respalda: {f.documentoInterno.descripcion}</span>}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Tabla>
-      )}
-    </Carta>
+    <Table
+      dataSource={facturas || []} columns={columns} rowKey="id" size="small" loading={isLoading}
+      pagination={{ pageSize: 25, showSizeChanger: false }}
+      locale={{ emptyText: 'Sin facturas registradas. Se registran desde una provisión ("Ya me facturaron") o cuando llegan sueltas.' }}
+    />
   )
 }
 
 export default function Documentos() {
-  const [tab, setTab] = useState('documentos')
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-[17px] font-bold tracking-tight">Documentos</h1>
-        <div className="flex items-center gap-1 bg-carta border border-borde rounded-lg p-0.5">
-          {[['documentos', 'Provisiones y respaldos'], ['gastos', 'Gastos programados'], ['facturas', 'Facturas']].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setTab(k)}
-              className={`px-2.5 py-1 rounded-md text-[11.5px] font-semibold cursor-pointer transition-colors ${tab === k ? 'bg-bp-soft text-bp-dark' : 'text-gris hover:text-tinta'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
-      {tab === 'documentos' ? <TabDocumentos /> : tab === 'gastos' ? <TabGastos /> : <TabFacturas />}
+    <div>
+      <Title level={4} style={{ marginBottom: 16 }}>Documentos</Title>
+      <Card styles={{ body: { paddingTop: 8 } }}>
+        <Tabs
+          items={[
+            { key: 'documentos', label: 'Provisiones y respaldos', children: <TabDocumentos /> },
+            { key: 'gastos', label: 'Gastos programados', children: <TabGastos /> },
+            { key: 'facturas', label: 'Facturas', children: <TabFacturas /> },
+          ]}
+        />
+      </Card>
     </div>
   )
 }

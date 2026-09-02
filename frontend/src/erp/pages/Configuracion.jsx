@@ -4,14 +4,31 @@
  */
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { Card, Table, Tag, Typography, Button, Space, Tabs, Modal, Form, Input, InputNumber, Select, Checkbox, Row, Col, List, Spin, App } from 'antd'
+import { PlusOutlined } from '@ant-design/icons'
 import api from '../../services/api'
-import { Carta, Tabla, Th, Td, Badge, clp, fecha, Cargando, Vacio, Boton, Modal, Campo, Input, Select } from '../ui'
+import { clp, fecha, ROJO, NUM } from '../ui'
+
+const { Title, Text } = Typography
+
+function useSubcuentas() {
+  const { data: cuentas } = useQuery({
+    queryKey: ['erp-cuentas'],
+    queryFn: () => api.get('/erp/cuentas').then((r) => r.data),
+    staleTime: 60000,
+  })
+  const subcuentas = (cuentas?.arbol || []).flatMap((r) => r.subcuentas.map((s) => ({ ...s, grupo: r.nombre })))
+  return {
+    arbol: cuentas?.arbol || [],
+    opcionesCuenta: subcuentas.map((c) => ({ value: c.id, label: `${c.grupo} · ${c.nombre}` })),
+  }
+}
 
 // ─── Contrapartes ─────────────────────────────────────────────
 
 function TabContrapartes() {
   const qc = useQueryClient()
+  const { message } = App.useApp()
   const { data, isLoading } = useQuery({
     queryKey: ['erp-contrapartes'],
     queryFn: () => api.get('/erp/banco/contrapartes').then((r) => r.data),
@@ -26,67 +43,73 @@ function TabContrapartes() {
 
   const asignar = useMutation({
     mutationFn: (body) => api.post('/erp/banco/contrapartes', body).then((r) => r.data),
-    onSuccess: (r) => { invalidar(); toast.success(`Aprendido: ${r.etiquetados} movimiento(s) etiquetados.`) },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo asignar.'),
+    onSuccess: (r) => { invalidar(); message.success(`Aprendido: ${r.etiquetados} movimiento(s) etiquetados.`) },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo asignar.'),
   })
   const reidentificar = useMutation({
     mutationFn: () => api.post('/erp/banco/contrapartes/reidentificar').then((r) => r.data),
-    onSuccess: (r) => { invalidar(); toast.success(`${r.identificados} de ${r.revisados} identificados.`) },
+    onSuccess: (r) => { invalidar(); message.success(`${r.identificados} de ${r.revisados} identificados.`) },
   })
 
-  if (isLoading || !data) return <Cargando />
+  const columns = [
+    {
+      title: 'Nombre en el banco', key: 'nombre',
+      render: (_, f) => (
+        <span>
+          <Text strong style={{ fontSize: 13 }}>{f.nombre}</Text>
+          {f.pareceInterno && <Tag style={{ marginLeft: 6 }} title="Entra y sale plata por el mismo nombre">¿interno?</Tag>}
+        </span>
+      ),
+    },
+    { title: 'Veces', dataIndex: 'veces', align: 'right', width: 70 },
+    { title: 'Plata movida', key: 'movido', align: 'right', width: 130, render: (_, f) => <Text strong style={NUM}>{clp(f.movido)}</Text> },
+    {
+      title: 'Sugerencia', key: 'sug',
+      render: (_, f) => f.sugerencia
+        ? <Tag color="blue" title={f.sugerencia.como}>{f.sugerencia.tipo === 'CLIENTE' ? 'Cliente' : 'Proveedor'}: {f.sugerencia.nombre}</Tag>
+        : <Text type="secondary">—</Text>,
+    },
+    {
+      title: '', key: 'a', width: 190,
+      render: (_, f) => (
+        <Space>
+          {f.sugerencia && (
+            <Button size="small" type="primary" loading={asignar.isPending}
+              onClick={() => asignar.mutate({
+                nombre: f.nombre,
+                ...(f.sugerencia.tipo === 'CLIENTE' ? { contactoId: f.sugerencia.id } : { proveedorId: f.sugerencia.id }),
+              })}>
+              Confirmar
+            </Button>
+          )}
+          <Button size="small" loading={asignar.isPending}
+            onClick={() => asignar.mutate({ nombre: f.nombre, interno: true })}
+            title="Traspasos propios: ni cliente ni proveedor">
+            Interno
+          </Button>
+        </Space>
+      ),
+    },
+  ]
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[11.5px] text-gris">
-          {data.movimientosSinIdentificar} movimiento(s) sin contraparte. Identificar un nombre lo aprende para siempre.
-        </p>
-        <Boton size="sm" onClick={() => reidentificar.mutate()} disabled={reidentificar.isPending}>
-          {reidentificar.isPending ? 'Cruzando…' : 'Identificar contrapartes'}
-        </Boton>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {data?.movimientosSinIdentificar ?? '…'} movimiento(s) sin contraparte. Identificar un nombre lo aprende para siempre.
+        </Text>
+        <Button loading={reidentificar.isPending} onClick={() => reidentificar.mutate()}>Identificar contrapartes</Button>
       </div>
-      <Carta>
-        {!data.filas.length ? <Vacio>Todo el mundo está identificado.</Vacio> : (
-          <Tabla>
-            <thead><tr><Th>Nombre en el banco</Th><Th num>Veces</Th><Th num>Plata movida</Th><Th>Sugerencia</Th><Th /></tr></thead>
-            <tbody>
-              {data.filas.slice(0, 60).map((f) => (
-                <tr key={f.clave} className="hover:bg-borde-suave/50">
-                  <Td>
-                    <span className="font-medium">{f.nombre}</span>
-                    {f.pareceInterno && <Badge tono="gris" title="Entra y sale plata por el mismo nombre">¿interno?</Badge>}
-                  </Td>
-                  <Td num>{f.veces}</Td>
-                  <Td num className="monto font-semibold">{clp(f.movido)}</Td>
-                  <Td>
-                    {f.sugerencia
-                      ? <Badge tono="azul" title={f.sugerencia.como}>{f.sugerencia.tipo === 'CLIENTE' ? 'Cliente' : 'Proveedor'}: {f.sugerencia.nombre}</Badge>
-                      : <span className="text-sutil">—</span>}
-                  </Td>
-                  <Td className="whitespace-nowrap">
-                    {f.sugerencia && (
-                      <Boton size="sm" variante="verde" disabled={asignar.isPending}
-                        onClick={() => asignar.mutate({
-                          nombre: f.nombre,
-                          ...(f.sugerencia.tipo === 'CLIENTE' ? { contactoId: f.sugerencia.id } : { proveedorId: f.sugerencia.id }),
-                        })}>
-                        Confirmar
-                      </Boton>
-                    )}
-                    <Boton size="sm" variante="fantasma" disabled={asignar.isPending}
-                      onClick={() => asignar.mutate({ nombre: f.nombre, interno: true })}
-                      title="Traspasos propios: ni cliente ni proveedor">
-                      Interno
-                    </Boton>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Tabla>
-        )}
-      </Carta>
-    </div>
+      <Table
+        dataSource={(data?.filas || []).slice(0, 60)}
+        columns={columns}
+        rowKey="clave"
+        size="small"
+        loading={isLoading}
+        pagination={false}
+        locale={{ emptyText: 'Todo el mundo está identificado.' }}
+      />
+    </>
   )
 }
 
@@ -94,67 +117,73 @@ function TabContrapartes() {
 
 function TabCuentas() {
   const qc = useQueryClient()
-  const [nueva, setNueva] = useState(null) // { padreId } | null
-  const [nombre, setNombre] = useState('')
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['erp-cuentas'],
-    queryFn: () => api.get('/erp/cuentas').then((r) => r.data),
-    staleTime: 60000,
-  })
+  const { message } = App.useApp()
+  const [nueva, setNueva] = useState(null) // { padreId, grupo } | null
+  const { arbol } = useSubcuentas()
 
   const crear = useMutation({
     mutationFn: (body) => api.post('/erp/cuentas', body).then((r) => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['erp-cuentas'] }); setNueva(null); setNombre(''); toast.success('Cuenta creada.') },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo crear.'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['erp-cuentas'] }); setNueva(null); message.success('Cuenta creada.') },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo crear.'),
   })
 
-  if (isLoading || !data) return <Cargando />
-
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[11.5px] text-gris">Dos niveles: la cuenta grande y sus subcuentas. Cada documento se clasifica en una subcuenta.</p>
-        <Boton size="sm" variante="primario" onClick={() => setNueva({ padreId: null })}>+ Cuenta grande</Boton>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          Dos niveles: la cuenta grande y sus subcuentas. Cada documento se clasifica en una subcuenta.
+        </Text>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setNueva({ padreId: null })}>Cuenta grande</Button>
       </div>
-      <div className="grid md:grid-cols-2 gap-3">
-        {data.arbol.map((raiz) => (
-          <Carta key={raiz.id} className="p-3.5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="flex items-center gap-1.5 font-semibold text-[13px]">
-                {raiz.color && <span className="w-2.5 h-2.5 rounded-full" style={{ background: raiz.color }} />}
-                {raiz.nombre}
-              </span>
-              <Boton size="sm" variante="fantasma" onClick={() => setNueva({ padreId: raiz.id, grupo: raiz.nombre })}>+ subcuenta</Boton>
-            </div>
-            <ul className="space-y-1">
-              {raiz.subcuentas.map((s) => (
-                <li key={s.id} className="flex items-baseline justify-between text-[12px] px-2 py-1 rounded-md hover:bg-borde-suave">
-                  <span>{s.nombre}</span>
-                  <span className="text-[10px] text-sutil">
-                    {(s._count?.documentosInternos || 0) + (s._count?.facturasCompra || 0)} docs
-                  </span>
-                </li>
-              ))}
-              {!raiz.subcuentas.length && <li className="text-[11px] text-sutil px-2">Sin subcuentas.</li>}
-            </ul>
-          </Carta>
+      <Row gutter={[12, 12]}>
+        {arbol.map((raiz) => (
+          <Col key={raiz.id} xs={24} md={12}>
+            <Card
+              size="small"
+              title={
+                <span>
+                  {raiz.color && <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 99, background: raiz.color, marginRight: 6 }} />}
+                  {raiz.nombre}
+                </span>
+              }
+              extra={<Button size="small" type="text" onClick={() => setNueva({ padreId: raiz.id, grupo: raiz.nombre })}>+ subcuenta</Button>}
+            >
+              <List
+                size="small"
+                dataSource={raiz.subcuentas}
+                locale={{ emptyText: 'Sin subcuentas.' }}
+                renderItem={(s) => (
+                  <List.Item style={{ padding: '4px 0' }}>
+                    <Text style={{ fontSize: 13 }}>{s.nombre}</Text>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {(s._count?.documentosInternos || 0) + (s._count?.facturasCompra || 0)} docs
+                    </Text>
+                  </List.Item>
+                )}
+              />
+            </Card>
+          </Col>
         ))}
-      </div>
+      </Row>
 
-      {nueva && (
-        <Modal abierto onCerrar={() => setNueva(null)} titulo={nueva.padreId ? `Nueva subcuenta de ${nueva.grupo}` : 'Nueva cuenta grande'} ancho="max-w-sm">
-          <div className="space-y-3">
-            <Campo label="Nombre"><Input autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder={nueva.padreId ? 'Ej: Seguros' : 'Ej: Operaciones'} /></Campo>
-            <div className="flex justify-end gap-2">
-              <Boton onClick={() => setNueva(null)}>Cancelar</Boton>
-              <Boton variante="primario" disabled={!nombre.trim() || crear.isPending}
-                onClick={() => crear.mutate({ nombre, padreId: nueva.padreId })}>Crear</Boton>
-            </div>
+      <Modal
+        open={!!nueva}
+        title={nueva?.padreId ? `Nueva subcuenta de ${nueva.grupo}` : 'Nueva cuenta grande'}
+        onCancel={() => setNueva(null)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form layout="vertical" onFinish={(v) => crear.mutate({ nombre: v.nombre, padreId: nueva?.padreId })}>
+          <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: 'Ponle nombre' }]}>
+            <Input autoFocus placeholder={nueva?.padreId ? 'Ej: Seguros' : 'Ej: Operaciones'} />
+          </Form.Item>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setNueva(null)}>Cancelar</Button>
+            <Button type="primary" htmlType="submit" loading={crear.isPending}>Crear</Button>
           </div>
-        </Modal>
-      )}
-    </div>
+        </Form>
+      </Modal>
+    </>
   )
 }
 
@@ -162,79 +191,78 @@ function TabCuentas() {
 
 function TabProveedores() {
   const qc = useQueryClient()
+  const { message } = App.useApp()
   const [editando, setEditando] = useState(null) // null | 'nuevo' | proveedor
+  const { opcionesCuenta } = useSubcuentas()
+
   const { data: proveedores, isLoading } = useQuery({
     queryKey: ['erp-proveedores'],
     queryFn: () => api.get('/erp/proveedores').then((r) => r.data),
     staleTime: 60000,
   })
-  const { data: cuentas } = useQuery({
-    queryKey: ['erp-cuentas'],
-    queryFn: () => api.get('/erp/cuentas').then((r) => r.data),
-    staleTime: 300000,
-  })
-  const subcuentas = (cuentas?.arbol || []).flatMap((r) => r.subcuentas.map((s) => ({ ...s, grupo: r.nombre })))
-
-  const [form, setForm] = useState({ rut: '', razonSocial: '', cuentaId: '', diasPago: '' })
-  const abrir = (p) => {
-    setForm(p === 'nuevo' ? { rut: '', razonSocial: '', cuentaId: '', diasPago: '' } : { rut: p.rut, razonSocial: p.razonSocial, cuentaId: p.cuentaId || '', diasPago: p.diasPago || '' })
-    setEditando(p)
-  }
 
   const guardar = useMutation({
-    mutationFn: () => (editando === 'nuevo'
-      ? api.post('/erp/proveedores', form)
-      : api.put(`/erp/proveedores/${editando.id}`, form)
+    mutationFn: (v) => (editando === 'nuevo'
+      ? api.post('/erp/proveedores', v)
+      : api.put(`/erp/proveedores/${editando.id}`, v)
     ).then((r) => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['erp-proveedores'] }); setEditando(null); toast.success('Proveedor guardado.') },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo guardar.'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['erp-proveedores'] }); setEditando(null); message.success('Proveedor guardado.') },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo guardar.'),
   })
 
-  if (isLoading) return <Cargando />
+  const columns = [
+    { title: 'Proveedor', key: 'p', render: (_, p) => <Text strong style={{ fontSize: 13, opacity: p.activo ? 1 : 0.5 }}>{p.razonSocial}</Text> },
+    { title: 'RUT', dataIndex: 'rut', render: (v) => <Text style={{ fontSize: 12, ...NUM }}>{v}</Text> },
+    { title: 'Cuenta por defecto', key: 'c', render: (_, p) => p.cuenta ? <Tag color="blue">{p.cuenta.nombre}</Tag> : <Text type="secondary">—</Text> },
+    { title: 'Facturado', key: 'f', align: 'right', render: (_, p) => <Text style={NUM}>{clp(p.facturado)}</Text> },
+    { title: 'Por pagar', key: 'pp', align: 'right', render: (_, p) => p.porPagar > 0 ? <Text strong style={{ color: ROJO, ...NUM }}>{clp(p.porPagar)}</Text> : <Text type="secondary">—</Text> },
+    { title: '', key: 'a', width: 90, render: (_, p) => <Button size="small" onClick={() => setEditando(p)}>Editar</Button> },
+  ]
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-end"><Boton size="sm" variante="primario" onClick={() => abrir('nuevo')}>+ Proveedor</Boton></div>
-      <Carta>
-        {!proveedores?.length ? <Vacio>Sin proveedores en el catálogo.</Vacio> : (
-          <Tabla>
-            <thead><tr><Th>Proveedor</Th><Th>RUT</Th><Th>Cuenta por defecto</Th><Th num>Facturado</Th><Th num>Por pagar</Th><Th /></tr></thead>
-            <tbody>
-              {proveedores.map((p) => (
-                <tr key={p.id} className={`hover:bg-borde-suave/50 ${!p.activo ? 'opacity-50' : ''}`}>
-                  <Td className="font-medium">{p.razonSocial}</Td>
-                  <Td className="monto">{p.rut}</Td>
-                  <Td>{p.cuenta ? <Badge tono="azul">{p.cuenta.nombre}</Badge> : <span className="text-sutil">—</span>}</Td>
-                  <Td num className="monto">{clp(p.facturado)}</Td>
-                  <Td num className={`monto ${p.porPagar > 0 ? 'text-cargo font-semibold' : 'text-sutil'}`}>{clp(p.porPagar)}</Td>
-                  <Td><Boton size="sm" variante="fantasma" onClick={() => abrir(p)}>Editar</Boton></Td>
-                </tr>
-              ))}
-            </tbody>
-          </Tabla>
-        )}
-      </Carta>
-
-      {editando && (
-        <Modal abierto onCerrar={() => setEditando(null)} titulo={editando === 'nuevo' ? 'Nuevo proveedor' : editando.razonSocial} ancho="max-w-sm">
-          <div className="space-y-3">
-            <Campo label="RUT"><Input value={form.rut} onChange={(e) => setForm((f) => ({ ...f, rut: e.target.value }))} placeholder="76123456-7" /></Campo>
-            <Campo label="Razón social"><Input value={form.razonSocial} onChange={(e) => setForm((f) => ({ ...f, razonSocial: e.target.value }))} /></Campo>
-            <Campo label="Cuenta por defecto" hint="Sus documentos la heredan al clasificarse.">
-              <Select value={form.cuentaId} onChange={(e) => setForm((f) => ({ ...f, cuentaId: e.target.value }))}>
-                <option value="">—</option>
-                {subcuentas.map((c) => <option key={c.id} value={c.id}>{c.grupo} · {c.nombre}</option>)}
-              </Select>
-            </Campo>
-            <Campo label="Días de pago pactados"><Input type="number" value={form.diasPago} onChange={(e) => setForm((f) => ({ ...f, diasPago: e.target.value }))} placeholder="30" /></Campo>
-            <div className="flex justify-end gap-2">
-              <Boton onClick={() => setEditando(null)}>Cancelar</Boton>
-              <Boton variante="primario" disabled={guardar.isPending || !form.rut || !form.razonSocial} onClick={() => guardar.mutate()}>Guardar</Boton>
-            </div>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditando('nuevo')}>Proveedor</Button>
+      </div>
+      <Table
+        dataSource={proveedores || []} columns={columns} rowKey="id" size="small" loading={isLoading}
+        pagination={{ pageSize: 25, showSizeChanger: false }}
+        locale={{ emptyText: 'Sin proveedores en el catálogo.' }}
+      />
+      <Modal
+        open={!!editando}
+        title={editando === 'nuevo' ? 'Nuevo proveedor' : editando?.razonSocial}
+        onCancel={() => setEditando(null)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form
+          layout="vertical"
+          onFinish={(v) => guardar.mutate(v)}
+          initialValues={editando && editando !== 'nuevo' ? {
+            rut: editando.rut, razonSocial: editando.razonSocial,
+            cuentaId: editando.cuentaId || undefined, diasPago: editando.diasPago || undefined,
+          } : {}}
+        >
+          <Form.Item name="rut" label="RUT" rules={[{ required: true, message: 'RUT' }]}>
+            <Input placeholder="76123456-7" />
+          </Form.Item>
+          <Form.Item name="razonSocial" label="Razón social" rules={[{ required: true, message: 'Razón social' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="cuentaId" label="Cuenta por defecto" extra="Sus documentos la heredan al clasificarse.">
+            <Select allowClear showSearch optionFilterProp="label" options={opcionesCuenta} />
+          </Form.Item>
+          <Form.Item name="diasPago" label="Días de pago pactados">
+            <InputNumber style={{ width: '100%' }} min={0} placeholder="30" />
+          </Form.Item>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setEditando(null)}>Cancelar</Button>
+            <Button type="primary" htmlType="submit" loading={guardar.isPending}>Guardar</Button>
           </div>
-        </Modal>
-      )}
-    </div>
+        </Form>
+      </Modal>
+    </>
   )
 }
 
@@ -242,9 +270,10 @@ function TabProveedores() {
 
 function TabReglas() {
   const qc = useQueryClient()
+  const { message } = App.useApp()
   const [creando, setCreando] = useState(false)
-  const [form, setForm] = useState({ nombre: '', patronGlosa: '', gastoProgramadoId: '', montoMin: '', montoMax: '', autoValidar: false })
   const [prueba, setPrueba] = useState(null)
+  const [form] = Form.useForm()
 
   const { data: reglas, isLoading } = useQuery({
     queryKey: ['erp-reglas'],
@@ -258,76 +287,73 @@ function TabReglas() {
   })
 
   const probar = useMutation({
-    mutationFn: () => api.post('/erp/reglas/probar', form).then((r) => r.data),
-    onSuccess: (r) => setPrueba(r),
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo probar.'),
+    mutationFn: () => api.post('/erp/reglas/probar', form.getFieldsValue()).then((r) => r.data),
+    onSuccess: setPrueba,
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo probar.'),
   })
   const crear = useMutation({
-    mutationFn: () => api.post('/erp/reglas', form).then((r) => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['erp-reglas'] }); setCreando(false); setPrueba(null); toast.success('Regla creada.') },
-    onError: (e) => toast.error(e.response?.data?.error || 'No se pudo crear.'),
+    mutationFn: (v) => api.post('/erp/reglas', v).then((r) => r.data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['erp-reglas'] }); setCreando(false); setPrueba(null); message.success('Regla creada.') },
+    onError: (e) => message.error(e.response?.data?.error || 'No se pudo crear.'),
   })
 
-  if (isLoading) return <Cargando />
+  const columns = [
+    { title: 'Regla', key: 'r', render: (_, r) => <Text strong style={{ fontSize: 13, opacity: r.activa ? 1 : 0.5 }}>{r.nombre}</Text> },
+    { title: 'Patrón de glosa', key: 'p', render: (_, r) => <Text code style={{ fontSize: 12 }}>{r.patronGlosa}</Text> },
+    { title: 'Gasto', key: 'g', render: (_, r) => <Text style={{ fontSize: 12 }}>{r.gastoProgramado?.nombre}</Text> },
+    { title: 'Aplicada', key: 'v', align: 'right', render: (_, r) => <Text style={NUM}>{r.vecesAplicada}×</Text> },
+    { title: 'Auto', key: 'auto', render: (_, r) => r.autoValidar ? <Tag color="orange">imputa sola</Tag> : <Tag>propone</Tag> },
+  ]
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-[11.5px] text-gris">"Si la glosa trae esto y el monto anda por acá, es este gasto." La regla imputa a la provisión del período.</p>
-        <Boton size="sm" variante="primario" onClick={() => setCreando(true)}>+ Regla</Boton>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          "Si la glosa trae esto y el monto anda por acá, es este gasto." La regla imputa a la provisión del período.
+        </Text>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreando(true)}>Regla</Button>
       </div>
-      <Carta>
-        {!reglas?.length ? <Vacio>Sin reglas. El arriendo que llega igual todos los meses es el candidato perfecto.</Vacio> : (
-          <Tabla>
-            <thead><tr><Th>Regla</Th><Th>Patrón de glosa</Th><Th>Gasto</Th><Th num>Aplicada</Th><Th>Auto</Th></tr></thead>
-            <tbody>
-              {reglas.map((r) => (
-                <tr key={r.id} className={`hover:bg-borde-suave/50 ${!r.activa ? 'opacity-50' : ''}`}>
-                  <Td className="font-medium">{r.nombre}</Td>
-                  <Td className="monto text-gris">"{r.patronGlosa}"</Td>
-                  <Td>{r.gastoProgramado?.nombre}</Td>
-                  <Td num>{r.vecesAplicada}×</Td>
-                  <Td>{r.autoValidar ? <Badge tono="ambar">imputa sola</Badge> : <Badge tono="gris">propone</Badge>}</Td>
-                </tr>
+      <Table
+        dataSource={reglas || []} columns={columns} rowKey="id" size="small" loading={isLoading} pagination={false}
+        locale={{ emptyText: 'Sin reglas. El arriendo que llega igual todos los meses es el candidato perfecto.' }}
+      />
+      <Modal open={creando} title="Nueva regla de conciliación" onCancel={() => { setCreando(false); setPrueba(null) }} footer={null} destroyOnHidden>
+        <Form form={form} layout="vertical" onFinish={(v) => crear.mutate(v)}>
+          <Form.Item name="nombre" label="Nombre" rules={[{ required: true, message: 'Nombre' }]}>
+            <Input autoFocus placeholder="Ej: Arriendo oficina" />
+          </Form.Item>
+          <Form.Item name="patronGlosa" label="La glosa debe contener" rules={[{ required: true, message: 'Sin patrón calzaría con todo' }]}>
+            <Input placeholder="Ej: FENIX" />
+          </Form.Item>
+          <Form.Item name="gastoProgramadoId" label="Se imputa al gasto programado" rules={[{ required: true, message: 'Elige el gasto' }]}>
+            <Select showSearch optionFilterProp="label" options={(gastos || []).map((g) => ({ value: g.id, label: g.nombre }))} />
+          </Form.Item>
+          <Space.Compact block>
+            <Form.Item name="montoMin" label="Monto mínimo (opcional)" style={{ flex: 1, marginRight: 8 }}>
+              <InputNumber style={{ width: '100%' }} min={0} />
+            </Form.Item>
+            <Form.Item name="montoMax" label="Monto máximo (opcional)" style={{ flex: 1 }}>
+              <InputNumber style={{ width: '100%' }} min={0} />
+            </Form.Item>
+          </Space.Compact>
+          <Form.Item name="autoValidar" valuePropName="checked">
+            <Checkbox>Imputar sola cuando la coincidencia sea única (con cuidado)</Checkbox>
+          </Form.Item>
+          {prueba && (
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 12 }}>
+              Calzaría con <Text strong>{prueba.total}</Text> movimiento(s), {prueba.libres} libres.
+              {prueba.movimientos.slice(0, 3).map((m) => (
+                <div key={m.id}><Text type="secondary" style={{ fontSize: 11 }}>· {fecha(m.fecha)} {m.glosa} ({clp(Math.abs(m.monto))})</Text></div>
               ))}
-            </tbody>
-          </Tabla>
-        )}
-      </Carta>
-
-      {creando && (
-        <Modal abierto onCerrar={() => { setCreando(false); setPrueba(null) }} titulo="Nueva regla de conciliación">
-          <div className="space-y-3">
-            <Campo label="Nombre"><Input autoFocus value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Ej: Arriendo oficina" /></Campo>
-            <Campo label="La glosa debe contener"><Input value={form.patronGlosa} onChange={(e) => setForm((f) => ({ ...f, patronGlosa: e.target.value }))} placeholder="Ej: FENIX" /></Campo>
-            <Campo label="Se imputa al gasto programado">
-              <Select value={form.gastoProgramadoId} onChange={(e) => setForm((f) => ({ ...f, gastoProgramadoId: e.target.value }))}>
-                <option value="">Elegir…</option>
-                {(gastos || []).map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-              </Select>
-            </Campo>
-            <div className="grid grid-cols-2 gap-3">
-              <Campo label="Monto mínimo (opcional)"><Input type="number" value={form.montoMin} onChange={(e) => setForm((f) => ({ ...f, montoMin: e.target.value }))} /></Campo>
-              <Campo label="Monto máximo (opcional)"><Input type="number" value={form.montoMax} onChange={(e) => setForm((f) => ({ ...f, montoMax: e.target.value }))} /></Campo>
             </div>
-            <label className="flex items-center gap-2 text-[12px] cursor-pointer">
-              <input type="checkbox" checked={form.autoValidar} onChange={(e) => setForm((f) => ({ ...f, autoValidar: e.target.checked }))} />
-              Imputar sola cuando la coincidencia sea única (con cuidado)
-            </label>
-            {prueba && (
-              <p className="text-[11.5px] bg-fondo rounded-lg px-3 py-2">
-                Calzaría con <span className="font-semibold">{prueba.total}</span> movimiento(s), {prueba.libres} libres.
-                {prueba.movimientos.slice(0, 3).map((m) => <span key={m.id} className="block text-sutil truncate">· {fecha(m.fecha)} {m.glosa} ({clp(Math.abs(m.monto))})</span>)}
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Boton onClick={() => probar.mutate()} disabled={!form.patronGlosa || probar.isPending}>Probar en seco</Boton>
-              <Boton variante="primario" disabled={crear.isPending || !form.nombre || !form.patronGlosa || !form.gastoProgramadoId} onClick={() => crear.mutate()}>Crear regla</Boton>
-            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button loading={probar.isPending} onClick={() => probar.mutate()}>Probar en seco</Button>
+            <Button type="primary" htmlType="submit" loading={crear.isPending}>Crear regla</Button>
           </div>
-        </Modal>
-      )}
-    </div>
+        </Form>
+      </Modal>
+    </>
   )
 }
 
@@ -339,55 +365,37 @@ function TabBancarias() {
     queryFn: () => api.get('/erp/banco/cuentas').then((r) => r.data),
     staleTime: 60000,
   })
-  if (isLoading) return <Cargando />
+
+  const columns = [
+    { title: 'Banco', key: 'b', render: (_, c) => <Text strong style={{ fontSize: 13 }}>{c.banco}{c.alias ? <Text type="secondary"> · {c.alias}</Text> : ''}</Text> },
+    { title: 'Cuenta', dataIndex: 'numeroCuenta', render: (v) => <Text style={{ fontSize: 12, ...NUM }}>{v}</Text> },
+    { title: 'Titular', key: 't', render: (_, c) => <Text style={{ fontSize: 12 }}>{c.razonSocial} <Text type="secondary" style={NUM}>{c.rutEmpresa}</Text></Text> },
+    { title: 'Movimientos', key: 'm', align: 'right', render: (_, c) => <Text style={NUM}>{c._count?.movimientos ?? '—'}</Text> },
+  ]
+
   return (
-    <Carta>
-      {!cuentas?.length ? <Vacio>Sin cuentas bancarias registradas.</Vacio> : (
-        <Tabla>
-          <thead><tr><Th>Banco</Th><Th>Cuenta</Th><Th>Titular</Th><Th num>Movimientos</Th></tr></thead>
-          <tbody>
-            {cuentas.map((c) => (
-              <tr key={c.id}>
-                <Td className="font-medium">{c.banco}{c.alias && <span className="text-sutil"> · {c.alias}</span>}</Td>
-                <Td className="monto">{c.numeroCuenta}</Td>
-                <Td>{c.razonSocial} <span className="text-sutil monto">{c.rutEmpresa}</span></Td>
-                <Td num>{c._count?.movimientos ?? '—'}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Tabla>
-      )}
-    </Carta>
+    <Table
+      dataSource={cuentas || []} columns={columns} rowKey="id" size="small" loading={isLoading} pagination={false}
+      locale={{ emptyText: 'Sin cuentas bancarias registradas.' }}
+    />
   )
 }
 
 export default function Configuracion() {
-  const [tab, setTab] = useState('contrapartes')
-  const TABS = [
-    ['contrapartes', 'Contrapartes'],
-    ['cuentas', 'Plan de cuentas'],
-    ['proveedores', 'Proveedores'],
-    ['reglas', 'Reglas'],
-    ['bancarias', 'Cuentas bancarias'],
-  ]
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4 flex-wrap">
-        <h1 className="text-[17px] font-bold tracking-tight">Configuración</h1>
-        <div className="flex items-center gap-1 bg-carta border border-borde rounded-lg p-0.5 flex-wrap">
-          {TABS.map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setTab(k)}
-              className={`px-2.5 py-1 rounded-md text-[11.5px] font-semibold cursor-pointer transition-colors ${tab === k ? 'bg-bp-soft text-bp-dark' : 'text-gris hover:text-tinta'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
-      {tab === 'contrapartes' && <TabContrapartes />}
-      {tab === 'cuentas' && <TabCuentas />}
-      {tab === 'proveedores' && <TabProveedores />}
-      {tab === 'reglas' && <TabReglas />}
-      {tab === 'bancarias' && <TabBancarias />}
+    <div>
+      <Title level={4} style={{ marginBottom: 16 }}>Configuración</Title>
+      <Card styles={{ body: { paddingTop: 8 } }}>
+        <Tabs
+          items={[
+            { key: 'contrapartes', label: 'Contrapartes', children: <TabContrapartes /> },
+            { key: 'cuentas', label: 'Plan de cuentas', children: <TabCuentas /> },
+            { key: 'proveedores', label: 'Proveedores', children: <TabProveedores /> },
+            { key: 'reglas', label: 'Reglas', children: <TabReglas /> },
+            { key: 'bancarias', label: 'Cuentas bancarias', children: <TabBancarias /> },
+          ]}
+        />
+      </Card>
     </div>
   )
 }
