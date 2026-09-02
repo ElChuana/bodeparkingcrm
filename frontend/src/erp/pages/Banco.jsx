@@ -69,7 +69,7 @@ function Movimientos() {
   })
 
   const columns = [
-    { title: 'Fecha', key: 'fecha', width: 90, render: (_, m) => <Text style={{ fontSize: 12, ...NUM }}>{fecha(m.fecha)}</Text> },
+    { title: 'Fecha', key: 'fecha', width: 90, render: (_, m) => <Text style={{ fontSize: 12, whiteSpace: 'nowrap', ...NUM }}>{fecha(m.fecha)}</Text> },
     {
       title: 'Glosa', key: 'glosa',
       render: (_, m) => {
