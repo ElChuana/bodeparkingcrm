@@ -131,6 +131,13 @@ const kanban = async (req, res) => {
       if (agrupado[lead.etapa]) agrupado[lead.etapa].push(lead)
     })
 
+    // Los leads con email sin leer suben al tope de su columna (el sort de JS es
+    // estable, así que dentro de cada grupo se mantiene el orden por actividad).
+    // Va antes del corte a 100 para que nunca queden fuera por la cola.
+    for (const col of Object.values(agrupado)) {
+      col.sort((a, b) => (b.emailsNoLeidos > 0) - (a.emailsNoLeidos > 0))
+    }
+
     // Limitar a 100 por columna y devolver total real
     const resultado = {}
     for (const [etapa, col] of Object.entries(agrupado)) {

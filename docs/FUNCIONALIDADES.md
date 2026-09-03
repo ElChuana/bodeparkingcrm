@@ -89,7 +89,7 @@
 ### LEADS — `/api/leads`
 - Archivos: `routes/leads.js`, `controllers/leadsController.js`
 - `GET /` — listar con filtros (etapa, vendedor, edificio, origen, búsqueda, fechas, `sinAsignar=true`). Orden: actualizadoEn DESC
-- `GET /kanban` — vista Kanban por etapa
+- `GET /kanban` — vista Kanban por etapa. Cada lead trae `emailsNoLeidos` (correos RECIBIDOS sin leer) y **los leads con correo sin leer van primero en su columna** (sep 2026); el orden se aplica antes del corte a 100 por columna, así que nunca quedan escondidos en la cola. Dentro de cada grupo se mantiene el orden por actividad más reciente. En la tarjeta se ven con borde y fondo naranja + tag "N sin leer"
 - `GET /kanban/por-vendedor` — Kanban agrupado por vendedor
 - `GET /campanas` — campañas disponibles
 - `POST /fusionar-duplicados` — fusionar leads duplicados
