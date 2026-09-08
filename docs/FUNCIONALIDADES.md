@@ -344,7 +344,7 @@
 - Archivos: `routes/dashboard.js`, `controllers/dashboardController.js`
 - `GET /` — todos los KPIs del período
 - KPIs: leads ingresados, ventas, unidades vendidas (con comparación período anterior)
-- Embudo: todos los pasos cuentan leads por etapa (consistente)
+- Embudo (9 pasos, sep 2026): Leads recibidos → Contactados → **Seguimiento** → **Cotización** → **Interesados** → Visitas → Reservas → Promesas → Escrituras. Cada paso cuenta los leads del período que **alcanzaron al menos** ese hito (etapa actual igual o posterior). Como `PERDIDO` borra el rastro del avance, los pasos intermedios suman además la evidencia dura —cotización creada, visita registrada, venta no anulada— para no perder al lead que avanzó y después se cayó. Constantes `DESDE_SEGUIMIENTO` / `DESDE_COTIZACION` / `DESDE_INTERESADO` en `dashboardController.js`
 - Gráficos: ingresos por semana, ventas por mes, leads por campaña, inventario por edificio
 - Datos: visitas del período, visitas próximas, cuotas pendientes, proceso legal activo
 - Tabla "Ventas del período" (sep 2026): cliente, vendedor, unidades, proyecto, valor UF/CLP, costo UF, **margen UF** (precio − costo, con el % sobre el precio), múltiplo, estado y fecha de reserva. Costo, margen y múltiplo son sensibles: solo GERENTE/JEFE_VENTAS (el backend además no manda `precioCostoUF` al resto). Se sacaron las columnas Broker y Reserva pagada

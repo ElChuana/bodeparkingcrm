@@ -67,6 +67,15 @@ const obtener = async (req, res) => {
   const hayFecha = desde || hasta
   const { desdeAnt, hastaAnt } = calcPeriodoAnterior(desde, hasta)
 
+  // Embudo: un lead "alcanzó" un paso si su etapa actual es esa o una posterior.
+  // Como PERDIDO borra el rastro del avance, se suma la evidencia dura
+  // (cotización creada, visita registrada, venta) para no perder al que avanzó
+  // y después se cayó.
+  const DESDE_SEGUIMIENTO = ['SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO', 'VISITA_AGENDADA',
+    'VISITA_REALIZADA', 'SEGUIMIENTO_POST_VISITA', 'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA']
+  const DESDE_COTIZACION = DESDE_SEGUIMIENTO.slice(1)
+  const DESDE_INTERESADO = DESDE_SEGUIMIENTO.slice(2)
+
   const filtroLead     = hayFecha ? { creadoEn:     { ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}
   const filtroReserva  = hayFecha ? { fechaReserva: { ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}
   const filtroEscritura= hayFecha ? { fechaEscritura:{ ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}
@@ -93,6 +102,9 @@ const obtener = async (req, res) => {
       leadsAnio,
       // Leads para embudo
       contactados,
+      enSeguimiento,
+      cotizados,
+      interesados,
       visitasEmbudo,
       reservas,
       promesas,
@@ -219,6 +231,42 @@ const obtener = async (req, res) => {
       // Embudo: contactados — leads del período que salieron de NUEVO
       prisma.lead.count({
         where: { ...filtroLead, etapa: { not: 'NUEVO' } }
+      }),
+
+      // Embudo: seguimiento — leads que llegaron al menos a Seguimiento
+      prisma.lead.count({
+        where: {
+          ...filtroLead,
+          OR: [
+            { etapa: { in: DESDE_SEGUIMIENTO } },
+            { cotizaciones: { some: {} } },
+            { visitas: { some: {} } },
+            { ventas: { some: { estado: { not: 'ANULADO' } } } },
+          ]
+        }
+      }),
+
+      // Embudo: cotización — leads con cotización creada o etapa posterior
+      prisma.lead.count({
+        where: {
+          ...filtroLead,
+          OR: [
+            { etapa: { in: DESDE_COTIZACION } },
+            { cotizaciones: { some: {} } },
+          ]
+        }
+      }),
+
+      // Embudo: interesado — leads marcados como interesados o que avanzaron más
+      prisma.lead.count({
+        where: {
+          ...filtroLead,
+          OR: [
+            { etapa: { in: DESDE_INTERESADO } },
+            { visitas: { some: {} } },
+            { ventas: { some: { estado: { not: 'ANULADO' } } } },
+          ]
+        }
       }),
 
       // Embudo: visitas — leads del período con al menos una visita
@@ -418,6 +466,9 @@ const obtener = async (req, res) => {
       embudo: [
         { paso: 'Leads recibidos', cantidad: leadsIngresados },
         { paso: 'Contactados',     cantidad: contactados },
+        { paso: 'Seguimiento',     cantidad: enSeguimiento },
+        { paso: 'Cotización',      cantidad: cotizados },
+        { paso: 'Interesados',     cantidad: interesados },
         { paso: 'Visitas',         cantidad: visitasEmbudo },
         { paso: 'Reservas',        cantidad: reservas },
         { paso: 'Promesas',        cantidad: promesas },
