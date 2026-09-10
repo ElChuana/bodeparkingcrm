@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma')
 const path = require('path')
+const { INCLUDE_VENTA, podarVenta } = require('../lib/unidades')
 
 const listar = async (req, res) => {
   const { edificioId, tipo, estado, precioMin, precioMax } = req.query
@@ -18,6 +19,7 @@ const listar = async (req, res) => {
         edificio: { select: { id: true, nombre: true, direccion: true, region: true, comuna: true } },
         packs: { include: { pack: { select: { nombre: true, descuentoUF: true } } } },
         beneficios: { include: { beneficio: { select: { nombre: true, tipo: true } } } },
+        venta: INCLUDE_VENTA,
         _count: { select: { llaves: true } }
       },
       orderBy: [{ edificioId: 'asc' }, { tipo: 'asc' }, { numero: 'asc' }]
@@ -30,7 +32,7 @@ const listar = async (req, res) => {
       // Ocultar precio mínimo, costo y venta real para roles sin acceso
       if (!esGerenciaOJV) {
         const { precioMinimoUF, precioCostoUF, precioVentaUF: _oculto, ...pub } = u
-        return pub
+        return { ...pub, venta: podarVenta(pub.venta) }
       }
       return { ...u, precioVentaUF }
     })
@@ -54,14 +56,15 @@ const obtener = async (req, res) => {
         archivos: true,
         llaves: { include: { movimientos: { orderBy: { creadoEn: 'desc' }, take: 1 } } },
         promociones: { include: { promocion: true } },
-        arriendos: { where: { estado: 'ACTIVO' } }
+        arriendos: { where: { estado: 'ACTIVO' } },
+        venta: INCLUDE_VENTA
       }
     })
     if (!unidad) return res.status(404).json({ error: 'Unidad no encontrada.' })
 
     if (!esGerenciaOJV) {
       const { precioMinimoUF, precioCostoUF, precioVentaUF, ...resto } = unidad
-      return res.json(resto)
+      return res.json({ ...resto, venta: podarVenta(resto.venta) })
     }
 
     res.json(unidad)

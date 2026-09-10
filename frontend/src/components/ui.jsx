@@ -50,6 +50,51 @@ export const MOTIVO_PERDIDA_LABEL = {
 
 export const MOTIVO_PERDIDA_OPTIONS = Object.entries(MOTIVO_PERDIDA_LABEL).map(([value, label]) => ({ value, label }))
 
+// Estado comercial de una unidad para el inventario.
+// La unidad solo guarda DISPONIBLE/RESERVADO/VENDIDO/ARRENDADO, así que una
+// unidad con promesa o escritura firmada se veía igual que una recién reservada.
+// El avance real vive en la venta: se DERIVA de ahí en vez de copiarlo a la
+// unidad, porque ese mismo dato ya vive en venta.estado, procesoLegal y
+// lead.etapa y se ha desincronizado antes.
+export const ESTADO_UNIDAD_LABEL = {
+  DISPONIBLE: 'Disponible',
+  RESERVADO:  'Reservado',
+  PROMESA:    'Promesa',
+  ESCRITURA:  'Escriturado',
+  VENDIDO:    'Vendido',
+  ARRENDADO:  'Arrendado',
+}
+
+export const ESTADO_UNIDAD_COLOR = {
+  DISPONIBLE: 'green',
+  RESERVADO:  'orange',
+  PROMESA:    'blue',
+  ESCRITURA:  'purple',
+  VENDIDO:    'red',
+  ARRENDADO:  'cyan',
+}
+
+// Orden en que se muestran los contadores y el filtro de estado
+export const ESTADOS_UNIDAD = ['DISPONIBLE', 'RESERVADO', 'PROMESA', 'ESCRITURA', 'VENDIDO', 'ARRENDADO']
+
+export const estadoUnidad = (u) => {
+  const v = u?.venta
+  if (v && v.estado !== 'ANULADO') {
+    if (v.estado === 'PROMESA')   return 'PROMESA'
+    if (v.estado === 'ESCRITURA') return 'ESCRITURA'
+    if (v.estado === 'ENTREGADO') return 'VENDIDO'
+  }
+  return u?.estado || 'DISPONIBLE'
+}
+
+export const ESTADO_VENTA_LABEL = {
+  RESERVA:   'Reserva',
+  PROMESA:   'Promesa',
+  ESCRITURA: 'Escritura',
+  ENTREGADO: 'Entregado',
+  ANULADO:   'Anulado',
+}
+
 export const ESTADO_VENTA_COLOR = {
   RESERVA: 'orange',
   PROMESA: 'blue',

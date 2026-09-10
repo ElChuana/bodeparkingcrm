@@ -5,6 +5,7 @@ import {
   Typography, Space, App, InputNumber, Table, Segmented, Tooltip, DatePicker
 } from 'antd'
 import dayjs from 'dayjs'
+import { useNavigate } from 'react-router-dom'
 import {
   PlusOutlined, HomeOutlined, AppstoreOutlined, BarsOutlined, SearchOutlined, FileExcelOutlined
 } from '@ant-design/icons'
@@ -12,11 +13,125 @@ import * as XLSX from 'xlsx'
 import api from '../../services/api'
 import { useUF } from '../../hooks/useUF'
 import { useAuth } from '../../context/AuthContext'
+import {
+  ESTADO_UNIDAD_LABEL as ESTADO_LABEL,
+  ESTADO_UNIDAD_COLOR as ESTADO_COLOR,
+  ESTADOS_UNIDAD,
+  estadoUnidad,
+  ESTADO_VENTA_LABEL,
+  ESTADO_VENTA_COLOR,
+} from '../../components/ui'
 
 const { Title, Text } = Typography
 
-const ESTADO_COLOR = { DISPONIBLE: 'green', RESERVADO: 'orange', VENDIDO: 'red', ARRENDADO: 'blue' }
-const ESTADO_LABEL = { DISPONIBLE: 'Disponible', RESERVADO: 'Reservado', VENDIDO: 'Vendido', ARRENDADO: 'Arrendado' }
+// Tag de estado. Si la unidad tiene venta detrás es pinchable y abre el detalle
+// de quién la compró; si está disponible es solo informativo.
+function TagEstado({ unidad, onVer }) {
+  const estado = estadoUnidad(unidad)
+  const tag = <Tag color={ESTADO_COLOR[estado]} style={{ margin: 0 }}>{ESTADO_LABEL[estado] || estado}</Tag>
+  if (!unidad?.venta) return tag
+  return (
+    <Tooltip title="Ver quién compró esta unidad">
+      <span
+        style={{ cursor: 'pointer' }}
+        onClick={(e) => { e.stopPropagation(); onVer(unidad) }}
+      >
+        <Tag color={ESTADO_COLOR[estado]} style={{ margin: 0, cursor: 'pointer', borderStyle: 'dashed' }}>
+          {ESTADO_LABEL[estado] || estado}
+        </Tag>
+      </span>
+    </Tooltip>
+  )
+}
+
+
+// Quién compró la unidad. Se abre desde el tag de estado en las dos vistas.
+function ModalVentaUnidad({ open, onClose, unidad }) {
+  const { formatUF, ufAPesos, formatPesos } = useUF()
+  const { esGerenciaOJV } = useAuth()
+  const navigate = useNavigate()
+  const v = unidad?.venta
+  if (!v) return null
+
+  const c = v.comprador
+  const nombre = c ? `${c.nombre} ${c.apellido || ''}`.trim() : '—'
+  const fecha = (f) => f ? dayjs(f).format('DD/MM/YYYY') : null
+
+  const hitos = [
+    ['Reserva', v.fechaReserva],
+    ['Promesa', v.fechaPromesa],
+    ['Escritura', v.fechaEscritura],
+    ['Entrega', v.fechaEntrega],
+  ].filter(([, f]) => f)
+
+  return (
+    <Modal
+      open={open}
+      onCancel={onClose}
+      title={`${unidad.tipo === 'BODEGA' ? 'Bodega' : 'Estacionamiento'} ${unidad.numero} — ${unidad.edificio?.nombre || ''}`}
+      footer={[
+        <Button key="cerrar" onClick={onClose}>Cerrar</Button>,
+        ...(esGerenciaOJV ? [
+          <Button key="venta" type="primary" onClick={() => navigate(`/ventas/${v.id}`)}>
+            Ver venta #{v.id}
+          </Button>
+        ] : []),
+      ]}
+    >
+      <div style={{ marginBottom: 16 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>Comprador</Text>
+        <div><Text strong style={{ fontSize: 16 }}>{nombre}</Text></div>
+        {c?.empresa && <div><Text type="secondary">{c.empresa}</Text></div>}
+        {esGerenciaOJV && (
+          <Space direction="vertical" size={0} style={{ marginTop: 4 }}>
+            {c?.rut && <Text type="secondary" style={{ fontSize: 12 }}>RUT {c.rut}</Text>}
+            {c?.email && <Text type="secondary" style={{ fontSize: 12 }}>{c.email}</Text>}
+            {c?.telefono && <Text type="secondary" style={{ fontSize: 12 }}>{c.telefono}</Text>}
+          </Space>
+        )}
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>Estado de la venta</Text>
+        <div style={{ marginTop: 4 }}>
+          <Tag color={ESTADO_VENTA_COLOR[v.estado]}>{ESTADO_VENTA_LABEL[v.estado] || v.estado}</Tag>
+          <Text type="secondary" style={{ fontSize: 12 }}>Venta #{v.id}</Text>
+        </div>
+      </div>
+
+      {hitos.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>Hitos</Text>
+          {hitos.map(([label, f]) => (
+            <div key={label}>
+              <Text style={{ fontSize: 13 }}>{label}: </Text>
+              <Text strong style={{ fontSize: 13 }}>{fecha(f)}</Text>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {esGerenciaOJV && unidad.precioVentaUF != null && (
+        <div style={{ marginBottom: 16 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>Precio pactado de esta unidad</Text>
+          <div>
+            <Text strong style={{ color: '#16a34a' }}>{formatUF(unidad.precioVentaUF)}</Text>
+            {ufAPesos(unidad.precioVentaUF) && (
+              <Text type="secondary" style={{ fontSize: 12 }}> · {formatPesos(ufAPesos(unidad.precioVentaUF))}</Text>
+            )}
+          </div>
+        </div>
+      )}
+
+      {v.vendedor && (
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>Vendedor</Text>
+          <div><Text style={{ fontSize: 13 }}>{v.vendedor.nombre} {v.vendedor.apellido || ''}</Text></div>
+        </div>
+      )}
+    </Modal>
+  )
+}
 
 function ModalEdificio({ open, onClose, edificio }) {
   const qc = useQueryClient()
@@ -179,6 +294,7 @@ function DetalleEdificio({ edificioId, onBack }) {
   const { esGerenciaOJV } = useAuth()
   const [modalUnidad, setModalUnidad] = useState(false)
   const [unidadEditar, setUnidadEditar] = useState(null)
+  const [ventaVer, setVentaVer] = useState(null)
   const [filtroTipo, setFiltroTipo] = useState(undefined)
   const [filtroEstado, setFiltroEstado] = useState(undefined)
   const [filtroPrecioMin, setFiltroPrecioMin] = useState(undefined)
@@ -193,7 +309,7 @@ function DetalleEdificio({ edificioId, onBack }) {
 
   const unidadesFiltradas = (edificio?.unidades || []).filter(u => {
     if (filtroTipo && u.tipo !== filtroTipo) return false
-    if (filtroEstado && u.estado !== filtroEstado) return false
+    if (filtroEstado && estadoUnidad(u) !== filtroEstado) return false
     if (filtroPrecioMin && u.precioUF < filtroPrecioMin) return false
     if (filtroPrecioMax && u.precioUF > filtroPrecioMax) return false
     return true
@@ -202,7 +318,8 @@ function DetalleEdificio({ edificioId, onBack }) {
   const hayFiltros = filtroTipo || filtroEstado || filtroPrecioMin || filtroPrecioMax
 
   const porEstado = (edificio?.unidades || []).reduce((acc, u) => {
-    acc[u.estado] = (acc[u.estado] || 0) + 1; return acc
+    const e = estadoUnidad(u)
+    acc[e] = (acc[e] || 0) + 1; return acc
   }, {})
 
   return (
@@ -226,14 +343,14 @@ function DetalleEdificio({ edificioId, onBack }) {
       )}
 
       <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
-        {Object.entries(ESTADO_LABEL).map(([key, label]) => (
+        {ESTADOS_UNIDAD.map(key => (
           <Col key={key}>
             <Tag
               color={filtroEstado === key ? ESTADO_COLOR[key] : undefined}
               style={{ cursor: 'pointer', fontSize: 12 }}
               onClick={() => setFiltroEstado(filtroEstado === key ? undefined : key)}
             >
-              {label}: {porEstado[key] || 0}
+              {ESTADO_LABEL[key]}: {porEstado[key] || 0}
             </Tag>
           </Col>
         ))}
@@ -252,7 +369,7 @@ function DetalleEdificio({ edificioId, onBack }) {
           value={filtroEstado}
           onChange={setFiltroEstado}
           allowClear size="small" style={{ width: 140 }}
-          options={Object.entries(ESTADO_LABEL).map(([k, v]) => ({ value: k, label: v }))}
+          options={ESTADOS_UNIDAD.map(k => ({ value: k, label: ESTADO_LABEL[k] }))}
         />
         <InputNumber
           placeholder="Precio mín (UF)"
@@ -291,7 +408,7 @@ function DetalleEdificio({ edificioId, onBack }) {
               size="small"
               hoverable
               onClick={() => { setUnidadEditar(u); setModalUnidad(true) }}
-              extra={<Tag color={ESTADO_COLOR[u.estado]}>{ESTADO_LABEL[u.estado]}</Tag>}
+              extra={<TagEstado unidad={{ ...u, edificio }} onVer={setVentaVer} />}
               title={
                 <Space>
                   <span>{u.tipo === 'BODEGA' ? '📦' : '🚗'}</span>
@@ -313,6 +430,12 @@ function DetalleEdificio({ edificioId, onBack }) {
         ))}
       </Row>
 
+      <ModalVentaUnidad
+        open={!!ventaVer}
+        onClose={() => setVentaVer(null)}
+        unidad={ventaVer}
+      />
+
       <ModalUnidad
         open={modalUnidad}
         onClose={() => setModalUnidad(false)}
@@ -328,6 +451,7 @@ function VistaLista({ edificios }) {
   const { esGerenciaOJV } = useAuth()
   const [unidadEditar, setUnidadEditar] = useState(null)
   const [modalUnidad, setModalUnidad] = useState(false)
+  const [ventaVer, setVentaVer] = useState(null)
 
   // Filtros múltiples (arrays). El filtrado es client-side: el inventario es chico.
   const [filtroEdificio, setFiltroEdificio] = useState([])
@@ -348,7 +472,7 @@ function VistaLista({ edificios }) {
   const datos = unidades.filter(u => {
     if (filtroEdificio.length && !filtroEdificio.includes(u.edificio?.id)) return false
     if (filtroTipo.length && !filtroTipo.includes(u.tipo)) return false
-    if (filtroEstado.length && !filtroEstado.includes(u.estado)) return false
+    if (filtroEstado.length && !filtroEstado.includes(estadoUnidad(u))) return false
     if (filtroPrecioMin && (u.precioUF || 0) < filtroPrecioMin) return false
     if (filtroPrecioMax && (u.precioUF || 0) > filtroPrecioMax) return false
     if (busqueda) {
@@ -369,7 +493,8 @@ function VistaLista({ edificios }) {
       Número: u.numero,
       Piso: u.piso || '',
       'm²': u.m2 ? Number(u.m2) : '',
-      Estado: ESTADO_LABEL[u.estado] || u.estado,
+      Estado: ESTADO_LABEL[estadoUnidad(u)] || u.estado,
+      Comprador: u.venta?.comprador ? `${u.venta.comprador.nombre} ${u.venta.comprador.apellido || ''}`.trim() : '',
       'Precio UF': u.precioUF ? Number(u.precioUF) : '',
       ...(esGerenciaOJV ? {
         'Precio venta UF': u.precioVentaUF ? Number(u.precioVentaUF) : '',
@@ -434,8 +559,24 @@ function VistaLista({ edificios }) {
       title: 'Estado',
       dataIndex: 'estado',
       key: 'estado',
-      sorter: (a, b) => a.estado.localeCompare(b.estado),
-      render: v => <Tag color={ESTADO_COLOR[v]}>{ESTADO_LABEL[v]}</Tag>
+      // Ordena por el ciclo comercial (disponible → reservado → promesa → …),
+      // no alfabéticamente, que dejaba "Vendido" antes que "Reservado".
+      sorter: (a, b) => ESTADOS_UNIDAD.indexOf(estadoUnidad(a)) - ESTADOS_UNIDAD.indexOf(estadoUnidad(b)),
+      render: (_, u) => <TagEstado unidad={u} onVer={setVentaVer} />
+    },
+    {
+      title: 'Comprador',
+      key: 'comprador',
+      sorter: (a, b) => (a.venta?.comprador?.apellido || '').localeCompare(b.venta?.comprador?.apellido || ''),
+      render: (_, u) => {
+        const c = u.venta?.comprador
+        if (!c) return <Text type="secondary">—</Text>
+        return (
+          <Button type="link" size="small" style={{ padding: 0, height: 'auto' }} onClick={() => setVentaVer(u)}>
+            {c.nombre} {c.apellido || ''}
+          </Button>
+        )
+      }
     },
     {
       title: 'Precio UF',
@@ -543,7 +684,7 @@ function VistaLista({ edificios }) {
           onChange={setFiltroEstado}
           allowClear size="small" style={{ minWidth: 140, maxWidth: 300 }}
           maxTagCount="responsive"
-          options={Object.entries(ESTADO_LABEL).map(([k, v]) => ({ value: k, label: v }))}
+          options={ESTADOS_UNIDAD.map(k => ({ value: k, label: ESTADO_LABEL[k] }))}
         />
         <InputNumber
           placeholder="Precio mín (UF)"
@@ -611,6 +752,12 @@ function VistaLista({ edificios }) {
         pagination={{ pageSize: 50, showSizeChanger: true, pageSizeOptions: ['25', '50', '100', '200'], showTotal: (t) => `${t} unidades` }}
         locale={{ emptyText: 'Sin unidades' }}
         scroll={{ x: 800 }}
+      />
+
+      <ModalVentaUnidad
+        open={!!ventaVer}
+        onClose={() => setVentaVer(null)}
+        unidad={ventaVer}
       />
 
       <ModalUnidad

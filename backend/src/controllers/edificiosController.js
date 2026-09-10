@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { INCLUDE_VENTA, podarVenta } = require('../lib/unidades')
 
 // Acepta null/'' → null, y cualquier fecha parseable (ISO o Date) → Date.
 const fechaOrNull = (v) => {
@@ -30,11 +31,21 @@ const obtener = async (req, res) => {
       where: { id: Number(id) },
       include: {
         unidades: {
-          orderBy: [{ tipo: 'asc' }, { numero: 'asc' }]
+          orderBy: [{ tipo: 'asc' }, { numero: 'asc' }],
+          // La venta viaja con la unidad: el inventario muestra el avance real
+          // (promesa/escritura) y quién compró, sin pedir otra vez al backend.
+          include: { venta: INCLUDE_VENTA }
         }
       }
     })
     if (!edificio) return res.status(404).json({ error: 'Edificio no encontrado.' })
+
+    if (!['GERENTE', 'JEFE_VENTAS'].includes(req.usuario.rol)) {
+      return res.json({
+        ...edificio,
+        unidades: edificio.unidades.map(u => ({ ...u, venta: podarVenta(u.venta) })),
+      })
+    }
     res.json(edificio)
   } catch (err) {
     res.status(500).json({ error: 'Error al obtener edificio.' })
