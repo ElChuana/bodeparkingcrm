@@ -1,10 +1,13 @@
 // Forma de pago de una venta: se pueden combinar varias (ej: pie por
-// transferencia + saldo en cuotas) y cada una lleva su monto en UF.
-// Sin ninguna forma marcada, la venta es AL CONTADO.
+// transferencia + saldo en cuotas) y cada una lleva su monto, pactado EN UF
+// O EN PESOS. Sin ninguna forma marcada, la venta es AL CONTADO.
+//
+// Lo pactado en pesos se guarda en pesos; el equivalente en UF se congela con
+// la UF del día y es el que cuadra contra el precio final de la venta.
 //
 // La cantidad de cuotas sale del beneficio "cuotas sin interés"; solo se
 // guarda en la forma cuando se pacta una cantidad distinta.
-import { Checkbox, InputNumber, Typography, Tag } from 'antd'
+import { Checkbox, InputNumber, Typography, Tag, Segmented, Alert } from 'antd'
 import { useUF } from '../hooks/useUF'
 
 const { Text } = Typography
@@ -19,6 +22,23 @@ export const FORMAS_PAGO = [
 export const FORMA_PAGO_LABEL = Object.fromEntries(FORMAS_PAGO.map(f => [f.value, f.label]))
 
 const TOLERANCIA = 0.01
+
+// Miles con punto en el input de pesos
+const fmtMiles = (v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+const parseMiles = (v) => `${v}`.replace(/[^\d]/g, '')
+
+/** UF que representa una forma: la pactada en UF, o los pesos convertidos. */
+export function montoUFDeForma(f = {}, valorUF = null) {
+  if (f.moneda === 'CLP') {
+    const pesos = Number(f.montoCLP) || 0
+    // En lo ya guardado la equivalencia viene congelada desde el backend
+    if (f.montoUF != null && !pesos) return Number(f.montoUF) || 0
+    if (!pesos) return 0
+    const uf = Number(f.valorUF) || Number(valorUF) || 0
+    return uf > 0 ? pesos / uf : 0
+  }
+  return Number(f.montoUF) || 0
+}
 
 // Hay beneficios de cuotas cargados sin `meses`, con el número solo en el
 // nombre ("Crédito directo 6 cuotas"): se lee de ahí como último recurso.
@@ -55,27 +75,42 @@ export function resumenFormasPago(fuente = {}) {
 }
 
 /**
- * Editor de formas de pago. `value` es [{ forma, montoUF, cuotas }] y se
- * reemplaza completo en cada cambio (onChange recibe el arreglo nuevo).
+ * Editor de formas de pago. `value` es [{ forma, moneda, montoUF, montoCLP,
+ * cuotas }] y se reemplaza completo en cada cambio (onChange recibe el arreglo
+ * nuevo). Cada forma se pacta en UF o en pesos; el cuadre contra el total de la
+ * venta siempre se hace en UF.
  */
 export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBeneficio = null }) {
-  const { formatPesos, ufAPesos } = useUF()
+  const { formatPesos, ufAPesos, valorUF } = useUF()
 
   const marcada = (forma) => value.some(f => f.forma === forma)
   const filaDe  = (forma) => value.find(f => f.forma === forma) || {}
 
   const toggle = (forma, checked) => {
-    if (checked) onChange([...value, { forma, montoUF: null, cuotas: null }])
+    if (checked) onChange([...value, { forma, moneda: 'UF', montoUF: null, montoCLP: null, cuotas: null }])
     else onChange(value.filter(f => f.forma !== forma))
   }
 
   const setCampo = (forma, campo, val) =>
     onChange(value.map(f => f.forma === forma ? { ...f, [campo]: val } : f))
 
-  const asignado = value.reduce((s, f) => s + (Number(f.montoUF) || 0), 0)
+  // Al cambiar de moneda se arrastra lo ya escrito, convertido con la UF del día
+  const setMoneda = (forma, moneda) => onChange(value.map(f => {
+    if (f.forma !== forma) return f
+    if (moneda === 'CLP') {
+      const pesos = ufAPesos(Number(f.montoUF) || 0)
+      return { ...f, moneda, montoCLP: pesos || null, montoUF: null }
+    }
+    const pesos = Number(f.montoCLP) || 0
+    const uf = pesos && valorUF ? +(pesos / valorUF).toFixed(2) : null
+    return { ...f, moneda, montoUF: uf, montoCLP: null }
+  }))
+
+  const asignado = value.reduce((s, f) => s + montoUFDeForma(f, valorUF), 0)
   const faltante = totalUF - asignado
   const calza    = Math.abs(faltante) <= TOLERANCIA
   const excede   = faltante < -TOLERANCIA
+  const hayPesos = value.some(f => f.moneda === 'CLP')
 
   return (
     <div>
@@ -83,7 +118,10 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
         {FORMAS_PAGO.map(({ value: forma, label }) => {
           const activa = marcada(forma)
           const fila = filaDe(forma)
-          const pesos = ufAPesos(Number(fila.montoUF) || 0)
+          const enPesos = fila.moneda === 'CLP'
+          const nCuotas = forma === 'CUOTAS' ? (fila.cuotas || cuotasBeneficio) : null
+          const montoUF = montoUFDeForma(fila, valorUF)
+          const pesos = enPesos ? (Number(fila.montoCLP) || 0) : ufAPesos(montoUF)
           return (
             <div key={forma} style={{
               display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
@@ -110,18 +148,47 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
 
               {activa && (
                 <>
-                  <InputNumber
+                  <Segmented
                     size="small"
-                    min={0}
-                    step={1}
-                    precision={2}
-                    style={{ width: 130 }}
-                    placeholder="Monto"
-                    value={fila.montoUF ?? null}
-                    onChange={v => setCampo(forma, 'montoUF', v)}
-                    addonAfter="UF"
+                    options={[{ label: 'UF', value: 'UF' }, { label: '$', value: 'CLP' }]}
+                    value={enPesos ? 'CLP' : 'UF'}
+                    onChange={v => setMoneda(forma, v)}
                   />
-                  {pesos ? <Text type="secondary" style={{ fontSize: 12 }}>{formatPesos(pesos)}</Text> : null}
+                  {enPesos ? (
+                    <InputNumber
+                      size="small"
+                      min={0}
+                      step={10000}
+                      precision={0}
+                      style={{ width: 150 }}
+                      placeholder="Monto en pesos"
+                      prefix="$"
+                      formatter={fmtMiles}
+                      parser={parseMiles}
+                      value={fila.montoCLP ?? null}
+                      onChange={v => setCampo(forma, 'montoCLP', v)}
+                    />
+                  ) : (
+                    <InputNumber
+                      size="small"
+                      min={0}
+                      step={1}
+                      precision={2}
+                      style={{ width: 130 }}
+                      placeholder="Monto"
+                      value={fila.montoUF ?? null}
+                      onChange={v => setCampo(forma, 'montoUF', v)}
+                      addonAfter="UF"
+                    />
+                  )}
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {enPesos
+                      ? (montoUF ? `≈ ${montoUF.toFixed(2)} UF` : '')
+                      : (pesos ? formatPesos(pesos) : '')}
+                    {nCuotas && (enPesos ? pesos : montoUF)
+                      ? ` · ${nCuotas} × ${enPesos ? formatPesos(pesos / nCuotas) : `${(montoUF / nCuotas).toFixed(2)} UF`}`
+                      : ''}
+                  </Text>
                 </>
               )}
             </div>
@@ -129,7 +196,16 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
         })}
       </div>
 
-      {/* Resumen contra el total de la venta */}
+      {hayPesos && !valorUF && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginTop: 10 }}
+          message="No se pudo leer la UF de hoy: los montos en pesos no se van a poder guardar."
+        />
+      )}
+
+      {/* Resumen contra el total de la venta (siempre en UF) */}
       <div style={{
         marginTop: 12, padding: '8px 12px', borderRadius: 8,
         background: excede ? '#fff1f0' : calza ? '#f6ffed' : '#fffbeb',
@@ -148,6 +224,12 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
               : <Text style={{ fontSize: 13, color: '#d97706' }}>Faltan {faltante.toFixed(2)} UF por asignar</Text>}
       </div>
 
+      {hayPesos && valorUF && (
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+          Lo pactado en pesos queda fijo en pesos; su equivalente en UF se congela con la UF de hoy ({formatPesos(valorUF)}).
+        </Text>
+      )}
+
       {value.length === 0 && (
         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
           Sin nada marcado la venta queda como pago al contado.
@@ -159,7 +241,7 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
 
 /** Vista de solo lectura: desglose de las formas con su monto. */
 export function DetalleFormasPago({ venta }) {
-  const { formatPesos, ufAPesos } = useUF()
+  const { formatPesos, ufAPesos, valorUF } = useUF()
   const formas = venta?.formasPago || []
   const nCuotas = cuotasPactadas(venta)
 
@@ -175,16 +257,25 @@ export function DetalleFormasPago({ venta }) {
     )
   }
 
-  const asignado = formas.reduce((s, f) => s + (Number(f.montoUF) || 0), 0)
+  const asignado = formas.reduce((s, f) => s + montoUFDeForma(f, valorUF), 0)
   const total    = Number(venta?.precioFinalUF || 0)
   const faltante = total - asignado
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {formas.map(f => {
-        const monto = Number(f.montoUF) || 0
-        const pesos = ufAPesos(monto)
+        const enPesos = f.moneda === 'CLP'
+        const monto = montoUFDeForma(f, valorUF)
+        const pesos = enPesos ? (Number(f.montoCLP) || 0) : ufAPesos(monto)
         const n = f.forma === 'CUOTAS' ? (f.cuotas || nCuotas) : null
+        // Lo pactado manda: en pesos se muestra el peso arriba y la UF abajo
+        const principal = enPesos ? formatPesos(pesos) : `${monto.toFixed(2)} UF`
+        const secundario = enPesos
+          ? (monto ? `≈ ${monto.toFixed(2)} UF` : null)
+          : (pesos ? formatPesos(pesos) : null)
+        const porCuota = n && (enPesos ? pesos : monto)
+          ? (enPesos ? `${n} × ${formatPesos(pesos / n)}` : `${n} × ${(monto / n).toFixed(2)} UF`)
+          : null
         return (
           <div key={f.forma} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8,
@@ -193,12 +284,14 @@ export function DetalleFormasPago({ venta }) {
             <div>
               <Text strong style={{ fontSize: 13 }}>{FORMA_PAGO_LABEL[f.forma] || f.forma}</Text>
               {n ? <Tag color="blue" style={{ marginLeft: 8 }}>{n} cuotas</Tag> : null}
+              {enPesos ? <Tag style={{ marginLeft: 4 }}>en pesos</Tag> : null}
+              {porCuota ? <div><Text type="secondary" style={{ fontSize: 12 }}>{porCuota}</Text></div> : null}
               {f.notas ? <div><Text type="secondary" style={{ fontSize: 12 }}>{f.notas}</Text></div> : null}
             </div>
-            {monto > 0 && (
+            {(enPesos ? pesos : monto) > 0 && (
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{monto.toFixed(2)} UF</div>
-                {pesos ? <div style={{ fontSize: 11, color: '#8c8c8c' }}>{formatPesos(pesos)}</div> : null}
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{principal}</div>
+                {secundario ? <div style={{ fontSize: 11, color: '#8c8c8c' }}>{secundario}</div> : null}
               </div>
             )}
           </div>

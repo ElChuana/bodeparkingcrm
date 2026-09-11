@@ -164,6 +164,11 @@ enum FormaPagoVenta {
   CUOTAS
 }
 
+enum MonedaPago {
+  UF
+  CLP
+}
+
 enum TipoCuota {
   RESERVA
   PIE
@@ -773,13 +778,19 @@ model DocumentoLegal {
 }
 
 // Formas de pago pactadas en la venta (combinables). El monto de cada una
-// suma el precio final; la cantidad de cuotas de la forma CUOTAS sale del
-// beneficio "cuotas sin interés" salvo que se indique otra aquí.
+// suma el precio final y se pacta en UF o en pesos; la cantidad de cuotas de
+// la forma CUOTAS sale del beneficio "cuotas sin interés" salvo que se
+// indique otra aquí.
 model VentaFormaPago {
   id       Int            @id @default(autoincrement())
   ventaId  Int
   forma    FormaPagoVenta
+  // Moneda en que se pactó la forma. En CLP el monto real es `montoCLP` y
+  // `montoUF` es el equivalente congelado con la UF de `valorUF`.
+  moneda   MonedaPago     @default(UF)
   montoUF  Decimal?       @db.Decimal(18, 6)
+  montoCLP Decimal?       @db.Decimal(18, 2)
+  valorUF  Decimal?       @db.Decimal(18, 2)
   cuotas   Int?
   notas    String?
   creadoEn DateTime       @default(now())

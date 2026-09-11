@@ -2,6 +2,7 @@ const prisma = require('../lib/prisma')
 const { prorratearPrecioVenta } = require('../lib/precios')
 const { aplicarReglasComision } = require('../lib/comisiones')
 const { normalizarFormasPago } = require('../lib/formasPago')
+const { ufVigente } = require('../lib/uf')
 
 const listar = async (req, res) => {
   const { estado, vendedorId, edificioId, tipoUnidad, precioMin, precioMax, search, desde, hasta } = req.query
@@ -42,7 +43,7 @@ const listar = async (req, res) => {
           select: { numero: true, tipo: true, edificio: { select: { nombre: true, region: true } } }
         },
         planPago: { select: { totalCuotas: true } },
-        formasPago: { select: { forma: true, montoUF: true, cuotas: true } },
+        formasPago: { select: { forma: true, moneda: true, montoUF: true, montoCLP: true, cuotas: true } },
         // Solo el beneficio de cuotas: la lista muestra "12 cuotas" sin traer todas las promos
         promociones: {
           where: { promocion: { tipo: 'CUOTAS_SIN_INTERES' } },
@@ -251,7 +252,9 @@ const guardarFormasPago = async (req, res) => {
       return res.status(400).json({ error: 'No se puede editar la forma de pago de una venta anulada.' })
     }
 
-    const { ok, error, formas } = normalizarFormasPago(req.body?.formasPago, venta.precioFinalUF)
+    // La UF vigente se necesita para las formas pactadas en pesos
+    const valorUF = await ufVigente()
+    const { ok, error, formas } = normalizarFormasPago(req.body?.formasPago, venta.precioFinalUF, valorUF)
     if (!ok) return res.status(400).json({ error })
 
     await prisma.$transaction(async (tx) => {

@@ -1,8 +1,13 @@
 // Formas de pago de una venta, puras y testeables.
 //
 // Una venta puede combinar varias formas (ej: pie por transferencia + saldo en
-// cuotas). Cada forma lleva su monto en UF y la suma no puede pasar el precio
-// final de la venta. Sin ninguna forma registrada, la venta es AL CONTADO.
+// cuotas). Cada forma lleva su monto, que se pacta en UF o EN PESOS, y la suma
+// no puede pasar el precio final de la venta (que siempre está en UF). Sin
+// ninguna forma registrada, la venta es AL CONTADO.
+//
+// Lo pactado en pesos se guarda en pesos (`montoCLP`): el monto es ese, fijo.
+// El equivalente en UF (`montoUF`) se congela con la UF del día de registro
+// (`valorUF`) y es el que se usa para cuadrar contra el precio final.
 //
 // La cantidad de cuotas sale del beneficio "cuotas sin interés" de la venta;
 // solo se guarda en la forma cuando se pacta una cantidad distinta.
@@ -10,6 +15,8 @@
 const { num } = require('./precios')
 
 const FORMAS_VALIDAS = ['TRANSFERENCIA', 'VALE_VISTA', 'TARJETA', 'CUOTAS']
+
+const MONEDAS_VALIDAS = ['UF', 'CLP']
 
 const FORMA_LABEL = {
   TRANSFERENCIA: 'Transferencia',
@@ -26,8 +33,11 @@ const TOLERANCIA = 0.01
  * Devuelve { ok, error, formas, asignadoUF, faltanteUF }.
  * Se acepta un set incompleto (queda saldo por asignar); lo que se rechaza es
  * pasarse del precio final, repetir una forma o mandar datos inválidos.
+ *
+ * `valorUFPesos` es la UF vigente: se necesita solo si alguna forma viene
+ * pactada en pesos, para congelar su equivalente en UF.
  */
-function normalizarFormasPago(entrada = [], precioFinalUF = 0) {
+function normalizarFormasPago(entrada = [], precioFinalUF = 0, valorUFPesos = null) {
   if (entrada == null) entrada = []
   if (!Array.isArray(entrada)) {
     return { ok: false, error: 'formasPago debe ser una lista.' }
@@ -46,14 +56,38 @@ function normalizarFormasPago(entrada = [], precioFinalUF = 0) {
     }
     vistas.add(forma)
 
-    const montoBruto = typeof item === 'string' ? null : item?.montoUF
+    const moneda = (typeof item === 'string' ? null : item?.moneda) || 'UF'
+    if (!MONEDAS_VALIDAS.includes(moneda)) {
+      return { ok: false, error: `Moneda inválida en ${FORMA_LABEL[forma]}: ${moneda}.` }
+    }
+
+    const leerMonto = (bruto, etiqueta) => {
+      if (bruto === null || bruto === undefined || bruto === '') return null
+      const n = Number(bruto)
+      if (!Number.isFinite(n) || n < 0) return { error: `Monto inválido en ${FORMA_LABEL[forma]}${etiqueta}.` }
+      return n
+    }
+
     let montoUF = null
-    if (montoBruto !== null && montoBruto !== undefined && montoBruto !== '') {
-      montoUF = Number(montoBruto)
-      if (!Number.isFinite(montoUF) || montoUF < 0) {
-        return { ok: false, error: `Monto inválido en ${FORMA_LABEL[forma]}.` }
+    let montoCLP = null
+    let valorUF = null
+
+    if (moneda === 'CLP') {
+      const leido = leerMonto(typeof item === 'string' ? null : item?.montoCLP, ' (pesos)')
+      if (leido?.error) return { ok: false, error: leido.error }
+      if (leido !== null) {
+        const uf = Number(valorUFPesos)
+        if (!Number.isFinite(uf) || uf <= 0) {
+          return { ok: false, error: 'No hay valor de la UF disponible para convertir los montos en pesos.' }
+        }
+        montoCLP = +leido.toFixed(2)
+        valorUF = +uf.toFixed(2)
+        montoUF = +(montoCLP / valorUF).toFixed(6)
       }
-      montoUF = +montoUF.toFixed(6)
+    } else {
+      const leido = leerMonto(typeof item === 'string' ? null : item?.montoUF, '')
+      if (leido?.error) return { ok: false, error: leido.error }
+      if (leido !== null) montoUF = +leido.toFixed(6)
     }
 
     const cuotasBruto = typeof item === 'string' ? null : item?.cuotas
@@ -70,7 +104,7 @@ function normalizarFormasPago(entrada = [], precioFinalUF = 0) {
 
     const notas = typeof item === 'string' ? null : (item?.notas || null)
 
-    formas.push({ forma, montoUF, cuotas, notas })
+    formas.push({ forma, moneda, montoUF, montoCLP, valorUF, cuotas, notas })
   }
 
   const asignadoUF = +formas.reduce((s, f) => s + num(f.montoUF), 0).toFixed(6)
@@ -129,6 +163,7 @@ function resumenFormasPago(venta = {}) {
 
 module.exports = {
   FORMAS_VALIDAS,
+  MONEDAS_VALIDAS,
   FORMA_LABEL,
   normalizarFormasPago,
   cuotasPactadas,

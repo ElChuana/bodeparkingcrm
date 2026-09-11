@@ -102,3 +102,46 @@ test('resumen combina formas legibles', () => {
   // Cuotas sin beneficio ni cantidad pactada: se nombra la forma igual
   assert.strictEqual(resumenFormasPago({ formasPago: [{ forma: 'CUOTAS' }] }), 'Cuotas')
 })
+
+test('una forma se puede pactar en pesos: se congela el equivalente en UF', () => {
+  const r = normalizarFormasPago([
+    { forma: 'TRANSFERENCIA', moneda: 'CLP', montoCLP: 5000000 },
+    { forma: 'CUOTAS', montoUF: 20, cuotas: 12 },
+  ], 200, 40000)
+  assert.strictEqual(r.ok, true)
+  const [pesos, uf] = r.formas
+  assert.strictEqual(pesos.moneda, 'CLP')
+  assert.strictEqual(pesos.montoCLP, 5000000)
+  assert.strictEqual(pesos.valorUF, 40000)
+  assert.strictEqual(pesos.montoUF, 125)   // 5.000.000 / 40.000
+  assert.strictEqual(uf.moneda, 'UF')
+  assert.strictEqual(uf.montoCLP, null)
+  assert.strictEqual(r.asignadoUF, 145)
+  assert.strictEqual(r.faltanteUF, 55)
+})
+
+test('lo pactado en pesos también cuadra contra el total de la venta', () => {
+  const r = normalizarFormasPago([{ forma: 'VALE_VISTA', moneda: 'CLP', montoCLP: 9000000 }], 200, 40000)
+  assert.strictEqual(r.ok, false)  // 225 UF > 200 UF
+  assert.match(r.error, /225\.00 UF/)
+})
+
+test('sin UF cargada no se puede pactar en pesos', () => {
+  const r = normalizarFormasPago([{ forma: 'TARJETA', moneda: 'CLP', montoCLP: 100000 }], 200, null)
+  assert.strictEqual(r.ok, false)
+  assert.match(r.error, /valor de la UF/i)
+  // Sin monto todavía no hace falta la UF: se puede marcar la forma y llenar después
+  assert.strictEqual(normalizarFormasPago([{ forma: 'TARJETA', moneda: 'CLP' }], 200, null).ok, true)
+})
+
+test('rechaza monedas inválidas y montos en pesos negativos', () => {
+  assert.strictEqual(normalizarFormasPago([{ forma: 'TARJETA', moneda: 'USD', montoCLP: 10 }], 200, 40000).ok, false)
+  assert.strictEqual(normalizarFormasPago([{ forma: 'TARJETA', moneda: 'CLP', montoCLP: -5 }], 200, 40000).ok, false)
+})
+
+test('por defecto la forma sigue siendo en UF', () => {
+  const r = normalizarFormasPago([{ forma: 'TRANSFERENCIA', montoUF: 50 }], 200)
+  assert.strictEqual(r.formas[0].moneda, 'UF')
+  assert.strictEqual(r.formas[0].montoUF, 50)
+  assert.strictEqual(normalizarFormasPago(['CUOTAS'], 200).formas[0].moneda, 'UF')
+})

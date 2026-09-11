@@ -3,6 +3,7 @@ const { aplicarReglasComision } = require('../lib/comisiones')
 const { num, calcularTotalesVenta, prorratearPrecioVenta } = require('../lib/precios')
 const { calcularDescuentoPromocion } = require('../lib/promociones')
 const { normalizarFormasPago } = require('../lib/formasPago')
+const { ufVigente } = require('../lib/uf')
 
 const INCLUDE_COMPLETO = {
   lead: {
@@ -577,8 +578,9 @@ const convertir = async (req, res) => {
       descuentoAprobadoUF: cotizacion.descuentoAprobadoUF,
     })
 
-    // Formas de pago pactadas (opcional): sin ninguna, la venta queda al contado
-    const formasPago = normalizarFormasPago(formasPagoBody, precioFinalUF)
+    // Formas de pago pactadas (opcional): sin ninguna, la venta queda al contado.
+    // La UF vigente se necesita para las que vienen pactadas en pesos.
+    const formasPago = normalizarFormasPago(formasPagoBody, precioFinalUF, await ufVigente())
     if (!formasPago.ok) return res.status(400).json({ error: formasPago.error })
 
     const gerentes = await prisma.usuario.findMany({ where: { rol: 'GERENTE', activo: true }, select: { id: true } })

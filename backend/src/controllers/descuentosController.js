@@ -1,4 +1,5 @@
 const prisma = require('../lib/prisma')
+const { ufVigente } = require('../lib/uf')
 
 // El vendedor puede pedir: un monto de descuento (UF, pesos o %) o un precio
 // final (UF o pesos). Los pesos se convierten con la UF vigente al momento de
@@ -30,11 +31,6 @@ const INCLUDE_SOLICITUD = {
 }
 
 const INCLUDE_COTIZACION_CALC = { items: true, packs: true, promociones: true }
-
-async function ufVigente() {
-  const row = await prisma.uFDiaria.findFirst({ orderBy: { fecha: 'desc' } })
-  return row ? Number(row.valorPesos) : null
-}
 
 // Totales de la cotización: base (suma de lista) y total actual
 // (descontando packs, promociones y descuentos ya aprobados)

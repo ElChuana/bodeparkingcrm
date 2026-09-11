@@ -757,7 +757,9 @@ function FormaDePago({ venta }) {
   const abrir = () => {
     setFormas((venta?.formasPago || []).map(f => ({
       forma: f.forma,
+      moneda: f.moneda || 'UF',
       montoUF: f.montoUF != null ? Number(f.montoUF) : null,
+      montoCLP: f.montoCLP != null ? Number(f.montoCLP) : null,
       cuotas: f.cuotas ?? null,
     })))
     setModal(true)
