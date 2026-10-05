@@ -1447,3 +1447,16 @@ model EmailFavorito {
   @@index([usuarioId])
   @@map("emails_favoritos")
 }
+
+model ReservaSala {
+  id       Int      @id @default(autoincrement())
+  fecha    String // YYYY-MM-DD hora de Chile; la página manda strings, sin líos de TZ
+  inicio   String // HH:MM en pasos de 30 min
+  fin      String // HH:MM, exclusivo: una reserva 09:00-10:00 no topa con 10:00-10:30
+  nombre   String
+  motivo   String?
+  creadaEn DateTime @default(now())
+
+  @@index([fecha])
+  @@map("reservas_sala")
+}

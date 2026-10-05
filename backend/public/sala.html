@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sala de Reuniones · BodeParking</title>
+<meta name="theme-color" content="#0091C3">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --azul: #0091C3;
+    --azul-hover: #007FAB;
+    --azul-tinta: #0C4B63;
+    --azul-suave: #E3F2F8;
+    --tinta: #26343B;
+    --gris: #5E7079;
+    --fondo: #EFF4F6;
+    --tarjeta: #FFFFFF;
+    --linea: #D8E3E8;
+    --rojo: #BE4438;
+    --unidad: 44px; /* alto de cada bloque de 30 min; el JS lo lee para la línea de "ahora" */
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: 'Archivo', system-ui, -apple-system, sans-serif;
+    background: var(--fondo);
+    color: var(--tinta);
+    min-height: 100vh;
+  }
+  .contenedor { max-width: 600px; margin: 0 auto; padding: 0 14px 90px; }
+
+  /* ── Cabecera ── */
+  header { padding: 18px 2px 10px; }
+  .marca {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+    color: var(--azul); text-transform: uppercase;
+  }
+  h1 { font-size: 24px; font-weight: 700; color: var(--azul-tinta); letter-spacing: -0.01em; }
+  .subtitulo { font-size: 13px; color: var(--gris); margin-top: 2px; }
+
+  /* ── Tira de días ── */
+  .dias {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--fondo);
+    display: flex; gap: 8px; overflow-x: auto;
+    padding: 10px 2px 12px;
+    scrollbar-width: none;
+  }
+  .dias::-webkit-scrollbar { display: none; }
+  .dia {
+    flex: 0 0 auto; width: 52px; padding: 8px 0 9px;
+    border: 1px solid var(--linea); border-radius: 12px;
+    background: var(--tarjeta); color: var(--tinta);
+    font-family: inherit; font-size: 11px; font-weight: 500;
+    text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .dia .num { display: block; font-size: 19px; font-weight: 700; margin-top: 1px; font-variant-numeric: tabular-nums; }
+  .dia .mes { display: block; font-size: 10px; color: var(--gris); text-transform: uppercase; letter-spacing: 0.06em; }
+  .dia.activo { background: var(--azul); border-color: var(--azul); color: #fff; }
+  .dia.activo .mes { color: rgba(255,255,255,0.8); }
+  .dia.hoy:not(.activo) { border-color: var(--azul); color: var(--azul-tinta); }
+
+  /* ── Línea del día ── */
+  .titulo-dia {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 6px 2px 10px;
+  }
+  .titulo-dia strong { font-size: 15px; font-weight: 600; color: var(--azul-tinta); }
+  .titulo-dia span { font-size: 12px; color: var(--gris); }
+
+  /* ── Timeline ── */
+  .tabla {
+    position: relative;
+    background: var(--tarjeta);
+    border: 1px solid var(--linea); border-radius: 16px;
+    overflow: hidden;
+  }
+  /* Los separadores van con box-shadow/background para no sumar alto a las
+     filas: cada media hora debe medir exactamente 44px o la línea de "ahora"
+     y las tarjetas se desalinean con las horas. */
+  .fila { display: grid; grid-template-columns: 58px 1fr; box-shadow: inset 0 1px 0 var(--linea); }
+  .fila:first-child { box-shadow: none; }
+  .fila.media {
+    box-shadow: none;
+    background-image: repeating-linear-gradient(90deg, #E2EBEF 0 5px, transparent 5px 10px);
+    background-size: 100% 1px; background-repeat: no-repeat; background-position: top left;
+  }
+  .hora-label {
+    font-size: 11px; font-weight: 600; color: var(--gris);
+    font-variant-numeric: tabular-nums;
+    padding: 4px 0 0 12px;
+  }
+  .fila.media .hora-label { color: transparent; }
+  .celda { box-shadow: inset 1px 0 0 var(--linea); position: relative; }
+
+  .libre {
+    display: block; width: 100%; height: var(--unidad);
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; -webkit-tap-highlight-color: transparent;
+  }
+  .libre:active { background: var(--azul-suave); }
+  .libre.pasado { cursor: default; background: repeating-linear-gradient(-45deg, transparent 0 6px, #F2F6F8 6px 12px); }
+
+  .reserva {
+    position: relative; margin: 3px 8px 3px 4px;
+    height: calc(var(--alto) - 6px);
+    background: var(--azul); border-radius: 10px;
+    color: #fff; text-align: left;
+    border: none; cursor: pointer; font-family: inherit;
+    padding: 8px 12px; overflow: hidden; width: calc(100% - 12px);
+    display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .reserva.pasada { background: #9FB6C0; }
+  .reserva .quien { font-size: 14px; font-weight: 600; line-height: 1.25; }
+  .reserva .detalle { font-size: 12px; opacity: 0.85; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .reserva.corta { padding: 5px 12px; flex-direction: row; align-items: center; gap: 8px; }
+  .reserva.corta .detalle { margin-top: 0; }
+
+  /* Línea de "ahora" */
+  .ahora {
+    position: absolute; left: 58px; right: 0; z-index: 10;
+    height: 0; border-top: 2px solid var(--rojo); pointer-events: none;
+  }
+  .ahora::before {
+    content: ''; position: absolute; left: -5px; top: -5px;
+    width: 8px; height: 8px; border-radius: 50%; background: var(--rojo);
+  }
+
+  .pie-info { text-align: center; font-size: 12px; color: var(--gris); padding: 14px 0; }
+
+  /* ── Hoja inferior ── */
+  .fondo-hoja {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(12, 42, 54, 0.45);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .fondo-hoja.visible { opacity: 1; pointer-events: auto; }
+  .hoja {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    max-width: 600px; margin: 0 auto;
+    background: var(--tarjeta); border-radius: 20px 20px 0 0;
+    padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
+    transform: translateY(105%); transition: transform 0.25s ease;
+    box-shadow: 0 -8px 30px rgba(12, 42, 54, 0.18);
+  }
+  .hoja.visible { transform: translateY(0); }
+  .asa { width: 36px; height: 4px; border-radius: 2px; background: var(--linea); margin: 0 auto 14px; }
+  .hoja h2 { font-size: 18px; font-weight: 700; color: var(--azul-tinta); margin-bottom: 2px; }
+  .hoja .cuando { font-size: 13px; color: var(--gris); margin-bottom: 14px; font-variant-numeric: tabular-nums; }
+
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--gris); margin: 12px 0 5px; }
+  input[type=text], select {
+    width: 100%; padding: 11px 12px;
+    border: 1px solid var(--linea); border-radius: 10px;
+    font-family: inherit; font-size: 16px; color: var(--tinta);
+    background: #FAFCFD;
+  }
+  input[type=text]:focus, select:focus { outline: 2px solid var(--azul); outline-offset: -1px; }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    flex: 1 1 0; min-width: 62px; padding: 10px 0;
+    border: 1px solid var(--linea); border-radius: 10px;
+    background: #FAFCFD; color: var(--tinta);
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .chip.activo { background: var(--azul-suave); border-color: var(--azul); color: var(--azul-tinta); }
+  .chip:disabled { opacity: 0.35; cursor: default; }
+
+  .boton {
+    width: 100%; margin-top: 18px; padding: 14px;
+    background: var(--azul); color: #fff;
+    border: none; border-radius: 12px;
+    font-family: inherit; font-size: 16px; font-weight: 700;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .boton:active { background: var(--azul-hover); }
+  .boton:disabled { opacity: 0.5; }
+  .boton.peligro { background: #fff; color: var(--rojo); border: 1.5px solid var(--rojo); }
+  .boton.peligro:active { background: #FBF0EF; }
+
+  /* ── Aviso ── */
+  .aviso {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px);
+    z-index: 60; max-width: 90vw;
+    background: var(--azul-tinta); color: #fff;
+    padding: 11px 18px; border-radius: 12px;
+    font-size: 14px; font-weight: 500; text-align: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s;
+  }
+  .aviso.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .aviso.error { background: var(--rojo); }
+</style>
+</head>
+<body>
+<div class="contenedor">
+  <header>
+    <div class="marca">BodeParking</div>
+    <h1>Sala de Reuniones</h1>
+    <div class="subtitulo">Toca un espacio libre para reservar · 08:00 a 19:00</div>
+  </header>
+
+  <nav class="dias" id="dias" aria-label="Elegir día"></nav>
+
+  <div class="titulo-dia">
+    <strong id="tituloDia"></strong>
+    <span id="resumenDia"></span>
+  </div>
+
+  <div class="tabla" id="tabla" aria-live="polite"></div>
+  <div class="pie-info">Se actualiza solo · cualquiera del equipo puede liberar la sala</div>
+</div>
+
+<div class="fondo-hoja" id="fondoHoja"></div>
+
+<!-- Hoja: nueva reserva -->
+<div class="hoja" id="hojaNueva" role="dialog" aria-label="Nueva reserva">
+  <div class="asa"></div>
+  <h2>Reservar la sala</h2>
+  <div class="cuando" id="nuevaCuando"></div>
+  <label for="nombre">Tu nombre</label>
+  <input type="text" id="nombre" maxlength="60" autocomplete="name" placeholder="Ej: Juan">
+  <label for="motivo">Motivo <span style="font-weight:400">(opcional)</span></label>
+  <input type="text" id="motivo" maxlength="120" placeholder="Ej: Reunión inversionista">
+  <label for="selInicio">Comienza</label>
+  <select id="selInicio"></select>
+  <label>Duración</label>
+  <div class="chips" id="chips"></div>
+  <button class="boton" id="btnReservar">Reservar</button>
+</div>
+
+<!-- Hoja: detalle / liberar -->
+<div class="hoja" id="hojaDetalle" role="dialog" aria-label="Detalle de la reserva">
+  <div class="asa"></div>
+  <h2 id="detQuien"></h2>
+  <div class="cuando" id="detCuando"></div>
+  <button class="boton peligro" id="btnLiberar">Liberar la sala</button>
+</div>
+
+<div class="aviso" id="aviso"></div>
+
+<script>
+(() => {
+  'use strict'
+  const API = '/api/sala/reservas'
+  const APERTURA = 8 * 60, CIERRE = 19 * 60, PASO = 30
+  const UNIDAD = 44 // px por cada 30 min — calza con --unidad del CSS
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+  const SEMANA = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado']
+  const SEMANA_CORTA = ['dom','lun','mar','mié','jue','vie','sáb']
+
+  const $ = id => document.getElementById(id)
+
+  // ── Estado ──
+  let dias = []            // [{fecha:'YYYY-MM-DD', date:Date}] días hábiles desde hoy
+  let diaSel = null        // fecha seleccionada
+  let reservas = {}        // fecha → [reserva]
+  let hojaAbierta = null   // 'nueva' | 'detalle' | null
+  let reservaSel = null    // reserva mostrada en la hoja de detalle
+  let inicioSel = null     // minutos del slot elegido
+  let duracionSel = 60
+  let yaScrolleado = false // el scroll a "ahora" corre solo al abrir la página
+
+  // ── Utilidades ──
+  const dosDig = n => String(n).padStart(2, '0')
+  const aISO = d => `${d.getFullYear()}-${dosDig(d.getMonth() + 1)}-${dosDig(d.getDate())}`
+  const aMin = hhmm => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5))
+  const aHHMM = min => `${dosDig(Math.floor(min / 60))}:${dosDig(min % 60)}`
+  const hoyISO = () => aISO(new Date())
+  const ahoraMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes() }
+  const escapar = s => String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+
+  function generarDias() {
+    dias = []
+    const d = new Date()
+    while (dias.length < 10) {
+      const dow = d.getDay()
+      if (dow !== 0 && dow !== 6) dias.push({ fecha: aISO(d), date: new Date(d) })
+      d.setDate(d.getDate() + 1)
+    }
+    diaSel = dias[0].fecha
+  }
+
+  // ── Datos ──
+  async function cargar() {
+    try {
+      const r = await fetch(`${API}?desde=${dias[0].fecha}&hasta=${dias[dias.length - 1].fecha}`)
+      if (!r.ok) throw new Error()
+      const lista = await r.json()
+      reservas = {}
+      for (const res of lista) (reservas[res.fecha] ??= []).push(res)
+      render()
+    } catch {
+      avisar('No se pudo cargar el calendario. Revisa tu conexión.', true)
+    }
+  }
+
+  // ── Render ──
+  function render() {
+    renderDias()
+    renderTabla()
+  }
+
+  function renderDias() {
+    $('dias').innerHTML = dias.map(d => {
+      const clases = ['dia']
+      if (d.fecha === diaSel) clases.push('activo')
+      if (d.fecha === hoyISO()) clases.push('hoy')
+      return `<button class="${clases.join(' ')}" data-fecha="${d.fecha}">
+        ${SEMANA_CORTA[d.date.getDay()]}
+        <span class="num">${d.date.getDate()}</span>
+        <span class="mes">${MESES[d.date.getMonth()]}</span>
+      </button>`
+    }).join('')
+  }
+
+  function renderTabla() {
+    const d = dias.find(x => x.fecha === diaSel)
+    const delDia = (reservas[diaSel] || []).slice().sort((a, b) => a.inicio < b.inicio ? -1 : 1)
+    const esHoy = diaSel === hoyISO()
+    const ahora = ahoraMin()
+
+    $('tituloDia').textContent =
+      `${SEMANA[d.date.getDay()][0].toUpperCase()}${SEMANA[d.date.getDay()].slice(1)} ${d.date.getDate()} de ${MESES[d.date.getMonth()]}${esHoy ? ' · hoy' : ''}`
+    $('resumenDia').textContent = delDia.length
+      ? `${delDia.length} reserva${delDia.length > 1 ? 's' : ''}`
+      : 'todo libre'
+
+    let html = ''
+    let t = APERTURA
+    while (t < CIERRE) {
+      const res = delDia.find(r => aMin(r.inicio) === t)
+      const media = t % 60 !== 0
+      html += `<div class="fila${media ? ' media' : ''}">
+        <div class="hora-label">${aHHMM(t)}</div>
+        <div class="celda">`
+      if (res) {
+        const durMin = aMin(res.fin) - aMin(res.inicio)
+        const unidades = durMin / PASO
+        const pasada = esHoy && aMin(res.fin) <= ahora
+        html += `<button class="reserva${unidades === 1 ? ' corta' : ''}${pasada ? ' pasada' : ''}"
+            style="--alto:${unidades * UNIDAD}px" data-id="${res.id}">
+            <span class="quien">${escapar(res.nombre)}</span>
+            <span class="detalle">${res.inicio}–${res.fin}${res.motivo ? ' · ' + escapar(res.motivo) : ''}</span>
+          </button>`
+        // las medias horas cubiertas no llevan fila propia: la tarjeta
+        // ocupa el alto exacto de todas sus unidades
+        t += durMin
+        html += '</div></div>'
+        continue
+      }
+      const pasado = esHoy && t + PASO <= ahora
+      html += `<button class="libre${pasado ? ' pasado' : ''}" data-min="${t}" ${pasado ? 'disabled' : ''}
+          aria-label="Reservar a las ${aHHMM(t)}"></button></div></div>`
+      t += PASO
+    }
+    const tabla = $('tabla')
+    tabla.innerHTML = html
+
+    // línea de "ahora"
+    if (esHoy && ahora >= APERTURA && ahora <= CIERRE) {
+      const linea = document.createElement('div')
+      linea.className = 'ahora'
+      linea.style.top = `${((ahora - APERTURA) / PASO) * UNIDAD}px`
+      tabla.appendChild(linea)
+      // al abrir, llegar directo a la hora actual en vez de a las 08:00
+      if (!yaScrolleado) {
+        yaScrolleado = true
+        setTimeout(() => linea.scrollIntoView({ block: 'center' }), 50)
+      }
+    }
+  }
+
+  // ── Hojas ──
+  function abrirHoja(cual) {
+    hojaAbierta = cual
+    $('fondoHoja').classList.add('visible')
+    $(cual === 'nueva' ? 'hojaNueva' : 'hojaDetalle').classList.add('visible')
+  }
+  function cerrarHojas() {
+    hojaAbierta = null
+    $('fondoHoja').classList.remove('visible')
+    $('hojaNueva').classList.remove('visible')
+    $('hojaDetalle').classList.remove('visible')
+  }
+
+  function slotsLibres() {
+    const delDia = reservas[diaSel] || []
+    const esHoy = diaSel === hoyISO()
+    const ahora = ahoraMin()
+    const libres = []
+    for (let t = APERTURA; t < CIERRE; t += PASO) {
+      if (esHoy && t + PASO <= ahora) continue
+      const ocupado = delDia.some(r => t < aMin(r.fin) && t + PASO > aMin(r.inicio))
+      if (!ocupado) libres.push(t)
+    }
+    return libres
+  }
+
+  // Cuántos minutos seguidos hay libres desde `inicio`
+  function maxDuracion(inicio) {
+    const delDia = reservas[diaSel] || []
+    let fin = inicio
+    while (fin < CIERRE) {
+      const tope = delDia.some(r => fin < aMin(r.fin) && fin + PASO > aMin(r.inicio))
+      if (tope) break
+      fin += PASO
+    }
+    return fin - inicio
+  }
+
+  function abrirNueva(min) {
+    inicioSel = min
+    const libres = slotsLibres()
+    if (!libres.length) return avisar('No quedan horarios libres este día.', true)
+    if (!libres.includes(inicioSel)) inicioSel = libres[0]
+
+    $('selInicio').innerHTML = libres.map(t =>
+      `<option value="${t}" ${t === inicioSel ? 'selected' : ''}>${aHHMM(t)}</option>`).join('')
+
+    const d = dias.find(x => x.fecha === diaSel)
+    $('nuevaCuando').textContent =
+      `${SEMANA[d.date.getDay()]} ${d.date.getDate()} de ${MESES[d.date.getMonth()]}`
+
+    try { $('nombre').value = localStorage.getItem('sala-nombre') || '' } catch {}
+    $('motivo').value = ''
+    renderChips()
+    abrirHoja('nueva')
+  }
+
+  function renderChips() {
+    const max = maxDuracion(inicioSel)
+    if (duracionSel > max) duracionSel = max >= 60 ? 60 : 30
+    $('chips').innerHTML = [[30, '30 min'], [60, '1 h'], [90, '1½ h'], [120, '2 h']].map(([m, txt]) =>
+      `<button class="chip${m === duracionSel ? ' activo' : ''}" data-dur="${m}" ${m > max ? 'disabled' : ''}>${txt}</button>`
+    ).join('')
+  }
+
+  async function reservar() {
+    const nombre = $('nombre').value.trim()
+    if (!nombre) return avisar('Escribe tu nombre para reservar.', true)
+    try { localStorage.setItem('sala-nombre', nombre) } catch {}
+
+    const btn = $('btnReservar')
+    btn.disabled = true
+    try {
+      const r = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fecha: diaSel,
+          inicio: aHHMM(inicioSel),
+          fin: aHHMM(inicioSel + duracionSel),
+          nombre,
+          motivo: $('motivo').value.trim(),
+        }),
+      })
+      const datos = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(datos.error || 'No se pudo reservar.')
+      cerrarHojas()
+      avisar(`Listo: sala reservada ${aHHMM(inicioSel)}–${aHHMM(inicioSel + duracionSel)}.`)
+    } catch (e) {
+      avisar(e.message, true)
+    } finally {
+      btn.disabled = false
+      cargar()
+    }
+  }
+
+  function abrirDetalle(id) {
+    const res = (reservas[diaSel] || []).find(r => r.id === id)
+    if (!res) return
+    reservaSel = res
+    const d = dias.find(x => x.fecha === diaSel)
+    $('detQuien').textContent = res.nombre
+    $('detCuando').textContent =
+      `${SEMANA[d.date.getDay()]} ${d.date.getDate()} de ${MESES[d.date.getMonth()]} · ${res.inicio}–${res.fin}${res.motivo ? ' · ' + res.motivo : ''}`
+    abrirHoja('detalle')
+  }
+
+  async function liberar() {
+    if (!reservaSel) return
+    if (!confirm(`¿Liberar la sala? Se borra la reserva de ${reservaSel.nombre} (${reservaSel.inicio}–${reservaSel.fin}).`)) return
+    try {
+      const r = await fetch(`${API}/${reservaSel.id}`, { method: 'DELETE' })
+      if (!r.ok && r.status !== 404) throw new Error()
+      cerrarHojas()
+      avisar('Sala liberada.')
+    } catch {
+      avisar('No se pudo liberar la sala.', true)
+    } finally {
+      cargar()
+    }
+  }
+
+  // ── Aviso ──
+  let avisoTimer = null
+  function avisar(msg, esError = false) {
+    const el = $('aviso')
+    el.textContent = msg
+    el.classList.toggle('error', esError)
+    el.classList.add('visible')
+    clearTimeout(avisoTimer)
+    avisoTimer = setTimeout(() => el.classList.remove('visible'), 3500)
+  }
+
+  // ── Eventos ──
+  $('dias').addEventListener('click', e => {
+    const b = e.target.closest('.dia')
+    if (!b) return
+    diaSel = b.dataset.fecha
+    render()
+  })
+  $('tabla').addEventListener('click', e => {
+    const libre = e.target.closest('.libre')
+    if (libre && !libre.disabled) return abrirNueva(Number(libre.dataset.min))
+    const res = e.target.closest('.reserva')
+    if (res) abrirDetalle(Number(res.dataset.id))
+  })
+  $('selInicio').addEventListener('change', e => {
+    inicioSel = Number(e.target.value)
+    renderChips()
+  })
+  $('chips').addEventListener('click', e => {
+    const chip = e.target.closest('.chip')
+    if (!chip || chip.disabled) return
+    duracionSel = Number(chip.dataset.dur)
+    renderChips()
+  })
+  $('btnReservar').addEventListener('click', reservar)
+  $('btnLiberar').addEventListener('click', liberar)
+  $('fondoHoja').addEventListener('click', cerrarHojas)
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarHojas() })
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) cargar() })
+  setInterval(() => { if (!hojaAbierta) cargar() }, 60_000)
+
+  // ── Arranque ──
+  generarDias()
+  render()
+  cargar()
+})()
+</script>
+</body>
+</html>

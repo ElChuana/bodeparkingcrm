@@ -533,6 +533,14 @@
   - `--reordenar` recalcula orden y categoría sin reconvertir (⚠️ pisa las portadas fijadas a mano). `--portada "Edificio=parte-del-archivo"` fija la portada: la detección por cielo acierta con día despejado, pero con cielo nublado una fachada se parece a un pasillo iluminado (Trinitarias) y con un árbol encima queda oscura (Vicuña Mackenna). `--asignar "parte-del-archivo=numeroUnidad"` mueve una foto de la galería del edificio a una unidad, reutilizando el WebP ya convertido — para cuando recién después se sabe de qué unidad era
 - ⚠️ Las fotos se guardan en `backend/uploads/catalogo/`, que en Railway es **disco efímero**: se pierden en cada deploy si no se monta un volumen
 
+### SALA DE REUNIONES (`/sala`) — `/api/sala` — oct 2026
+- Calendario de reserva de la sala de reuniones de la oficina. **Página pública sin login** (`backend/public/sala.html`, autocontenida, mobile-first): se comparte el link y listo; no usa el frontend React
+- No es el "Modo Reunión" comercial (`/reunion`): esto es logística interna de la sala física
+- Modelo **`ReservaSala`** (tabla `reservas_sala`): fecha/inicio/fin como strings (`YYYY-MM-DD`, `HH:MM` en pasos de 30 min) — sin líos de timezone; `fin` es exclusivo (reuniones pegadas no topan)
+- Reglas en `lib/sala.js` (`validarReserva`, `seSolapan`, con tests): horario 08:00–19:00, nombre obligatorio. El servidor rechaza topones con 409 y el nombre de quien tiene la sala
+- Endpoints públicos con rate limit por IP (sin API key: solo nombres y horarios, nada sensible): `GET /reservas?desde&hasta`, `POST /reservas`, `DELETE /reservas/:id` — **cualquiera puede liberar la sala** (equipo chico, confianza total)
+- UI: tira de 10 días hábiles, timeline del día con bloques de 30 min, línea de "ahora" con auto-scroll, hoja inferior para reservar (nombre recordado en localStorage) y liberar; se refresca sola cada 60 s
+
 ---
 
 ## Librerías compartidas (backend/src/lib/)
