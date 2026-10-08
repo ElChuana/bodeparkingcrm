@@ -7,7 +7,7 @@
 //
 // La cantidad de cuotas sale del beneficio "cuotas sin interés"; solo se
 // guarda en la forma cuando se pacta una cantidad distinta.
-import { Checkbox, InputNumber, Typography, Tag, Segmented, Alert } from 'antd'
+import { Checkbox, InputNumber, Typography, Tag, Segmented, Alert, Button, Tooltip } from 'antd'
 import { useUF } from '../hooks/useUF'
 
 const { Text } = Typography
@@ -112,6 +112,26 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
   const excede   = faltante < -TOLERANCIA
   const hayPesos = value.some(f => f.moneda === 'CLP')
 
+  // Lo que le tocaría a una forma si absorbiera todo el saldo sin asignar.
+  // null = no hay nada que asignarle (ya lo tiene, o el resto es cero o negativo).
+  const restoPara = (forma) => {
+    const fila = filaDe(forma)
+    const propio = montoUFDeForma(fila, valorUF)
+    const resto = +(totalUF - (asignado - propio)).toFixed(2)
+    if (resto <= 0) return null
+    if (Math.abs(resto - propio) <= TOLERANCIA) return null
+    if (fila.moneda === 'CLP' && !valorUF) return null
+    return resto
+  }
+
+  // Es el movimiento típico: se fija el pie y el resto va a cuotas.
+  const asignarResto = (forma) => {
+    const resto = restoPara(forma)
+    if (resto == null) return
+    if (filaDe(forma).moneda === 'CLP') setCampo(forma, 'montoCLP', Math.round(resto * valorUF))
+    else setCampo(forma, 'montoUF', resto)
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -181,6 +201,17 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
                       addonAfter="UF"
                     />
                   )}
+                  <Tooltip title={`Asignar a ${label} todo lo que falta para completar la venta`}>
+                    <Button
+                      size="small"
+                      type="link"
+                      style={{ padding: '0 4px', height: 22 }}
+                      disabled={restoPara(forma) == null}
+                      onClick={() => asignarResto(forma)}
+                    >
+                      resto
+                    </Button>
+                  </Tooltip>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {enPesos
                       ? (montoUF ? `≈ ${montoUF.toFixed(2)} UF` : '')

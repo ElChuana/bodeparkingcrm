@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const { crearPlan, agregarCuota, editarCuota, obtenerPlan, registrarPago, registrarPagoArriendo, cuotasAtrasadas } = require('../controllers/pagosController')
+const { crearPlan, simularPlan, agregarCuota, editarCuota, obtenerPlan, registrarPago, registrarPagoArriendo, cuotasAtrasadas } = require('../controllers/pagosController')
 const { autenticar, autorizar } = require('../middleware/auth')
 const upload = require('../lib/upload')
 
@@ -8,6 +8,7 @@ router.use(autenticar)
 router.use(autorizar('GERENTE', 'JEFE_VENTAS'))
 
 router.post('/plan', crearPlan)
+router.post('/plan/simular', simularPlan)
 router.post('/plan/:ventaId/cuota', agregarCuota)
 router.get('/plan/:ventaId', obtenerPlan)
 router.put('/cuotas/:id', editarCuota)

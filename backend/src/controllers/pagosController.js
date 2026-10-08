@@ -1,12 +1,105 @@
 const prisma = require('../lib/prisma')
+const { generarPlanPago, parametrosDesdeFormasPago } = require('../lib/planPago')
+const { cuotasPactadas } = require('../lib/formasPago')
+
+// Precio pactado de la venta y las formas de pago con que se acordó cubrirlo.
+const datosDeLaVenta = async (ventaId) => {
+  const venta = await prisma.venta.findUnique({
+    where: { id: Number(ventaId) },
+    select: {
+      precioFinalUF: true,
+      formasPago: { select: { forma: true, montoUF: true, cuotas: true } },
+      promociones: { select: { promocion: { select: { nombre: true, tipo: true, meses: true } } } },
+      beneficios: { select: { beneficio: { select: { nombre: true, tipo: true, meses: true } } } },
+    },
+  })
+  if (!venta) return null
+  return {
+    precioUF: Number(venta.precioFinalUF || 0),
+    formasPago: venta.formasPago.map(f => ({ ...f, montoUF: Number(f.montoUF || 0) })),
+    cuotasBeneficio: cuotasPactadas({
+      formasPago: venta.formasPago,
+      promociones: venta.promociones,
+      beneficios: venta.beneficios,
+    }),
+  }
+}
+
+// Traduce los parámetros del armado automático a la lista de cuotas.
+// Devuelve { error } o { cuotas, resumen }.
+const armarAutomatico = async (ventaId, auto) => {
+  const venta = await datosDeLaVenta(ventaId)
+  if (!venta) return { error: 'La venta no existe.' }
+  const { precioUF } = venta
+
+  // `desdeFormasPago` arranca del mix ya pactado: lo que no es la forma CUOTAS
+  // es el pie, y la forma CUOTAS es el saldo que se difiere.
+  let derivado = null
+  let params = { ...auto }
+  if (auto.desdeFormasPago) {
+    derivado = parametrosDesdeFormasPago(venta.formasPago, precioUF, venta.cuotasBeneficio)
+    params = {
+      ...params,
+      pieUF: params.pieUF || derivado.pieUF,
+      numCuotas: params.numCuotas || derivado.numCuotas,
+    }
+  }
+
+  const r = generarPlanPago({ ...params, precioUF })
+  if (!r.ok) return { error: r.error, derivado }
+
+  return {
+    cuotas: r.cuotas,
+    derivado,
+    resumen: {
+      precioUF,
+      cuotaUF: r.cuotaUF,
+      numCuotas: r.cuotas.filter(c => c.tipo === 'CUOTA').length,
+      saldoCuotasUF: r.saldoCuotasUF,
+      ajusteUF: r.ajusteUF,
+      ajustadoEn: r.ajustadoEn,
+      totalUF: r.totalUF,
+    },
+  }
+}
+
+// Calcula el plan sin guardarlo, para la vista previa del modal.
+const simularPlan = async (req, res) => {
+  const { ventaId, ...auto } = req.body
+  if (!ventaId) return res.status(400).json({ error: 'VentaId es requerido.' })
+  try {
+    const r = await armarAutomatico(ventaId, auto)
+    if (r.error) return res.status(400).json({ error: r.error })
+    res.json(r)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al simular el plan de pago.' })
+  }
+}
 
 // ─── PLAN DE PAGOS ────────────────────────────────────────────
 
 const crearPlan = async (req, res) => {
-  const { ventaId, cuotas } = req.body
-  // cuotas = [{ tipo, montoUF, montoCLP, fechaVencimiento }]
+  // Dos formas de crear el plan:
+  //   manual     → { ventaId, cuotas: [{ tipo, montoUF, montoCLP, fechaVencimiento }] }
+  //   automático → { ventaId, auto: { pieUF | piePorcentaje, numCuotas, fechaPrimeraCuota, ... } }
+  const { ventaId, auto } = req.body
+  let { cuotas } = req.body
 
-  if (!ventaId || !cuotas || !cuotas.length) {
+  if (!ventaId) return res.status(400).json({ error: 'VentaId es requerido.' })
+
+  if (auto) {
+    try {
+      const r = await armarAutomatico(ventaId, auto)
+      if (r.error) return res.status(400).json({ error: r.error })
+      cuotas = r.cuotas
+    } catch (err) {
+      console.error(err)
+      return res.status(500).json({ error: 'Error al armar el plan de pago.' })
+    }
+  }
+
+  if (!cuotas || !cuotas.length) {
     return res.status(400).json({ error: 'VentaId y cuotas son requeridos.' })
   }
 
@@ -226,4 +319,4 @@ const cuotasAtrasadas = async (req, res) => {
   }
 }
 
-module.exports = { crearPlan, agregarCuota, editarCuota, obtenerPlan, registrarPago, registrarPagoArriendo, cuotasAtrasadas }
+module.exports = { crearPlan, simularPlan, agregarCuota, editarCuota, obtenerPlan, registrarPago, registrarPagoArriendo, cuotasAtrasadas }

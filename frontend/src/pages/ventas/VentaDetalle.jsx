@@ -13,7 +13,7 @@ import { EditorFormasPago, DetalleFormasPago, cuotasDelBeneficio } from '../../c
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
   Space, Spin, Row, Col, Steps, Table, App, Alert, Divider, Tooltip, Popconfirm,
-  InputNumber, Radio
+  InputNumber, Radio, Checkbox
 } from 'antd'
 import { PlusOutlined, DeleteOutlined, WarningOutlined, CheckCircleOutlined, GiftOutlined, AppstoreOutlined, EditOutlined, HomeOutlined, ExpandOutlined } from '@ant-design/icons'
 import { isPast } from 'date-fns'
@@ -193,20 +193,62 @@ function FilaCuota({ cuota, index, onChange, onDelete, showDelete }) {
 }
 
 // ─── Modal crear plan de pago ─────────────────────────────────────
-function ModalPlanPago({ open, onClose, ventaId, precioUF }) {
+// Dos modos: automático (pie + N cuotas iguales, el backend reparte) y manual
+// (cuota por cuota, como se hacía antes).
+function ModalPlanPago({ open, onClose, ventaId, precioUF, formasPago = [] }) {
   const qc = useQueryClient()
+  const { message } = App.useApp()
+  const [modo, setModo] = useState('auto')
+
+  // ── modo automático
+  const hoy = new Date().toISOString().slice(0, 10)
+  const enUnMes = (() => { const d = new Date(); d.setMonth(d.getMonth() + 1); return d.toISOString().slice(0, 10) })()
+  // Arranca tomando el mix ya pactado: lo que no son cuotas es el pie.
+  const hayFormaCuotas = formasPago.some(f => f.forma === 'CUOTAS')
+  const [desdeFormas, setDesdeFormas] = useState(true)
+  const [auto, setAuto] = useState({
+    reservaUF: null, fechaReserva: hoy,
+    pieModo: 'uf', pieUF: null, piePorcentaje: null, fechaPie: hoy,
+    numCuotas: 6, fechaPrimeraCuota: enUnMes,
+    escrituraUF: null, fechaEscritura: '',
+  })
+  const setA = (campo, valor) => setAuto(p => ({ ...p, [campo]: valor }))
+
+  const tomarDeFormas = hayFormaCuotas && desdeFormas
+  const payloadAuto = {
+    ventaId,
+    desdeFormasPago: tomarDeFormas || undefined,
+    reservaUF: auto.reservaUF || 0,
+    fechaReserva: auto.fechaReserva || undefined,
+    // Con el mix pactado mandando, el pie y el nº de cuotas los pone el backend.
+    pieUF: tomarDeFormas ? 0 : (auto.pieModo === 'uf' ? (auto.pieUF || 0) : 0),
+    piePorcentaje: !tomarDeFormas && auto.pieModo === 'pct' ? auto.piePorcentaje : undefined,
+    fechaPie: auto.fechaPie || undefined,
+    numCuotas: tomarDeFormas ? 0 : (auto.numCuotas || 0),
+    fechaPrimeraCuota: auto.fechaPrimeraCuota || undefined,
+    escrituraUF: auto.escrituraUF || 0,
+    fechaEscritura: auto.fechaEscritura || undefined,
+  }
+
+  // Vista previa: el mismo cálculo que usará el backend al guardar.
+  const { data: previa, error: errorPrevia, isFetching } = useQuery({
+    queryKey: ['plan-simular', ventaId, payloadAuto],
+    queryFn: () => api.post('/pagos/plan/simular', payloadAuto).then(r => r.data),
+    enabled: open && modo === 'auto' && Boolean(ventaId),
+    retry: false,
+  })
+  const msgPrevia = errorPrevia?.response?.data?.error
+
+  // ── modo manual
   const [cuotas, setCuotas] = useState([
     { tipo: 'RESERVA', montoUF: null, montoCLP: 200000, fechaVencimiento: '', _ultimoEditado: 'clp' }
   ])
-  const { message } = App.useApp()
-
-  const totalUF = cuotas.reduce((s, c) => s + (c.montoUF || 0), 0)
+  const totalManualUF = cuotas.reduce((s, c) => s + (c.montoUF || 0), 0)
 
   const crear = useMutation({
-    mutationFn: () => api.post('/pagos/plan', {
-      ventaId,
-      cuotas: cuotas.map(({ _ultimoEditado, ...c }) => c)
-    }),
+    mutationFn: () => api.post('/pagos/plan', modo === 'auto'
+      ? payloadAuto
+      : { ventaId, cuotas: cuotas.map(({ _ultimoEditado, ...c }) => c) }),
     onSuccess: () => {
       message.success('Plan de pago creado')
       qc.invalidateQueries({ queryKey: ['venta', ventaId] })
@@ -215,40 +257,160 @@ function ModalPlanPago({ open, onClose, ventaId, precioUF }) {
     onError: err => message.error(err.response?.data?.error || 'Error')
   })
 
-  const handleCuotaChange = (i, nuevaCuota) => {
-    setCuotas(p => p.map((c, idx) => idx === i ? nuevaCuota : c))
-  }
+  const handleCuotaChange = (i, nuevaCuota) => setCuotas(p => p.map((c, idx) => idx === i ? nuevaCuota : c))
+  const handleDelete = (i) => setCuotas(p => p.filter((_, idx) => idx !== i))
 
-  const handleDelete = (i) => {
-    setCuotas(p => p.filter((_, idx) => idx !== i))
-  }
+  const fmtUF = v => Number(v || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const TIPO_LABEL = { RESERVA: 'Reserva', PIE: 'Pie', CUOTA: 'Cuota', ESCRITURA: 'Escritura' }
+  const AJUSTE_LABEL = { PIE: 'el pie', RESERVA: 'la reserva', ESCRITURA: 'la escritura', ULTIMA_CUOTA: 'la última cuota' }
+
+  const puedeCrear = modo === 'auto' ? Boolean(previa?.cuotas?.length) : cuotas.length > 0
 
   return (
     <Modal title="Crear Plan de Pago" open={open} onCancel={onClose}
       onOk={() => crear.mutate()} okText="Crear Plan" cancelText="Cancelar"
-      confirmLoading={crear.isPending} width={700}>
-      <div style={{ marginTop: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            Precio: <strong>{precioUF} UF</strong> · Total plan:{' '}
-            <strong style={{ color: totalUF > precioUF ? '#ff4d4f' : '#52c41a' }}>{totalUF.toFixed(2)} UF</strong>
-          </Text>
-          <Button size="small" icon={<PlusOutlined />}
-            onClick={() => setCuotas(p => [...p, { tipo: 'CUOTA', montoUF: null, montoCLP: null, fechaVencimiento: '', _ultimoEditado: null }])}>
-            Cuota
-          </Button>
-        </div>
-        {cuotas.map((c, i) => (
-          <FilaCuota
-            key={i}
-            cuota={c}
-            index={i}
-            onChange={handleCuotaChange}
-            onDelete={handleDelete}
-            showDelete={cuotas.length > 1}
+      okButtonProps={{ disabled: !puedeCrear }}
+      confirmLoading={crear.isPending} width={760}>
+
+      <Radio.Group value={modo} onChange={e => setModo(e.target.value)}
+        optionType="button" buttonStyle="solid" size="small" style={{ marginTop: 12, marginBottom: 14 }}
+        options={[{ value: 'auto', label: 'Pie + cuotas iguales' }, { value: 'manual', label: 'Cuota por cuota' }]} />
+
+      {modo === 'auto' ? (
+        <div>
+          {hayFormaCuotas && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
+              padding: '8px 12px', borderRadius: 8, background: '#f0f7ff', border: '1px solid #bfdbfe',
+            }}>
+              <Checkbox checked={desdeFormas} onChange={e => setDesdeFormas(e.target.checked)}>
+                <span style={{ fontSize: 13 }}>Tomar el pie y las cuotas de la forma de pago pactada</span>
+              </Checkbox>
+              {previa?.derivado && desdeFormas && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  pie {fmtUF(previa.derivado.pieUF)} UF · {previa.derivado.numCuotas} cuotas
+                </Text>
+              )}
+            </div>
+          )}
+
+          {previa?.derivado?.aviso && desdeFormas && (
+            <Alert type="warning" showIcon style={{ marginBottom: 10 }} message={previa.derivado.aviso} />
+          )}
+
+          <Row gutter={[12, 12]}>
+            <Col span={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Reserva (UF)</Text>
+              <InputNumber size="small" style={{ width: '100%' }} min={0} placeholder="0"
+                value={auto.reservaUF} onChange={v => setA('reservaUF', v)} />
+            </Col>
+            <Col span={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Vence reserva</Text>
+              <Input size="small" type="date" value={auto.fechaReserva}
+                onChange={e => setA('fechaReserva', e.target.value)} />
+            </Col>
+            <Col span={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Saldo escritura (UF)</Text>
+              <InputNumber size="small" style={{ width: '100%' }} min={0} placeholder="0"
+                value={auto.escrituraUF} onChange={v => setA('escrituraUF', v)} />
+            </Col>
+
+            <Col span={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Pie</Text>
+              <Space.Compact style={{ width: '100%' }}>
+                <Select size="small" style={{ width: 62 }} value={auto.pieModo} disabled={tomarDeFormas}
+                  onChange={v => setA('pieModo', v)}
+                  options={[{ value: 'uf', label: 'UF' }, { value: 'pct', label: '%' }]} />
+                {auto.pieModo === 'uf' ? (
+                  <InputNumber size="small" style={{ width: '100%' }} min={0}
+                    disabled={tomarDeFormas}
+                    placeholder={tomarDeFormas ? fmtUF(previa?.derivado?.pieUF) : '0'}
+                    value={tomarDeFormas ? null : auto.pieUF} onChange={v => setA('pieUF', v)} />
+                ) : (
+                  <InputNumber size="small" style={{ width: '100%' }} min={0} max={100} placeholder="20"
+                    disabled={tomarDeFormas}
+                    value={tomarDeFormas ? null : auto.piePorcentaje} onChange={v => setA('piePorcentaje', v)} />
+                )}
+              </Space.Compact>
+            </Col>
+            <Col span={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Vence pie</Text>
+              <Input size="small" type="date" value={auto.fechaPie}
+                onChange={e => setA('fechaPie', e.target.value)} />
+            </Col>
+            <Col span={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Vence escritura</Text>
+              <Input size="small" type="date" value={auto.fechaEscritura}
+                onChange={e => setA('fechaEscritura', e.target.value)} />
+            </Col>
+
+            <Col span={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>N.º de cuotas</Text>
+              <InputNumber size="small" style={{ width: '100%' }} min={0} max={120}
+                disabled={tomarDeFormas}
+                placeholder={tomarDeFormas ? String(previa?.derivado?.numCuotas ?? '') : undefined}
+                value={tomarDeFormas ? null : auto.numCuotas} onChange={v => setA('numCuotas', v)} />
+            </Col>
+            <Col span={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>Primera cuota</Text>
+              <Input size="small" type="date" value={auto.fechaPrimeraCuota}
+                onChange={e => setA('fechaPrimeraCuota', e.target.value)} />
+            </Col>
+          </Row>
+
+          <Divider style={{ margin: '14px 0 10px' }} />
+
+          {msgPrevia && <Alert type="warning" showIcon message={msgPrevia} style={{ marginBottom: 10 }} />}
+
+          {previa?.resumen && (
+            <Alert
+              type="info" showIcon style={{ marginBottom: 10 }}
+              message={
+                <span>
+                  {previa.resumen.numCuotas > 0
+                    ? <>{previa.resumen.numCuotas} cuotas de <strong>{fmtUF(previa.resumen.cuotaUF)} UF</strong> cada una</>
+                    : <>Plan sin cuotas</>}
+                  {' · '}total <strong>{fmtUF(previa.resumen.totalUF)} UF</strong> sobre un precio de {fmtUF(previa.resumen.precioUF)} UF
+                </span>
+              }
+              description={previa.resumen.ajusteUF
+                ? (previa.resumen.ajustadoEn === 'ULTIMA_CUOTA'
+                    ? `El saldo no divide exacto y no hay pie ni reserva donde cuadrar los ${fmtUF(Math.abs(previa.resumen.ajusteUF))} UF de diferencia: quedan en la última cuota. Agrega un pie para que todas las cuotas salgan idénticas.`
+                    : `El saldo no divide exacto: ${fmtUF(Math.abs(previa.resumen.ajusteUF))} UF de diferencia se ajustaron en ${AJUSTE_LABEL[previa.resumen.ajustadoEn]} para que todas las cuotas queden iguales.`)
+                : null}
+            />
+          )}
+
+          <Table
+            size="small" rowKey={(_, i) => i} pagination={false} loading={isFetching}
+            dataSource={previa?.cuotas || []}
+            scroll={{ y: 260 }}
+            columns={[
+              { title: '#', width: 48, render: (_, __, i) => i + 1 },
+              { title: 'Tipo', dataIndex: 'tipo', width: 110, render: t => <Tag>{TIPO_LABEL[t] || t}</Tag> },
+              { title: 'Monto UF', dataIndex: 'montoUF', align: 'right', width: 120, render: v => fmtUF(v) },
+              { title: 'Vence', dataIndex: 'fechaVencimiento' },
+            ]}
           />
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              Precio: <strong>{precioUF} UF</strong> · Total plan:{' '}
+              <strong style={{ color: totalManualUF > precioUF ? '#ff4d4f' : '#52c41a' }}>{totalManualUF.toFixed(2)} UF</strong>
+            </Text>
+            <Button size="small" icon={<PlusOutlined />}
+              onClick={() => setCuotas(p => [...p, { tipo: 'CUOTA', montoUF: null, montoCLP: null, fechaVencimiento: '', _ultimoEditado: null }])}>
+              Cuota
+            </Button>
+          </div>
+          {cuotas.map((c, i) => (
+            <FilaCuota key={i} cuota={c} index={i} onChange={handleCuotaChange}
+              onDelete={handleDelete} showDelete={cuotas.length > 1} />
+          ))}
+        </div>
+      )}
     </Modal>
   )
 }
@@ -939,7 +1101,7 @@ function PlanDePagos({ venta }) {
         </>
       )}
 
-      <ModalPlanPago open={modalPlan} onClose={() => setModalPlan(false)}
+      <ModalPlanPago open={modalPlan} onClose={() => setModalPlan(false)} formasPago={venta?.formasPago || []}
         ventaId={venta?.id} precioUF={venta?.precioFinalUF || 0} />
       <ModalAgregarCuota open={modalAgregar} onClose={() => setModalAgregar(false)} ventaId={venta?.id} />
       <ModalPagarCuota open={!!cuotaPagar} onClose={() => setCuotaPagar(null)} cuota={cuotaPagar} ventaId={venta?.id} />
