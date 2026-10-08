@@ -119,28 +119,33 @@ function generarPlanPago({
 }
 
 /**
- * Deriva los parámetros del plan desde las formas de pago ya pactadas en la venta.
+ * Deriva los parámetros del plan desde las formas de pago ya pactadas.
  *
- * El criterio: todo lo que NO es la forma CUOTAS se paga de una (transferencia,
- * vale vista, tarjeta) y por lo tanto es el PIE; lo pactado en la forma CUOTAS
- * es el saldo que se difiere y se reparte en cuotas iguales.
+ * El pie es lo que el vendedor marcó como PIE en el editor de formas. Si la
+ * venta es vieja y no tiene nada marcado, se cae al criterio anterior: todo lo
+ * que no es la forma CUOTAS se paga de una y por lo tanto es el pie.
  *
- * @param {Array}  formasPago       [{ forma, montoUF, cuotas }]
+ * @param {Array}  formasPago       [{ forma, destino, montoUF, cuotas }]
  * @param {number} precioFinalUF    Precio pactado de la venta.
  * @param {number} [cuotasBeneficio] Nº de cuotas del beneficio, si la forma no lo trae.
- * @returns {{ pieUF, numCuotas, saldoCuotasUF, calza, aviso }}
+ * @returns {{ pieUF, contadoUF, numCuotas, saldoCuotasUF, saldoPactadoUF, calza, aviso }}
  *   `calza` es false cuando las formas no cubren el precio: el plan igual se puede
  *   armar, pero el saldo a repartir no va a ser el pactado en la forma CUOTAS.
  */
 function parametrosDesdeFormasPago(formasPago = [], precioFinalUF = 0, cuotasBeneficio = null) {
   const precio = r2(num(precioFinalUF))
   const formaCuotas = formasPago.find(f => f.forma === 'CUOTAS')
-  const pieUF = r2(formasPago
-    .filter(f => f.forma !== 'CUOTAS')
-    .reduce((s, f) => s + num(f.montoUF), 0))
+  const noCuotas = formasPago.filter(f => f.forma !== 'CUOTAS')
+
+  // Ventas anteriores al campo `destino` no tienen nada marcado.
+  const hayDestinos = noCuotas.some(f => f.destino === 'PIE' || f.destino === 'CONTADO')
+  const esPie = (f) => hayDestinos ? f.destino === 'PIE' : true
+
+  const pieUF = r2(noCuotas.filter(esPie).reduce((s, f) => s + num(f.montoUF), 0))
+  const contadoUF = r2(noCuotas.filter(f => !esPie(f)).reduce((s, f) => s + num(f.montoUF), 0))
 
   const saldoPactado = r2(num(formaCuotas?.montoUF))
-  const saldoReal = r2(precio - pieUF)
+  const saldoReal = r2(precio - pieUF - contadoUF)
   const numCuotas = Number(formaCuotas?.cuotas) || Number(cuotasBeneficio) || 0
 
   const diferencia = r2(saldoReal - saldoPactado)
@@ -159,7 +164,7 @@ function parametrosDesdeFormasPago(formasPago = [], precioFinalUF = 0, cuotasBen
     }
   }
 
-  return { pieUF, numCuotas, saldoCuotasUF: saldoReal, saldoPactadoUF: saldoPactado, calza, aviso }
+  return { pieUF, contadoUF, numCuotas, saldoCuotasUF: saldoReal, saldoPactadoUF: saldoPactado, calza, aviso }
 }
 
 module.exports = { generarPlanPago, sumarMeses, parametrosDesdeFormasPago }

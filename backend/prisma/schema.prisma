@@ -169,6 +169,14 @@ enum MonedaPago {
   CLP
 }
 
+// Qué parte del precio cubre una forma de pago. Es lo que separa una
+// transferencia que paga toda la venta de una que es solo el pie.
+enum DestinoPago {
+  CONTADO
+  PIE
+  SALDO
+}
+
 enum TipoCuota {
   RESERVA
   PIE
@@ -785,6 +793,8 @@ model VentaFormaPago {
   id       Int            @id @default(autoincrement())
   ventaId  Int
   forma    FormaPagoVenta
+  // Qué cubre esta forma: el pie, el saldo diferido, o la venta al contado.
+  destino  DestinoPago    @default(CONTADO)
   // Moneda en que se pactó la forma. En CLP el monto real es `montoCLP` y
   // `montoUF` es el equivalente congelado con la UF de `valorUF`.
   moneda   MonedaPago     @default(UF)

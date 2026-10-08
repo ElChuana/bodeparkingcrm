@@ -919,6 +919,7 @@ function FormaDePago({ venta }) {
   const abrir = () => {
     setFormas((venta?.formasPago || []).map(f => ({
       forma: f.forma,
+      destino: f.destino || (f.forma === 'CUOTAS' ? 'SALDO' : 'CONTADO'),
       moneda: f.moneda || 'UF',
       montoUF: f.montoUF != null ? Number(f.montoUF) : null,
       montoCLP: f.montoCLP != null ? Number(f.montoCLP) : null,
@@ -928,7 +929,10 @@ function FormaDePago({ venta }) {
   }
 
   const guardar = useMutation({
-    mutationFn: () => api.put(`/ventas/${venta.id}/formas-pago`, { formasPago: formas }),
+    // `_manual` es estado interno del editor, no se guarda
+    mutationFn: () => api.put(`/ventas/${venta.id}/formas-pago`, {
+      formasPago: formas.map(({ _manual, ...f }) => f),
+    }),
     onSuccess: () => {
       message.success('Forma de pago actualizada')
       qc.invalidateQueries({ queryKey: ['venta', venta.id] })

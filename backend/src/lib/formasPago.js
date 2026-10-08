@@ -18,6 +18,12 @@ const FORMAS_VALIDAS = ['TRANSFERENCIA', 'VALE_VISTA', 'TARJETA', 'CUOTAS']
 
 const MONEDAS_VALIDAS = ['UF', 'CLP']
 
+// Qué parte del precio cubre cada forma. Sin esto una transferencia por el
+// total y una que es solo el pie se guardaban igual.
+const DESTINOS_VALIDOS = ['CONTADO', 'PIE', 'SALDO']
+
+const DESTINO_LABEL = { CONTADO: 'Contado', PIE: 'Pie', SALDO: 'Saldo' }
+
 const FORMA_LABEL = {
   TRANSFERENCIA: 'Transferencia',
   VALE_VISTA: 'Vale vista',
@@ -55,6 +61,13 @@ function normalizarFormasPago(entrada = [], precioFinalUF = 0, valorUFPesos = nu
       return { ok: false, error: `La forma de pago ${FORMA_LABEL[forma]} está repetida.` }
     }
     vistas.add(forma)
+
+    // La forma CUOTAS siempre difiere pago: su destino es el saldo.
+    const destinoBruto = typeof item === 'string' ? null : item?.destino
+    const destino = forma === 'CUOTAS' ? 'SALDO' : (destinoBruto || 'CONTADO')
+    if (!DESTINOS_VALIDOS.includes(destino)) {
+      return { ok: false, error: `Destino inválido en ${FORMA_LABEL[forma]}: ${destino}.` }
+    }
 
     const moneda = (typeof item === 'string' ? null : item?.moneda) || 'UF'
     if (!MONEDAS_VALIDAS.includes(moneda)) {
@@ -104,7 +117,7 @@ function normalizarFormasPago(entrada = [], precioFinalUF = 0, valorUFPesos = nu
 
     const notas = typeof item === 'string' ? null : (item?.notas || null)
 
-    formas.push({ forma, moneda, montoUF, montoCLP, valorUF, cuotas, notas })
+    formas.push({ forma, destino, moneda, montoUF, montoCLP, valorUF, cuotas, notas })
   }
 
   const asignadoUF = +formas.reduce((s, f) => s + num(f.montoUF), 0).toFixed(6)
@@ -116,11 +129,17 @@ function normalizarFormasPago(entrada = [], precioFinalUF = 0, valorUFPesos = nu
     }
   }
 
+  const sumaDe = (d) => +formas.filter(f => f.destino === d)
+    .reduce((s, f) => s + num(f.montoUF), 0).toFixed(6)
+
   return {
     ok: true,
     formas,
     asignadoUF,
     faltanteUF: +Math.max(total - asignadoUF, 0).toFixed(6),
+    pieUF: sumaDe('PIE'),
+    contadoUF: sumaDe('CONTADO'),
+    saldoUF: sumaDe('SALDO'),
   }
 }
 
@@ -156,15 +175,21 @@ function resumenFormasPago(venta = {}) {
   const formas = venta.formasPago || []
   if (formas.length === 0) return 'Al contado'
   const n = cuotasPactadas(venta)
-  return formas
-    .map(f => (f.forma === 'CUOTAS' && n ? `${n} cuotas` : FORMA_LABEL[f.forma]))
-    .join(' + ')
+  const etiqueta = (f) => {
+    if (f.forma === 'CUOTAS') return n ? `${n} cuotas` : FORMA_LABEL[f.forma]
+    // El pie se nombra como pie: es la diferencia entre pagar todo de una
+    // y dejar un saldo pendiente.
+    return f.destino === 'PIE' ? `Pie por ${FORMA_LABEL[f.forma].toLowerCase()}` : FORMA_LABEL[f.forma]
+  }
+  return formas.map(etiqueta).join(' + ')
 }
 
 module.exports = {
   FORMAS_VALIDAS,
   MONEDAS_VALIDAS,
+  DESTINOS_VALIDOS,
   FORMA_LABEL,
+  DESTINO_LABEL,
   normalizarFormasPago,
   cuotasPactadas,
   resumenFormasPago,

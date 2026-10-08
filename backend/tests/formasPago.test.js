@@ -145,3 +145,49 @@ test('por defecto la forma sigue siendo en UF', () => {
   assert.strictEqual(r.formas[0].montoUF, 50)
   assert.strictEqual(normalizarFormasPago(['CUOTAS'], 200).formas[0].moneda, 'UF')
 })
+
+// ─── destino: qué parte del precio cubre cada forma ──────────────
+test('la forma Cuotas siempre queda como saldo, aunque manden otra cosa', () => {
+  const r = normalizarFormasPago([
+    { forma: 'CUOTAS', destino: 'PIE', montoUF: 50, cuotas: 5 },
+  ], 50)
+  assert.strictEqual(r.ok, true)
+  assert.strictEqual(r.formas[0].destino, 'SALDO')
+})
+
+test('sin destino explícito la forma queda al contado', () => {
+  const r = normalizarFormasPago([{ forma: 'TRANSFERENCIA', montoUF: 100 }], 100)
+  assert.strictEqual(r.formas[0].destino, 'CONTADO')
+  assert.strictEqual(r.contadoUF, 100)
+  assert.strictEqual(r.pieUF, 0)
+})
+
+test('separa pie, contado y saldo en el total', () => {
+  const r = normalizarFormasPago([
+    { forma: 'TRANSFERENCIA', destino: 'PIE', montoUF: 20 },
+    { forma: 'VALE_VISTA', destino: 'CONTADO', montoUF: 30 },
+    { forma: 'CUOTAS', montoUF: 50, cuotas: 5 },
+  ], 100)
+  assert.strictEqual(r.ok, true)
+  assert.strictEqual(r.pieUF, 20)
+  assert.strictEqual(r.contadoUF, 30)
+  assert.strictEqual(r.saldoUF, 50)
+})
+
+test('rechaza un destino que no existe', () => {
+  const r = normalizarFormasPago([{ forma: 'TRANSFERENCIA', destino: 'ANTICIPO', montoUF: 10 }], 100)
+  assert.strictEqual(r.ok, false)
+  assert.match(r.error, /Destino inválido/)
+})
+
+test('el resumen nombra el pie como pie', () => {
+  assert.strictEqual(resumenFormasPago({
+    formasPago: [
+      { forma: 'TRANSFERENCIA', destino: 'PIE' },
+      { forma: 'CUOTAS', destino: 'SALDO', cuotas: 6 },
+    ],
+  }), 'Pie por transferencia + 6 cuotas')
+  assert.strictEqual(resumenFormasPago({
+    formasPago: [{ forma: 'TRANSFERENCIA', destino: 'CONTADO' }],
+  }), 'Transferencia')
+})

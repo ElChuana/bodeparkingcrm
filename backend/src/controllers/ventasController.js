@@ -43,7 +43,7 @@ const listar = async (req, res) => {
           select: { numero: true, tipo: true, edificio: { select: { nombre: true, region: true } } }
         },
         planPago: { select: { totalCuotas: true } },
-        formasPago: { select: { forma: true, moneda: true, montoUF: true, montoCLP: true, cuotas: true } },
+        formasPago: { select: { forma: true, destino: true, moneda: true, montoUF: true, montoCLP: true, cuotas: true } },
         // Solo el beneficio de cuotas: la lista muestra "12 cuotas" sin traer todas las promos
         promociones: {
           where: { promocion: { tipo: 'CUOTAS_SIN_INTERES' } },

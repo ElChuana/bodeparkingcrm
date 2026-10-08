@@ -204,3 +204,36 @@ test('el plan derivado de las formas reparte el saldo en cuotas iguales', () => 
   assert.strictEqual(new Set(cuotas.map(c => c.montoUF)).size, 1)
   assert.strictEqual(sum(plan.cuotas), 58.12)
 })
+
+test('el pie sale de lo marcado como PIE, no de deducirlo', () => {
+  // Dos transferencias: una es el pie y la otra paga una parte al contado.
+  const r = parametrosDesdeFormasPago([
+    { forma: 'TRANSFERENCIA', destino: 'PIE', montoUF: 20 },
+    { forma: 'VALE_VISTA', destino: 'CONTADO', montoUF: 30 },
+    { forma: 'CUOTAS', destino: 'SALDO', montoUF: 50, cuotas: 5 },
+  ], 100)
+  assert.strictEqual(r.pieUF, 20)
+  assert.strictEqual(r.contadoUF, 30)
+  assert.strictEqual(r.saldoCuotasUF, 50)
+  assert.strictEqual(r.calza, true)
+})
+
+test('una venta sin destinos marcados sigue funcionando como antes', () => {
+  const r = parametrosDesdeFormasPago([
+    { forma: 'TRANSFERENCIA', montoUF: 41.56 },
+    { forma: 'CUOTAS', montoUF: 50.12, cuotas: 7 },
+  ], 91.68)
+  assert.strictEqual(r.pieUF, 41.56)
+  assert.strictEqual(r.contadoUF, 0)
+  assert.strictEqual(r.calza, true)
+})
+
+test('lo marcado al contado no infla el pie del plan', () => {
+  const r = parametrosDesdeFormasPago([
+    { forma: 'TRANSFERENCIA', destino: 'CONTADO', montoUF: 60 },
+    { forma: 'CUOTAS', destino: 'SALDO', montoUF: 40, cuotas: 4 },
+  ], 100)
+  assert.strictEqual(r.pieUF, 0, 'nada marcado como pie → pie cero')
+  assert.strictEqual(r.contadoUF, 60)
+  assert.strictEqual(r.saldoCuotasUF, 40)
+})

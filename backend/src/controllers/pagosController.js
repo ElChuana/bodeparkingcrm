@@ -8,7 +8,7 @@ const datosDeLaVenta = async (ventaId) => {
     where: { id: Number(ventaId) },
     select: {
       precioFinalUF: true,
-      formasPago: { select: { forma: true, montoUF: true, cuotas: true } },
+      formasPago: { select: { forma: true, destino: true, montoUF: true, cuotas: true } },
       promociones: { select: { promocion: { select: { nombre: true, tipo: true, meses: true } } } },
       beneficios: { select: { beneficio: { select: { nombre: true, tipo: true, meses: true } } } },
     },

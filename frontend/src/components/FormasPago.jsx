@@ -7,7 +7,7 @@
 //
 // La cantidad de cuotas sale del beneficio "cuotas sin interés"; solo se
 // guarda en la forma cuando se pacta una cantidad distinta.
-import { Checkbox, InputNumber, Typography, Tag, Segmented, Alert, Button, Tooltip } from 'antd'
+import { Checkbox, InputNumber, Typography, Tag, Segmented, Alert, Button, Tooltip, Select } from 'antd'
 import { useUF } from '../hooks/useUF'
 
 const { Text } = Typography
@@ -20,6 +20,15 @@ export const FORMAS_PAGO = [
 ]
 
 export const FORMA_PAGO_LABEL = Object.fromEntries(FORMAS_PAGO.map(f => [f.value, f.label]))
+
+// Qué parte del precio cubre cada forma. La forma Cuotas es siempre el saldo
+// diferido, así que no se puede cambiar.
+export const DESTINOS = [
+  { value: 'CONTADO', label: 'Contado' },
+  { value: 'PIE',     label: 'Pie' },
+  { value: 'SALDO',   label: 'Saldo' },
+]
+export const DESTINO_LABEL = Object.fromEntries(DESTINOS.map(d => [d.value, d.label]))
 
 const TOLERANCIA = 0.01
 
@@ -86,16 +95,43 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
   const marcada = (forma) => value.some(f => f.forma === forma)
   const filaDe  = (forma) => value.find(f => f.forma === forma) || {}
 
-  const toggle = (forma, checked) => {
-    if (checked) onChange([...value, { forma, moneda: 'UF', montoUF: null, montoCLP: null, cuotas: null }])
-    else onChange(value.filter(f => f.forma !== forma))
+  // Las cuotas SON el saldo: su monto es lo que queda después de las demás
+  // formas, y se mantiene al día solo mientras el vendedor no lo escriba a
+  // mano. `_manual` marca que lo escribió y que no hay que volver a tocarlo.
+  const conSaldoAlDia = (formas) => {
+    const cuotas = formas.find(f => f.forma === 'CUOTAS')
+    if (!cuotas || cuotas._manual) return formas
+    const otras = formas.filter(f => f.forma !== 'CUOTAS')
+    const resto = +(Number(totalUF) - otras.reduce((s, f) => s + montoUFDeForma(f, valorUF), 0)).toFixed(2)
+    if (!(resto > 0)) return formas
+    if (cuotas.moneda === 'CLP' && !valorUF) return formas
+    return formas.map(f => f.forma !== 'CUOTAS' ? f : (
+      f.moneda === 'CLP'
+        ? { ...f, montoCLP: Math.round(resto * valorUF) }
+        : { ...f, montoUF: resto }
+    ))
   }
 
-  const setCampo = (forma, campo, val) =>
-    onChange(value.map(f => f.forma === forma ? { ...f, [campo]: val } : f))
+  const aplicar = (formas) => onChange(conSaldoAlDia(formas))
+
+  const toggle = (forma, checked) => {
+    if (checked) aplicar([...value, {
+      forma, destino: forma === 'CUOTAS' ? 'SALDO' : 'CONTADO',
+      moneda: 'UF', montoUF: null, montoCLP: null, cuotas: null,
+    }])
+    else aplicar(value.filter(f => f.forma !== forma))
+  }
+
+  const setCampo = (forma, campo, val) => {
+    // Escribir el monto de las cuotas a mano desactiva el relleno automático.
+    const esMontoDeCuotas = forma === 'CUOTAS' && (campo === 'montoUF' || campo === 'montoCLP')
+    aplicar(value.map(f => f.forma === forma
+      ? { ...f, [campo]: val, ...(esMontoDeCuotas ? { _manual: true } : {}) }
+      : f))
+  }
 
   // Al cambiar de moneda se arrastra lo ya escrito, convertido con la UF del día
-  const setMoneda = (forma, moneda) => onChange(value.map(f => {
+  const setMoneda = (forma, moneda) => aplicar(value.map(f => {
     if (f.forma !== forma) return f
     if (moneda === 'CLP') {
       const pesos = ufAPesos(Number(f.montoUF) || 0)
@@ -106,11 +142,23 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
     return { ...f, moneda, montoUF: uf, montoCLP: null }
   }))
 
+  // Devolver las cuotas al relleno automático
+  const volverAutomatico = () => aplicar(value.map(f =>
+    f.forma === 'CUOTAS' ? { ...f, _manual: false } : f))
+
   const asignado = value.reduce((s, f) => s + montoUFDeForma(f, valorUF), 0)
   const faltante = totalUF - asignado
   const calza    = Math.abs(faltante) <= TOLERANCIA
   const excede   = faltante < -TOLERANCIA
   const hayPesos = value.some(f => f.moneda === 'CLP')
+
+  const sumaDestino = (d) => value
+    .filter(f => (f.forma === 'CUOTAS' ? 'SALDO' : (f.destino || 'CONTADO')) === d)
+    .reduce((s, f) => s + montoUFDeForma(f, valorUF), 0)
+  const pieUF = sumaDestino('PIE')
+  const contadoUF = sumaDestino('CONTADO')
+  const saldoUF = sumaDestino('SALDO')
+  const nCuotasPlan = value.find(f => f.forma === 'CUOTAS')?.cuotas || cuotasBeneficio
 
   // Lo que le tocaría a una forma si absorbiera todo el saldo sin asignar.
   // null = no hay nada que asignarle (ya lo tiene, o el resto es cero o negativo).
@@ -152,6 +200,21 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
               <Checkbox checked={activa} onChange={e => toggle(forma, e.target.checked)} style={{ flex: '0 0 130px' }}>
                 <span style={{ fontSize: 13, fontWeight: activa ? 600 : 400 }}>{label}</span>
               </Checkbox>
+
+              {activa && (
+                <Tooltip title={forma === 'CUOTAS'
+                  ? 'Las cuotas son siempre el saldo que queda por pagar'
+                  : 'Qué parte del precio cubre esta forma'}>
+                  <Select
+                    size="small"
+                    style={{ width: 100 }}
+                    value={forma === 'CUOTAS' ? 'SALDO' : (fila.destino || 'CONTADO')}
+                    disabled={forma === 'CUOTAS'}
+                    onChange={v => setCampo(forma, 'destino', v)}
+                    options={DESTINOS.filter(d => d.value !== 'SALDO' || forma === 'CUOTAS')}
+                  />
+                </Tooltip>
+              )}
 
               {activa && forma === 'CUOTAS' && (
                 <InputNumber
@@ -201,17 +264,32 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
                       addonAfter="UF"
                     />
                   )}
-                  <Tooltip title={`Asignar a ${label} todo lo que falta para completar la venta`}>
-                    <Button
-                      size="small"
-                      type="link"
-                      style={{ padding: '0 4px', height: 22 }}
-                      disabled={restoPara(forma) == null}
-                      onClick={() => asignarResto(forma)}
-                    >
-                      resto
-                    </Button>
-                  </Tooltip>
+                  {forma === 'CUOTAS' ? (
+                    fila._manual ? (
+                      <Tooltip title="Volver a calcular el monto como el saldo que queda">
+                        <Button size="small" type="link" style={{ padding: '0 4px', height: 22 }}
+                          onClick={volverAutomatico}>
+                          auto
+                        </Button>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="El monto es el saldo que queda después de las demás formas; se actualiza solo">
+                        <Tag color="blue" style={{ marginInlineEnd: 0, fontSize: 11 }}>saldo automático</Tag>
+                      </Tooltip>
+                    )
+                  ) : (
+                    <Tooltip title={`Asignar a ${label} todo lo que falta para completar la venta`}>
+                      <Button
+                        size="small"
+                        type="link"
+                        style={{ padding: '0 4px', height: 22 }}
+                        disabled={restoPara(forma) == null}
+                        onClick={() => asignarResto(forma)}
+                      >
+                        resto
+                      </Button>
+                    </Tooltip>
+                  )}
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {enPesos
                       ? (montoUF ? `≈ ${montoUF.toFixed(2)} UF` : '')
@@ -243,9 +321,20 @@ export function EditorFormasPago({ value = [], onChange, totalUF = 0, cuotasBene
         border: `1px solid ${excede ? '#ffccc7' : calza ? '#b7eb8f' : '#fde68a'}`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap',
       }}>
-        <Text style={{ fontSize: 13 }}>
-          Asignado <strong>{asignado.toFixed(2)} UF</strong> de {Number(totalUF).toFixed(2)} UF
-        </Text>
+        <div>
+          <Text style={{ fontSize: 13 }}>
+            Asignado <strong>{asignado.toFixed(2)} UF</strong> de {Number(totalUF).toFixed(2)} UF
+          </Text>
+          {(pieUF > 0 || saldoUF > 0) && (
+            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>
+              {pieUF > 0 && <>Pie {formatPesos(ufAPesos(pieUF))}</>}
+              {pieUF > 0 && (contadoUF > 0 || saldoUF > 0) ? ' · ' : ''}
+              {contadoUF > 0 && <>contado {formatPesos(ufAPesos(contadoUF))}</>}
+              {contadoUF > 0 && saldoUF > 0 ? ' · ' : ''}
+              {saldoUF > 0 && <>saldo {formatPesos(ufAPesos(saldoUF))}{nCuotasPlan ? ` en ${nCuotasPlan} cuotas` : ''}</>}
+            </Text>
+          )}
+        </div>
         {value.length === 0
           ? <Tag>Al contado</Tag>
           : excede
@@ -314,6 +403,7 @@ export function DetalleFormasPago({ venta }) {
           }}>
             <div>
               <Text strong style={{ fontSize: 13 }}>{FORMA_PAGO_LABEL[f.forma] || f.forma}</Text>
+              {f.destino === 'PIE' ? <Tag color="gold" style={{ marginLeft: 8 }}>pie</Tag> : null}
               {n ? <Tag color="blue" style={{ marginLeft: 8 }}>{n} cuotas</Tag> : null}
               {enPesos ? <Tag style={{ marginLeft: 4 }}>en pesos</Tag> : null}
               {porCuota ? <div><Text type="secondary" style={{ fontSize: 12 }}>{porCuota}</Text></div> : null}
