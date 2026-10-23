@@ -31,6 +31,7 @@ app.use('/api/interacciones',  require('./routes/interacciones'))
 app.use('/api/actividades',    require('./routes/actividades'))
 app.use('/api/ventas',      require('./routes/ventas'))
 app.use('/api/legal',       require('./routes/legalIntegracion')) // integración externa (API key), antes del router JWT
+app.use('/api/integracion/ventas', require('./routes/ventasIntegracion')) // bot formas de pago (API key)
 app.use('/api/legal',       require('./routes/legal'))
 app.use('/api/pagos',       require('./routes/pagos'))
 app.use('/api/comisiones',  require('./routes/comisiones'))

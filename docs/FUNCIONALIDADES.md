@@ -200,6 +200,12 @@
 - El último resumen por venta se obtiene con `orderBy creadoEn desc take 1` (viene en `GET /ventas-activas`)
 - **Frontend**: el resumen se muestra en 2 lugares (componente compartido `components/ResumenLegal.jsx`, semáforo en `components/ui.jsx:SEMAFORO_LEGAL`): (1) página **Legal** — columna "Situación (IA)" con badge de semáforo + resumen (tooltip) y el detalle en la fila expandida; (2) **VentaDetalle** — bloque "Resumen de la situación (IA)" dentro de la card Proceso Legal, con último resumen + historial colapsable. Los datos llegan en `GET /ventas` (último, `resumenesLegales take 1`) y `GET /ventas/:id` (historial completo)
 
+### VENTAS — Integración externa (bot formas de pago) — `/api/integracion/ventas` (API Key)
+- Archivos: `routes/ventasIntegracion.js`, `controllers/ventasIntegracionController.js`
+- Un proceso EXTERNO (skill `formas-pago-crm`) lee los correos de pago y completa la forma de pago de las ventas; el CRM solo recibe y guarda
+- `GET /formas-pago` — todas las ventas no anuladas con ventaId, comprador, unidades, precioFinalUF y sus `formasPago` actuales (el bot se enfoca en las vacías). Auth: API Key de **lectura** (rechaza `soloEscritura`)
+- `POST /formas-pago` — recibe `{ items: [{ ventaId, formasPago: [...], sobrescribir? }] }` (o array directo). Reemplaza el set completo de formas de la venta con la misma validación que el endpoint JWT (`normalizarFormasPago`, UF vigente para montos en pesos). **Por defecto no toca una venta que ya tiene forma de pago** — hay que mandar `sobrescribir: true` explícito. Responde `{ guardadas, omitidas, errores }`. Auth: API Key (acepta `soloEscritura`), pasa por `logIntegracion`
+
 ### PAGOS — `/api/pagos`
 - Archivos: `routes/pagos.js`, `controllers/pagosController.js`
 - `POST /plan` — crear plan de pago
