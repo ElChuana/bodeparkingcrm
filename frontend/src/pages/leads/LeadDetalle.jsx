@@ -10,6 +10,7 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components/ui'
 import ModalPerdido from '../../components/ModalPerdido'
+import BotonFavorito from '../../components/BotonFavorito'
 import {
   Card, Button, Tag, Modal, Form, Input, Select, Typography,
   Space, Spin, Row, Col, Descriptions, App, DatePicker, Alert, Tabs, Avatar, Mentions, Tooltip, Popover
@@ -1232,7 +1233,10 @@ export default function LeadDetalle() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <AccionesRapidas lead={lead} />
           <div>
-            <Title level={4} style={{ margin: 0 }}>{lead.contacto.nombre} {lead.contacto.apellido}</Title>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Title level={4} style={{ margin: 0 }}>{lead.contacto.nombre} {lead.contacto.apellido}</Title>
+              <BotonFavorito leadId={lead.id} />
+            </div>
             <Space style={{ marginTop: 6 }}>
               <Tag color={ETAPA_COLOR[lead.etapa]}>{ETAPA_LABEL[lead.etapa]}</Tag>
               {lead.contacto.origen && <Tag>{lead.contacto.origen.toLowerCase().replace('_', ' ')}</Tag>}

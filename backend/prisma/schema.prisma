@@ -330,6 +330,7 @@ model Usuario {
   reportesDiarios         ReporteDiario[]
   reportesSemanales       ReporteSemanal[]
   emailsFavoritos         EmailFavorito[]
+  leadsFavoritos          LeadFavorito[]
   cambiosPrecio           HistorialPrecioUnidad[]
   reglasComision          ReglaComision[]
   arriendosComoVendedor   Arriendo[]              @relation("VendedorArriendo")
@@ -558,6 +559,7 @@ model Lead {
   recordatorios       Recordatorio[]
   emailConversaciones EmailConversacion[]
   sesionesReunion     SesionReunion[]
+  favoritos           LeadFavorito[]
 
   @@index([contactoId])
   @@index([campanaId])
@@ -1456,6 +1458,21 @@ model EmailFavorito {
   @@unique([usuarioId, email])
   @@index([usuarioId])
   @@map("emails_favoritos")
+}
+
+// Clientes que cada usuario marca con estrella; aparecen en su dashboard.
+model LeadFavorito {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  leadId    Int
+  creadoEn  DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  lead    Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, leadId])
+  @@index([leadId])
+  @@map("leads_favoritos")
 }
 
 model ReservaSala {

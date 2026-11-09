@@ -23,6 +23,7 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components/ui'
 import ModalPerdido from '../../components/ModalPerdido'
+import BotonFavorito from '../../components/BotonFavorito'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -604,6 +605,10 @@ function VistaLista({ filtros, onPreview, esGerenciaOJV, vendedores, selectedRow
   } : undefined
 
   const columns = [
+    {
+      title: '', key: 'favorito', width: 44, align: 'center',
+      render: (_, lead) => <BotonFavorito leadId={lead.id} />
+    },
     {
       title: 'Contacto', key: 'contacto', width: 200,
       render: (_, lead) => (

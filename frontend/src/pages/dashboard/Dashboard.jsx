@@ -3,12 +3,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 import { useQuery } from '@tanstack/react-query'
 import { Card, Row, Col, Statistic, Table, Tag, Spin, Typography, Progress, DatePicker, Space, Button, Tooltip, Steps } from 'antd'
 import { TeamOutlined, BellOutlined, WarningOutlined, CheckCircleOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '../../services/api'
 import { useUF } from '../../hooks/useUF'
 import { useAuth } from '../../context/AuthContext'
-import { ESTADO_VENTA_COLOR, SEMAFORO_LEGAL } from '../../components/ui'
-import { format } from 'date-fns'
+import { useFavoritos } from '../../hooks/useFavoritos'
+import BotonFavorito from '../../components/BotonFavorito'
+import { ESTADO_VENTA_COLOR, SEMAFORO_LEGAL, ETAPA_COLOR, ETAPA_LABEL } from '../../components/ui'
+import { format, formatDistanceToNow } from 'date-fns'
 import { isPast } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -996,6 +998,47 @@ function TablaSituacionLegal({ ventas }) {
   )
 }
 
+function ClientesFavoritos() {
+  const { favoritos, isLoading } = useFavoritos()
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+        Mis clientes favoritos{favoritos.length > 0 ? ` (${favoritos.length})` : ''}
+      </div>
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: 16 }}><Spin size="small" /></div>
+      ) : favoritos.length === 0 ? (
+        <Text type="secondary" style={{ fontSize: 13 }}>
+          Todavía no tienes favoritos. Márcalos con la estrella en <Link to="/leads">Leads</Link> o en la ficha del cliente.
+        </Text>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+          {favoritos.map(lead => (
+            <div key={lead.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+                <Link to={`/leads/${lead.id}`} style={{ fontSize: 13, fontWeight: 600, overflowWrap: 'anywhere' }}>
+                  {lead.contacto.nombre} {lead.contacto.apellido}
+                </Link>
+                <BotonFavorito leadId={lead.id} />
+              </div>
+              <Tag color={ETAPA_COLOR[lead.etapa]} style={{ marginTop: 4 }}>{ETAPA_LABEL[lead.etapa]}</Tag>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+                {lead.unidadInteres && <div>{lead.unidadInteres.edificio?.nombre} · {lead.unidadInteres.numero}</div>}
+                {lead.contacto.telefono && <div>{lead.contacto.telefono}</div>}
+                {lead.vendedor && <div>Vendedor: {lead.vendedor.nombre} {lead.vendedor.apellido}</div>}
+                <div style={{ color: '#94a3b8', marginTop: 2 }}>
+                  Actualizado hace {formatDistanceToNow(new Date(lead.actualizadoEn), { locale: es })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [presetActivo, setPresetActivo] = useState('mes')
@@ -1128,6 +1171,8 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      <ClientesFavoritos />
 
       {/* Tabla de ventas del período */}
       <div style={{ marginBottom: 16 }}>
