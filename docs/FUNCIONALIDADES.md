@@ -355,7 +355,7 @@
 - Datos: visitas del período, visitas próximas, cuotas pendientes, proceso legal activo
 - Tabla "Ventas del período" (sep 2026): cliente, vendedor, unidades, proyecto, valor UF/CLP, costo UF, **margen UF** (precio − costo, con el % sobre el precio), múltiplo, estado y fecha de reserva. Costo, margen y múltiplo son sensibles: solo GERENTE/JEFE_VENTAS (el backend además no manda `precioCostoUF` al resto). Se sacaron las columnas Broker y Reserva pagada
 - Frontend: `pages/dashboard/Dashboard.jsx`
-- **Clientes favoritos** (nov 2026): cada usuario marca leads con estrella (`components/BotonFavorito.jsx`, en la tabla de Leads y en la ficha) y los ve en el bloque "Mis clientes favoritos" del dashboard, que no depende del período. Modelo `LeadFavorito` (`leads_favoritos`, único por usuario+lead). Endpoints `GET /api/leads/favoritos`, `PUT` y `DELETE /api/leads/:id/favorito` (`controllers/favoritosController.js`, respetan `filtroAcceso`)
+- **Clientes favoritos** (nov 2026): cada usuario marca leads con estrella (`components/BotonFavorito.jsx`, en la tabla de Leads y en la ficha) y los ve en el bloque "Mis clientes favoritos" del dashboard, que no depende del período. Modelo `LeadFavorito` (`leads_favoritos`, único por usuario+lead). Endpoints `GET /api/leads/favoritos`, `PUT` y `DELETE /api/leads/:id/favorito` (`controllers/favoritosController.js`, respetan `filtroAcceso`). El GERENTE ve además "Favoritos del equipo", agrupados por persona (`GET /api/leads/favoritos/equipo`, solo GERENTE)
 
 ### REPORTES — `/api/reportes`
 - Archivos: `routes/reportes.js`, `controllers/reportesController.js`

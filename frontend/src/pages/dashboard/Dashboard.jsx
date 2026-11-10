@@ -998,6 +998,28 @@ function TablaSituacionLegal({ ventas }) {
   )
 }
 
+function TarjetaFavorito({ lead, conEstrella = false }) {
+  return (
+    <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+        <Link to={`/leads/${lead.id}`} style={{ fontSize: 13, fontWeight: 600, overflowWrap: 'anywhere' }}>
+          {lead.contacto.nombre} {lead.contacto.apellido}
+        </Link>
+        {conEstrella && <BotonFavorito leadId={lead.id} />}
+      </div>
+      <Tag color={ETAPA_COLOR[lead.etapa]} style={{ marginTop: 4 }}>{ETAPA_LABEL[lead.etapa]}</Tag>
+      <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+        {lead.unidadInteres && <div>{lead.unidadInteres.edificio?.nombre} · {lead.unidadInteres.numero}</div>}
+        {lead.contacto.telefono && <div>{lead.contacto.telefono}</div>}
+        {lead.vendedor && <div>Vendedor: {lead.vendedor.nombre} {lead.vendedor.apellido}</div>}
+        <div style={{ color: '#94a3b8', marginTop: 2 }}>
+          Actualizado hace {formatDistanceToNow(new Date(lead.actualizadoEn), { locale: es })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ClientesFavoritos() {
   const { favoritos, isLoading } = useFavoritos()
 
@@ -1014,33 +1036,45 @@ function ClientesFavoritos() {
         </Text>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-          {favoritos.map(lead => (
-            <div key={lead.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
-                <Link to={`/leads/${lead.id}`} style={{ fontSize: 13, fontWeight: 600, overflowWrap: 'anywhere' }}>
-                  {lead.contacto.nombre} {lead.contacto.apellido}
-                </Link>
-                <BotonFavorito leadId={lead.id} />
-              </div>
-              <Tag color={ETAPA_COLOR[lead.etapa]} style={{ marginTop: 4 }}>{ETAPA_LABEL[lead.etapa]}</Tag>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
-                {lead.unidadInteres && <div>{lead.unidadInteres.edificio?.nombre} · {lead.unidadInteres.numero}</div>}
-                {lead.contacto.telefono && <div>{lead.contacto.telefono}</div>}
-                {lead.vendedor && <div>Vendedor: {lead.vendedor.nombre} {lead.vendedor.apellido}</div>}
-                <div style={{ color: '#94a3b8', marginTop: 2 }}>
-                  Actualizado hace {formatDistanceToNow(new Date(lead.actualizadoEn), { locale: es })}
-                </div>
-              </div>
-            </div>
-          ))}
+          {favoritos.map(lead => <TarjetaFavorito key={lead.id} lead={lead} conEstrella />)}
         </div>
       )}
     </div>
   )
 }
 
+function FavoritosEquipo() {
+  const { data: grupos = [], isLoading } = useQuery({
+    queryKey: ['leads-favoritos-equipo'],
+    queryFn: () => api.get('/leads/favoritos/equipo').then(r => r.data),
+  })
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+        Favoritos del equipo
+      </div>
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: 16 }}><Spin size="small" /></div>
+      ) : grupos.length === 0 ? (
+        <Text type="secondary" style={{ fontSize: 13 }}>Nadie más del equipo ha marcado favoritos todavía.</Text>
+      ) : grupos.map(({ usuario, favoritos }) => (
+        <div key={usuario.id} style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>
+            {usuario.nombre} {usuario.apellido} ({favoritos.length})
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+            {favoritos.map(lead => <TarjetaFavorito key={lead.id} lead={lead} />)}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { usuario } = useAuth()
   const [presetActivo, setPresetActivo] = useState('mes')
   const [rangoCustom, setRangoCustom] = useState(null)
   const [fechaParams, setFechaParams] = useState(() => calcPresetDates('mes'))
@@ -1173,6 +1207,7 @@ export default function Dashboard() {
       </div>
 
       <ClientesFavoritos />
+      {usuario?.rol === 'GERENTE' && <FavoritosEquipo />}
 
       {/* Tabla de ventas del período */}
       <div style={{ marginBottom: 16 }}>

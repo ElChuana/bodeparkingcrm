@@ -4,8 +4,8 @@ const { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEt
 const { listarPorLead, listarTodas, crear: crearVisita, actualizarResultado, actualizar: actualizarVisita, eliminar: eliminarVisita } = require('../controllers/visitasController')
 const { listarPorLead: listarInteracciones, crear: crearInteraccion } = require('../controllers/interaccionesController')
 const { listarPorLead: listarActividades, crear: crearActividad, actualizar: actualizarActividad, eliminar: eliminarActividad } = require('../controllers/actividadesController')
-const { listar: listarFavoritos, marcar: marcarFavorito, desmarcar: desmarcarFavorito } = require('../controllers/favoritosController')
-const { autenticar } = require('../middleware/auth')
+const { listar: listarFavoritos, listarEquipo: listarFavoritosEquipo, marcar: marcarFavorito, desmarcar: desmarcarFavorito } = require('../controllers/favoritosController')
+const { autenticar, autorizar } = require('../middleware/auth')
 
 router.use(autenticar)
 
@@ -15,6 +15,7 @@ router.post('/fusionar-duplicados', fusionarDuplicados)
 router.get('/kanban', kanban)
 router.get('/kanban/por-vendedor', kanbanPorVendedor)
 router.get('/favoritos', listarFavoritos)
+router.get('/favoritos/equipo', autorizar('GERENTE'), listarFavoritosEquipo)
 router.put('/:id/favorito', marcarFavorito)
 router.delete('/:id/favorito', desmarcarFavorito)
 router.get('/:id', obtener)
