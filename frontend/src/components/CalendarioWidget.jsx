@@ -13,13 +13,7 @@ const { Text } = Typography
 const TIPO_COLOR = { presencial: '#1677ff', virtual: '#722ed1', llamada: '#52c41a' }
 
 function agruparPorDia(visitas) {
-  const grupos = {}
-  visitas.forEach(v => {
-    const key = diaChile(v.fechaHora)
-    if (!grupos[key]) grupos[key] = []
-    grupos[key].push(v)
-  })
-  return grupos
+  return Object.groupBy(visitas, v => diaChile(v.fechaHora))
 }
 
 function tituloGrupo(fechaStr) {

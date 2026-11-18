@@ -13,7 +13,7 @@ const storage = multer.diskStorage({
 })
 
 const filtroImagenes = (req, file, cb) => {
-  const tiposPermitidos = /jpeg|jpg|png|gif|webp|pdf/
+  const tiposPermitidos = /^\.(jpeg|jpg|png|gif|webp|pdf)$/
   const esValido = tiposPermitidos.test(path.extname(file.originalname).toLowerCase())
   esValido ? cb(null, true) : cb(new Error('Solo se permiten imágenes y PDF'))
 }

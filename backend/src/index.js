@@ -10,11 +10,15 @@ const app = express()
 // así que CORS solo se abre a los orígenes listados en CORS_ORIGIN (separados
 // por coma). Sin la variable, se mantiene abierto como antes.
 app.use(cors(process.env.CORS_ORIGIN ? { origin: process.env.CORS_ORIGIN.split(',') } : {}))
-app.use(express.json({ limit: '10mb' }))
+// Se guarda el cuerpo crudo para verificar firmas de webhooks (Resend/Svix)
+app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf } }))
 app.use(require('./middleware/decimalSerializer'))
 
 // Archivos estáticos (fotos, planos, documentos subidos)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+// nosniff: el navegador no adivina el tipo — un archivo subido nunca se ejecuta como HTML/JS
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  setHeaders: res => res.setHeader('X-Content-Type-Options', 'nosniff'),
+}))
 
 // Rutas
 app.use('/api/auth',        require('./routes/auth'))

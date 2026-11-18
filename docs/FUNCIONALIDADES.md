@@ -450,6 +450,12 @@
 - Registra interacción automática en el lead si se pasa `leadId`
 - Componente: `components/ModalEmail.jsx` (muestra preview de firma, carga plantilla del usuario)
 - Configuración en `pages/perfil/MiPerfil.jsx`: email, plantillas (2 tabs), firma (editor HTML + preview)
+- `POST /respuesta` — webhook de Resend (`email.received` y `email.opened`)
+- **Seguridad del HTML (nov 2026)** — los correos de clientes son HTML de afuera:
+  - Backend: `lib/htmlSeguro.js` (`sanitize-html`) limpia el correo entrante, la firma al guardarla y el cuerpo saliente; `escaparHtml` en los correos de notificación (`lib/notifications.js`)
+  - Frontend: `utils/htmlSeguro.js` (DOMPurify) limpia **todo** HTML antes de `dangerouslySetInnerHTML` (EmailCard, preview de firma). Nunca usar `dangerouslySetInnerHTML` sin `htmlSeguro()`
+  - Webhook: verifica la firma Svix con `RESEND_WEBHOOK_SECRETS` (signing secrets de los 2 webhooks, separados por coma; `lib/firmaWebhook.js`). Sin la variable acepta sin verificar y lo avisa en el log. El contenido se lee **siempre** desde la API de Resend por `email_id` (nunca del payload) y se exige que el `to` real sea el mismo `lead-{id}@`; reintentos con el mismo `messageId` se ignoran
+  - Tests: `tests/seguridadHtml.test.js`
 
 ### PLANTILLAS DE EMAIL PERSONALES — `/api/plantillas-email`
 - Archivos: `routes/plantillasEmail.js`, `controllers/plantillasEmailController.js`

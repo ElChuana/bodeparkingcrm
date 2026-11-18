@@ -1,5 +1,6 @@
 const prisma = require('./prisma')
 const { enviarEmail } = require('./mailer')
+const { escaparHtml } = require('./htmlSeguro')
 
 // Tipos "importantes/personales" que además disparan un email al destinatario.
 // El resto (cron masivo, actividad informativa) solo notifica in-app.
@@ -25,7 +26,7 @@ function htmlEmail(mensaje, ruta) {
     ? `<p style="margin:20px 0"><a href="${url}" style="background:#1d4ed8;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-size:14px">Ver en el CRM</a></p>`
     : ''
   return `<div style="font-family:Arial,sans-serif;max-width:520px;color:#1f2937">
-    <p style="font-size:15px;line-height:1.5">${mensaje}</p>
+    <p style="font-size:15px;line-height:1.5">${escaparHtml(mensaje)}</p>
     ${boton}
     <hr style="border:none;border-top:1px solid #eee;margin-top:24px">
     <p style="color:#9ca3af;font-size:12px">Notificación de BodeParking CRM. Podés desactivar estos correos en tu perfil.</p>

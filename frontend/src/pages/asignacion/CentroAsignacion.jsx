@@ -92,7 +92,7 @@ export default function CentroAsignacion() {
     : leadsRaw
 
   // Ordenar: NUEVO primero, luego por fecha de ingreso desc
-  const leads = useMemo(() => [...leadsFiltrados].sort((a, b) => {
+  const leads = useMemo(() => leadsFiltrados.toSorted((a, b) => {
     if (a.etapa === 'NUEVO' && b.etapa !== 'NUEVO') return -1
     if (a.etapa !== 'NUEVO' && b.etapa === 'NUEVO') return 1
     return new Date(b.creadoEn) - new Date(a.creadoEn)

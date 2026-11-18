@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, Form, Input, Button, App, Space, Tag, Switch, Tabs, Typography } from 'antd'
 import { MailOutlined, CheckCircleOutlined, SettingOutlined, BellOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons'
 import api from '../../services/api'
+import { htmlSeguro } from '../../utils/htmlSeguro'
 import { useAuth } from '../../context/AuthContext'
 
 const { TextArea } = Input
@@ -260,7 +261,7 @@ export default function MiPerfil() {
                     background: '#fafafa',
                     minHeight: 100,
                   }}
-                  dangerouslySetInnerHTML={{ __html: firmaHtml }}
+                  dangerouslySetInnerHTML={{ __html: htmlSeguro(firmaHtml) }}
                 />
               ),
             },

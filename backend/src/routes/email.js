@@ -6,6 +6,8 @@ const { autenticar } = require('../middleware/auth')
 const { puedeAccederLead } = require('../lib/acceso')
 const prisma = require('../lib/prisma')
 const { Resend } = require('resend')
+const { limpiarHtml, textoAHtml } = require('../lib/htmlSeguro')
+const { verificarFirmaResend, secretosConfigurados } = require('../lib/firmaWebhook')
 
 // Quita texto citado del HTML de un reply — corta en el primer marcador de cita
 function limpiarReply(html) {
@@ -108,10 +110,10 @@ router.post('/enviar',
         adjuntos.push({ filename: pdfNombre, content: pdfBase64 })
       }
 
-      const htmlCuerpo = cuerpo.includes('<') ? cuerpo : cuerpo.replace(/\n/g, '<br>')
+      const htmlCuerpo = cuerpo.includes('<') ? limpiarHtml(cuerpo) : textoAHtml(cuerpo)
 
       const firmaHtml = usuario.firma
-        ? `<hr style="margin-top: 32px; border: none; border-top: 1px solid #eee;">${usuario.firma}`
+        ? `<hr style="margin-top: 32px; border: none; border-top: 1px solid #eee;">${limpiarHtml(usuario.firma)}`
         : `<hr style="margin-top: 32px; border: none; border-top: 1px solid #eee;"><p style="color: #999; font-size: 12px;">Enviado desde BodeParking CRM · <a href="https://bodeparking.cl">bodeparking.cl</a></p>`
 
       const html = `
@@ -247,7 +249,7 @@ router.put('/firma', autenticar, async (req, res) => {
   const { firma } = req.body
   await prisma.usuario.update({
     where: { id: req.usuario.id },
-    data: { firma: firma || null },
+    data: { firma: firma ? limpiarHtml(firma) : null },
   })
   res.json({ ok: true })
 })
@@ -256,9 +258,19 @@ router.put('/firma', autenticar, async (req, res) => {
 // El payload de Resend solo trae metadatos (sin body). Se llama al API para obtener HTML.
 // Evento: { type: "email.received", data: { email_id, from, to, subject, ... } }
 router.post('/respuesta', async (req, res) => {
-  // Protección opt-in contra spoofing: si se configura INBOUND_WEBHOOK_TOKEN,
-  // se exige que la URL del webhook en Resend incluya ?token=<valor>.
-  // (Ideal a futuro: verificar la firma svix de Resend con su signing secret.)
+  // Firma Svix de Resend: con RESEND_WEBHOOK_SECRETS configurado (los signing
+  // secrets de los webhooks, separados por coma) se rechaza todo lo no firmado.
+  const secretos = secretosConfigurados()
+  if (secretos.length) {
+    const v = verificarFirmaResend({ secretos, headers: req.headers, cuerpo: req.rawBody })
+    if (!v.ok) {
+      console.warn('[Inbound] rechazado:', v.motivo)
+      return res.status(401).json({ error: 'No autorizado.' })
+    }
+  } else {
+    console.warn('[Inbound] RESEND_WEBHOOK_SECRETS sin configurar: webhook sin verificar firma')
+  }
+  // Protección antigua opt-in por token en la URL (se mantiene por compatibilidad)
   const tokenEsperado = process.env.INBOUND_WEBHOOK_TOKEN
   if (tokenEsperado && req.query.token !== tokenEsperado) {
     return res.status(401).json({ error: 'No autorizado.' })
@@ -302,15 +314,15 @@ router.post('/respuesta', async (req, res) => {
     const lead = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } })
     if (!lead) { console.warn('[Inbound] lead no existe:', leadId); return }
 
-    // Intentar obtener body desde el webhook directo, o vía API de Resend
-    let asunto    = data.subject || '(sin asunto)'
-    let cuerpo    = data.html || data.text || ''
-    let deEmail   = data.from || ''
-    let msgId     = data.message_id || data.email_id
+    // El contenido SIEMPRE se lee desde la API de Resend por email_id, nunca
+    // del payload: así un webhook falso no puede inyectar un correo inventado.
+    let asunto    = '(sin asunto)'
+    let cuerpo    = ''
+    let deEmail   = ''
+    let msgId     = data.email_id
     let inReplyTo = null
 
-    if (!cuerpo) {
-      // Webhook no incluye body — obtener via API /emails/receiving/{id}
+    {
       try {
         const axios = require('axios')
         const { data: email } = await axios.get(
@@ -318,13 +330,26 @@ router.post('/respuesta', async (req, res) => {
           { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } }
         )
         console.log('[Inbound] email obtenido — subject:', email?.subject, '| html length:', email?.html?.length)
+        // El destinatario real tiene que ser el mismo lead del webhook
+        const destinos = (Array.isArray(email.to) ? email.to : [email.to]).filter(Boolean).map(String)
+        if (!destinos.some(d => d.match(/lead-(\d+)@/)?.[1] === String(leadId))) {
+          console.warn('[Inbound] el correo en Resend no va a este lead, se ignora:', leadId)
+          return
+        }
         asunto    = email.subject || asunto
-        cuerpo    = limpiarReply(email.html) || email.text || ''
+        cuerpo    = email.html ? limpiarHtml(limpiarReply(email.html)) : textoAHtml(email.text || '')
         deEmail   = email.from || deEmail
         msgId     = email.message_id || msgId
       } catch (apiErr) {
-        console.warn('[Inbound] No se pudo obtener body:', apiErr.message, apiErr.response?.data)
+        console.warn('[Inbound] No se pudo obtener el correo desde Resend, se ignora:', apiErr.message, apiErr.response?.data)
+        return
       }
+    }
+
+    // Resend reintenta: no duplicar el mismo correo
+    if (msgId && await prisma.emailConversacion.findUnique({ where: { messageId: msgId }, select: { id: true } })) {
+      console.log('[Inbound] ya guardado, se ignora el reintento:', msgId)
+      return
     }
 
     await prisma.emailConversacion.create({

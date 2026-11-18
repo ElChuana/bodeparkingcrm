@@ -6,6 +6,7 @@ import { pdf } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../services/api'
+import { htmlSeguro } from '../utils/htmlSeguro'
 import { CotizacionDocumento } from '../pages/cotizaciones/CotizacionPDF'
 import logoUrl from '../assets/logo.png'
 import { useUF } from '../hooks/useUF'
@@ -168,7 +169,7 @@ function MensajeEmail({ e, onResponder }) {
             <div style={{ padding: '10px 13px' }}>
               <div
                 style={{ fontSize: 13, lineHeight: 1.65, color: enviado ? '#fff' : '#1f2937' }}
-                dangerouslySetInnerHTML={{ __html: e.cuerpo }}
+                dangerouslySetInnerHTML={{ __html: htmlSeguro(e.cuerpo) }}
               />
               {!enviado && (
                 <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>

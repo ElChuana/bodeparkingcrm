@@ -1145,8 +1145,7 @@ export default function LeadDetalle() {
 
   // Notas = comentarios libres (interacciones tipo NOTA)
   const notas = (lead.interacciones || [])
-    .slice()
-    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .toSorted((a, b) => new Date(b.fecha) - new Date(a.fecha))
 
   // Timeline custom: badge cuadrado con emoji + línea conectora
   const renderActividad = (item, i, total) => {
