@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  Button, Modal, Form, Input, Select, Tag, Table, Spin,
+  Button, Modal, Form, Input, Select, Tag, Table, Spin, Tooltip,
   Typography, Space, Card, App, Segmented, Drawer,
   Timeline, Descriptions, Divider, Avatar, DatePicker,
   InputNumber
@@ -658,21 +658,37 @@ function VistaLista({ filtros, onPreview, esGerenciaOJV, vendedores, selectedRow
       )
     },
     {
-      title: 'Última actividad', key: 'fechas', width: 130,
+      title: 'Última actividad', key: 'fechas', width: 230,
       defaultSortOrder: 'descend',
       sorter: (a, b) => new Date(a.actualizadoEn || a.creadoEn) - new Date(b.actualizadoEn || b.creadoEn),
-      render: (_, lead) => (
-        <div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {format(new Date(lead.actualizadoEn || lead.creadoEn), "d MMM yyyy", { locale: es })}
-          </Text>
-          {lead.actualizadoEn && lead.actualizadoEn !== lead.creadoEn && (
-            <div style={{ fontSize: 11, color: '#cbd5e1' }}>
-              Ingreso: {format(new Date(lead.creadoEn), "d MMM yyyy", { locale: es })}
-            </div>
-          )}
-        </div>
-      )
+      render: (_, lead) => {
+        const ult = lead.actividades?.[0]
+        const esDefault = ult && ['Contestó', 'No contestó', 'WhatsApp enviado'].includes(ult.descripcion)
+        return (
+          <div>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {format(new Date(lead.actualizadoEn || lead.creadoEn), "d MMM yyyy", { locale: es })}
+            </Text>
+            {ult && (
+              <div style={{ fontSize: 12, marginTop: 2, display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+                <span style={{ color: TIPO_COLOR_MAP[ult.tipo] || '#64748b', flexShrink: 0 }}>{TIPO_ICON[ult.tipo] || null}</span>
+                {ult.tipo === 'LLAMADA' && ult.resultado === 'NO_CONTESTO' && <Tag color="red" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', marginInlineEnd: 0 }}>No contestó</Tag>}
+                {ult.tipo === 'LLAMADA' && ult.resultado === 'CONTESTO' && <Tag color="green" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', marginInlineEnd: 0 }}>Contestó</Tag>}
+                {!esDefault && (
+                  <Tooltip title={ult.descripcion}>
+                    <Text style={{ fontSize: 12, color: '#3a4452' }} ellipsis>{ult.descripcion}</Text>
+                  </Tooltip>
+                )}
+              </div>
+            )}
+            {lead.actualizadoEn && lead.actualizadoEn !== lead.creadoEn && (
+              <div style={{ fontSize: 11, color: '#cbd5e1' }}>
+                Ingreso: {format(new Date(lead.creadoEn), "d MMM yyyy", { locale: es })}
+              </div>
+            )}
+          </div>
+        )
+      }
     },
     {
       title: 'Actividades', dataIndex: '_count', key: 'acciones', width: 80, align: 'center',

@@ -68,6 +68,11 @@ const listar = async (req, res) => {
             edificio: { select: { nombre: true, region: true } }
           }
         },
+        // Última actividad registrada (ej. "qué dijo" del llamado rápido) para mostrarla en la lista
+        actividades: {
+          orderBy: { fecha: 'desc' }, take: 1,
+          select: { tipo: true, resultado: true, descripcion: true, fecha: true }
+        },
         _count: { select: { visitas: true, interacciones: true, actividades: true } }
       },
       orderBy: { actualizadoEn: 'desc' }

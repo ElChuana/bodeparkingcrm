@@ -130,7 +130,7 @@
 - Archivo: `controllers/actividadesController.js` (rutas en `leads.js`)
 - Tipos (`TipoActividad`): `REUNION_COMERCIAL`, `LLAMADA`, `WHATSAPP`, `EMAIL`, `OTRO`
 - `GET /` — listar actividades del lead · `POST /` — crear (acepta `resultado`) · `PATCH /:id` — editar · `DELETE /:id` — eliminar
-- **Acciones rápidas** (LeadDetalle, header): botón **WhatsApp** (abre wa.me + registra actividad WHATSAPP con hora) y botón **Llamar** (popover: ¿contestó? sí/no + qué dijo → registra LLAMADA con `resultado` CONTESTO/NO_CONTESTO). El resultado se muestra como tag en el timeline.
+- **Acciones rápidas** (LeadDetalle, header): botón **WhatsApp** (abre wa.me + registra actividad WHATSAPP con hora) y botón **Llamar** (popover: ¿contestó? sí/no + qué dijo → registra LLAMADA con `resultado` CONTESTO/NO_CONTESTO). El resultado se muestra como tag en el timeline. Además, la lista de Leads (columna **Última actividad**) muestra la última actividad del lead: ícono por tipo, tag Contestó/No contestó y el texto de "qué dijo" truncado con tooltip (`GET /leads` incluye `actividades` con `take: 1`).
 - Campo `fecha`: opcional, por defecto = now. **Las actividades aparecen en el calendario** de Visitas (pasadas y futuras según el mes visible)
 - También: `GET /api/actividades` — listado global / calendario (filtros desde/hasta/usuarioId; GERENTE/JEFE_VENTAS ven todo)
 - Las crean también: visitas (REUNION_COMERCIAL), Comuro (REUNION_COMERCIAL), email enviado/recibido (EMAIL)
