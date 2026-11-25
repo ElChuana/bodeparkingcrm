@@ -97,7 +97,8 @@
 - `GET /:id` — detalle completo
 - `POST /` — crear lead
 - `PUT /:id` — editar lead
-- `PUT /:id/etapa` — cambiar etapa (con motivo si es PERDIDO)
+- `PUT /:id/etapa` — cambiar etapa (con motivo si es PERDIDO; acepta `motivo` libre opcional que se agrega a la nota del historial)
+- `POST /cambiar-etapa-masivo` — mover varios leads a una etapa en bloque (`{ leadIds, etapa, motivo, motivoPerdidaCat?, motivoPerdidaNota? }`). `motivo` es **obligatorio** y queda en la nota "Etapa cambiada: A → B. Motivo: …" de cada lead. Respeta `filtroAcceso` (un vendedor solo mueve sus leads; los demás se devuelven como `omitidos`); los que ya estaban en la etapa se cuentan en `sinCambio`. Comparte la lógica con el individual vía `aplicarCambioEtapa()` (nov 2026)
 - `DELETE /:id` — eliminar (solo GERENTE)
 - Etapas: NUEVO, NO_CONTESTA, SEGUIMIENTO, COTIZACION_ENVIADA, VISITA_AGENDADA, VISITA_REALIZADA, SEGUIMIENTO_POST_VISITA, NEGOCIACION, RESERVA, PROMESA, ESCRITURA, ENTREGA, POSTVENTA, PERDIDO
 - **Campañas (jul 2026)**: `lead.campana` (texto legacy) ahora se vincula automáticamente al catálogo `campanas` vía `lead.campanaId` (`lib/campanas.js: vincularCampana`, usado en leads/public/comuro). `Campana.esWebinar` define si las ventas comisionan como webinar — el motor de comisiones usa el flag del catálogo (fallback: el texto contiene "webinar"). Backfill: `scripts/backfill-campanas.js`
@@ -468,6 +469,7 @@
 - Archivo: `pages/asignacion/CentroAsignacion.jsx`
 - Acceso: GERENTE y JEFE_VENTAS únicamente
 - Filtros: campaña (multiselect), origen, fecha (Hoy/Ayer/Esta semana/rango), toggle "solo sin asignar"
+- **Kanban: selección múltiple** (nov 2026): checkbox en cada tarjeta (no inicia drag ni abre la vista previa) y checkbox "seleccionar todos" en la cabecera de cada columna (muestra `sel/total`). Con selección activa aparece una barra flotante abajo: "N seleccionados · Mover a… · Limpiar". Arrastrar una tarjeta seleccionada mueve **toda la selección**. En ambos casos se abre `ModalMoverMasivo` (etapa destino + **motivo obligatorio**; si el destino es PERDIDO pide además la categoría) → `POST /leads/cambiar-etapa-masivo`.
 - Tabla con selección múltiple (checkbox)
 - Barra flotante al seleccionar: elegir vendedor → `POST /api/leads/asignar-masivo`
 - Usa endpoints existentes: `GET /api/leads`, `GET /api/leads/campanas`, `GET /api/usuarios`

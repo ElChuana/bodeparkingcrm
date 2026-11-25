@@ -5,13 +5,13 @@ import {
   Button, Modal, Form, Input, Select, Tag, Table, Spin, Tooltip,
   Typography, Space, Card, App, Segmented, Drawer,
   Timeline, Descriptions, Divider, Avatar, DatePicker,
-  InputNumber
+  InputNumber, Checkbox
 } from 'antd'
 import {
   PlusOutlined, AppstoreOutlined, UnorderedListOutlined,
   PhoneOutlined, MailOutlined, CalendarOutlined, ArrowRightOutlined,
   EditOutlined, MessageOutlined, ClockCircleOutlined, FilterOutlined,
-  UserSwitchOutlined, CloseOutlined
+  UserSwitchOutlined, CloseOutlined, SwapOutlined
 } from '@ant-design/icons'
 import {
   DndContext, PointerSensor, useSensor, useSensors,
@@ -21,7 +21,7 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
-import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL } from '../../components/ui'
+import { ETAPA_COLOR, ETAPA_LABEL, MOTIVO_PERDIDA_LABEL, MOTIVO_PERDIDA_OPTIONS } from '../../components/ui'
 import ModalPerdido from '../../components/ModalPerdido'
 import BotonFavorito from '../../components/BotonFavorito'
 
@@ -288,7 +288,7 @@ function LeadPreviewDrawer({ leadId, onClose }) {
 }
 
 // ─── Tarjeta del Kanban (draggable) ─────────────────────────────
-const LeadCard = React.memo(function LeadCard({ lead, onPreview }) {
+const LeadCard = React.memo(function LeadCard({ lead, onPreview, seleccionado, onToggle }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.id })
 
   return (
@@ -302,13 +302,23 @@ const LeadCard = React.memo(function LeadCard({ lead, onPreview }) {
         size="small"
         style={{
           cursor: 'grab', fontSize: 13, userSelect: 'none',
-          boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.15)' : (lead.emailsNoLeidos > 0 ? '0 0 0 2px #fa8c16' : undefined),
-          background: lead.emailsNoLeidos > 0 ? '#fff7e6' : undefined
+          boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.15)'
+            : seleccionado ? '0 0 0 2px #1677ff'
+            : (lead.emailsNoLeidos > 0 ? '0 0 0 2px #fa8c16' : undefined),
+          background: seleccionado ? '#e6f4ff' : (lead.emailsNoLeidos > 0 ? '#fff7e6' : undefined)
         }}
         onClick={() => { if (!isDragging) onPreview(lead.id) }}
         styles={{ body: { padding: '8px 10px' } }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', marginBottom: 2 }}>
+          {/* El checkbox corta el pointerdown para que no inicie el drag ni abra la vista previa */}
+          <span
+            onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onToggle(lead.id) }}
+            style={{ display: 'inline-flex', marginRight: 2, cursor: 'pointer' }}
+          >
+            <Checkbox checked={!!seleccionado} />
+          </span>
           <Text strong style={{ fontSize: 13 }}>
             {lead.contacto.nombre} {lead.contacto.apellido}
           </Text>
@@ -354,9 +364,11 @@ const LeadCard = React.memo(function LeadCard({ lead, onPreview }) {
 })
 
 // ─── Columna del Kanban (droppable) ─────────────────────────────
-const KanbanColumn = React.memo(function KanbanColumn({ etapa, leads, total, onPreview }) {
+const KanbanColumn = React.memo(function KanbanColumn({ etapa, leads, total, onPreview, seleccion, onToggle, onToggleColumna }) {
   const { setNodeRef, isOver } = useDroppable({ id: etapa })
   const masLeads = total - leads.length
+  const nSel = leads.filter(l => seleccion.has(l.id)).length
+  const todos = leads.length > 0 && nSel === leads.length
 
   return (
     <div
@@ -371,12 +383,22 @@ const KanbanColumn = React.memo(function KanbanColumn({ etapa, leads, total, onP
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <Tag color={ETAPA_COLOR[etapa]} style={{ margin: 0 }}>{ETAPA_LABEL[etapa]}</Tag>
-        <Text type="secondary" style={{ fontSize: 12 }}>{total}</Text>
+        <Space size={6}>
+          <Tooltip title={todos ? 'Quitar selección de la columna' : 'Seleccionar todos los de la columna'}>
+            <Checkbox
+              checked={todos}
+              indeterminate={nSel > 0 && !todos}
+              disabled={leads.length === 0}
+              onChange={e => onToggleColumna(leads.map(l => l.id), e.target.checked)}
+            />
+          </Tooltip>
+          <Tag color={ETAPA_COLOR[etapa]} style={{ margin: 0 }}>{ETAPA_LABEL[etapa]}</Tag>
+        </Space>
+        <Text type="secondary" style={{ fontSize: 12 }}>{nSel > 0 ? `${nSel}/${total}` : total}</Text>
       </div>
       <div className="kanban-col-body">
         {leads.map(lead => (
-          <LeadCard key={lead.id} lead={lead} onPreview={onPreview} />
+          <LeadCard key={lead.id} lead={lead} onPreview={onPreview} seleccionado={seleccion.has(lead.id)} onToggle={onToggle} />
         ))}
         {masLeads > 0 && (
           <div style={{ textAlign: 'center', padding: '8px 4px', color: '#8c8c8c', fontSize: 12 }}>
@@ -388,13 +410,82 @@ const KanbanColumn = React.memo(function KanbanColumn({ etapa, leads, total, onP
   )
 })
 
+// ─── Modal: mover varios leads de etapa con motivo ────────────────
+function ModalMoverMasivo({ open, cantidad, etapaInicial, onConfirm, onCancel, loading }) {
+  const [form] = Form.useForm()
+  const etapa = Form.useWatch('etapa', form)
+
+  React.useEffect(() => {
+    if (open) form.setFieldsValue({ etapa: etapaInicial || undefined, motivo: '', motivoPerdidaCat: undefined, motivoPerdidaNota: '' })
+  }, [open, etapaInicial, form])
+
+  const handleOk = () => form.validateFields().then(values => onConfirm(values))
+
+  return (
+    <Modal
+      title={<Space><SwapOutlined /> Mover {cantidad} {cantidad === 1 ? 'lead' : 'leads'} de etapa</Space>}
+      open={open}
+      onOk={handleOk}
+      onCancel={onCancel}
+      okText="Mover"
+      cancelText="Cancelar"
+      confirmLoading={loading}
+      okButtonProps={{ danger: etapa === 'PERDIDO' }}
+      width={460}
+      destroyOnHidden
+    >
+      <Form form={form} layout="vertical" style={{ marginTop: 12 }}>
+        <Form.Item name="etapa" label="Etapa destino" rules={[{ required: true, message: 'Elige la etapa' }]}>
+          <Select
+            placeholder="¿A qué etapa se mueven?"
+            showSearch
+            optionFilterProp="label"
+            options={ETAPAS.map(e => ({ value: e, label: ETAPA_LABEL[e] }))}
+          />
+        </Form.Item>
+        {etapa === 'PERDIDO' && (
+          <Form.Item name="motivoPerdidaCat" label="Motivo de pérdida" rules={[{ required: true, message: 'Selecciona el motivo de pérdida' }]}>
+            <Select placeholder="¿Por qué se perdieron?" options={MOTIVO_PERDIDA_OPTIONS} />
+          </Form.Item>
+        )}
+        <Form.Item
+          name="motivo"
+          label="Motivo del cambio"
+          rules={[{ required: true, whitespace: true, message: 'Escribe por qué se mueven' }]}
+          extra="Queda registrado en el historial de cada lead."
+        >
+          <Input.TextArea rows={3} placeholder="Ej: Campaña webinar cerrada, se pasan a seguimiento para rellamar" maxLength={300} showCount autoFocus />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
 // ─── Vista Kanban con DnD ─────────────────────────────────────────
 function VistaKanban({ filtros, onPreview }) {
   const { message } = App.useApp()
   const qc = useQueryClient()
   const [activeId, setActiveId] = useState(null)
   const [modalPerdido, setModalPerdido] = useState(null) // { leadId, etapaActual }
+  const [seleccion, setSeleccion] = useState(() => new Set()) // ids seleccionados para mover en bloque
+  const [modalMasivo, setModalMasivo] = useState(null) // { etapaInicial } | null
   const dragStartEtapa = useRef(null)
+
+  const toggleSeleccion = React.useCallback((id) => {
+    setSeleccion(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }, [])
+  const toggleColumna = React.useCallback((ids, marcar) => {
+    setSeleccion(prev => {
+      const next = new Set(prev)
+      ids.forEach(id => marcar ? next.add(id) : next.delete(id))
+      return next
+    })
+  }, [])
+  const limpiarSeleccion = () => setSeleccion(new Set())
 
   const params = {
     ...(filtros.vendedorId && { vendedorId: filtros.vendedorId }),
@@ -419,6 +510,21 @@ function VistaKanban({ filtros, onPreview }) {
       api.put(`/leads/${id}/etapa`, { etapa, motivoPerdidaCat, motivoPerdidaNota }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['leads-kanban'] }),
     onError: () => message.error('No se pudo cambiar la etapa')
+  })
+
+  const moverMasivo = useMutation({
+    mutationFn: (body) => api.post('/leads/cambiar-etapa-masivo', body).then(r => r.data),
+    onSuccess: (r) => {
+      const partes = [`${r.actualizados} ${r.actualizados === 1 ? 'lead movido' : 'leads movidos'}`]
+      if (r.sinCambio) partes.push(`${r.sinCambio} ya estaban ahí`)
+      if (r.omitidos) partes.push(`${r.omitidos} sin permiso`)
+      message.success(partes.join(' · '))
+      setModalMasivo(null)
+      limpiarSeleccion()
+      qc.invalidateQueries({ queryKey: ['leads-kanban'] })
+      qc.invalidateQueries({ queryKey: ['leads'] })
+    },
+    onError: err => message.error(err.response?.data?.error || 'No se pudieron mover los leads')
   })
 
   const sensors = useSensors(
@@ -462,6 +568,12 @@ function VistaKanban({ filtros, onPreview }) {
 
     if (!ETAPAS.includes(etapaDestino) || etapaDestino === etapaOrigen) return
 
+    // Si la tarjeta arrastrada es parte de la selección, se mueve toda la selección (con motivo)
+    if (seleccion.size > 0 && seleccion.has(active.id)) {
+      setModalMasivo({ etapaInicial: etapaDestino })
+      return
+    }
+
     if (etapaDestino === 'PERDIDO') {
       setModalPerdido({ leadId: active.id, etapaActual: etapaOrigen })
     } else {
@@ -490,6 +602,9 @@ function VistaKanban({ filtros, onPreview }) {
             leads={kanban[etapa]?.leads || []}
             total={kanban[etapa]?.total || 0}
             onPreview={onPreview}
+            seleccion={seleccion}
+            onToggle={toggleSeleccion}
+            onToggleColumna={toggleColumna}
           />
         ))}
       </div>
@@ -509,6 +624,30 @@ function VistaKanban({ filtros, onPreview }) {
       onCancel={() => setModalPerdido(null)}
       loading={cambiarEtapa.isPending}
     />
+    <ModalMoverMasivo
+      open={!!modalMasivo}
+      cantidad={seleccion.size}
+      etapaInicial={modalMasivo?.etapaInicial}
+      onConfirm={(values) => moverMasivo.mutate({ leadIds: [...seleccion], ...values })}
+      onCancel={() => setModalMasivo(null)}
+      loading={moverMasivo.isPending}
+    />
+    {seleccion.size > 0 && (
+      <div style={{
+        position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 1000,
+        display: 'flex', alignItems: 'center', gap: 12,
+        background: '#1f2937', color: '#fff', borderRadius: 12, padding: '10px 16px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+      }}>
+        <Text style={{ color: '#fff', fontWeight: 600 }}>{seleccion.size} {seleccion.size === 1 ? 'seleccionado' : 'seleccionados'}</Text>
+        <Button type="primary" icon={<SwapOutlined />} onClick={() => setModalMasivo({ etapaInicial: null })}>
+          Mover a…
+        </Button>
+        <Button type="text" icon={<CloseOutlined />} onClick={limpiarSeleccion} style={{ color: '#d1d5db' }}>
+          Limpiar
+        </Button>
+      </div>
+    )}
     </>
   )
 }

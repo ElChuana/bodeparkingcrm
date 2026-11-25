@@ -310,21 +310,63 @@ const actualizar = async (req, res) => {
 
 const MOTIVOS_VALIDOS = ['NO_CONTESTA','PRECIO_ALTO','ELIGIO_COMPETENCIA','NO_CALIFICA_FINANC','NO_GUSTO_PRODUCTO','PERDIO_INTERES','OTRO']
 
+// Valida el payload de un cambio de etapa (individual o masivo). Devuelve mensaje de error o null.
+const validarCambioEtapa = ({ etapa, motivoPerdidaCat }) => {
+  if (!ORDEN_ETAPAS.includes(etapa)) return 'Etapa inválida.'
+  if (etapa === 'PERDIDO' && !motivoPerdidaCat) return 'Debe indicar el motivo de pérdida (motivoPerdidaCat).'
+  if (etapa === 'PERDIDO' && !MOTIVOS_VALIDOS.includes(motivoPerdidaCat)) {
+    return `motivoPerdidaCat inválido. Válidos: ${MOTIVOS_VALIDOS.join(', ')}`
+  }
+  return null
+}
+
+// Aplica el cambio de etapa a UN lead ya cargado (con contacto): update + nota en el historial + notificación.
+// `motivo` es el texto libre que explica el movimiento (obligatorio en el masivo, opcional en el individual).
+const aplicarCambioEtapa = async (lead, { etapa, motivo, motivoPerdida, motivoPerdidaCat, motivoPerdidaNota }, usuario) => {
+  const etapaAnterior = lead.etapa
+
+  const dataUpdate = {
+    etapa,
+    ...(etapa === 'PERDIDO' && {
+      etapaAntesDePerdido: etapaAnterior,
+      motivoPerdidaCat,
+      motivoPerdidaNota: motivoPerdidaNota || null,
+      motivoPerdida: motivoPerdida || motivoPerdidaCat,
+      perdidaAutomatica: false,
+    })
+  }
+
+  const actualizado = await prisma.lead.update({ where: { id: lead.id }, data: dataUpdate })
+
+  const partes = [`Etapa cambiada: ${etapaAnterior} → ${etapa}`]
+  if (motivoPerdidaCat) partes.push(`Motivo: ${motivoPerdidaCat}`)
+  if (motivoPerdidaNota) partes.push(motivoPerdidaNota)
+  if (motivo) partes.push(`Motivo: ${motivo}`)
+
+  await prisma.interaccion.create({
+    data: {
+      leadId: lead.id,
+      usuarioId: usuario.id,
+      tipo: 'NOTA',
+      descripcion: partes.join('. ')
+    }
+  })
+
+  notificarLead({
+    leadId: lead.id,
+    mensaje: `Lead ${lead.contacto?.nombre || ''} ${lead.contacto?.apellido || ''}`.trim() + ` → ${ETAPA_LABEL[etapa] || etapa}`,
+    tipo: 'LEAD_ETAPA_CAMBIO',
+    excluirUsuarioId: usuario.id,
+    soloAVendedor: true // no spamear gerentes con cada cambio menor — ven todo en el reporte
+  })
+
+  return actualizado
+}
+
 const cambiarEtapa = async (req, res) => {
   const { id } = req.params
-  const { etapa, motivoPerdida, motivoPerdidaCat, motivoPerdidaNota } = req.body
-
-  if (!ORDEN_ETAPAS.includes(etapa)) {
-    return res.status(400).json({ error: 'Etapa inválida.' })
-  }
-
-  if (etapa === 'PERDIDO' && !motivoPerdidaCat) {
-    return res.status(400).json({ error: 'Debe indicar el motivo de pérdida (motivoPerdidaCat).' })
-  }
-
-  if (etapa === 'PERDIDO' && !MOTIVOS_VALIDOS.includes(motivoPerdidaCat)) {
-    return res.status(400).json({ error: `motivoPerdidaCat inválido. Válidos: ${MOTIVOS_VALIDOS.join(', ')}` })
-  }
+  const error = validarCambioEtapa(req.body)
+  if (error) return res.status(400).json({ error })
 
   try {
     const lead = await prisma.lead.findFirst({
@@ -333,44 +375,48 @@ const cambiarEtapa = async (req, res) => {
     })
     if (!lead) return res.status(404).json({ error: 'Lead no encontrado.' })
 
-    const etapaAnterior = lead.etapa
-
-    const dataUpdate = {
-      etapa,
-      ...(etapa === 'PERDIDO' && {
-        etapaAntesDePerdido: etapaAnterior,
-        motivoPerdidaCat,
-        motivoPerdidaNota: motivoPerdidaNota || null,
-        motivoPerdida: motivoPerdida || motivoPerdidaCat,
-        perdidaAutomatica: false,
-      })
-    }
-
-    const actualizado = await prisma.lead.update({
-      where: { id: Number(id) },
-      data: dataUpdate
-    })
-
-    await prisma.interaccion.create({
-      data: {
-        leadId: Number(id),
-        usuarioId: req.usuario.id,
-        tipo: 'NOTA',
-        descripcion: `Etapa cambiada: ${etapaAnterior} → ${etapa}${motivoPerdidaCat ? `. Motivo: ${motivoPerdidaCat}` : ''}${motivoPerdidaNota ? ` — ${motivoPerdidaNota}` : ''}`
-      }
-    })
-
+    const actualizado = await aplicarCambioEtapa(lead, req.body, req.usuario)
     res.json(actualizado)
-    notificarLead({
-      leadId: Number(id),
-      mensaje: `Lead ${lead.contacto?.nombre || ''} ${lead.contacto?.apellido || ''}`.trim() + ` → ${ETAPA_LABEL[etapa] || etapa}`,
-      tipo: 'LEAD_ETAPA_CAMBIO',
-      excluirUsuarioId: req.usuario.id,
-      soloAVendedor: true // no spamear gerentes con cada cambio menor — ven todo en el reporte
-    })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error al cambiar etapa.' })
+  }
+}
+
+// POST /leads/cambiar-etapa-masivo — mueve varios leads a una etapa con motivo obligatorio (Kanban: selección múltiple).
+// Respeta el acceso del usuario (un vendedor solo mueve sus leads); los que no pueda ver se reportan en `omitidos`.
+const cambiarEtapaMasivo = async (req, res) => {
+  const { leadIds, etapa, motivo } = req.body
+
+  if (!Array.isArray(leadIds) || leadIds.length === 0) {
+    return res.status(400).json({ error: 'Se requiere al menos un lead.' })
+  }
+  if (!motivo || !String(motivo).trim()) {
+    return res.status(400).json({ error: 'Debe indicar el motivo del cambio.' })
+  }
+  const error = validarCambioEtapa(req.body)
+  if (error) return res.status(400).json({ error })
+
+  try {
+    const ids = [...new Set(leadIds.map(Number).filter(Boolean))]
+    const leads = await prisma.lead.findMany({
+      where: { id: { in: ids }, ...filtroAcceso(req.usuario) },
+      include: { contacto: { select: { nombre: true, apellido: true } } }
+    })
+
+    const payload = { ...req.body, motivo: String(motivo).trim() }
+    let actualizados = 0
+    let sinCambio = 0
+    for (const lead of leads) {
+      if (lead.etapa === etapa) { sinCambio++; continue }
+      await aplicarCambioEtapa(lead, payload, req.usuario)
+      actualizados++
+    }
+
+    res.json({ actualizados, sinCambio, omitidos: ids.length - leads.length })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Error al cambiar etapa de los leads.' })
   }
 }
 
@@ -612,4 +658,4 @@ const fusionarDuplicados = async (req, res) => {
   }
 }
 
-module.exports = { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, asignarMasivo, eliminar, listarCampanas, fusionarDuplicados }
+module.exports = { listar, kanban, kanbanPorVendedor, obtener, crear, actualizar, cambiarEtapa, cambiarEtapaMasivo, asignarMasivo, eliminar, listarCampanas, fusionarDuplicados }
