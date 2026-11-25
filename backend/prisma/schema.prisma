@@ -512,6 +512,8 @@ model Contacto {
   nacionalidad        String?
   regimenMatrimonial  String?
   direccionParticular String?
+  comuna              String? // dónde vive el cliente (RRSS: mapa por comuna). Lo completa el vendedor o el formulario
+  region              String?
   creadoEn            DateTime    @default(now())
   actualizadoEn       DateTime    @updatedAt
 
@@ -543,6 +545,7 @@ model Lead {
   comuroData          Json?
   comuroUuid          String?    @unique
   comuroThreadId      String?
+  metaLeadId          String?    @unique // id del lead en Meta Lead Ads (16 dígitos, sin prefijo) — habilita el cruce RRSS y la Conversions API
   creadoEn            DateTime   @default(now())
   actualizadoEn       DateTime   @updatedAt
 
@@ -560,6 +563,7 @@ model Lead {
   emailConversaciones EmailConversacion[]
   sesionesReunion     SesionReunion[]
   favoritos           LeadFavorito[]
+  rrssMetaLeads       RrssMetaLead[]
 
   @@index([contactoId])
   @@index([campanaId])
@@ -1089,6 +1093,7 @@ model Campana {
 
   promociones Promocion[]
   leads       Lead[]
+  rrssMapas   RrssCampanaMapa[]
 
   @@map("campanas")
 }
@@ -1486,4 +1491,151 @@ model ReservaSala {
 
   @@index([fecha])
   @@map("reservas_sala")
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MÓDULO RRSS — marketing digital (Meta Ads hoy; GA4 / Clarity / AWStats en fase 4)
+// Snapshots diarios: Meta corrige datos hasta ~28 días atrás (atribución), por eso el job
+// re-sincroniza esa ventana cada noche con upsert. Ver docs/FUNCIONALIDADES.md § RRSS.
+// ═══════════════════════════════════════════════════════════════════
+
+enum RrssNivel {
+  CAMPANA
+  CONJUNTO
+  ANUNCIO
+}
+
+enum RrssTipoDesglose {
+  REGION       // clave = nombre de región que entrega Meta (inglés), se normaliza en el frontend/lib/regiones
+  EDAD_GENERO  // clave = "25-34|female"
+  UBICACION    // clave = "facebook|feed", "instagram|instagram_reels", "audience_network|..."
+}
+
+// Una fila por día × nivel × objeto de Meta (campaña, conjunto o anuncio)
+model RrssMetaDiario {
+  id                 Int       @id @default(autoincrement())
+  fecha              DateTime  @db.Date
+  nivel              RrssNivel
+  metaId             String // id del objeto en Meta según nivel
+  nombre             String
+  campanaMetaId      String
+  conjuntoMetaId     String?
+  gasto              Decimal   @default(0) @db.Decimal(14, 2) // CLP
+  impresiones        Int       @default(0)
+  alcance            Int       @default(0)
+  frecuencia         Float     @default(0)
+  clics              Int       @default(0)
+  clicsEnlace        Int       @default(0)
+  leads              Int       @default(0) // action_type "lead" (formulario instantáneo)
+  cpm                Float?
+  ctr                Float? // % clics/impresiones (todos los clics)
+  ctrEnlace          Float? // % clics en enlace/impresiones
+  cpc                Float?
+  rankingCalidad     String? // solo nivel ANUNCIO: ABOVE_AVERAGE / AVERAGE / BELOW_AVERAGE_* / UNKNOWN
+  rankingInteraccion String?
+  rankingConversion  String?
+  crudo              Json? // respuesta original de insights, por si hay que recalcular
+  actualizadoEn      DateTime  @updatedAt
+
+  @@unique([fecha, nivel, metaId])
+  @@index([campanaMetaId, fecha])
+  @@index([nivel, fecha])
+  @@map("rrss_meta_diario")
+}
+
+// Desgloses diarios a nivel campaña (región, edad×género, ubicación/plataforma)
+model RrssMetaDesglose {
+  id            Int              @id @default(autoincrement())
+  fecha         DateTime         @db.Date
+  campanaMetaId String
+  tipo          RrssTipoDesglose
+  clave         String
+  gasto         Decimal          @default(0) @db.Decimal(14, 2)
+  impresiones   Int              @default(0)
+  alcance       Int              @default(0)
+  clics         Int              @default(0)
+  leads         Int              @default(0)
+  actualizadoEn DateTime         @updatedAt
+
+  @@unique([fecha, campanaMetaId, tipo, clave])
+  @@index([tipo, fecha])
+  @@map("rrss_meta_desglose")
+}
+
+// Cada lead que Meta entregó (GET /{ad_id}/leads). Meta solo permite bajarlos ~90 días, acá quedan para siempre.
+model RrssMetaLead {
+  id          Int       @id @default(autoincrement())
+  metaLeadId  String    @unique
+  creadoMeta  DateTime
+  adId        String?
+  adsetId     String?
+  campaignId  String?
+  formId      String?
+  plataforma  String? // fb | ig
+  esOrganico  Boolean   @default(false)
+  nombre      String?
+  email       String?
+  telefono    String? // E.164 tal como lo entrega Meta
+  campos      Json? // field_data original (nombres de campo no uniformes entre formularios)
+  leadId      Int? // lead del CRM con el que cruzó
+  metodoCruce String? // META_ID | TELEFONO8 | EMAIL
+  cruzadoEn   DateTime?
+  creadoEn    DateTime  @default(now())
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([leadId])
+  @@index([creadoMeta])
+  @@map("rrss_meta_leads")
+}
+
+// Campaña de Meta ↔ campaña del catálogo del CRM. Se autollena por nombre exacto; Juan puede corregir el vínculo.
+model RrssCampanaMapa {
+  id            Int       @id @default(autoincrement())
+  campanaMetaId String    @unique
+  nombreMeta    String
+  estadoMeta    String? // ACTIVE | PAUSED | ARCHIVED
+  objetivo      String? // OUTCOME_LEADS | OUTCOME_TRAFFIC ...
+  inicioMeta    DateTime?
+  finMeta       DateTime?
+  campanaId     Int?
+  vinculoManual Boolean   @default(false) // true = lo fijó una persona, el job no lo toca
+  actualizadoEn DateTime  @updatedAt
+
+  campanaRef Campana? @relation(fields: [campanaId], references: [id], onDelete: SetNull)
+
+  @@index([campanaId])
+  @@map("rrss_campanas_mapa")
+}
+
+// Umbrales de los semáforos + texto didáctico de cada KPI. Configurable, no en el código.
+model RrssUmbral {
+  id             Int     @id @default(autoincrement())
+  clave          String  @unique // CPL, COSTO_COTIZACION, CTR_ENLACE, FRECUENCIA, ...
+  nombre         String
+  unidad         String? // CLP | % | x | min | h
+  queEs          String
+  porQueImporta  String
+  cuantoEstaBien String
+  verdeHasta     Float? // valor ≤ verdeHasta → verde (o ≥ si menorEsMejor=false)
+  amarilloHasta  Float? // entre verde y amarillo → amarillo; más allá → rojo
+  menorEsMejor   Boolean @default(true)
+  orden          Int     @default(0)
+
+  @@map("rrss_umbrales")
+}
+
+// Bitácora de cada corrida de sincronización (Meta, GA4, Clarity)
+model RrssSyncLog {
+  id      Int       @id @default(autoincrement())
+  fuente  String // META | GA4 | CLARITY | AWSTATS
+  inicio  DateTime  @default(now())
+  fin     DateTime?
+  ok      Boolean?
+  detalle Json?
+  error   String?
+
+  @@index([fuente, inicio])
+  @@map("rrss_sync_log")
 }

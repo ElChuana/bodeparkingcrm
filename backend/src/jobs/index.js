@@ -4,6 +4,7 @@ const { chequeoAlertas } = require('./chequeoAlertas')
 const { reportesIa } = require('./reportesIa')
 const { reporteSemanal } = require('./reporteSemanal')
 const { recordatorios } = require('./recordatorios')
+const { rrssSyncMeta } = require('./rrssSync')
 
 // El servidor corre en UTC: 11 UTC = 7-8 AM Chile según horario de verano
 function registrarJobs() {
@@ -12,6 +13,7 @@ function registrarJobs() {
   cron.schedule('0 11 * * *',   reportesIa)      // reporte diario IA por vendedor
   cron.schedule('0 11 * * 1',   reporteSemanal)  // reporte semanal gerencia (lunes)
   cron.schedule('*/15 * * * *', recordatorios)   // recordatorios vencidos + visitas 24h
+  cron.schedule('0 6 * * *',    () => rrssSyncMeta().catch(() => {})) // RRSS: Meta Ads últimos 28 días (03:00 Chile verano)
 }
 
 module.exports = { registrarJobs }

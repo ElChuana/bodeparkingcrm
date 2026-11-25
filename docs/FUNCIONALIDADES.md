@@ -406,6 +406,7 @@
 - Auth: API Key (header `X-Api-Key` o `Authorization`). **La key por query param `?api_key=` se eliminó (2026-08-10)**: quedaba en texto plano en `logs_integraciones.endpoint` y en logs de proxy. `middleware/logIntegraciones.js: redactarUrl` además enmascara cualquier secreto que llegue en la query.
 - **Rate limit** (`middleware/rateLimit.js`, en memoria — el backend es un solo proceso): 60 req/min por key en escritura (`/leads`, `/webhooks/webinar`), 120 en lectura (`/disponibilidad`). Excedido → `429` con `reintentar_en_segundos`. Identifica por API Key, o por IP si la key es inválida.
 - `POST /leads` — crear lead desde sistema externo (formato nombre+apellido, legacy/Comuro)
+  - **Conector Meta de la agencia (nov 2026):** se limpia el prefijo `p:` del teléfono (`lib/rrss.js: limpiarPrefijoConector`) y se extrae `Meta ID: l:<id>` de las notas a `Lead.metaLeadId` (en creación y en reingreso si no lo tenía). Antes el teléfono quedaba guardado como `p:+569…` (456 contactos entre sep y nov 2026).
   - Si el contacto ya tiene lead y estaba frío (PERDIDO/NO_CONTESTA), reingreso lo pasa a etapa `REACTIVADO` (magenta en Kanban). La notificación de reactivación/reingreso va **solo al vendedor asignado** (`soloAVendedor` — gerencia pidió no recibirla, 2026-07-10); la señal para el resto es la etapa en el Kanban.
 - **Reingreso: fechas y campaña** (2026-08-25)
   - El reingreso **no crea un lead nuevo**: `creadoEn` mantiene la fecha de la primera vez y solo cambia `actualizadoEn`. Efecto que confunde: en la lista (ordenada por `actualizadoEn`) el lead salta arriba como reciente, pero los filtros por fecha van contra `creadoEn` y lo dejan fuera del rango nuevo. Ambos son correctos; juntos parecen un bug
@@ -558,11 +559,25 @@
 
 ---
 
+### RRSS — marketing digital (Meta Ads) — nov 2026 (branch `rrss`, fase 1: datos)
+Informe didáctico de pauta/redes/web con embudo hasta la venta. Spec completa: `~/Documentos/bodeparking-rrss/spec-modulo-rrss.md`.
+**Regla de oro: el módulo solo escribe en sus tablas `rrss_*`. Nunca crea ni modifica leads ni contactos del CRM.**
+- **Cómo entran hoy los leads de Meta (ATAK):** por `POST /api/public/leads` con la key "Agencia Marketing" (id 7), en tiempo casi real desde un conector tipo Make/Zapier (IPs Google Cloud). El payload trae `origen: META` (se mapea a INSTAGRAM), `campana` con el nombre exacto de la campaña de Meta y en `notas` "Formulario: … | Anuncio: … | Meta ID: l:<id>". El conector antepone `p:` al teléfono y `l:` al id.
+- **Tablas** (`prisma/schema.prisma`, sección "MÓDULO RRSS"): `rrss_meta_diario` (una fila por día × nivel CAMPANA/CONJUNTO/ANUNCIO × objeto: gasto CLP, impresiones, alcance, frecuencia, clics, clics enlace, leads, cpm, ctr, ctrEnlace, cpc, rankings, json crudo), `rrss_meta_desglose` (día × campaña × REGION / EDAD_GENERO / UBICACION), `rrss_meta_leads` (cada lead que entregó Meta — Meta solo deja bajarlos ~90 días, acá quedan para siempre; `leadId` + `metodoCruce` = con qué lead del CRM calzó), `rrss_campanas_mapa` (campaña Meta ↔ `Campana` del CRM; `vinculoManual` protege lo que fije una persona), `rrss_umbrales` (semáforos + texto "qué es / por qué importa / cuánto está bien", configurable), `rrss_sync_log` (bitácora de corridas). Columnas nuevas: `Lead.metaLeadId` (unique, lo setea solo el ingreso público) y `Contacto.comuna` / `Contacto.region` (para el mapa; hoy vacías).
+- **Cliente Meta** `lib/meta.js` (Graph `META_API_VERSION`, solo lectura): campañas/conjuntos/anuncios, `insights` por nivel con `time_increment=1` y breakdowns, `leadsDeAnuncio` (permiso leads_retrieval). Token: `META_ACCESS_TOKEN`; en local sin env lee `~/.meta_token`. Env: `META_AD_ACCOUNT_ID`, `META_PAGE_ID`, `META_IG_ID`.
+- **Job** `jobs/rrssSync.js: rrssSyncMeta({dias=28})` — cron diario 06:00 UTC (03:00 Chile verano). Pasos: campañas → mapa (autovínculo por nombre exacto; si no calza, por la **mayoría de sus leads cruzados**, ≥60% y ≥5 leads — así "CONCEPCIÓN | SEP 2026" de Meta quedó unida a "CONCEPCIÓN | SEPTIEMBRE 2026" del CRM) → insights 3 niveles (upsert, ventana rodante de 28 días porque Meta corrige atribución) → desgloses → leads por anuncio (solo anuncios con leads>0 en la ventana) → cruce. Manual: `node scripts/rrss-sync.js --dias 90`.
+- **Cruce lead Meta ↔ lead CRM** (`lib/rrss.js: cruzarLeadsMeta`): `Lead.metaLeadId` → últimos 8 dígitos del teléfono (misma regla del dedup) → email; si el contacto tiene varios leads prefiere el de la campaña vinculada, si no el más reciente. Resultado 25-nov (backup local, 90 días): 847 leads Meta, 838 cruzados (99%), 9 sin cruce = leads que el conector nunca entregó al CRM (KPI "leads perdidos en la entrega") + los de hoy posteriores al backup.
+- **Normalización de formularios** (`lib/rrss.js: normalizarFieldData`): ATAK usa nombres de campo distintos por formulario (phone | phone_number | número_de_teléfono…) → alias. Ningún formulario pregunta comuna.
+- **Backfill opcional** `scripts/rrss-backfill-meta-id.js` (dry-run; `--ejecutar`): escribe `Lead.metaLeadId` desde las notas (228 leads) y quita el `p:` del teléfono (456 contactos). **Toca leads/contactos: solo correrlo en producción si Juan lo autoriza.**
+- Pendiente (fases 2-5): rutas `/api/rrss` + pantalla RRSS (embudo, costo por cotización ⭐, CAC, ROAS, semáforos), mapas (react-leaflet + GeoJSON), GA4/Clarity/AWStats, PDF, Conversions API.
+
 ## Librerías compartidas (backend/src/lib/)
 
 | Archivo | Propósito |
 |---------|-----------|
 | `prisma.js` | Cliente Prisma singleton |
+| `meta.js` | Cliente Meta Marketing API (solo lectura) — módulo RRSS |
+| `rrss.js` | RRSS: normalizar field_data de Meta, extraer Meta ID de notas, limpiar prefijos del conector, cruce lead Meta↔CRM |
 | `auth.js` (middleware) | JWT + verificación de rol |
 | `upload.js` | Multer para archivos |
 | `mailer.js` | Resend API para emails |
@@ -596,6 +611,7 @@
 | Diario 12:00 UTC | Chequeo de alertas (LEAD_SIN_ACTIVIDAD, LEAD_ESTANCADO) |
 | Diario 11:00 UTC (7-8 AM Chile) | Generar reportes IA del día para vendedores activos |
 | Lunes 11:00 UTC (7 AM Chile) | Generar reporte semanal del gerente (cubre lun-dom anterior) |
+| Diario 06:00 UTC (3 AM Chile) | RRSS: sincronizar Meta Ads últimos 28 días + leads + cruce (se omite si no hay `META_ACCESS_TOKEN`) |
 
 ---
 
