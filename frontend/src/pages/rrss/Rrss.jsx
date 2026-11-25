@@ -231,15 +231,17 @@ function DetalleCampana({ r, data }) {
 }
 
 // ── Pestaña Pauta Meta ────────────────────────────────────────────
-const UBIC_LABEL = {
-  facebook: 'Facebook', instagram: 'Instagram', audience_network: 'Audience Network', messenger: 'Messenger',
-  feed: 'Feed', instagram_reels: 'Reels', instagram_stories: 'Stories', facebook_reels: 'Reels', facebook_stories: 'Stories',
-  instagram_explore: 'Explorar', instagram_profile_feed: 'Perfil', right_hand_column: 'Columna derecha', marketplace: 'Marketplace',
-  video_feeds: 'Video', search: 'Búsqueda', classic: 'Clásico', rewarded_video: 'Video con premio', an_classic: 'Clásico',
-  facebook_reels_overlay: 'Reels (superpuesto)', instream_video: 'Video in-stream', instagram_lead_gen_multi_submit: 'Formulario en Instagram',
-  instagram_search: 'Búsqueda', facebook_profile_feed: 'Perfil', biz_disco_feed: 'Descubrir negocios', instagram_explore_grid_home: 'Explorar',
+// Ubicaciones de Meta → español simple (misma tabla que backend/src/lib/rrss.js)
+const PLATAFORMA_LABEL = { facebook: 'Facebook', instagram: 'Instagram', audience_network: 'Audience Network', messenger: 'Messenger', threads: 'Threads' }
+const POSICION_LABEL = {
+  feed: 'noticias', facebook_reels: 'Reels', facebook_reels_overlay: 'anuncio sobre Reels', instagram_reels: 'Reels', instagram_stories: 'historias',
+  facebook_stories: 'historias', instagram_explore: 'explorar', instagram_explore_grid_home: 'explorar', instagram_profile_feed: 'perfil',
+  facebook_profile_feed: 'perfil', right_hand_column: 'columna derecha', marketplace: 'Marketplace', video_feeds: 'videos', instream_video: 'video in-stream',
+  search: 'búsqueda', instagram_search: 'búsqueda', instagram_lead_gen_multi_submit: 'formulario', biz_disco_feed: 'descubrir negocios',
+  classic: 'apps externas', an_classic: 'apps externas', rewarded_video: 'video con premio', facebook_groups_feed: 'grupos', instagram_igtv: 'IGTV',
+  messenger_inbox: 'bandeja', messenger_stories: 'historias', unknown: 'otra',
 }
-const ubic = (clave) => clave.split('|').map(p => UBIC_LABEL[p] || p.replace(/_/g, ' ')).join(' · ')
+const ubic = (clave) => { const [plat, pos] = String(clave || '').split('|'); const p = PLATAFORMA_LABEL[plat] || plat.replace(/_/g, ' '); const q = pos ? (POSICION_LABEL[pos] || pos.replace(/_/g, ' ')) : ''; return q ? `${p} · ${q}` : p }
 
 function PautaMeta({ data }) {
   const serie = data.serie.map(s => ({ ...s, fechaL: dayjs(s.fecha).format('D MMM') }))

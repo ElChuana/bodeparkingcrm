@@ -4,6 +4,7 @@
 // Solo datos y explicaciones: sin conclusiones ni recomendaciones escritas por el sistema.
 const fs = require('fs')
 const path = require('path')
+const { etiquetaUbicacion } = require('./rrss')
 
 const clp = (v) => (v == null ? '—' : '$' + Math.round(v).toLocaleString('es-CL'))
 const num = (v, d = 0) => (v == null || isNaN(Number(v)) ? '—' : Number(v).toLocaleString('es-CL', { maximumFractionDigits: d, minimumFractionDigits: d }))
@@ -114,7 +115,7 @@ async function generarInformeHtml(query = {}) {
   // Tabla por campaña
   const estadoL = { ACTIVA: 'Activa', FINALIZADA: 'Finalizada', PAUSADA: 'Pausada' }
   const filasC = inf.campanas.map(r => `<tr>
-    <td><b>${esc(r.nombreMeta)}</b><div class="nota">${estadoL[r.estado] || ''}${r.nombreCRM ? ` · CRM: ${esc(r.nombreCRM)}` : ' · sin campaña del CRM'}</div></td>
+    <td><b>${esc(r.nombreMeta)}</b><div class="nota">${estadoL[r.estado] || ''}${r.nombreCRM ? (r.nombreCRM.trim().toLowerCase() === r.nombreMeta.trim().toLowerCase() ? ' · vinculada ✓' : ` · CRM: ${esc(r.nombreCRM)}`) : ' · sin campaña del CRM'}</div></td>
     <td class="n">${clp(r.gasto)}</td><td class="n">${num(r.leadsMeta)}</td><td class="n">${clp(r.cpl)} ${sem(r.semaforos.CPL)}</td>
     <td class="n">${r.campanaId ? num(r.leadsCRM) : '—'}</td>
     <td class="n">${r.campanaId ? `${num(r.cotizados)} · ${pct(r.tasaLeadCotizacion)} ${sem(r.semaforos.TASA_LEAD_COTIZACION)}` : '—'}</td>
@@ -127,7 +128,7 @@ async function generarInformeHtml(query = {}) {
   // Pauta: ubicación, edad, segmentación
   const ubic = inf.desgloses.UBICACION.slice(0, 8)
   const totalUb = ubic.reduce((a, d) => a + d.gasto, 0) || 1
-  const filasUb = ubic.map(d => `<tr><td>${esc(d.clave.replace('|', ' · ').replace(/_/g, ' '))}</td><td class="n">${clp(d.gasto)}</td><td class="n">${pct(d.gasto / totalUb * 100)}</td><td class="n">${num(d.leads)}</td><td class="n">${clp(d.cpl)}</td></tr>`).join('')
+  const filasUb = ubic.map(d => `<tr><td>${esc(etiquetaUbicacion(d.clave))}</td><td class="n">${clp(d.gasto)}</td><td class="n">${pct(d.gasto / totalUb * 100)}</td><td class="n">${num(d.leads)}</td><td class="n">${clp(d.cpl)}</td></tr>`).join('')
   const edades = {}
   for (const d of inf.desgloses.EDAD_GENERO) { const [e] = d.clave.split('|'); const o = edades[e] ||= { e, imp: 0, leads: 0, gasto: 0 }; o.imp += d.impresiones; o.leads += d.leads; o.gasto += d.gasto }
   const totImp = Object.values(edades).reduce((a, o) => a + o.imp, 0) || 1
@@ -179,7 +180,7 @@ async function generarInformeHtml(query = {}) {
   .nota{font-size:7.5pt;color:var(--texto-2)}
   .dos{display:grid;grid-template-columns:1fr 1fr;gap:12px} .mapa-grid{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}
   .seccion{break-inside:avoid-page}
-  table.camp th:first-child,table.camp td:first-child{width:170px}
+  table.camp th:first-child,table.camp td:first-child{width:230px} table.camp{font-size:7.6pt}
   .btn{position:fixed;top:10px;right:10px;background:var(--marca);color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:10pt;cursor:pointer}
   @media print{.btn{display:none}}
 </style></head><body><div class="pagina">
