@@ -4,6 +4,7 @@ const { mismoNombre: _mismoNombre } = require('../lib/deduplication')
 const { vincularCampana, campanaTrasReingreso, textoCambioCampana } = require('../lib/campanas')
 const { notificarLead } = require('../lib/notifications')
 const { VENDEDOR_FALLBACK_ID } = require('../config')
+const { extraerMetaIdDeNotas, limpiarPrefijoConector } = require('../lib/rrss')
 const {
   splitNombre, normalizarTelefono, parsearFechaHoraCita, detectarEnlaceReunion,
   tipoVisita, clasificarEstado, etapaTrasAgendar, esFrio,
@@ -74,7 +75,7 @@ async function buscarContactoDuplicado({ correo, telefono, nombre, apellido }) {
 const crearLead = async (req, res) => {
   const {
     // Datos del contacto
-    nombre, apellido, email, telefono, rut, empresa, tipoPersona,
+    nombre, apellido, email, rut, empresa, tipoPersona,
     // Datos del lead
     origen, campana, presupuestoAprox, notas,
     // Asignación opcional
@@ -82,6 +83,9 @@ const crearLead = async (req, res) => {
     // Unidad de interés (por edificio + número de unidad)
     edificioNombre, unidadNumero, tipoUnidad,
   } = req.body
+  // El conector de Meta Lead Ads de la agencia manda "p:+569..." en el teléfono y "Meta ID: l:<id>" en notas
+  const telefono = req.body.telefono ? limpiarPrefijoConector(req.body.telefono) : req.body.telefono
+  const metaLeadId = extraerMetaIdDeNotas(notas)
 
   if (!nombre || !apellido) {
     return res.status(400).json({
@@ -212,6 +216,7 @@ const crearLead = async (req, res) => {
       if (notas)                                             actualizarLead.notas            = [leadExistente.notas, notas.trim()].filter(Boolean).join('\n---\n')
       if (unidadInteresId && !leadExistente.unidadInteresId) actualizarLead.unidadInteresId  = unidadInteresId
       if (vendedorNum    && !leadExistente.vendedorId)       actualizarLead.vendedorId       = vendedorNum
+      if (metaLeadId     && !leadExistente.metaLeadId)       actualizarLead.metaLeadId       = metaLeadId
       if (reactivar)                                         actualizarLead.etapa            = 'REACTIVADO'
 
       if (Object.keys(actualizarLead).length > 0) {
@@ -265,6 +270,7 @@ const crearLead = async (req, res) => {
         campanaId:       await vincularCampana(campana),
         presupuestoAprox: numOrNull(presupuestoAprox),
         notas:           notas?.trim()   || null,
+        metaLeadId:      metaLeadId || null,
         etapa:           'NUEVO',
       },
       include: {
