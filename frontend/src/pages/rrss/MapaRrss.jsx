@@ -4,7 +4,8 @@
 import React, { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, Row, Col, Table, Tag, Spin, Typography, Segmented, Switch, Space, Empty, Alert, Tooltip } from 'antd'
-import { MapContainer, TileLayer, GeoJSON, Circle, Tooltip as LTooltip } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, Circle, Tooltip as LTooltip, useMap } from 'react-leaflet'
+import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import api from '../../services/api'
 
@@ -30,6 +31,22 @@ const colorDe = (valor, max) => {
   return ESCALA[i]
 }
 
+// Encuadra las regiones con datos (mínimo Valparaíso → Los Lagos) cada vez que cambian los datos
+const BBOX_MINIMO = [[-43.6, -75.5], [-32.0, -69.5]]
+function Encuadre({ geo, porCodigo, metrica }) {
+  const map = useMap()
+  React.useEffect(() => {
+    if (!geo) return
+    const b = L.latLngBounds(BBOX_MINIMO)
+    for (const f of geo.features) {
+      const r = porCodigo[f.properties.codregion]
+      if (r && (r.gasto || r.leadsCRM || r.ventas)) b.extend(L.geoJSON(f).getBounds())
+    }
+    map.fitBounds(b, { padding: [12, 12] })
+  }, [geo, porCodigo, metrica, map])
+  return null
+}
+const ESTADO_LABEL = { ACTIVA: 'Activa', FINALIZADA: 'Finalizada', PAUSADA: 'Pausada' }
 const COLORES_CONJUNTO = ['#dc2626', '#d97706', '#7c3aed', '#059669', '#db2777', '#2563eb', '#0f766e', '#9333ea']
 
 export default function MapaRrss({ periodo }) {
@@ -46,7 +63,7 @@ export default function MapaRrss({ periodo }) {
   const max = useMemo(() => Math.max(0, ...(data?.regiones || []).map(r => r[metrica] || 0)), [data, metrica])
 
   const conjuntos = useMemo(() => {
-    const lista = (seg?.conjuntos || []).filter(c => c.circulos.length && (!soloActivas || (c.estado === 'ACTIVE' && c.campanaActiva)))
+    const lista = (seg?.conjuntos || []).filter(c => c.circulos.length && (!soloActivas || (c.estado === 'ACTIVE' && c.campanaEstado === 'ACTIVA')))
     return lista.map((c, i) => ({ ...c, color: COLORES_CONJUNTO[i % COLORES_CONJUNTO.length] }))
   }, [seg, soloActivas])
 
@@ -78,11 +95,12 @@ export default function MapaRrss({ periodo }) {
       <Col xs={24} lg={15}>
         <Card size="small" styles={{ body: { padding: 0 } }}>
           {isLoading || !geo ? <div style={{ height: 720, display: 'grid', placeItems: 'center' }}><Spin /></div> : (
-            <MapContainer bounds={[[-44.5, -76.5], [-26.5, -66.5]]} boundsOptions={{ padding: [8, 8] }} minZoom={4} maxZoom={12} style={{ height: 720, width: '100%', borderRadius: 8 }} scrollWheelZoom={false}>
-              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <MapContainer bounds={BBOX_MINIMO} minZoom={4} maxZoom={12} style={{ height: 720, width: '100%', borderRadius: 8 }} scrollWheelZoom={false}>
+              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" subdomains="abcd" />
+              <Encuadre geo={geo} porCodigo={porCodigo} metrica={metrica} />
               <GeoJSON key={metrica + (data?.periodo?.desde || '')} data={geo} style={estilo} onEachFeature={onEach} />
               {verSegmentacion && conjuntos.map(c => c.circulos.map((x, i) => (
-                <Circle key={`${c.id}-${i}`} center={[x.lat, x.lng]} radius={Math.max(x.radioKm, 1) * 1000} pathOptions={{ color: c.color, fillColor: c.color, fillOpacity: 0.12, weight: 2, dashArray: c.estado === 'ACTIVE' ? null : '4 4' }}>
+                <Circle key={`${c.id}-${i}`} center={[x.lat, x.lng]} radius={Math.max(x.radioKm, 1) * 1000} pathOptions={{ color: c.color, fillColor: c.color, fillOpacity: 0.15, weight: 2, dashArray: c.campanaEstado === 'ACTIVA' ? null : '4 4' }}>
                   <LTooltip sticky>
                     <b>{c.campana}</b><br />{c.nombre}<br />{x.nombre} · radio {Math.round(x.radioKm)} km · {c.edadMin}–{c.edadMax} años{c.advantagePlus ? ' · Advantage+' : ''}
                   </LTooltip>
@@ -123,7 +141,7 @@ export default function MapaRrss({ periodo }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
               {conjuntos.map(c => (
                 <div key={c.id} style={{ borderLeft: `4px solid ${c.color}`, paddingLeft: 10 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{c.campana} <Tag color={c.estado === 'ACTIVE' && c.campanaActiva ? 'green' : 'default'} style={{ fontSize: 10, marginInlineStart: 4 }}>{c.estado === 'ACTIVE' && c.campanaActiva ? 'Activa' : 'Pausada'}</Tag></div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{c.campana} <Tag color={c.campanaEstado === 'ACTIVA' ? 'green' : c.campanaEstado === 'FINALIZADA' ? 'blue' : 'default'} style={{ fontSize: 10, marginInlineStart: 4 }}>{ESTADO_LABEL[c.campanaEstado] || 'Pausada'}</Tag></div>
                   <div style={{ fontSize: 12, color: '#475569' }}>
                     {c.circulos.map(x => `${x.nombre} +${Math.round(x.radioKm)} km`).concat(c.regiones).concat(c.ciudadesSinCoord).join(' · ')}
                   </div>

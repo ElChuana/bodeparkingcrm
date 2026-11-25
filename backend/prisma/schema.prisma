@@ -1639,3 +1639,58 @@ model RrssSyncLog {
   @@index([fuente, inicio])
   @@map("rrss_sync_log")
 }
+
+// ── RRSS fase 4: sitio web (GA4, Clarity, AWStats histórico) ──
+
+// GA4 por día × tipo de dimensión × clave (TOTAL | FUENTE "source / medium" | CAMPANA | REGION | PAGINA | EVENTO | DISPOSITIVO)
+model RrssGa4Diario {
+  id                    Int      @id @default(autoincrement())
+  fecha                 DateTime @db.Date
+  tipo                  String
+  clave                 String
+  sesiones              Int      @default(0)
+  usuarios              Int      @default(0)
+  nuevosUsuarios        Int      @default(0)
+  sesionesComprometidas Int      @default(0)
+  duracionSeg           Float    @default(0) // userEngagementDuration total (segundos)
+  vistas                Int      @default(0) // screenPageViews (PAGINA)
+  eventos               Int      @default(0) // eventCount (EVENTO)
+  actualizadoEn         DateTime @updatedAt
+
+  @@unique([fecha, tipo, clave])
+  @@index([tipo, fecha])
+  @@map("rrss_ga4_diario")
+}
+
+// Clarity Data Export: foto diaria (solo entrega 1-3 días hacia atrás y 10 llamadas/día → el job guarda cada noche)
+model RrssClarityDiario {
+  id        Int      @id @default(autoincrement())
+  fecha     DateTime @db.Date
+  dimension String // '' (sin desglose) | Device | Source | URL | ...
+  metrica   String // Traffic.totalSessionCount, RageClickCount.sessionsWithMetricPercentage, EngagementTime.activeTime, ...
+  clave     String // valor de la dimensión ('' si no hay)
+  valor     Float
+  creadoEn  DateTime @default(now())
+
+  @@unique([fecha, dimension, metrica, clave])
+  @@index([fecha])
+  @@map("rrss_clarity_diario")
+}
+
+// Histórico mensual del sitio (AWStats de cPanel, import único). Aproximado: cuela bots.
+model RrssWebHistorico {
+  id             Int      @id @default(autoincrement())
+  mes            DateTime @unique @db.Date // primer día del mes
+  visitas        Int      @default(0)
+  unicos         Int      @default(0)
+  paginas        Int      @default(0)
+  hits           Int      @default(0)
+  refsFbIg       Int      @default(0) // páginas referidas desde facebook/instagram
+  refsGoogle     Int      @default(0) // páginas referidas desde google
+  refsBuscadores Int      @default(0) // todos los buscadores
+  fuente         String   @default("awstats")
+  crudo          Json? // serie diaria y tops, por si se quiere graficar
+  importadoEn    DateTime @default(now())
+
+  @@map("rrss_web_historico")
+}

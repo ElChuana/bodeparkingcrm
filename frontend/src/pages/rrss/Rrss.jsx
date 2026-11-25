@@ -9,7 +9,7 @@ import {
 } from 'antd'
 import {
   InfoCircleOutlined, SyncOutlined, CheckCircleFilled, ExclamationCircleFilled, CloseCircleFilled, MinusCircleOutlined,
-  LinkOutlined, DisconnectOutlined, FunnelPlotOutlined, BarChartOutlined, AlertOutlined, SettingOutlined, ArrowRightOutlined, EnvironmentOutlined
+  LinkOutlined, DisconnectOutlined, FunnelPlotOutlined, BarChartOutlined, AlertOutlined, SettingOutlined, ArrowRightOutlined, EnvironmentOutlined, GlobalOutlined
 } from '@ant-design/icons'
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip as RTooltip, Legend, CartesianGrid, BarChart, Cell
@@ -19,6 +19,7 @@ import 'dayjs/locale/es'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import MapaRrss from './MapaRrss'
+import SitioWeb from './SitioWeb'
 
 dayjs.locale('es')
 
@@ -38,6 +39,9 @@ const horas = (h) => {
   if (h < 48) return `${num(h, 1)} h`
   return `${num(h / 24, 1)} días`
 }
+
+const ESTADO_CAMP = { ACTIVA: { color: 'green', label: 'Activa' }, FINALIZADA: { color: 'blue', label: 'Finalizada' }, PAUSADA: { color: 'default', label: 'Pausada' } }
+const TagEstado = ({ estado }) => { const e = ESTADO_CAMP[estado] || ESTADO_CAMP.PAUSADA; return <Tag color={e.color} style={{ fontSize: 10, margin: 0 }}>{e.label}</Tag> }
 
 const SEM = {
   verde:    { color: '#16a34a', bg: '#f0fdf4', label: 'Bien',  Icon: CheckCircleFilled },
@@ -157,7 +161,7 @@ function TablaCampanas({ data }) {
         <div>
           <div style={{ fontWeight: 600, fontSize: 13 }}>{v}</div>
           <Space size={4} style={{ marginTop: 2 }}>
-            <Tag color={r.estadoMeta === 'ACTIVE' ? 'green' : 'default'} style={{ fontSize: 10, margin: 0 }}>{r.estadoMeta === 'ACTIVE' ? 'Activa' : 'Pausada'}</Tag>
+            <TagEstado estado={r.estado} />
             {r.campanaId
               ? <Tooltip title={`Vinculada a "${r.nombreCRM}" en el CRM`}><Tag icon={<LinkOutlined />} color="blue" style={{ fontSize: 10, margin: 0 }}>CRM</Tag></Tooltip>
               : <Tooltip title="Sin campaña del CRM vinculada: solo datos de Meta (vincular en Configuración)"><Tag icon={<DisconnectOutlined />} style={{ fontSize: 10, margin: 0 }}>sin CRM</Tag></Tooltip>}
@@ -415,7 +419,7 @@ function Configuracion({ data }) {
             size="small" rowKey="id" dataSource={mapa} pagination={false}
             columns={[
               { title: 'Campaña en Meta', dataIndex: 'nombreMeta', render: (v, r) => <div><div style={{ fontWeight: 600 }}>{v}</div><Text type="secondary" style={{ fontSize: 11 }}>{r.objetivo?.replace('OUTCOME_', '')} · {r.inicioMeta ? dayjs(r.inicioMeta).format('D MMM YY') : '—'}{r.finMeta ? ` → ${dayjs(r.finMeta).format('D MMM YY')}` : ''}</Text></div> },
-              { title: 'Estado', dataIndex: 'estadoMeta', width: 90, render: (v) => <Tag color={v === 'ACTIVE' ? 'green' : 'default'}>{v === 'ACTIVE' ? 'Activa' : 'Pausada'}</Tag> },
+              { title: 'Estado', key: 'estado', width: 100, render: (_, r) => <TagEstado estado={r.estadoMeta !== 'ACTIVE' ? 'PAUSADA' : (r.finMeta && dayjs(r.finMeta).isBefore(dayjs()) ? 'FINALIZADA' : 'ACTIVA')} /> },
               {
                 title: 'Campaña en el CRM', key: 'crm', width: 340,
                 render: (_, r) => (
@@ -550,6 +554,7 @@ export default function Rrss() {
             },
             { key: 'pauta', label: <span><BarChartOutlined /> Pauta Meta</span>, children: <PautaMeta data={data} /> },
             { key: 'mapa', label: <span><EnvironmentOutlined /> Mapa</span>, children: <MapaRrss periodo={periodo} /> },
+            { key: 'web', label: <span><GlobalOutlined /> Sitio web</span>, children: <SitioWeb periodo={periodo} /> },
             { key: 'salud', label: <span><AlertOutlined /> Salud de los leads</span>, children: <SaludLeads data={data} periodo={periodo} /> },
             ...(esGerente ? [{ key: 'config', label: <span><SettingOutlined /> Configuración</span>, children: <Configuracion data={data} /> }] : []),
           ]}

@@ -7,6 +7,9 @@ const { rrssSyncMeta } = require('../jobs/rrssSync')
 const meta = require('../lib/meta')
 const { esLeadBasura, GRACIA_MS } = require('../lib/rrss')
 const { normalizarRegion, REGIONES } = require('../lib/regiones')
+const ga4 = require('../lib/ga4')
+const clarity = require('../lib/clarity')
+const { rrssSyncWeb } = require('../jobs/rrssSyncWeb')
 
 // Fechas del período en UTC puro (rrss_meta_diario.fecha es DATE; Prisma lo entrega como medianoche UTC)
 const dia = (s, def) => {
@@ -17,6 +20,12 @@ const hoyUTC = () => new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00
 const iso = (d) => new Date(d).toISOString().slice(0, 10)
 const n = (v) => (v == null ? 0 : Number(v))
 const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : null)
+// Meta deja effective_status=ACTIVE aunque la campaña ya terminó → estado real: ACTIVA | FINALIZADA | PAUSADA
+const estadoCampana = (estadoMeta, finMeta) => {
+  if (estadoMeta !== 'ACTIVE') return 'PAUSADA'
+  if (finMeta && new Date(finMeta).getTime() < Date.now()) return 'FINALIZADA'
+  return 'ACTIVA'
+}
 const mediana = (arr) => {
   const v = arr.filter(x => x != null && isFinite(x)).sort((a, b) => a - b)
   if (!v.length) return null
@@ -230,7 +239,7 @@ async function construirInforme(desde, hasta) {
     const g = mc?.gasto || 0
     const d = desg[m.campanaMetaId]
     const fila = {
-      campanaMetaId: m.campanaMetaId, nombreMeta: m.nombreMeta, estadoMeta: m.estadoMeta, objetivo: m.objetivo,
+      campanaMetaId: m.campanaMetaId, nombreMeta: m.nombreMeta, estadoMeta: m.estadoMeta, estado: estadoCampana(m.estadoMeta, m.finMeta), objetivo: m.objetivo,
       campanaId: m.campanaId, nombreCRM: m.campanaRef?.nombre || null, vinculoManual: m.vinculoManual,
       inicioMeta: m.inicioMeta, finMeta: m.finMeta,
       gasto: g, impresiones: mc?.impresiones || 0, clics: mc?.clics || 0,
@@ -482,7 +491,7 @@ const cacheSeg = { t: 0, v: null }
 async function obtenerSegmentacion() {
   if (!meta.metaDisponible()) return []
   if (!cacheSeg.v || cacheSeg.t < Date.now() - 3600000) {
-      const [conjuntos, mapa] = await Promise.all([meta.conjuntos(), prisma.rrssCampanaMapa.findMany({ select: { campanaMetaId: true, nombreMeta: true, estadoMeta: true } })])
+      const [conjuntos, mapa] = await Promise.all([meta.conjuntos(), prisma.rrssCampanaMapa.findMany({ select: { campanaMetaId: true, nombreMeta: true, estadoMeta: true, finMeta: true } })])
       const nombreC = Object.fromEntries(mapa.map(m => [m.campanaMetaId, m]))
       cacheSeg.v = conjuntos.map(a => {
         const g = a.targeting?.geo_locations || {}
@@ -493,7 +502,9 @@ async function obtenerSegmentacion() {
         const regionesCod = [...(g.regions || []).map(r => normalizarRegion(r.name)?.codigo), ...circulos.map(c => c.regionCodigo)].filter(Boolean)
         return {
           id: a.id, nombre: a.name, estado: a.status, campanaMetaId: a.campaign_id,
-          campana: nombreC[a.campaign_id]?.nombreMeta || a.campaign_id, campanaActiva: nombreC[a.campaign_id]?.estadoMeta === 'ACTIVE',
+          campana: nombreC[a.campaign_id]?.nombreMeta || a.campaign_id,
+          campanaEstado: nombreC[a.campaign_id] ? estadoCampana(nombreC[a.campaign_id].estadoMeta, nombreC[a.campaign_id].finMeta) : 'PAUSADA',
+          campanaActiva: nombreC[a.campaign_id] ? estadoCampana(nombreC[a.campaign_id].estadoMeta, nombreC[a.campaign_id].finMeta) === 'ACTIVA' : false,
           edadMin: a.targeting?.age_min ?? null, edadMax: a.targeting?.age_max ?? null,
           generos: a.targeting?.genders || null, // [1]=hombres [2]=mujeres, null=todos
           intereses: (a.targeting?.flexible_spec || []).flatMap(f => (f.interests || []).map(i => i.name)).slice(0, 12),
@@ -528,6 +539,115 @@ const segmentacion = async (_req, res) => {
   } catch (err) {
     console.error('[rrss] segmentacion', err); res.status(500).json({ error: 'Error al leer la segmentación desde Meta.' })
   }
+}
+
+// ── Sitio web (GA4 + Clarity + histórico AWStats) ──
+const EVENTOS_CLAVE = ['generate_lead', 'form_start', 'click_cotizar', 'click_telefono', 'click_whatsapp', 'click_email', 'usa_simulador', 'video_play', 'share']
+
+// GET /api/rrss/web?desde&hasta
+const web = async (req, res) => {
+  try {
+    const hastaIncl = dia(req.query.hasta, hoyUTC())
+    const hasta = new Date(hastaIncl.getTime() + 86400000)
+    const desde = dia(req.query.desde, new Date(hastaIncl.getTime() - 29 * 86400000))
+    const rango = { fecha: { gte: desde, lt: hasta } }
+
+    const [filas, umbrales, historico, clarityUltimo] = await Promise.all([
+      prisma.rrssGa4Diario.findMany({ where: rango, orderBy: { fecha: 'asc' } }),
+      prisma.rrssUmbral.findMany({ orderBy: { orden: 'asc' } }),
+      prisma.rrssWebHistorico.findMany({ orderBy: { mes: 'asc' } }),
+      prisma.rrssClarityDiario.findFirst({ orderBy: { fecha: 'desc' }, select: { fecha: true } }),
+    ])
+
+    // GA4 agregados
+    const sum = (arr, k) => arr.reduce((a, f) => a + (f[k] || 0), 0)
+    const total = filas.filter(f => f.tipo === 'TOTAL')
+    const t = {
+      sesiones: sum(total, 'sesiones'), usuarios: sum(total, 'usuarios'), nuevosUsuarios: sum(total, 'nuevosUsuarios'),
+      sesionesComprometidas: sum(total, 'sesionesComprometidas'), duracionSeg: sum(total, 'duracionSeg'),
+    }
+    t.tasaCompromiso = pct(t.sesionesComprometidas, t.sesiones)
+    t.duracionMediaSeg = t.sesiones ? Math.round(t.duracionSeg / t.sesiones) : null
+    const ev = {}
+    for (const f of filas.filter(f => f.tipo === 'EVENTO')) {
+      const base = EVENTOS_CLAVE.find(e => f.clave === e || f.clave.startsWith(e + '_') || f.clave.startsWith(e + '[')) || f.clave
+      ev[base] = (ev[base] || 0) + f.eventos
+    }
+    t.eventos = ev
+    t.leadsWeb = ev.generate_lead || 0
+    t.webConversion = pct(t.leadsWeb, t.sesiones)
+    t.abandonoForm = ev.form_start ? Math.round((1 - (ev.generate_lead || 0) / ev.form_start) * 1000) / 10 : null
+    t.clicsContacto = (ev.click_telefono || 0) + (ev.click_whatsapp || 0) + (ev.click_email || 0)
+
+    const agrupar = (tipo, campo = 'sesiones', top = 12) => {
+      const acc = {}
+      for (const f of filas.filter(f => f.tipo === tipo)) {
+        const a = acc[f.clave] ||= { clave: f.clave, sesiones: 0, usuarios: 0, vistas: 0, eventos: 0, sesionesComprometidas: 0 }
+        a.sesiones += f.sesiones; a.usuarios += f.usuarios; a.vistas += f.vistas; a.eventos += f.eventos; a.sesionesComprometidas += f.sesionesComprometidas
+      }
+      return Object.values(acc).sort((x, y) => y[campo] - x[campo]).slice(0, top)
+    }
+    const porFecha = {}
+    for (const f of total) porFecha[iso(f.fecha)] = { fecha: iso(f.fecha), sesiones: f.sesiones, usuarios: f.usuarios, leadsWeb: 0 }
+    for (const f of filas.filter(f => f.tipo === 'EVENTO' && f.clave === 'generate_lead')) { const d = porFecha[iso(f.fecha)] ||= { fecha: iso(f.fecha), sesiones: 0, usuarios: 0, leadsWeb: 0 }; d.leadsWeb += f.eventos }
+    const ga4Datos = {
+      totales: t, serie: Object.values(porFecha).sort((a, b) => a.fecha.localeCompare(b.fecha)),
+      fuentes: agrupar('FUENTE'), campanas: agrupar('CAMPANA'), paginas: agrupar('PAGINA', 'vistas'), dispositivos: agrupar('DISPOSITIVO'),
+      regiones: agrupar('REGION', 'sesiones', 20).map(r => ({ ...r, region: normalizarRegion(r.clave)?.nombre || r.clave })),
+      primerDato: filas[0] ? iso(filas[0].fecha) : null,
+    }
+
+    // Clarity: último día guardado + serie de 14 días (sin desglose) + desgloses del último día
+    let clarityDatos = null
+    if (clarityUltimo) {
+      const f14 = new Date(clarityUltimo.fecha.getTime() - 13 * 86400000)
+      const cl = await prisma.rrssClarityDiario.findMany({ where: { fecha: { gte: f14 } }, orderBy: { fecha: 'asc' } })
+      const val = (fecha, metrica, dimension = '', clave = '') => cl.find(x => iso(x.fecha) === fecha && x.metrica === metrica && x.dimension === dimension && x.clave === clave)?.valor ?? null
+      const fechas = [...new Set(cl.filter(x => x.dimension === '').map(x => iso(x.fecha)))].sort()
+      const u = iso(clarityUltimo.fecha)
+      const ultimo = {
+        fecha: u,
+        sesiones: val(u, 'Traffic.totalSessionCount'), bots: val(u, 'Traffic.totalBotSessionCount'), usuarios: val(u, 'Traffic.distinctUserCount'),
+        paginasPorSesion: val(u, 'Traffic.pagesPerSessionPercentage'),
+        tiempoTotalSeg: val(u, 'EngagementTime.totalTime'), tiempoActivoSeg: val(u, 'EngagementTime.activeTime'),
+        scrollMedio: val(u, 'ScrollDepth.averageScrollDepth'),
+        rageClicksPct: val(u, 'RageClickCount.sessionsWithMetricPercentage'), deadClicksPct: val(u, 'DeadClickCount.sessionsWithMetricPercentage'),
+        quickbackPct: val(u, 'QuickbackClick.sessionsWithMetricPercentage'), erroresJsPct: val(u, 'ScriptErrorCount.sessionsWithMetricPercentage'),
+      }
+      const serie = fechas.map(f => ({ fecha: f, sesiones: val(f, 'Traffic.totalSessionCount'), bots: val(f, 'Traffic.totalBotSessionCount'), rageClicksPct: val(f, 'RageClickCount.sessionsWithMetricPercentage'), tiempoActivoSeg: val(f, 'EngagementTime.activeTime') }))
+      const desglose = (dim, metrica = 'Traffic.totalSessionCount') => cl.filter(x => iso(x.fecha) === u && x.dimension === dim && x.metrica === metrica).map(x => ({ clave: x.clave, valor: x.valor })).sort((a, b) => b.valor - a.valor).slice(0, 10)
+      clarityDatos = { ultimo, serie, dispositivos: desglose('Device'), fuentes: desglose('Source'), urls: desglose('URL') }
+    }
+
+    // Histórico mensual: AWStats + GA4 agregado por mes (fuente distinta, para no mezclar en la misma línea)
+    const ga4Mensual = await prisma.$queryRaw`
+      SELECT date_trunc('month', fecha)::date AS mes, SUM(sesiones)::int AS sesiones, SUM(usuarios)::int AS usuarios
+      FROM rrss_ga4_diario WHERE tipo = 'TOTAL' GROUP BY 1 ORDER BY 1`
+    const hist = [
+      ...historico.map(h => ({ mes: iso(h.mes).slice(0, 7), fuente: 'awstats', visitas: h.visitas, unicos: h.unicos, refsFbIg: h.refsFbIg, refsGoogle: h.refsGoogle, refsBuscadores: h.refsBuscadores })),
+      ...ga4Mensual.map(m => ({ mes: iso(m.mes).slice(0, 7), fuente: 'ga4', visitas: m.sesiones, unicos: m.usuarios })),
+    ]
+    const hitos = [{ mes: '2026-07', texto: 'Google deja de referir' }, { mes: '2026-11', texto: 'Parte GA4' }]
+
+    const sem = {}
+    for (const u of umbrales) {
+      if (u.clave === 'WEB_CONVERSION') sem[u.clave] = semaforo(u, t.webConversion)
+      if (u.clave === 'WEB_ABANDONO_FORM') sem[u.clave] = semaforo(u, t.abandonoForm)
+      if (u.clave === 'CLARITY_RAGE') sem[u.clave] = semaforo(u, clarityDatos?.ultimo?.rageClicksPct ?? null)
+    }
+    res.json({
+      periodo: { desde: iso(desde), hasta: iso(hastaIncl) }, umbrales, semaforos: sem,
+      ga4: ga4Datos, ga4Configurado: ga4.ga4Disponible(), clarity: clarityDatos, clarityConfigurado: clarity.clarityDisponible(),
+      historico: hist, hitos,
+    })
+  } catch (err) {
+    console.error('[rrss] web', err); res.status(500).json({ error: 'Error al construir el informe del sitio web.' })
+  }
+}
+
+// POST /api/rrss/sync-web — GA4 + Clarity ahora (GERENTE; respeta el límite diario de Clarity)
+const sincronizarWeb = async (_req, res) => {
+  try { res.json(await rrssSyncWeb({ dias: 3 })) } catch (err) { res.status(500).json({ error: `Falló la sincronización web: ${err.message}` }) }
 }
 
 // ── Configuración ──
@@ -576,4 +696,4 @@ const sincronizar = async (req, res) => {
   } catch (err) { res.status(500).json({ error: `Falló la sincronización: ${err.message}` }) }
 }
 
-module.exports = { informe, leadsPerdidos, mapaDatos, segmentacion, listarUmbrales, actualizarUmbral, listarMapa, actualizarMapa, listarSyncLog, sincronizar, semaforo, mediana }
+module.exports = { informe, leadsPerdidos, mapaDatos, segmentacion, web, sincronizarWeb, listarUmbrales, actualizarUmbral, listarMapa, actualizarMapa, listarSyncLog, sincronizar, semaforo, mediana }
