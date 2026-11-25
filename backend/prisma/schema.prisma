@@ -1621,6 +1621,7 @@ model RrssUmbral {
   verdeHasta     Float? // valor ≤ verdeHasta → verde (o ≥ si menorEsMejor=false)
   amarilloHasta  Float? // entre verde y amarillo → amarillo; más allá → rojo
   menorEsMejor   Boolean @default(true)
+  minMuestra     Int? // tamaño mínimo de la base (sesiones, leads, impresiones...) para mostrar semáforo; bajo eso → "Muestra chica"
   orden          Int     @default(0)
 
   @@map("rrss_umbrales")

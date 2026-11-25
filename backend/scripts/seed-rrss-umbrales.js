@@ -88,10 +88,17 @@ const U = [
     '≥ 10× bien; 3–10× regular; < 3× mal. Juan debería ajustarlo según el margen real por unidad.'],
 ]
 
+// Muestra mínima para que el semáforo diga algo (bajo eso se muestra "Muestra chica"). Base de cada KPI en rrssController.MUESTRA.
+const MIN_MUESTRA = {
+  CPL: 10, COSTO_COTIZACION: 10, COSTO_VISITA: 10, CAC: 10, CPM: 1000, CTR_ENLACE: 1000, CONV_FORMULARIO: 30,
+  TASA_LEAD_COTIZACION: 10, TASA_COTIZACION_VISITA: 5, TIEMPO_PRIMER_CONTACTO: 5, LEADS_SIN_GESTION_48H: 10,
+  LEADS_PERDIDOS_ENTREGA: 10, PCT_AUDIENCE_NETWORK: 1000, WEB_CONVERSION: 30, WEB_ABANDONO_FORM: 10, CLARITY_RAGE: 30, ROAS: 10,
+}
+
 async function main() {
   let i = 0
   for (const [clave, nombre, unidad, menorEsMejor, verdeHasta, amarilloHasta, queEs, porQueImporta, cuantoEstaBien] of U) {
-    const data = { nombre, unidad, menorEsMejor, verdeHasta, amarilloHasta, queEs, porQueImporta, cuantoEstaBien, orden: i++ }
+    const data = { nombre, unidad, menorEsMejor, verdeHasta, amarilloHasta, queEs, porQueImporta, cuantoEstaBien, orden: i++, minMuestra: MIN_MUESTRA[clave] ?? null }
     await prisma.rrssUmbral.upsert({ where: { clave }, create: { clave, ...data }, update: data })
   }
   console.log(`Umbrales RRSS cargados: ${U.length}`)

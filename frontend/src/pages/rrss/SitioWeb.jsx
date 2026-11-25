@@ -16,7 +16,8 @@ const seg = (s) => (s == null ? '—' : s < 60 ? `${Math.round(s)} s` : `${Math.
 
 const SEM = {
   verde: { color: '#16a34a', label: 'Bien', Icon: CheckCircleFilled }, amarillo: { color: '#d97706', label: 'Ojo', Icon: ExclamationCircleFilled },
-  rojo: { color: '#dc2626', label: 'Mal', Icon: CloseCircleFilled }, null: { color: '#94a3b8', label: 'Sin dato', Icon: MinusCircleOutlined },
+  rojo: { color: '#dc2626', label: 'Mal', Icon: CloseCircleFilled }, muestra: { color: '#64748b', label: 'Muestra chica', Icon: MinusCircleOutlined },
+  null: { color: '#94a3b8', label: 'Sin dato', Icon: MinusCircleOutlined },
 }
 function Semaforo({ valor }) { const s = SEM[valor] || SEM.null; return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: s.color, fontSize: 12, fontWeight: 600 }}><s.Icon style={{ fontSize: 12 }} /> {s.label}</span> }
 function Explica({ umbral, texto }) {
@@ -66,7 +67,7 @@ export default function SitioWeb({ periodo }) {
       <Col xs={12} md={8} xl={4}><Kpi titulo="Conversión del sitio" valor={pctF(g.webConversion)} sub={`${num(g.leadsWeb)} formularios enviados`} sem={data.semaforos.WEB_CONVERSION} umbral={u('WEB_CONVERSION')} /></Col>
       <Col xs={12} md={8} xl={4}><Kpi titulo="Abandono del formulario" valor={pctF(g.abandonoForm)} sub={`${num(g.eventos.form_start)} lo empezaron`} sem={data.semaforos.WEB_ABANDONO_FORM} umbral={u('WEB_ABANDONO_FORM')} /></Col>
       <Col xs={12} md={8} xl={4}><Kpi titulo="Clics a contacto" valor={num(g.clicsContacto)} sub={`tel ${num(g.eventos.click_telefono)} · WhatsApp ${num(g.eventos.click_whatsapp)} · email ${num(g.eventos.click_email)}`} texto="Clics en el teléfono, WhatsApp o correo del sitio. No pasan por el formulario, así que no aparecen como lead: por eso se cuentan aparte." /></Col>
-      <Col xs={12} md={8} xl={4}><Kpi titulo="Sesiones con rage clicks" valor={pctF(cl?.ultimo?.rageClicksPct)} sub={cl ? `Clarity · ${dayjs(cl.ultimo.fecha).format('D MMM')} · ${num(cl.ultimo.sesiones)} sesiones` : 'Clarity sin datos'} sem={data.semaforos.CLARITY_RAGE} umbral={u('CLARITY_RAGE')} /></Col>
+      <Col xs={12} md={8} xl={4}><Kpi titulo="Sesiones con rage clicks" valor={pctF(cl?.ultimo?.rageClicksPct)} sub={cl ? `Clarity, foto del ${dayjs(cl.ultimo.fecha).format('D MMM')} · ${num(cl.ultimo.sesiones)} sesiones` : 'Clarity sin datos'} sem={data.semaforos.CLARITY_RAGE} umbral={u('CLARITY_RAGE')} /></Col>
 
       <Col span={24}>
         <Card size="small" title="Visitas al sitio por mes" extra={<Text type="secondary" style={{ fontSize: 12 }}>Gris: histórico aproximado (AWStats, cuela bots) · Azul: GA4 exacto desde nov-2026</Text>}>
@@ -109,7 +110,7 @@ export default function SitioWeb({ periodo }) {
         </Card>
       </Col>
       <Col xs={24} lg={10}>
-        <Card size="small" title="Clarity: cómo se comporta la gente" extra={cl && <Text type="secondary" style={{ fontSize: 12 }}>foto del {dayjs(cl.ultimo.fecha).format('D MMM')}</Text>}>
+        <Card size="small" title="Clarity: cómo se comporta la gente" extra={cl && <Tooltip title="Clarity entrega solo los últimos 1-3 días, así que el CRM guarda una foto por día. Esta tarjeta muestra la última foto y no responde al selector de período."><Text type="secondary" style={{ fontSize: 12, cursor: 'help' }}>foto del {dayjs(cl.ultimo.fecha).format('D MMM')} · no usa el período <InfoCircleOutlined /></Text></Tooltip>}>
           {!cl ? <Empty description="Clarity aún no guardó ninguna foto diaria" /> : (
             <Row gutter={[8, 8]}>
               {[

@@ -9,7 +9,7 @@ import {
 } from 'antd'
 import {
   InfoCircleOutlined, SyncOutlined, CheckCircleFilled, ExclamationCircleFilled, CloseCircleFilled, MinusCircleOutlined,
-  LinkOutlined, DisconnectOutlined, FunnelPlotOutlined, BarChartOutlined, AlertOutlined, SettingOutlined, ArrowRightOutlined, EnvironmentOutlined, GlobalOutlined
+  LinkOutlined, DisconnectOutlined, FunnelPlotOutlined, BarChartOutlined, AlertOutlined, SettingOutlined, ArrowRightOutlined, EnvironmentOutlined, GlobalOutlined, FilePdfOutlined
 } from '@ant-design/icons'
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip as RTooltip, Legend, CartesianGrid, BarChart, Cell
@@ -47,6 +47,7 @@ const SEM = {
   verde:    { color: '#16a34a', bg: '#f0fdf4', label: 'Bien',  Icon: CheckCircleFilled },
   amarillo: { color: '#d97706', bg: '#fffbeb', label: 'Ojo',   Icon: ExclamationCircleFilled },
   rojo:     { color: '#dc2626', bg: '#fef2f2', label: 'Mal',   Icon: CloseCircleFilled },
+  muestra:  { color: '#64748b', bg: '#f8fafc', label: 'Muestra chica', Icon: MinusCircleOutlined },
   null:     { color: '#94a3b8', bg: '#f8fafc', label: 'Sin dato', Icon: MinusCircleOutlined },
 }
 
@@ -74,7 +75,7 @@ function Explica({ umbral, mediana }) {
         <div style={{ fontSize: 13, lineHeight: 1.55 }}>
           <div style={{ marginBottom: 8 }}><Text strong>¿Qué es?</Text><br />{umbral.queEs}</div>
           <div style={{ marginBottom: 8 }}><Text strong>¿Por qué importa?</Text><br />{umbral.porQueImporta}</div>
-          <div><Text strong>¿Cuánto está bien?</Text><br />{umbral.cuantoEstaBien}{unidad && <><br /><Text type="secondary">{unidad}</Text></>}</div>
+          <div><Text strong>¿Cuánto está bien?</Text><br />{umbral.cuantoEstaBien}{unidad && <><br /><Text type="secondary">{unidad}</Text></>}{umbral.minMuestra ? <><br /><Text type="secondary">Se evalúa recién con {umbral.minMuestra} o más casos; antes dice "Muestra chica".</Text></> : null}</div>
         </div>
       }
     >
@@ -448,6 +449,7 @@ function Configuracion({ data }) {
               { title: 'Menor es mejor', dataIndex: 'menorEsMejor', width: 120, render: (v, r) => <Switch size="small" checked={v} onChange={(c) => umbral.mutate({ id: r.id, menorEsMejor: c })} /> },
               { title: 'Verde hasta', dataIndex: 'verdeHasta', width: 130, render: (v, r) => <InputNumber size="small" value={v} step={r.unidad === '%' ? 0.5 : 0.1} onBlur={(e) => { const n = e.target.value === '' ? null : Number(e.target.value); if (n !== v) umbral.mutate({ id: r.id, verdeHasta: n }) }} style={{ width: 100 }} /> },
               { title: 'Amarillo hasta', dataIndex: 'amarilloHasta', width: 130, render: (v, r) => <InputNumber size="small" value={v} step={r.unidad === '%' ? 0.5 : 0.1} onBlur={(e) => { const n = e.target.value === '' ? null : Number(e.target.value); if (n !== v) umbral.mutate({ id: r.id, amarilloHasta: n }) }} style={{ width: 100 }} /> },
+              { title: <Tooltip title="Bajo esta cantidad (sesiones, leads, impresiones según el KPI) el semáforo dice 'Muestra chica' en vez de juzgar">Muestra mín.</Tooltip>, dataIndex: 'minMuestra', width: 110, render: (v, r) => <InputNumber size="small" value={v} min={0} onBlur={(e) => { const n = e.target.value === '' ? null : Number(e.target.value); if (n !== v) umbral.mutate({ id: r.id, minMuestra: n }) }} style={{ width: 90 }} /> },
               { title: 'Mediana 90 d', key: 'm', width: 110, render: (_, r) => r.unidad === 'x mediana' ? clp(data.medianas90d?.[r.clave]) : '' },
             ]}
           />
@@ -487,6 +489,18 @@ export default function Rrss() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const { message } = App.useApp()
+  const [abriendoInforme, setAbriendoInforme] = useState(false)
+  // El HTML viene por la API (con JWT) → se abre como blob en una pestaña nueva; desde ahí "Imprimir / guardar PDF"
+  const abrirInforme = async () => {
+    setAbriendoInforme(true)
+    try {
+      const r = await api.get('/rrss/informe.html', { params: periodo, responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([r.data], { type: 'text/html' }))
+      window.open(url, '_blank', 'noopener')
+    } catch { message.error('No se pudo generar el informe') } finally { setAbriendoInforme(false) }
+  }
+
   const presetActivo = PRESETS.find(p => p.dias ? rango[0].isSame(dayjs().subtract(p.dias - 1, 'day'), 'day') && rango[1].isSame(dayjs(), 'day') : rango[0].isSame(p.desde, 'day') && rango[1].isSame(dayjs(), 'day'))?.label
 
   return (
@@ -497,6 +511,9 @@ export default function Rrss() {
           <Text type="secondary" style={{ fontSize: 13 }}>Cuánto cuesta cada paso desde el anuncio hasta la venta. Pasa el mouse por el <InfoCircleOutlined /> de cada indicador para entenderlo.</Text>
         </div>
         <Space wrap>
+          <Tooltip title="Abre el informe completo del período en una pestaña nueva, listo para imprimir o guardar como PDF">
+            <Button icon={<FilePdfOutlined />} size="small" loading={abriendoInforme} onClick={abrirInforme}>Informe PDF</Button>
+          </Tooltip>
           <Segmented
             size="small" value={presetActivo}
             options={PRESETS.map(p => p.label)}

@@ -35,8 +35,10 @@ const mediana = (arr) => {
 
 // ── Semáforo ──────────────────────────────────────────────────────
 // Umbrales en "x mediana" se evalúan como valor / mediana(cuenta 90 días). Devuelve verde | amarillo | rojo | null.
-function semaforo(umbral, valor, med = null) {
+// `muestra` = tamaño de la base del KPI (sesiones, leads...); bajo umbral.minMuestra → 'muestra' (gris, "Muestra chica")
+function semaforo(umbral, valor, med = null, muestra = null) {
   if (!umbral || valor == null || umbral.verdeHasta == null || umbral.amarilloHasta == null) return null
+  if (umbral.minMuestra && muestra != null && muestra < umbral.minMuestra) return 'muestra'
   let v = valor
   if (umbral.unidad === 'x mediana') {
     if (!med) return null
@@ -329,22 +331,28 @@ const CAMPO_UMBRAL = {
   LEADS_PERDIDOS_ENTREGA: 'pctLeadsPerdidos', PCT_AUDIENCE_NETWORK: 'pctAudienceNetwork', PCT_LEADS_65: 'pctLeads65', ROAS: 'roas',
 }
 
+// Base (muestra) de cada KPI del informe de pauta/embudo
+const MUESTRA = {
+  CPL: 'leadsMeta', COSTO_COTIZACION: 'leadsCRM', COSTO_VISITA: 'leadsCRM', CAC: 'leadsCRM', CPM: 'impresiones', CTR_ENLACE: 'impresiones',
+  CONV_FORMULARIO: 'clicsEnlace', TASA_LEAD_COTIZACION: 'leadsCRM', TASA_COTIZACION_VISITA: 'cotizados', TIEMPO_PRIMER_CONTACTO: 'contactados',
+  LEADS_SIN_GESTION_48H: 'con48h', LEADS_PERDIDOS_ENTREGA: 'leadsMeta', PCT_AUDIENCE_NETWORK: 'impresiones', ROAS: 'leadsCRM',
+}
+
 function anotarSemaforos(obj, umbrales, med) {
   const s = {}
   for (const u of umbrales) {
     const campo = CAMPO_UMBRAL[u.clave]
     if (!campo) continue
-    s[u.clave] = semaforo(u, obj[campo], med[u.clave])
+    s[u.clave] = semaforo(u, obj[campo], med[u.clave], MUESTRA[u.clave] ? obj[MUESTRA[u.clave]] : null)
   }
   obj.semaforos = s
 }
 
-// GET /api/rrss/informe?desde&hasta
-const informe = async (req, res) => {
-  try {
-    const hastaIncl = dia(req.query.hasta, hoyUTC())
+// Datos del informe principal (pauta + embudo). Reutilizado por el endpoint y por el PDF.
+async function datosInforme(query = {}) {
+    const hastaIncl = dia(query.hasta, hoyUTC())
     const hasta = new Date(hastaIncl.getTime() + 86400000) // exclusivo
-    const desde = dia(req.query.desde, new Date(hastaIncl.getTime() - 29 * 86400000))
+    const desde = dia(query.desde, new Date(hastaIncl.getTime() - 29 * 86400000))
 
     const [inf, umbrales, med, ultimoSync] = await Promise.all([
       construirInforme(desde, hasta),
@@ -374,23 +382,26 @@ const informe = async (req, res) => {
     }
     Object.values(desgloses).forEach(a => a.sort((x, y) => y.gasto - x.gasto))
 
-    res.json({
+    return {
       periodo: { desde: iso(desde), hasta: iso(new Date(hasta.getTime() - 1)) },
       medianas90d: med, umbrales, ultimoSync: ultimoSync?.fin || null,
       metaConfigurada: meta.metaDisponible(),
       ...inf, serie, desgloses,
-    })
-  } catch (err) {
+    }
+}
+
+// GET /api/rrss/informe?desde&hasta
+const informe = async (req, res) => {
+  try { res.json(await datosInforme(req.query)) } catch (err) {
     console.error('[rrss] informe', err)
     res.status(500).json({ error: 'Error al construir el informe RRSS.' })
   }
 }
 
 // GET /api/rrss/leads-perdidos?desde&hasta — leads de Meta que no llegaron al CRM
-const leadsPerdidos = async (req, res) => {
-  try {
-    const hasta = new Date(dia(req.query.hasta, hoyUTC()).getTime() + 86400000)
-    const desde = dia(req.query.desde, new Date(hasta.getTime() - 90 * 86400000))
+async function datosLeadsPerdidos(query = {}) {
+    const hasta = new Date(dia(query.hasta, hoyUTC()).getTime() + 86400000)
+    const desde = dia(query.desde, new Date(hasta.getTime() - 90 * 86400000))
     const rows = await prisma.rrssMetaLead.findMany({
       where: { leadId: null, creadoMeta: { gte: desde, lt: hasta } }, orderBy: { creadoMeta: 'desc' },
       select: { metaLeadId: true, creadoMeta: true, nombre: true, email: true, telefono: true, campaignId: true, plataforma: true, formId: true },
@@ -405,8 +416,10 @@ const leadsPerdidos = async (req, res) => {
       else if (r.creadoMeta.getTime() > limite) enGracia.push(fila)
       else perdidos.push(fila)
     }
-    res.json({ perdidos, basura, enGracia, graciaHoras: GRACIA_MS / 3600000 })
-  } catch (err) {
+    return { perdidos, basura, enGracia, graciaHoras: GRACIA_MS / 3600000 }
+}
+const leadsPerdidos = async (req, res) => {
+  try { res.json(await datosLeadsPerdidos(req.query)) } catch (err) {
     console.error(err); res.status(500).json({ error: 'Error al listar leads perdidos.' })
   }
 }
@@ -414,11 +427,10 @@ const leadsPerdidos = async (req, res) => {
 // ── Mapa ──
 // GET /api/rrss/mapa-datos?desde&hasta → por región (código INE): gasto/impresiones/leads de Meta (breakdown region),
 // leads del CRM y ventas (por la región del edificio de la unidad de interés / vendida). 'Unknown' va aparte.
-const mapaDatos = async (req, res) => {
-  try {
-    const hastaIncl = dia(req.query.hasta, hoyUTC())
+async function datosMapa(query = {}) {
+    const hastaIncl = dia(query.hasta, hoyUTC())
     const hasta = new Date(hastaIncl.getTime() + 86400000)
-    const desde = dia(req.query.desde, new Date(hastaIncl.getTime() - 29 * 86400000))
+    const desde = dia(query.desde, new Date(hastaIncl.getTime() - 29 * 86400000))
     const regiones = Object.fromEntries(REGIONES.map(r => [r.codigo, { codigo: r.codigo, nombre: r.nombre, gasto: 0, impresiones: 0, clics: 0, leadsMeta: 0, leadsCRM: 0, cotizados: 0, ventas: 0, ufVendidas: 0 }]))
     const sinRegion = { gasto: 0, impresiones: 0, leadsMeta: 0, leadsCRM: 0 }
 
@@ -471,8 +483,10 @@ const mapaDatos = async (req, res) => {
     for (const r of Object.values(regiones)) r.cpl = r.leadsMeta ? Math.round(r.gasto / r.leadsMeta) : null
     // Meta agrupa Ñuble dentro de "Bío Bío" (catálogo anterior a 2018)
     const nota = regiones['16'].gasto === 0 && regiones['08'].gasto > 0 ? 'Meta reporta Ñuble dentro de Biobío.' : null
-    res.json({ periodo: { desde: iso(desde), hasta: iso(hastaIncl) }, regiones: Object.values(regiones), sinRegion, nota })
-  } catch (err) {
+    return { periodo: { desde: iso(desde), hasta: iso(hastaIncl) }, regiones: Object.values(regiones), sinRegion, nota }
+}
+const mapaDatos = async (req, res) => {
+  try { res.json(await datosMapa(req.query)) } catch (err) {
     console.error('[rrss] mapa-datos', err); res.status(500).json({ error: 'Error al construir los datos del mapa.' })
   }
 }
@@ -545,11 +559,10 @@ const segmentacion = async (_req, res) => {
 const EVENTOS_CLAVE = ['generate_lead', 'form_start', 'click_cotizar', 'click_telefono', 'click_whatsapp', 'click_email', 'usa_simulador', 'video_play', 'share']
 
 // GET /api/rrss/web?desde&hasta
-const web = async (req, res) => {
-  try {
-    const hastaIncl = dia(req.query.hasta, hoyUTC())
+async function datosWeb(query = {}) {
+    const hastaIncl = dia(query.hasta, hoyUTC())
     const hasta = new Date(hastaIncl.getTime() + 86400000)
-    const desde = dia(req.query.desde, new Date(hastaIncl.getTime() - 29 * 86400000))
+    const desde = dia(query.desde, new Date(hastaIncl.getTime() - 29 * 86400000))
     const rango = { fecha: { gte: desde, lt: hasta } }
 
     const [filas, umbrales, historico, clarityUltimo] = await Promise.all([
@@ -631,17 +644,31 @@ const web = async (req, res) => {
 
     const sem = {}
     for (const u of umbrales) {
-      if (u.clave === 'WEB_CONVERSION') sem[u.clave] = semaforo(u, t.webConversion)
-      if (u.clave === 'WEB_ABANDONO_FORM') sem[u.clave] = semaforo(u, t.abandonoForm)
-      if (u.clave === 'CLARITY_RAGE') sem[u.clave] = semaforo(u, clarityDatos?.ultimo?.rageClicksPct ?? null)
+      if (u.clave === 'WEB_CONVERSION') sem[u.clave] = semaforo(u, t.webConversion, null, t.sesiones)
+      if (u.clave === 'WEB_ABANDONO_FORM') sem[u.clave] = semaforo(u, t.abandonoForm, null, ev.form_start || 0)
+      if (u.clave === 'CLARITY_RAGE') sem[u.clave] = semaforo(u, clarityDatos?.ultimo?.rageClicksPct ?? null, null, clarityDatos?.ultimo?.sesiones ?? 0)
     }
-    res.json({
+    return {
       periodo: { desde: iso(desde), hasta: iso(hastaIncl) }, umbrales, semaforos: sem,
       ga4: ga4Datos, ga4Configurado: ga4.ga4Disponible(), clarity: clarityDatos, clarityConfigurado: clarity.clarityDisponible(),
       historico: hist, hitos,
-    })
-  } catch (err) {
+    }
+}
+const web = async (req, res) => {
+  try { res.json(await datosWeb(req.query)) } catch (err) {
     console.error('[rrss] web', err); res.status(500).json({ error: 'Error al construir el informe del sitio web.' })
+  }
+}
+
+// GET /api/rrss/informe.html?desde&hasta → informe completo en HTML listo para imprimir / guardar como PDF
+const informeHtml = async (req, res) => {
+  try {
+    const { generarInformeHtml } = require('../lib/rrssInforme')
+    const html = await generarInformeHtml(req.query)
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(html)
+  } catch (err) {
+    console.error('[rrss] informe.html', err); res.status(500).json({ error: 'Error al generar el informe.' })
   }
 }
 
@@ -654,7 +681,7 @@ const sincronizarWeb = async (_req, res) => {
 const listarUmbrales = async (_req, res) => res.json(await prisma.rrssUmbral.findMany({ orderBy: { orden: 'asc' } }))
 
 const actualizarUmbral = async (req, res) => {
-  const { verdeHasta, amarilloHasta, menorEsMejor, queEs, porQueImporta, cuantoEstaBien, nombre } = req.body
+  const { verdeHasta, amarilloHasta, menorEsMejor, queEs, porQueImporta, cuantoEstaBien, nombre, minMuestra } = req.body
   try {
     const u = await prisma.rrssUmbral.update({
       where: { id: Number(req.params.id) },
@@ -662,6 +689,7 @@ const actualizarUmbral = async (req, res) => {
         ...(verdeHasta !== undefined && { verdeHasta: verdeHasta === null ? null : Number(verdeHasta) }),
         ...(amarilloHasta !== undefined && { amarilloHasta: amarilloHasta === null ? null : Number(amarilloHasta) }),
         ...(menorEsMejor !== undefined && { menorEsMejor: !!menorEsMejor }),
+        ...(minMuestra !== undefined && { minMuestra: minMuestra === null || minMuestra === '' ? null : Number(minMuestra) }),
         ...(nombre && { nombre }), ...(queEs && { queEs }), ...(porQueImporta && { porQueImporta }), ...(cuantoEstaBien && { cuantoEstaBien }),
       },
     })
@@ -696,4 +724,5 @@ const sincronizar = async (req, res) => {
   } catch (err) { res.status(500).json({ error: `Falló la sincronización: ${err.message}` }) }
 }
 
-module.exports = { informe, leadsPerdidos, mapaDatos, segmentacion, web, sincronizarWeb, listarUmbrales, actualizarUmbral, listarMapa, actualizarMapa, listarSyncLog, sincronizar, semaforo, mediana }
+module.exports = { informe, leadsPerdidos, mapaDatos, segmentacion, web, sincronizarWeb, informeHtml,
+  datosInforme, datosLeadsPerdidos, datosMapa, datosWeb, obtenerSegmentacion, estadoCampana, listarUmbrales, actualizarUmbral, listarMapa, actualizarMapa, listarSyncLog, sincronizar, semaforo, mediana }
