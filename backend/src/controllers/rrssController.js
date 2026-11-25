@@ -5,6 +5,8 @@ const prisma = require('../lib/prisma')
 const { Prisma } = require('@prisma/client')
 const { rrssSyncMeta } = require('../jobs/rrssSync')
 const meta = require('../lib/meta')
+const { esLeadBasura, GRACIA_MS } = require('../lib/rrss')
+const { normalizarRegion, REGIONES } = require('../lib/regiones')
 
 // Fechas del período en UTC puro (rrss_meta_diario.fecha es DATE; Prisma lo entrega como medianoche UTC)
 const dia = (s, def) => {
@@ -169,11 +171,39 @@ async function frecuenciaReciente(dias) {
   return Object.fromEntries(Object.entries(acc).map(([k, a]) => [k, a.w ? Math.round((a.s / a.w) * 100) / 100 : null]))
 }
 
+// Leads de Meta sin lead en el CRM, descontando los de las últimas 2 h (gracia) y los de relleno (basura)
 async function leadsPerdidosPorCampana(desde, hasta) {
-  const filas = await prisma.rrssMetaLead.groupBy({
-    by: ['campaignId'], where: { leadId: null, creadoMeta: { gte: desde, lt: hasta } }, _count: { _all: true },
+  const limite = new Date(Math.min(hasta.getTime(), Date.now() - GRACIA_MS))
+  const filas = await prisma.rrssMetaLead.findMany({
+    where: { leadId: null, creadoMeta: { gte: desde, lt: limite } }, select: { campaignId: true, nombre: true, telefono: true },
   })
-  return Object.fromEntries(filas.map(f => [f.campaignId, f._count._all]))
+  const out = {}
+  for (const f of filas) { if (!esLeadBasura(f)) out[f.campaignId] = (out[f.campaignId] || 0) + 1 }
+  return out
+}
+
+// Alcance y frecuencia reales del período desde Meta (1 llamada por nivel), cacheadas 1 h por período
+const cacheAlcance = new Map()
+async function alcanceReal(since, until) {
+  const k = `${since}|${until}`
+  const hit = cacheAlcance.get(k)
+  if (hit && hit.t > Date.now() - 3600000) return hit.v
+  if (!meta.metaDisponible()) return { cuenta: null, campanas: {} }
+  try {
+    const [cuenta, camp] = await Promise.all([
+      meta.insightsPeriodo({ level: 'account', since, until }),
+      meta.insightsPeriodo({ level: 'campaign', since, until }),
+    ])
+    const v = {
+      cuenta: cuenta[0] ? { alcance: n(cuenta[0].reach), frecuencia: n(cuenta[0].frequency) } : null,
+      campanas: Object.fromEntries(camp.map(c => [c.campaign_id, { alcance: n(c.reach), frecuencia: n(c.frequency) }])),
+    }
+    cacheAlcance.set(k, { t: Date.now(), v })
+    return v
+  } catch (err) {
+    console.error('[rrss] alcance real', err.message)
+    return { cuenta: null, campanas: {} }
+  }
 }
 
 async function ufHoy() {
@@ -183,10 +213,11 @@ async function ufHoy() {
 
 // Construye el informe (totales + por campaña) para un período
 async function construirInforme(desde, hasta) {
-  const [mapa, metaC, desg, perdidos, uf, f7, f30] = await Promise.all([
+  const [mapa, metaC, desg, perdidos, uf, f7, f30, alc] = await Promise.all([
     prisma.rrssCampanaMapa.findMany({ include: { campanaRef: { select: { id: true, nombre: true, esWebinar: true } } } }),
     metaPorCampana(desde, hasta), desglosesPorCampana(desde, hasta), leadsPerdidosPorCampana(desde, hasta),
     ufHoy(), frecuenciaReciente(7), frecuenciaReciente(30),
+    alcanceReal(iso(desde), iso(new Date(hasta.getTime() - 1))),
   ])
   const campanaIds = [...new Set(mapa.map(m => m.campanaId).filter(Boolean))]
   const crm = await embudoCRM(campanaIds, desde, hasta)
@@ -202,7 +233,10 @@ async function construirInforme(desde, hasta) {
       campanaMetaId: m.campanaMetaId, nombreMeta: m.nombreMeta, estadoMeta: m.estadoMeta, objetivo: m.objetivo,
       campanaId: m.campanaId, nombreCRM: m.campanaRef?.nombre || null, vinculoManual: m.vinculoManual,
       inicioMeta: m.inicioMeta, finMeta: m.finMeta,
-      gasto: g, impresiones: mc?.impresiones || 0, alcanceAprox: mc?.alcanceAprox || 0, clics: mc?.clics || 0,
+      gasto: g, impresiones: mc?.impresiones || 0, clics: mc?.clics || 0,
+      alcance: alc.campanas[m.campanaMetaId]?.alcance ?? null, // real (deduplicado por Meta); null si no hay token
+      frecuenciaPeriodo: alc.campanas[m.campanaMetaId]?.frecuencia ?? null,
+      alcanceAprox: mc?.alcanceAprox || 0, // suma de alcance diario (sobreestima), solo de respaldo
       clicsEnlace: mc?.clicsEnlace || 0, leadsMeta: mc?.leadsMeta || 0,
       cpm: mc?.cpm ?? null, ctrEnlace: mc?.ctrEnlace ?? null, convFormulario: mc?.convFormulario ?? null, cpl: mc?.cpl ?? null,
       frecuencia7d: f7[m.campanaMetaId] ?? null, frecuencia30d: f30[m.campanaMetaId] ?? null,
@@ -225,7 +259,7 @@ async function construirInforme(desde, hasta) {
     fila.pctLeadsPerdidos = pct(fila.leadsPerdidosEntrega, fila.leadsMeta)
     fila.horasPrimerContactoMediana = mediana(fila.horasContacto)
     fila.pesosVendidos = uf ? Math.round(fila.ufVendidas * uf) : null
-    fila.roas = m.campanaId && uf && g ? Math.round((fila.ufVendidas * uf / g) * 10) / 10 : null
+    fila.roas = m.campanaId && uf && g && fila.ventas ? Math.round((fila.ufVendidas * uf / g) * 10) / 10 : null // sin ventas → sin dato, no "Mal"
     delete fila.horasContacto
     fila._horas = c?.horasContacto || []
     campanas.push(fila)
@@ -258,7 +292,9 @@ async function construirInforme(desde, hasta) {
   t.pctAudienceNetwork = t.gasto ? Math.round((gastoAN / t.gasto) * 1000) / 10 : null
   t.ufValor = uf
   t.pesosVendidos = uf ? Math.round(t.ufVendidas * uf) : null
-  t.roas = uf && t.gasto ? Math.round((t.ufVendidas * uf / t.gasto) * 10) / 10 : null
+  t.roas = uf && t.gasto && t.ventas ? Math.round((t.ufVendidas * uf / t.gasto) * 10) / 10 : null
+  t.alcance = alc.cuenta?.alcance ?? null
+  t.frecuenciaPeriodo = alc.cuenta?.frecuencia ?? null
   campanas.forEach(c => delete c._horas)
   return { totales: t, campanas }
 }
@@ -352,9 +388,145 @@ const leadsPerdidos = async (req, res) => {
     })
     const mapa = await prisma.rrssCampanaMapa.findMany({ select: { campanaMetaId: true, nombreMeta: true } })
     const nombre = Object.fromEntries(mapa.map(m => [m.campanaMetaId, m.nombreMeta]))
-    res.json(rows.map(r => ({ ...r, campana: nombre[r.campaignId] || r.campaignId })))
+    const limite = Date.now() - GRACIA_MS
+    const perdidos = [], basura = [], enGracia = []
+    for (const r of rows) {
+      const fila = { ...r, campana: nombre[r.campaignId] || r.campaignId }
+      if (esLeadBasura(r)) basura.push(fila)
+      else if (r.creadoMeta.getTime() > limite) enGracia.push(fila)
+      else perdidos.push(fila)
+    }
+    res.json({ perdidos, basura, enGracia, graciaHoras: GRACIA_MS / 3600000 })
   } catch (err) {
     console.error(err); res.status(500).json({ error: 'Error al listar leads perdidos.' })
+  }
+}
+
+// ── Mapa ──
+// GET /api/rrss/mapa-datos?desde&hasta → por región (código INE): gasto/impresiones/leads de Meta (breakdown region),
+// leads del CRM y ventas (por la región del edificio de la unidad de interés / vendida). 'Unknown' va aparte.
+const mapaDatos = async (req, res) => {
+  try {
+    const hastaIncl = dia(req.query.hasta, hoyUTC())
+    const hasta = new Date(hastaIncl.getTime() + 86400000)
+    const desde = dia(req.query.desde, new Date(hastaIncl.getTime() - 29 * 86400000))
+    const regiones = Object.fromEntries(REGIONES.map(r => [r.codigo, { codigo: r.codigo, nombre: r.nombre, gasto: 0, impresiones: 0, clics: 0, leadsMeta: 0, leadsCRM: 0, cotizados: 0, ventas: 0, ufVendidas: 0 }]))
+    const sinRegion = { gasto: 0, impresiones: 0, leadsMeta: 0, leadsCRM: 0 }
+
+    const meta = await prisma.rrssMetaDesglose.groupBy({
+      by: ['clave'], where: { tipo: 'REGION', fecha: { gte: desde, lt: hasta } },
+      _sum: { gasto: true, impresiones: true, clics: true, leads: true },
+    })
+    for (const m of meta) {
+      const r = normalizarRegion(m.clave)
+      const dest = r ? regiones[r.codigo] : sinRegion
+      dest.gasto += n(m._sum.gasto); dest.impresiones += n(m._sum.impresiones); dest.leadsMeta += n(m._sum.leads)
+      if (r) dest.clics += n(m._sum.clics)
+    }
+
+    // Leads del CRM de campañas vinculadas, ubicados por la región del edificio de interés
+    // La mayoría de los leads de Meta llegan sin unidad de interés → se ubican por la región a la que apunta
+    // la segmentación de su campaña (Temuco → Araucanía, Santiago → RM...). Si tienen edificio, manda el edificio.
+    const mapa = await prisma.rrssCampanaMapa.findMany({ where: { campanaId: { not: null } }, select: { campanaId: true, campanaMetaId: true } })
+    const campanaIds = [...new Set(mapa.map(m => m.campanaId))]
+    const regMeta = await regionPorCampanaMeta().catch(() => ({}))
+    const regionDeCampanaCRM = {}
+    for (const m of mapa) if (regMeta[m.campanaMetaId]) regionDeCampanaCRM[m.campanaId] = regMeta[m.campanaMetaId]
+    const ubicar = (regionEdificio, campanaId) => normalizarRegion(regionEdificio)?.codigo || regionDeCampanaCRM[campanaId] || null
+
+    if (campanaIds.length) {
+      const filas = await prisma.$queryRaw`
+        SELECT l."campanaId", e.region, COUNT(*)::int AS leads,
+          COUNT(DISTINCT c."leadId")::int AS cotizados
+        FROM leads l
+        LEFT JOIN unidades u ON u.id = l."unidadInteresId"
+        LEFT JOIN edificios e ON e.id = u."edificioId"
+        LEFT JOIN cotizaciones c ON c."leadId" = l.id
+        WHERE l."campanaId" IN (${Prisma.join(campanaIds)}) AND l."creadoEn" >= ${desde} AND l."creadoEn" < ${hasta}
+        GROUP BY l."campanaId", e.region`
+      for (const f of filas) {
+        const cod = ubicar(f.region, f.campanaId)
+        if (cod) { regiones[cod].leadsCRM += f.leads; regiones[cod].cotizados += f.cotizados } else sinRegion.leadsCRM += f.leads
+      }
+      const ventas = await prisma.$queryRaw`
+        SELECT l."campanaId", e.region, COUNT(DISTINCT v.id)::int AS ventas, COALESCE(SUM(u."precioVentaUF"), 0) AS uf
+        FROM ventas v JOIN leads l ON l.id = v."leadId"
+        JOIN unidades u ON u."ventaId" = v.id JOIN edificios e ON e.id = u."edificioId"
+        WHERE v.estado <> 'ANULADO' AND l."campanaId" IN (${Prisma.join(campanaIds)}) AND l."creadoEn" >= ${desde} AND l."creadoEn" < ${hasta}
+        GROUP BY l."campanaId", e.region`
+      for (const f of ventas) {
+        const cod = ubicar(f.region, f.campanaId)
+        if (cod) { regiones[cod].ventas += f.ventas; regiones[cod].ufVendidas += Number(f.uf) }
+      }
+    }
+    for (const r of Object.values(regiones)) r.cpl = r.leadsMeta ? Math.round(r.gasto / r.leadsMeta) : null
+    // Meta agrupa Ñuble dentro de "Bío Bío" (catálogo anterior a 2018)
+    const nota = regiones['16'].gasto === 0 && regiones['08'].gasto > 0 ? 'Meta reporta Ñuble dentro de Biobío.' : null
+    res.json({ periodo: { desde: iso(desde), hasta: iso(hastaIncl) }, regiones: Object.values(regiones), sinRegion, nota })
+  } catch (err) {
+    console.error('[rrss] mapa-datos', err); res.status(500).json({ error: 'Error al construir los datos del mapa.' })
+  }
+}
+
+// Coordenadas de las ciudades que usa la segmentación (Meta no entrega lat/lng de ciudades, solo nombre + radio)
+const CIUDADES = {
+  'Santiago': [-33.4489, -70.6693], 'Temuco': [-38.7359, -72.5904], 'Concepción': [-36.8270, -73.0503],
+  'San Pedro de La Paz': [-36.8406, -73.1032], 'Talca': [-35.4264, -71.6554], 'Valdivia': [-39.8142, -73.2459],
+  'Villarrica': [-39.2857, -72.2279], 'Viña del Mar': [-33.0153, -71.5500], 'Valparaíso': [-33.0472, -71.6127],
+  'Rancagua': [-34.1708, -70.7444], 'Chillán': [-36.6066, -72.1034], 'Puerto Montt': [-41.4693, -72.9424],
+  'La Serena': [-29.9027, -71.2519], 'Antofagasta': [-23.6509, -70.3975], 'Iquique': [-20.2208, -70.1431],
+}
+
+// GET /api/rrss/segmentacion → círculos (ciudad + radio / ubicación personalizada) y regiones de cada conjunto, con su campaña
+const cacheSeg = { t: 0, v: null }
+async function obtenerSegmentacion() {
+  if (!meta.metaDisponible()) return []
+  if (!cacheSeg.v || cacheSeg.t < Date.now() - 3600000) {
+      const [conjuntos, mapa] = await Promise.all([meta.conjuntos(), prisma.rrssCampanaMapa.findMany({ select: { campanaMetaId: true, nombreMeta: true, estadoMeta: true } })])
+      const nombreC = Object.fromEntries(mapa.map(m => [m.campanaMetaId, m]))
+      cacheSeg.v = conjuntos.map(a => {
+        const g = a.targeting?.geo_locations || {}
+        const circulos = [
+          ...(g.custom_locations || []).map(c => ({ lat: c.latitude, lng: c.longitude, radioKm: c.distance_unit === 'mile' ? c.radius * 1.609 : c.radius, nombre: c.name || c.address_string || 'Ubicación personalizada', regionCodigo: normalizarRegion(c.region)?.codigo || null })),
+          ...(g.cities || []).filter(c => CIUDADES[c.name]).map(c => ({ lat: CIUDADES[c.name][0], lng: CIUDADES[c.name][1], radioKm: c.distance_unit === 'mile' ? c.radius * 1.609 : (c.radius || 0), nombre: c.name, regionCodigo: normalizarRegion(c.region)?.codigo || null })),
+        ]
+        const regionesCod = [...(g.regions || []).map(r => normalizarRegion(r.name)?.codigo), ...circulos.map(c => c.regionCodigo)].filter(Boolean)
+        return {
+          id: a.id, nombre: a.name, estado: a.status, campanaMetaId: a.campaign_id,
+          campana: nombreC[a.campaign_id]?.nombreMeta || a.campaign_id, campanaActiva: nombreC[a.campaign_id]?.estadoMeta === 'ACTIVE',
+          edadMin: a.targeting?.age_min ?? null, edadMax: a.targeting?.age_max ?? null,
+          generos: a.targeting?.genders || null, // [1]=hombres [2]=mujeres, null=todos
+          intereses: (a.targeting?.flexible_spec || []).flatMap(f => (f.interests || []).map(i => i.name)).slice(0, 12),
+          advantagePlus: !!a.targeting?.targeting_automation?.advantage_audience,
+          ubicacionTipo: g.location_types || null,
+          circulos, regiones: (g.regions || []).map(r => r.name), regionesCodigo: [...new Set(regionesCod)],
+          ciudadesSinCoord: (g.cities || []).filter(c => !CIUDADES[c.name]).map(c => c.name),
+          inicio: a.start_time || null, fin: a.end_time || null,
+        }
+      })
+      cacheSeg.t = Date.now()
+  }
+  return cacheSeg.v
+}
+
+// Región (código INE) a la que apunta cada campaña de Meta = la más frecuente entre sus conjuntos
+async function regionPorCampanaMeta() {
+  const conj = await obtenerSegmentacion()
+  const votos = {}
+  // cada ciudad/ubicación vota (Temuco + Villarrica + Valdivia → gana Araucanía); las regiones explícitas valen 2
+  for (const c of conj) {
+    const v = votos[c.campanaMetaId] ||= {}
+    for (const x of c.circulos) if (x.regionCodigo) v[x.regionCodigo] = (v[x.regionCodigo] || 0) + 1
+    for (const r of c.regiones) { const cod = normalizarRegion(r)?.codigo; if (cod) v[cod] = (v[cod] || 0) + 2 }
+  }
+  return Object.fromEntries(Object.entries(votos).filter(([, v]) => Object.keys(v).length).map(([k, v]) => [k, Object.entries(v).sort((a, b) => b[1] - a[1])[0][0]]))
+}
+
+const segmentacion = async (_req, res) => {
+  try {
+    res.json({ conjuntos: await obtenerSegmentacion(), metaConfigurada: meta.metaDisponible() })
+  } catch (err) {
+    console.error('[rrss] segmentacion', err); res.status(500).json({ error: 'Error al leer la segmentación desde Meta.' })
   }
 }
 
@@ -404,4 +576,4 @@ const sincronizar = async (req, res) => {
   } catch (err) { res.status(500).json({ error: `Falló la sincronización: ${err.message}` }) }
 }
 
-module.exports = { informe, leadsPerdidos, listarUmbrales, actualizarUmbral, listarMapa, actualizarMapa, listarSyncLog, sincronizar, semaforo, mediana }
+module.exports = { informe, leadsPerdidos, mapaDatos, segmentacion, listarUmbrales, actualizarUmbral, listarMapa, actualizarMapa, listarSyncLog, sincronizar, semaforo, mediana }

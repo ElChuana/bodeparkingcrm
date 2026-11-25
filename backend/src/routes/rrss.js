@@ -8,6 +8,8 @@ router.use(autorizar('GERENTE', 'JEFE_VENTAS'))
 
 router.get('/informe',        c.informe)
 router.get('/leads-perdidos', c.leadsPerdidos)
+router.get('/mapa-datos',     c.mapaDatos)
+router.get('/segmentacion',   c.segmentacion)
 router.get('/umbrales',       c.listarUmbrales)
 router.put('/umbrales/:id',   autorizar('GERENTE'), c.actualizarUmbral)
 router.get('/mapa',           c.listarMapa)

@@ -88,6 +88,16 @@ async function insights({ level, since, until, breakdowns = null, conRanking = f
   })
 }
 
+// Alcance y frecuencia REALES del período (deduplicados por Meta): sin time_increment. level: account | campaign.
+async function insightsPeriodo({ level, since, until }) {
+  return getTodo(`${BASE}/${config().adAccountId}/insights`, {
+    level,
+    fields: ['reach', 'frequency', 'impressions', ...(level === 'campaign' ? ['campaign_id'] : [])].join(','),
+    time_range: JSON.stringify({ since, until }),
+    limit: 500,
+  })
+}
+
 // Leads del formulario instantáneo de un anuncio (permiso leads_retrieval). `since` opcional (Date o ISO).
 async function leadsDeAnuncio(adId, since = null) {
   const params = {
@@ -110,4 +120,4 @@ function leadsDeAcciones(actions) {
   return a ? Number(a.value) || 0 : 0
 }
 
-module.exports = { config, metaDisponible, campanas, conjuntos, anuncios, insights, leadsDeAnuncio, leadsDeAcciones }
+module.exports = { config, metaDisponible, campanas, conjuntos, anuncios, insights, insightsPeriodo, leadsDeAnuncio, leadsDeAcciones }

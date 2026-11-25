@@ -114,4 +114,23 @@ async function cruzarLeadsMeta({ soloSinCruce = true } = {}) {
   return res
 }
 
-module.exports = { normalizarFieldData, extraerMetaIdDeNotas, limpiarPrefijoConector, ultimos8, buscarLeadCRM, cruzarLeadsMeta }
+// Teléfono chileno plausible: 9 dígitos que parten con 9, o 11 con 569 (E.164 sin el +)
+const esTelefonoChileno = (tel) => {
+  const d = String(tel || '').replace(/\D/g, '')
+  return /^9\d{8}$/.test(d) || /^569\d{8}$/.test(d)
+}
+// Nombre de relleno: 4+ letras iguales seguidas, sin vocales, o muy corto
+const esNombreBasura = (nombre) => {
+  const n = String(nombre || '').trim().toLowerCase()
+  if (n.length < 3) return true
+  if (/(.)\1{3,}/.test(n)) return true
+  if (!/[aeiouáéíóú]/.test(n)) return true
+  return false
+}
+// Un lead de Meta sin cruce es "basura" si el teléfono no es chileno válido o el nombre es de relleno
+const esLeadBasura = (ml) => !esTelefonoChileno(ml.telefono) || esNombreBasura(ml.nombre)
+
+// Período de gracia: el conector tarda minutos en entregar; un lead de las últimas 2 h todavía no es "perdido"
+const GRACIA_MS = 2 * 60 * 60 * 1000
+
+module.exports = { esTelefonoChileno, esNombreBasura, esLeadBasura, GRACIA_MS, normalizarFieldData, extraerMetaIdDeNotas, limpiarPrefijoConector, ultimos8, buscarLeadCRM, cruzarLeadsMeta }

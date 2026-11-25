@@ -9,7 +9,7 @@ import {
 } from 'antd'
 import {
   InfoCircleOutlined, SyncOutlined, CheckCircleFilled, ExclamationCircleFilled, CloseCircleFilled, MinusCircleOutlined,
-  LinkOutlined, DisconnectOutlined, FunnelPlotOutlined, BarChartOutlined, AlertOutlined, SettingOutlined, ArrowRightOutlined
+  LinkOutlined, DisconnectOutlined, FunnelPlotOutlined, BarChartOutlined, AlertOutlined, SettingOutlined, ArrowRightOutlined, EnvironmentOutlined
 } from '@ant-design/icons'
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip as RTooltip, Legend, CartesianGrid, BarChart, Cell
@@ -18,6 +18,7 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/es'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import MapaRrss from './MapaRrss'
 
 dayjs.locale('es')
 
@@ -187,7 +188,7 @@ function TablaCampanas({ data }) {
   ]
   return (
     <Table
-      size="small" rowKey="campanaMetaId" dataSource={data.campanas} columns={columns} pagination={false} scroll={{ x: 1500 }}
+      size="small" rowKey="campanaMetaId" dataSource={data.campanas} columns={columns} pagination={false} scroll={{ x: 'max-content' }}
       expandable={{ expandedRowRender: (r) => <DetalleCampana r={r} data={data} /> }}
       locale={{ emptyText: <Empty description="Sin campañas con datos en este período" /> }}
     />
@@ -197,6 +198,7 @@ function TablaCampanas({ data }) {
 function DetalleCampana({ r, data }) {
   const items = [
     ['CPM', r.cpm, clp], ['CTR_ENLACE', r.ctrEnlace, pctF], ['CONV_FORMULARIO', r.convFormulario, pctF],
+    ['ALCANCE', r.alcance, num], ['FRECUENCIA_PERIODO', r.frecuenciaPeriodo, (v) => num(v, 2)],
     ['FRECUENCIA_7D', r.frecuencia7d, (v) => num(v, 2)], ['FRECUENCIA_30D', r.frecuencia30d, (v) => num(v, 2)],
     ['PCT_AUDIENCE_NETWORK', r.pctAudienceNetwork, pctF], ['PCT_LEADS_65', r.pctLeads65, pctF],
     ['TASA_COTIZACION_VISITA', r.tasaCotizacionVisita, pctF], ['COSTO_VISITA', r.costoVisita, clp], ['ROAS', r.roas, (v) => v == null ? '—' : `${num(v, 1)}×`],
@@ -204,7 +206,8 @@ function DetalleCampana({ r, data }) {
   return (
     <Row gutter={[10, 10]}>
       {items.map(([clave, v, fmt]) => {
-        const u = data.umbrales.find(x => x.clave === clave)
+        const EXTRA = { ALCANCE: 'Alcance (personas distintas)', FRECUENCIA_PERIODO: 'Frecuencia del período' }
+        const u = data.umbrales.find(x => x.clave === clave) || (EXTRA[clave] ? { nombre: EXTRA[clave] } : null)
         return (
           <Col key={clave} xs={12} sm={8} md={6} lg={4}>
             <div style={{ background: '#fff', border: '1px solid #eef2f7', borderRadius: 8, padding: '8px 10px' }}>
@@ -213,7 +216,7 @@ function DetalleCampana({ r, data }) {
                 <Explica umbral={u} mediana={data.medianas90d?.[clave]} />
               </div>
               <div style={{ fontSize: 17, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmt(v)}</div>
-              <Semaforo valor={r.semaforos[clave]} />
+              {r.semaforos[clave] !== undefined ? <Semaforo valor={r.semaforos[clave]} /> : <Text type="secondary" style={{ fontSize: 11 }}>{clave === 'ALCANCE' ? 'dato real de Meta' : 'impresiones ÷ alcance'}</Text>}
             </div>
           </Col>
         )
@@ -323,10 +326,19 @@ function PautaMeta({ data }) {
 
 // ── Pestaña Salud de leads ────────────────────────────────────────
 function SaludLeads({ data, periodo }) {
-  const { data: perdidos = [], isLoading } = useQuery({
+  const { data: lp, isLoading } = useQuery({
     queryKey: ['rrss-perdidos', periodo],
     queryFn: () => api.get('/rrss/leads-perdidos', { params: periodo }).then(r => r.data),
   })
+  const perdidos = lp?.perdidos || [], basura = lp?.basura || [], enGracia = lp?.enGracia || []
+  const colsLead = [
+    { title: 'Fecha', dataIndex: 'creadoMeta', render: (v) => dayjs(v).format('D MMM YYYY HH:mm') },
+    { title: 'Nombre', dataIndex: 'nombre' },
+    { title: 'Teléfono', dataIndex: 'telefono' },
+    { title: 'Email', dataIndex: 'email' },
+    { title: 'Campaña', dataIndex: 'campana' },
+    { title: 'Plataforma', dataIndex: 'plataforma', render: (v) => v === 'ig' ? 'Instagram' : v === 'fb' ? 'Facebook' : v || '—' },
+  ]
   const t = data.totales
   const u = (k) => data.umbrales.find(x => x.clave === k)
   return (
@@ -341,18 +353,26 @@ function SaludLeads({ data, periodo }) {
           </Paragraph>
           <Table
             size="small" rowKey="metaLeadId" loading={isLoading} dataSource={perdidos} pagination={{ pageSize: 10, hideOnSinglePage: true }}
-            columns={[
-              { title: 'Fecha', dataIndex: 'creadoMeta', render: (v) => dayjs(v).format('D MMM YYYY HH:mm') },
-              { title: 'Nombre', dataIndex: 'nombre' },
-              { title: 'Teléfono', dataIndex: 'telefono' },
-              { title: 'Email', dataIndex: 'email' },
-              { title: 'Campaña', dataIndex: 'campana' },
-              { title: 'Plataforma', dataIndex: 'plataforma', render: (v) => v === 'ig' ? 'Instagram' : v === 'fb' ? 'Facebook' : v || '—' },
-            ]}
+            columns={colsLead}
             locale={{ emptyText: <Empty description="Todos los leads de Meta del período están en el CRM" /> }}
           />
+          {enGracia.length > 0 && (
+            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
+              {enGracia.length} {enGracia.length === 1 ? 'lead llegó' : 'leads llegaron'} a Meta en las últimas {lp.graciaHoras} h y todavía {enGracia.length === 1 ? 'no cuenta' : 'no cuentan'} como perdido{enGracia.length === 1 ? '' : 's'} (el conector tarda unos minutos en entregarlos).
+            </Text>
+          )}
         </Card>
       </Col>
+      {basura.length > 0 && (
+        <Col span={24}>
+          <Card size="small" title="Leads de relleno (no cuentan como perdidos)">
+            <Paragraph type="secondary" style={{ fontSize: 12.5, marginBottom: 10 }}>
+              Formularios con teléfono inválido o nombre inventado. Se pagaron igual: si son muchos, pedir a la agencia que active la verificación del formulario.
+            </Paragraph>
+            <Table size="small" rowKey="metaLeadId" dataSource={basura} pagination={{ pageSize: 5, hideOnSinglePage: true }} columns={colsLead} />
+          </Card>
+        </Col>
+      )}
     </Row>
   )
 }
@@ -483,9 +503,9 @@ export default function Rrss() {
       </div>
 
       {isLoading && <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>}
-      {isError && <Alert type="error" showIcon message="No se pudo cargar el informe" description="Revisa la conexión o intenta de nuevo." />}
+      {isError && <Alert type="error" showIcon title="No se pudo cargar el informe" description="Revisa la conexión o intenta de nuevo." />}
       {data && !data.metaConfigurada && (
-        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Meta Ads no está conectado en este servidor" description="Falta la variable META_ACCESS_TOKEN. Se muestran los datos ya sincronizados." />
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} title="Meta Ads no está conectado en este servidor" description="Falta la variable META_ACCESS_TOKEN. Se muestran los datos ya sincronizados." />
       )}
       {data && data.ultimoSync && (
         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 10 }}><SyncOutlined /> Datos de Meta actualizados {dayjs(data.ultimoSync).format('D MMM YYYY HH:mm')} · UF {clp(data.totales.ufValor)}</Text>
@@ -499,7 +519,7 @@ export default function Rrss() {
               key: 'embudo', label: <span><FunnelPlotOutlined /> Embudo y costos</span>,
               children: (
                 <Row gutter={[12, 12]}>
-                  <Col xs={12} md={8} lg={6} xl={4}><KpiCard titulo="Gasto en pauta" valor={data.totales.gasto} formato={clp} data={data} sub={`${num(data.totales.impresiones)} impresiones`} /></Col>
+                  <Col xs={12} md={8} lg={6} xl={4}><KpiCard titulo="Gasto en pauta" valor={data.totales.gasto} formato={clp} data={data} sub={data.totales.alcance ? `${num(data.totales.alcance)} personas · ${num(data.totales.frecuenciaPeriodo, 1)} veces c/u` : `${num(data.totales.impresiones)} impresiones`} /></Col>
                   <Col xs={12} md={8} lg={6} xl={4}><KpiCard titulo="Leads (Meta)" valor={data.totales.leadsMeta} formato={num} data={data} sub={`${num(data.totales.leadsCRM)} llegaron al CRM`} /></Col>
                   <Col xs={12} md={8} lg={6} xl={4}><KpiCard titulo="Costo por lead" valor={data.totales.cpl} formato={clp} clave="CPL" data={data} sub="Gasto ÷ leads de Meta" /></Col>
                   <Col xs={12} md={8} lg={6} xl={4}><KpiCard titulo={<span>Costo por cotización <Text type="warning">★</Text></span>} valor={data.totales.costoCotizacion} formato={clp} clave="COSTO_COTIZACION" data={data} sub={`${num(data.totales.cotizados)} cotizaciones · ${pctF(data.totales.tasaLeadCotizacion)} de los leads`} /></Col>
@@ -529,6 +549,7 @@ export default function Rrss() {
               )
             },
             { key: 'pauta', label: <span><BarChartOutlined /> Pauta Meta</span>, children: <PautaMeta data={data} /> },
+            { key: 'mapa', label: <span><EnvironmentOutlined /> Mapa</span>, children: <MapaRrss periodo={periodo} /> },
             { key: 'salud', label: <span><AlertOutlined /> Salud de los leads</span>, children: <SaludLeads data={data} periodo={periodo} /> },
             ...(esGerente ? [{ key: 'config', label: <span><SettingOutlined /> Configuración</span>, children: <Configuracion data={data} /> }] : []),
           ]}
