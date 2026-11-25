@@ -91,7 +91,7 @@ const crear = async (req, res) => {
   }
 }
 
-const MODULOS_VALIDOS = ['dashboard','inventario','leads','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','equipo','reportes','automatizaciones','api-keys']
+const MODULOS_VALIDOS = ['dashboard','inventario','leads','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','equipo','reportes','automatizaciones','api-keys','rrss']
 
 // PUT /api/usuarios/:id — solo Gerente
 const actualizar = async (req, res) => {

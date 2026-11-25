@@ -13,8 +13,8 @@ const ROL_COLOR = {
 }
 
 const MODULOS_POR_ROL = {
-  GERENTE:        ['dashboard','inventario','leads','mi-reporte','reporte-semanal','asignacion','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','equipo','reportes','automatizaciones','api-keys'],
-  JEFE_VENTAS:    ['dashboard','inventario','leads','mi-reporte','asignacion','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','reportes','automatizaciones'],
+  GERENTE:        ['dashboard','inventario','leads','mi-reporte','reporte-semanal','asignacion','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','equipo','reportes','automatizaciones','api-keys','rrss'],
+  JEFE_VENTAS:    ['dashboard','inventario','leads','mi-reporte','asignacion','visitas','ventas','legal','pagos','comisiones','promociones','descuentos','arriendos','llaves','reportes','automatizaciones','rrss'],
   VENDEDOR:       ['dashboard','leads','mi-reporte','visitas','comisiones','promociones','descuentos'],
   BROKER_EXTERNO: ['dashboard','leads','visitas','comisiones','promociones','descuentos'],
   ABOGADO:        ['dashboard','ventas','legal'],
@@ -46,6 +46,7 @@ const SECCIONES_MODULOS = [
     { key: 'reporte-semanal',  label: 'Reporte semanal (solo GERENTE)' },
     { key: 'reportes',         label: 'Reportes' },
     { key: 'automatizaciones', label: 'Automatizaciones' },
+    { key: 'rrss',             label: 'RRSS · Marketing' },
     { key: 'api-keys',         label: 'API Keys' },
   ]},
 ]

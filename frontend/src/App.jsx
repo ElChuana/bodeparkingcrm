@@ -37,6 +37,7 @@ const PreviewPDF = lazy(() => import('./pages/cotizaciones/PreviewPDF'))
 const Notificaciones = lazy(() => import('./pages/notificaciones/Notificaciones'))
 const MiReporte = lazy(() => import('./pages/mi-reporte/MiReporte'))
 const ReporteSemanal = lazy(() => import('./pages/reporte-semanal/ReporteSemanal'))
+const Rrss = lazy(() => import('./pages/rrss/Rrss'))
 const ModoReunion = lazy(() => import('./pages/reunion/ModoReunion'))
 const PreviewIlustraciones = lazy(() => import('./pages/reunion/PreviewIlustraciones'))
 
@@ -129,6 +130,7 @@ export default function App() {
                   <Route path="comisiones"  element={<RutaProtegida modulo="comisiones"><Comisiones /></RutaProtegida>} />
                   <Route path="promociones" element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="promociones"><Promociones /></RutaProtegida>} />
                   <Route path="configuracion/packs-beneficios" element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="packs-beneficios"><PacksBeneficios /></RutaProtegida>} />
+                  <Route path="rrss"        element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="rrss"><Rrss /></RutaProtegida>} />
                   <Route path="arriendos"   element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="arriendos"><Arriendos /></RutaProtegida>} />
                   <Route path="llaves"      element={<RutaProtegida roles={['GERENTE','JEFE_VENTAS']} modulo="llaves"><Llaves /></RutaProtegida>} />
                   <Route path="equipo"      element={<RutaProtegida roles={['GERENTE']} modulo="equipo"><Equipo /></RutaProtegida>} />

@@ -165,20 +165,23 @@ async function sincronizarLeads(since) {
 }
 
 // ── Orquestador ──
-async function rrssSyncMeta({ dias = 28, hasta = null } = {}) {
+// `desde` (YYYY-MM-DD) manda sobre `dias` — para cargar histórico (insights no tienen límite; los leads solo 90 días).
+async function rrssSyncMeta({ dias = 28, hasta = null, desde = null } = {}) {
   if (!meta.metaDisponible()) {
     console.log('[rrss] META_ACCESS_TOKEN no configurado — se omite la sincronización')
     return null
   }
   const log = await prisma.rrssSyncLog.create({ data: { fuente: 'META' } })
   const until = fechaISO(hasta || Date.now())
-  const since = fechaISO(new Date(until).getTime() - (dias - 1) * 86400000)
-  const detalle = { since, until }
+  const since = desde || fechaISO(new Date(until).getTime() - (dias - 1) * 86400000)
+  // Meta solo entrega leads de los últimos ~90 días: no pedir más atrás (devuelve error/vacío)
+  const sinceLeads = fechaISO(Math.max(new Date(since).getTime(), Date.now() - 89 * 86400000))
+  const detalle = { since, until, sinceLeads }
   try {
     detalle.campanas = await sincronizarCampanas()
     detalle.insights = await sincronizarInsights(since, until)
     detalle.desgloses = await sincronizarDesgloses(since, until)
-    detalle.leads = await sincronizarLeads(since)
+    detalle.leads = await sincronizarLeads(sinceLeads)
     detalle.cruce = await cruzarLeadsMeta()
     detalle.campanas.vinculadasPorLeads = await vincularCampanasPorLeads()
     if (detalle.campanas.vinculadasPorLeads) detalle.cruce = await cruzarLeadsMeta() // re-cruzar con el vínculo nuevo (elige mejor el lead por campaña)
