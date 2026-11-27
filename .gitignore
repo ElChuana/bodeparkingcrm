@@ -27,3 +27,6 @@ tools/emailmasivo/.env
 tools/emailmasivo/node_modules/
 .claude/skills/
 __pycache__/
+
+# Respaldos puntuales de datos (nunca al repo)
+backend/scripts/_respaldo-*.json
