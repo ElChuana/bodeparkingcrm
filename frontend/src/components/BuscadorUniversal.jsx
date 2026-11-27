@@ -7,7 +7,8 @@ import api from '../services/api'
 const { Text } = Typography
 
 const ETAPA_LABEL = {
-  NUEVO: 'Nuevo', NO_CONTESTA: 'No contesta', SEGUIMIENTO: 'Seguimiento',
+  NUEVO: 'Nuevo', NO_CONTESTA: 'No contesta',
+  CONTACTO_INICIAL: 'Contacto inicial', RECONTACTO_2: 'Recontacto 2', RECONTACTO_3: 'Recontacto 3', RECONTACTO_4: 'Recontacto 4',
   COTIZACION_ENVIADA: 'Cotización enviada', VISITA_AGENDADA: 'Visita agendada',
   VISITA_REALIZADA: 'Visita realizada', SEGUIMIENTO_POST_VISITA: 'Seguimiento post visita',
   NEGOCIACION: 'Negociación', RESERVA: 'Reserva', PROMESA: 'Promesa',

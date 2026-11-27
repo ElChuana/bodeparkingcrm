@@ -11,7 +11,10 @@ import { TIPOS_ALERTAS, TIPOS_ACTIVIDAD, cfgTipo, rutaDeNotificacion } from '../
 const { Text, Title } = Typography
 
 const ETAPA_COLOR = {
-  SEGUIMIENTO:             'blue',
+  CONTACTO_INICIAL:        'blue',
+  RECONTACTO_2:            'blue',
+  RECONTACTO_3:            'blue',
+  RECONTACTO_4:            'blue',
   COTIZACION_ENVIADA:      'gold',
   NO_CONTESTA:             'default',
   SEGUIMIENTO_POST_VISITA: 'purple',

@@ -15,7 +15,10 @@ const ETAPA_CONFIG = {
   NUEVO:              { label: 'Nuevo',             color: 'blue' },
   REACTIVADO:         { label: 'Reactivado',        color: 'magenta' },
   NO_CONTESTA:        { label: 'No contesta',        color: 'orange' },
-  SEGUIMIENTO:        { label: 'Seguimiento',        color: 'cyan' },
+  CONTACTO_INICIAL:   { label: 'Contacto inicial',   color: 'cyan' },
+  RECONTACTO_2:       { label: 'Recontacto 2',       color: 'blue' },
+  RECONTACTO_3:       { label: 'Recontacto 3',       color: 'blue' },
+  RECONTACTO_4:       { label: 'Recontacto 4',       color: 'blue' },
   COTIZACION_ENVIADA: { label: 'Cotización enviada', color: 'purple' },
   INTERESADO:         { label: 'Interesado',         color: 'geekblue' },
   VISITA_AGENDADA:    { label: 'Visita agendada',    color: 'volcano' },
@@ -23,7 +26,7 @@ const ETAPA_CONFIG = {
 }
 
 // Etapas donde el lead probablemente ya tiene vendedor → deshabilitar soloSinAsignar
-const ETAPAS_YA_ASIGNADAS = new Set(['PERDIDO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO', 'VISITA_AGENDADA'])
+const ETAPAS_YA_ASIGNADAS = new Set(['PERDIDO', 'NO_CONTESTA', 'CONTACTO_INICIAL', 'RECONTACTO_2', 'RECONTACTO_3', 'RECONTACTO_4', 'COTIZACION_ENVIADA', 'INTERESADO', 'VISITA_AGENDADA'])
 
 const ORIGEN_OPCIONES = [
   { value: 'INSTAGRAM',      label: 'Instagram' },

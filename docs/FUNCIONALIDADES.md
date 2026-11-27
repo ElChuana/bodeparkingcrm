@@ -100,7 +100,8 @@
 - `PUT /:id/etapa` — cambiar etapa (con motivo si es PERDIDO; acepta `motivo` libre opcional que se agrega a la nota del historial)
 - `POST /cambiar-etapa-masivo` — mover varios leads a una etapa en bloque (`{ leadIds, etapa, motivo, motivoPerdidaCat?, motivoPerdidaNota? }`). `motivo` es **obligatorio** y queda en la nota "Etapa cambiada: A → B. Motivo: …" de cada lead. Respeta `filtroAcceso` (un vendedor solo mueve sus leads; los demás se devuelven como `omitidos`); los que ya estaban en la etapa se cuentan en `sinCambio`. Comparte la lógica con el individual vía `aplicarCambioEtapa()` (nov 2026)
 - `DELETE /:id` — eliminar (solo GERENTE)
-- Etapas: NUEVO, NO_CONTESTA, SEGUIMIENTO, COTIZACION_ENVIADA, VISITA_AGENDADA, VISITA_REALIZADA, SEGUIMIENTO_POST_VISITA, NEGOCIACION, RESERVA, PROMESA, ESCRITURA, ENTREGA, POSTVENTA, PERDIDO
+- Etapas: NUEVO, REACTIVADO, NO_CONTESTA, CONTACTO_INICIAL, RECONTACTO_2, RECONTACTO_3, RECONTACTO_4, COTIZACION_ENVIADA, VISITA_AGENDADA, VISITA_REALIZADA, SEGUIMIENTO_POST_VISITA, NEGOCIACION, RESERVA, PROMESA, ESCRITURA, ENTREGA, POSTVENTA, PERDIDO
+- (nov 2026) `SEGUIMIENTO` se reemplazó por **Contacto inicial → Recontacto 2 → 3 → 4**. El valor `SEGUIMIENTO` sigue en el enum de Postgres solo por compatibilidad (quitar un valor de enum exige recrear el tipo); ningún lead lo usa y no aparece en la UI. Migración `20261127120000_etapas_recontacto` (agrega valores) + `20261127120100_seguimiento_a_contacto_inicial` (mueve `etapa` y `etapaAntesDePerdido`).
 - **Campañas (jul 2026)**: `lead.campana` (texto legacy) ahora se vincula automáticamente al catálogo `campanas` vía `lead.campanaId` (`lib/campanas.js: vincularCampana`, usado en leads/public/comuro). `Campana.esWebinar` define si las ventas comisionan como webinar — el motor de comisiones usa el flag del catálogo (fallback: el texto contiene "webinar"). Backfill: `scripts/backfill-campanas.js`
 - Orígenes: INSTAGRAM, GOOGLE, REFERIDO, BROKER, VISITA_DIRECTA, WEB, META, ORIGEN, OTRO
 - Acceso filtrado por rol: VENDEDOR/BROKER solo ven sus leads asignados o en sus filtros
@@ -340,7 +341,7 @@
 - `PUT /leer-todas` — marcar todas leídas. GERENTE acepta `?vendedorId=X`.
 - `GET /config`, `PUT /config/:tipo` — config de alertas (GERENTE)
 - `GET /preferencias`, `PUT /preferencias` — preferencias del usuario
-- `GET /leads-sin-atencion` — leads en SEGUIMIENTO/COTIZACION_ENVIADA/NO_CONTESTA/SEGUIMIENTO_POST_VISITA con >2 días sin interacción. Acepta `?vendedorId=X&dias=N`.
+- `GET /leads-sin-atencion` — leads en CONTACTO_INICIAL/RECONTACTO_2-4/COTIZACION_ENVIADA/NO_CONTESTA/SEGUIMIENTO_POST_VISITA con >2 días sin interacción. Acepta `?vendedorId=X&dias=N`.
 - Tipos de alerta: LLAVE_NO_DEVUELTA, CUOTA_VENCIDA, LEAD_SIN_ACTIVIDAD, LEAD_ESTANCADO, FECHA_LEGAL_PROXIMA, ARRIENDO_POR_VENCER, DESCUENTO_PENDIENTE, LEAD_ETAPA_CAMBIO, LEAD_NUEVO, RECORDATORIO_LEAD, COMISION_ESCRITURA, EMAIL_RECIBIDO, ACTIVIDAD_EN_LEAD, VISITA_PROXIMA, DESCUENTO_RESUELTO
 - Notificaciones en tiempo real: EMAIL_RECIBIDO (webhook inbound email), ACTIVIDAD_EN_LEAD (crear interacción por otro usuario), DESCUENTO_RESUELTO (aprobar/rechazar solicitud)
 - VISITA_PROXIMA: cron cada 15 min, ventana 23h–25h antes de la visita, anti-duplicado por 2h
@@ -416,7 +417,7 @@
   - Payload: `nombre` (completo, req), `correo`/`email`, `telefono`, `estado` (`formulario-rellenado` | `agenda` | `cancela`), `inicio`/`fechaHora` o `fecha` "DD/MM/YYYY" + `hora` "HH:MM" (solo agenda), opcionales `vendedorId`, `campana`, `notas`, `tipo`
   - `estado: formulario-rellenado` → un lead **nuevo normal** (etapa NUEVO, campaña "Webinar"), notifica LEAD_NUEVO. Dedup. Si el lead existente estaba frío (PERDIDO/NO_CONTESTA) pasa a **`REACTIVADO`** con aviso `soloAVendedor` (misma regla que `POST /leads`); además mergea `campana`/`notas` nuevas del reingreso
   - `estado: agenda` → busca/crea el lead + **agenda la reunión como `Visita`** (aparece destacada en el calendario y en la lista de Visitas), etapa `VISITA_AGENDADA`, deja una NOTA en el timeline y notifica (`ACTIVIDAD_EN_LEAD`)
-  - `estado: cancela` → **borra la Visita** (con `inicio` cancela esa; sin él, las futuras sin resultado), NOTA en el timeline, notifica, y la etapa vuelve a `SEGUIMIENTO` solo si estaba en `VISITA_AGENDADA`. Antes caía en la rama "formulario" y la cita quedaba viva en el calendario disparando el recordatorio de 24h
+  - `estado: cancela` → **borra la Visita** (con `inicio` cancela esa; sin él, las futuras sin resultado), NOTA en el timeline, notifica, y la etapa vuelve a `CONTACTO_INICIAL` solo si estaba en `VISITA_AGENDADA`. Antes caía en la rama "formulario" y la cita quedaba viva en el calendario disparando el recordatorio de 24h
   - Acepta `enlace` (o `meetUrl`/`link`) → link del Meet/Zoom, se guarda en `Visita.enlace`
   - Hora: se interpreta **siempre como hora de Chile** (ignora Z/offset del ISO)
   - Usa el **modelo Visita** (no interacción REUNION) para que se vea/comporte como las visitas; el recordatorio 24h lo da el cron de visitas existente
@@ -490,7 +491,7 @@
 
 ### Mi reporte IA (`/mi-reporte`)
 - Reporte diario personalizado generado con Groq (Llama 3.3 70B, gratis: 14.400 req/día)
-- Agrega leads parados (≥3 días) en SEGUIMIENTO, COTIZACION_ENVIADA, etc.
+- Agrega leads parados (≥3 días) en CONTACTO_INICIAL, RECONTACTO_2-4, COTIZACION_ENVIADA, etc.
 - IA genera: saludo, insights (warning/info/ok), cotizaciones urgentes con sugerencias por lead, promesas vencidas, otros seguimientos, plan recomendado del día
 - Tabla `reportes_diarios` (unique vendedorId+fecha) — un reporte por vendedor por día
 - Cron: 11 UTC genera para todos los vendedores activos (VENDEDOR, JEFE_VENTAS)

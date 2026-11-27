@@ -347,7 +347,7 @@ const leadsSinAtencion = async (req, res) => {
   const { vendedorId, dias = 2 } = req.query
   const esGerente = req.usuario.rol === 'GERENTE'
   const umbral = Number(dias)
-  const etapasMonitoreadas = ['SEGUIMIENTO', 'COTIZACION_ENVIADA', 'NO_CONTESTA', 'SEGUIMIENTO_POST_VISITA']
+  const etapasMonitoreadas = ['CONTACTO_INICIAL', 'RECONTACTO_2', 'RECONTACTO_3', 'RECONTACTO_4', 'COTIZACION_ENVIADA', 'NO_CONTESTA', 'SEGUIMIENTO_POST_VISITA']
 
   try {
     const leads = await prisma.lead.findMany({

@@ -407,9 +407,9 @@ const webhookWebinar = async (req, res) => {
         await prisma.visita.deleteMany({ where: { id: { in: canceladas.map(v => v.id) } } })
       }
 
-      // La etapa vuelve a SEGUIMIENTO solo si estaba esperando esta cita
+      // La etapa vuelve a CONTACTO_INICIAL solo si estaba esperando esta cita
       if (lead.etapa === 'VISITA_AGENDADA') {
-        await prisma.lead.update({ where: { id: lead.id }, data: { etapa: 'SEGUIMIENTO' } })
+        await prisma.lead.update({ where: { id: lead.id }, data: { etapa: 'CONTACTO_INICIAL' } })
       }
 
       const cuandoTxt = canceladas.length ? ` (era ${textoFechaChile(canceladas[0].fechaHora)})` : ''
@@ -431,7 +431,7 @@ const webhookWebinar = async (req, res) => {
         ok: true, evento: 'cancela',
         leadId: lead.id, contactoId: contacto.id,
         visitasCanceladas: canceladas.length,
-        etapa: lead.etapa === 'VISITA_AGENDADA' ? 'SEGUIMIENTO' : lead.etapa,
+        etapa: lead.etapa === 'VISITA_AGENDADA' ? 'CONTACTO_INICIAL' : lead.etapa,
       })
     }
 

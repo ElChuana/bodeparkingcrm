@@ -161,7 +161,7 @@ test('clasificarEstado: desconocido → formulario (comportamiento previo)', () 
 
 // ─── Etapas ───────────────────────────────────────────────────────
 test('etapaTrasAgendar: un lead temprano avanza a VISITA_AGENDADA', () => {
-  for (const e of ['NUEVO', 'REACTIVADO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO']) {
+  for (const e of ['NUEVO', 'REACTIVADO', 'NO_CONTESTA', 'CONTACTO_INICIAL', 'RECONTACTO_2', 'RECONTACTO_3', 'RECONTACTO_4', 'COTIZACION_ENVIADA', 'INTERESADO']) {
     assert.strictEqual(etapaTrasAgendar(e), 'VISITA_AGENDADA', e)
   }
 })

@@ -1,7 +1,7 @@
 const prisma = require('./prisma')
 const { generarContenido } = require('./groq')
 
-const ETAPAS_OBJETIVO = ['SEGUIMIENTO', 'COTIZACION_ENVIADA', 'VISITA_AGENDADA', 'NEGOCIACION', 'INTERESADO']
+const ETAPAS_OBJETIVO = ['CONTACTO_INICIAL', 'RECONTACTO_2', 'RECONTACTO_3', 'RECONTACTO_4', 'COTIZACION_ENVIADA', 'VISITA_AGENDADA', 'NEGOCIACION', 'INTERESADO']
 
 // Chile es UTC-4. Una hora de diferencia en DST (~3 meses al año) es irrelevante
 // para el caso de uso (resumen de actividad de un día completo).

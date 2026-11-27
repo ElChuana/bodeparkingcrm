@@ -71,10 +71,10 @@ const obtener = async (req, res) => {
   // Como PERDIDO borra el rastro del avance, se suma la evidencia dura
   // (cotización creada, visita registrada, venta) para no perder al que avanzó
   // y después se cayó.
-  const DESDE_SEGUIMIENTO = ['SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO', 'VISITA_AGENDADA',
+  const DESDE_SEGUIMIENTO = ['CONTACTO_INICIAL', 'RECONTACTO_2', 'RECONTACTO_3', 'RECONTACTO_4', 'COTIZACION_ENVIADA', 'INTERESADO', 'VISITA_AGENDADA',
     'VISITA_REALIZADA', 'SEGUIMIENTO_POST_VISITA', 'NEGOCIACION', 'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA']
-  const DESDE_COTIZACION = DESDE_SEGUIMIENTO.slice(1)
-  const DESDE_INTERESADO = DESDE_SEGUIMIENTO.slice(2)
+  const DESDE_COTIZACION = DESDE_SEGUIMIENTO.slice(DESDE_SEGUIMIENTO.indexOf('COTIZACION_ENVIADA'))
+  const DESDE_INTERESADO = DESDE_SEGUIMIENTO.slice(DESDE_SEGUIMIENTO.indexOf('INTERESADO'))
 
   const filtroLead     = hayFecha ? { creadoEn:     { ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}
   const filtroReserva  = hayFecha ? { fechaReserva: { ...(desde && { gte: new Date(desde) }), ...(hasta && { lte: new Date(hasta) }) } } : {}

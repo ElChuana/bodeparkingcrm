@@ -184,7 +184,7 @@ function clasificarEstado(estado) {
 // ─── Etapas ───────────────────────────────────────────────────────
 // Orden del pipeline comercial (PERDIDO queda fuera: no es una etapa "avanzada").
 const PIPELINE = [
-  'NUEVO', 'REACTIVADO', 'NO_CONTESTA', 'SEGUIMIENTO', 'COTIZACION_ENVIADA', 'INTERESADO',
+  'NUEVO', 'REACTIVADO', 'NO_CONTESTA', 'CONTACTO_INICIAL', 'RECONTACTO_2', 'RECONTACTO_3', 'RECONTACTO_4', 'COTIZACION_ENVIADA', 'INTERESADO',
   'VISITA_AGENDADA', 'VISITA_REALIZADA', 'SEGUIMIENTO_POST_VISITA', 'NEGOCIACION',
   'RESERVA', 'PROMESA', 'ESCRITURA', 'ENTREGA', 'POSTVENTA',
 ]
